@@ -50,3 +50,4 @@ Asosiy spec'lar:
 ## Litsenziya
 
 Proprietary. © XRR · 2026
+
