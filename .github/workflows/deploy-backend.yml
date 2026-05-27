@@ -91,16 +91,31 @@ jobs:
               docker compose up -d --force-recreate api 2>&1 | tail -3
           REMOTE
 
-      - name: Smoke test (HTTPS health endpoints)
+      - name: Smoke test (HTTPS health endpoints, with retry)
         run: |
           set -e
-          sleep 10  # api needs ~8s for healthcheck to flip
+          # Wait for api healthcheck + nginx upstream warm-up.
+          # First attempt at t=15s; retry every 5s up to 60s total.
+          probe() {
+            local url=$1 label=$2
+            for i in 1 2 3 4 5 6 7 8; do
+              if curl -fsS --max-time 10 "$url"; then
+                echo "  ✓ $label ready (attempt $i)"
+                return 0
+              fi
+              echo "  … $label attempt $i failed, retrying in 5s"
+              sleep 5
+            done
+            echo "  ✗ $label still failing after 40s"
+            return 1
+          }
+          sleep 15
           echo "--- liveness ---"
-          curl -fsS https://api.duyo.uz/v1/health
+          probe https://api.duyo.uz/v1/health liveness
           echo
           echo "--- db readiness ---"
-          curl -fsS https://api.duyo.uz/v1/health/db
+          probe https://api.duyo.uz/v1/health/db db
           echo
           echo "--- redis readiness ---"
-          curl -fsS https://api.duyo.uz/v1/health/redis
+          probe https://api.duyo.uz/v1/health/redis redis
           echo
