@@ -2,7 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import { useAuthStore } from '@/store/auth';
 
-const DEFAULT_BASE_URL = 'https://api-staging.duyo.uz/v1';
+const DEFAULT_BASE_URL = 'https://api.duyo.uz/v1';
 
 export const apiClient = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_BASE_URL,

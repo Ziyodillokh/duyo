@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/auth';
 
 // Mirrors duyo-backend/src/duyo/api/v1/voice.py protocol.
 
-const DEFAULT_VOICE_WS_URL = 'wss://api-staging.duyo.uz/v1/chat/voice';
+const DEFAULT_VOICE_WS_URL = 'wss://api.duyo.uz/v1/chat/voice';
 const END_TURN_FRAME = 'END_TURN';
 
 export type VoiceSessionState =
