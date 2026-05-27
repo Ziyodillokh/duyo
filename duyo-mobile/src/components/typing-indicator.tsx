@@ -14,7 +14,7 @@ const ANIM_DURATION_MS = 500;
 export function TypingIndicator() {
   return (
     <View className="flex-row justify-start">
-      <View className="bg-card border border-border rounded-2xl px-4 py-3 flex-row gap-2 items-center">
+      <View className="bg-dark-surface border border-neon-blue/20 rounded-2xl px-4 py-3 flex-row gap-2 items-center">
         {Array.from({ length: DOT_COUNT }).map((_, i) => (
           <Dot key={i} delay={i * 150} />
         ))}
@@ -44,7 +44,7 @@ function Dot({ delay }: { delay: number }) {
           width: 8,
           height: 8,
           borderRadius: 9999,
-          backgroundColor: '#64748B',
+          backgroundColor: '#60A5FA',
         },
         animatedStyle,
       ]}

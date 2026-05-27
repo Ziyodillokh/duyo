@@ -21,9 +21,9 @@ export function SuggestedReplies({ onSelect }: SuggestedRepliesProps) {
           key={reply}
           onPress={() => onSelect(reply)}
           accessibilityRole="button"
-          className="px-4 py-2 rounded-full border border-border bg-card active:opacity-70"
+          className="px-4 py-2 rounded-md border border-neon-blue/20 active:opacity-70"
         >
-          <Text className="text-sm font-medium text-foreground">{reply}</Text>
+          <Text className="text-sm font-medium text-dark-text">{reply}</Text>
         </Pressable>
       ))}
     </View>

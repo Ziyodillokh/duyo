@@ -15,9 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendChatMessage } from '@/api/endpoints/chat';
-import { DuyoAvatar } from '@/components/duyo-avatar';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
+import { MascotImage } from '@/components/v2/mascot-image';
 import { type ChatMessage, useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
 
@@ -40,6 +40,7 @@ const GREETING_TEMPLATE = (name?: string): ChatMessage => ({
 type DisplayItem =
   | { kind: 'message'; message: ChatMessage }
   | { kind: 'typing' }
+  | { kind: 'counter' }
   | { kind: 'suggested-replies' };
 
 function startOfTodayMs(): number {
@@ -73,6 +74,7 @@ export default function ChatScreen() {
       (m) => m.role === 'child' && m.timestamp >= start,
     ).length;
   }, [messages]);
+  const remaining = Math.max(0, DAILY_LIMIT - todayCount);
   const limitReached = todayCount >= DAILY_LIMIT;
 
   const send = useMutation({
@@ -135,6 +137,7 @@ export default function ChatScreen() {
       ...[...messages]
         .reverse()
         .map((message): DisplayItem => ({ kind: 'message', message })),
+      { kind: 'counter' as const },
     ],
     [send.isPending, showSuggestions, messages],
   );
@@ -143,23 +146,33 @@ export default function ChatScreen() {
     input.trim().length > 0 && !send.isPending && !!child && !limitReached;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-      <View className="bg-card border-b border-border px-4 py-3 flex-row items-center gap-3">
-        <DuyoAvatar size="sm" state={send.isPending ? 'thinking' : 'happy'} />
+    <SafeAreaView
+      className="flex-1 bg-dark-surface"
+      edges={['top']}
+    >
+      <View className="bg-dark-surface border-b border-neon-blue/20 px-4 py-3 flex-row items-center gap-3">
+        <View className="w-16 h-16">
+          <MascotImage size={64} glow="cosmic" />
+        </View>
         <View className="flex-1">
-          <Text className="font-bold text-base text-foreground">DUYO</Text>
-          <Text className="text-xs text-muted-foreground">Har doim online</Text>
+          <Text className="font-bold text-base text-dark-text">DUYO</Text>
+          <View className="flex-row items-center gap-2">
+            <View className="w-2 h-2 rounded-full bg-neon-green" />
+            <Text className="text-xs text-dark-muted">
+              {send.isPending ? "O'ylayapti..." : 'Xursand'}
+            </Text>
+          </View>
         </View>
         <View
-          className={`px-3 py-1.5 rounded-full border ${
+          className={`px-3 py-1.5 rounded-md border ${
             limitReached
               ? 'border-destructive bg-destructive/10'
-              : 'border-border bg-card'
+              : 'border-neon-blue/20'
           }`}
         >
           <Text
             className={`text-xs font-medium ${
-              limitReached ? 'text-destructive' : 'text-muted-foreground'
+              limitReached ? 'text-destructive' : 'text-dark-text'
             }`}
           >
             {todayCount}/{DAILY_LIMIT} suhbat
@@ -169,13 +182,14 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
+        className="flex-1 bg-dark-surface"
       >
         <FlatList
           data={items}
           keyExtractor={(item, i) => {
             if (item.kind === 'typing') return 'typing-indicator';
             if (item.kind === 'suggested-replies') return 'suggested-replies';
+            if (item.kind === 'counter') return 'daily-counter';
             return `${item.message.id}-${i}`;
           }}
           inverted
@@ -185,11 +199,24 @@ export default function ChatScreen() {
             if (item.kind === 'suggested-replies') {
               return <SuggestedReplies onSelect={setInput} />;
             }
+            if (item.kind === 'counter') {
+              return (
+                <View className="bg-dark-surface-soft border border-glow-blue rounded-xl px-4 py-3">
+                  <Text className="text-sm text-dark-text text-center">
+                    Bugun{' '}
+                    <Text className="font-bold text-neon-cyan">
+                      {remaining}/{DAILY_LIMIT}
+                    </Text>{' '}
+                    suhbat qoldi
+                  </Text>
+                </View>
+              );
+            }
             return <MessageBubble message={item.message} />;
           }}
         />
 
-        <View className="bg-card border-t border-border px-3 py-3 flex-row items-end gap-2">
+        <View className="bg-dark-surface border-t border-neon-blue/20 px-3 py-3 flex-row items-end gap-2">
           <TextInput
             value={input}
             onChangeText={setInput}
@@ -203,23 +230,24 @@ export default function ChatScreen() {
             maxLength={2000}
             editable={!send.isPending && !limitReached}
             accessibilityLabel="Chat xabari"
-            className="flex-1 max-h-32 px-4 py-3 rounded-2xl bg-background text-base text-foreground"
+            className="flex-1 max-h-32 px-4 py-3 rounded-md text-base text-dark-text"
+            style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
           />
           <Pressable
             onPress={() => router.push('/(main)/voice')}
             accessibilityRole="button"
             accessibilityLabel="Ovozli suhbat"
-            className="w-11 h-11 rounded-full items-center justify-center"
+            className="w-11 h-11 rounded-md items-center justify-center"
           >
-            <Mic size={22} color="#64748B" />
+            <Mic size={22} color="#94A3B8" />
           </Pressable>
           <Pressable
             onPress={handleSend}
             disabled={!canSend}
             accessibilityRole="button"
             accessibilityLabel="Yuborish"
-            className={`w-11 h-11 rounded-full items-center justify-center ${
-              canSend ? 'bg-primary' : 'bg-muted'
+            className={`w-11 h-11 rounded-md items-center justify-center ${
+              canSend ? 'bg-neon-blue' : 'bg-dark-surface-soft'
             }`}
           >
             <Send size={20} color={canSend ? '#FFFFFF' : '#94A3B8'} />
@@ -236,12 +264,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <View className={`flex-row ${isChild ? 'justify-end' : 'justify-start'}`}>
       <View
         className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-          isChild ? 'bg-primary' : 'bg-card border border-border'
+          isChild
+            ? 'bg-neon-blue'
+            : 'bg-dark-surface border border-neon-blue/20'
         }`}
       >
         <Text
-          className={`text-base ${
-            isChild ? 'text-primary-foreground' : 'text-foreground'
+          className={`text-base leading-6 ${
+            isChild ? 'text-white' : 'text-dark-text'
           }`}
         >
           {message.content}
