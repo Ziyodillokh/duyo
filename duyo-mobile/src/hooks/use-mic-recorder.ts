@@ -1,8 +1,6 @@
-import {
-  ExpoAudioStreamModule,
-  useAudioRecorder,
-} from '@siteed/expo-audio-studio';
+import AudioRecord from '@fugood/react-native-audio-pcm-stream';
 import { useCallback, useEffect, useRef } from 'react';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 interface UseMicRecorderOptions {
   onChunk: (pcm: ArrayBuffer) => void;
@@ -16,93 +14,87 @@ interface UseMicRecorderResult {
   durationMs: number;
 }
 
-// Backend voice protocol requires 16kHz mono PCM 16-bit
-// (duyo-backend/src/duyo/api/v1/voice.py). Buffer 50ms — iOS
-// silently enforces a 100ms floor which is still acceptable.
-const RECORDING_CONFIG = {
-  sampleRate: 16_000 as const,
-  channels: 1 as const,
-  encoding: 'pcm_16bit' as const,
-  bufferDurationSeconds: 0.05,
-  output: { primary: { enabled: false } },
-} as const;
+// Backend voice protocol requires 16kHz mono PCM-16
+// (duyo-backend/src/duyo/api/v1/voice.py). bufferSize 1600 → 100ms chunks at
+// 16kHz/16-bit/mono (1600 samples × 2 bytes = 3200 bytes/event).
+const SAMPLE_RATE = 16_000;
+const CHANNELS = 1 as const;
+const BITS_PER_SAMPLE = 16 as const;
+const BUFFER_SIZE = 1600;
+const ANDROID_AUDIO_SOURCE_VOICE_RECOGNITION = 6;
 
 export function useMicRecorder({
   onChunk,
   onError,
 }: UseMicRecorderOptions): UseMicRecorderResult {
-  const recorder = useAudioRecorder();
-
-  // Keep the callback fresh without restarting the recorder.
   const onChunkRef = useRef(onChunk);
   onChunkRef.current = onChunk;
+  const isRecordingRef = useRef(false);
+
+  // Subscribe once on mount; AudioRecord.on internally replaces the listener
+  // so re-binding with stale refs is unnecessary.
+  useEffect(() => {
+    AudioRecord.on('data', (base64) => {
+      const buffer = base64ToArrayBuffer(base64);
+      if (buffer) onChunkRef.current(buffer);
+    });
+    return () => {
+      if (isRecordingRef.current) {
+        void AudioRecord.stop().catch(() => {
+          // Module may already be torn down on unmount.
+        });
+        isRecordingRef.current = false;
+      }
+    };
+  }, []);
 
   const start = useCallback(async (): Promise<boolean> => {
     try {
-      const { status } = await ExpoAudioStreamModule.requestPermissionsAsync();
-      if (status !== 'granted') return false;
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) return false;
+      }
 
-      await recorder.startRecording({
-        ...RECORDING_CONFIG,
-        onAudioStream: async (event) => {
-          const buffer = normalizeChunk(event.data);
-          if (buffer) onChunkRef.current(buffer);
-        },
+      AudioRecord.init({
+        sampleRate: SAMPLE_RATE,
+        channels: CHANNELS,
+        bitsPerSample: BITS_PER_SAMPLE,
+        audioSource: ANDROID_AUDIO_SOURCE_VOICE_RECOGNITION,
+        bufferSize: BUFFER_SIZE,
+        wavFile: '', // streaming only — no file output
       });
+      AudioRecord.start();
+      isRecordingRef.current = true;
       return true;
     } catch (err) {
       onError?.(err as Error);
       return false;
     }
-  }, [recorder, onError]);
+  }, [onError]);
 
   const stop = useCallback(async (): Promise<void> => {
+    if (!isRecordingRef.current) return;
     try {
-      await recorder.stopRecording();
+      await AudioRecord.stop();
     } catch (err) {
       onError?.(err as Error);
+    } finally {
+      isRecordingRef.current = false;
     }
-  }, [recorder, onError]);
-
-  // Best-effort cleanup so a forgotten recorder never keeps the mic hot
-  // after the screen unmounts.
-  const recorderRef = useRef(recorder);
-  recorderRef.current = recorder;
-  useEffect(() => {
-    return () => {
-      if (recorderRef.current.isRecording) {
-        void recorderRef.current.stopRecording().catch(() => {
-          // Ignore — module already torn down.
-        });
-      }
-    };
-  }, []);
+  }, [onError]);
 
   return {
     start,
     stop,
-    isRecording: recorder.isRecording,
-    durationMs: recorder.durationMs,
+    isRecording: isRecordingRef.current,
+    durationMs: 0, // not provided by the underlying module
   };
-}
-
-function normalizeChunk(data: unknown): ArrayBuffer | null {
-  if (data instanceof ArrayBuffer) return data;
-  if (ArrayBuffer.isView(data) && data.buffer instanceof ArrayBuffer) {
-    return data.buffer.slice(
-      data.byteOffset,
-      data.byteOffset + data.byteLength,
-    );
-  }
-  if (typeof data === 'string') {
-    return base64ToArrayBuffer(data);
-  }
-  return null;
 }
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer | null {
   try {
-    // RN provides atob() globally (Hermes).
     const binary = atob(base64);
     const buffer = new ArrayBuffer(binary.length);
     const view = new Uint8Array(buffer);
