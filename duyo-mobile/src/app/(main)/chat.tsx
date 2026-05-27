@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendChatMessage } from '@/api/endpoints/chat';
 import { DuyoAvatar } from '@/components/duyo-avatar';
+import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { type ChatMessage, useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
@@ -22,8 +23,13 @@ interface AxiosErrorShape {
   response?: { data?: { detail?: string } };
 }
 
+// Free tier daily limit — backend enforces real limits once subscription
+// system lands (Faza 1). Until then we show a soft local count.
+const DAILY_LIMIT = 30;
+const GREETING_ID = 'seed-greeting';
+
 const GREETING_TEMPLATE = (name?: string): ChatMessage => ({
-  id: 'seed-greeting',
+  id: GREETING_ID,
   role: 'assistant',
   content: `Salom${name ? `, ${name}` : ''}! Men DUYO. Endi birga o'rganamiz, suhbatlashamiz va o'samiz. Bugun nima qilmoqchisiz?`,
   timestamp: Date.now(),
@@ -31,7 +37,14 @@ const GREETING_TEMPLATE = (name?: string): ChatMessage => ({
 
 type DisplayItem =
   | { kind: 'message'; message: ChatMessage }
-  | { kind: 'typing' };
+  | { kind: 'typing' }
+  | { kind: 'suggested-replies' };
+
+function startOfTodayMs(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
 export default function ChatScreen() {
   const child = useChildStore((s) => s.child);
@@ -44,15 +57,21 @@ export default function ChatScreen() {
 
   const [input, setInput] = useState('');
 
-  // Bind chat store to the active child + seed a greeting on first visit.
   useEffect(() => {
     if (!child || !hydrated) return;
     setActiveChild(child.id);
-    const state = useChatStore.getState();
-    if (state.messages.length === 0) {
+    if (useChatStore.getState().messages.length === 0) {
       appendMessage(GREETING_TEMPLATE(child.name));
     }
   }, [child, hydrated, setActiveChild, appendMessage]);
+
+  const todayCount = useMemo(() => {
+    const start = startOfTodayMs();
+    return messages.filter(
+      (m) => m.role === 'child' && m.timestamp >= start,
+    ).length;
+  }, [messages]);
+  const limitReached = todayCount >= DAILY_LIMIT;
 
   const send = useMutation({
     mutationFn: (text: string) => {
@@ -85,7 +104,7 @@ export default function ChatScreen() {
 
   const handleSend = () => {
     const text = input.trim();
-    if (!text || !child || send.isPending) return;
+    if (!text || !child || send.isPending || limitReached) return;
     appendMessage({
       id: `local-${Date.now()}`,
       role: 'child',
@@ -96,17 +115,24 @@ export default function ChatScreen() {
     send.mutate(text);
   };
 
+  const showSuggestions =
+    messages.length === 1 && messages[0]?.id === GREETING_ID;
+
   const items: DisplayItem[] = useMemo(
     () => [
       ...(send.isPending ? [{ kind: 'typing' as const }] : []),
+      ...(showSuggestions
+        ? [{ kind: 'suggested-replies' as const }]
+        : []),
       ...[...messages]
         .reverse()
         .map((message): DisplayItem => ({ kind: 'message', message })),
     ],
-    [send.isPending, messages],
+    [send.isPending, showSuggestions, messages],
   );
 
-  const canSend = input.trim().length > 0 && !send.isPending && !!child;
+  const canSend =
+    input.trim().length > 0 && !send.isPending && !!child && !limitReached;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -116,9 +142,19 @@ export default function ChatScreen() {
           <Text className="font-bold text-base text-foreground">DUYO</Text>
           <Text className="text-xs text-muted-foreground">Har doim online</Text>
         </View>
-        <View className="px-3 py-1 rounded-full border border-border bg-card">
-          <Text className="text-xs text-muted-foreground">
-            0/30 {/* TODO Phase 2.4 — real daily limit */}
+        <View
+          className={`px-3 py-1 rounded-full border ${
+            limitReached
+              ? 'border-destructive bg-destructive/10'
+              : 'border-border bg-card'
+          }`}
+        >
+          <Text
+            className={`text-xs font-medium ${
+              limitReached ? 'text-destructive' : 'text-muted-foreground'
+            }`}
+          >
+            {todayCount}/{DAILY_LIMIT} suhbat
           </Text>
         </View>
       </View>
@@ -129,30 +165,34 @@ export default function ChatScreen() {
       >
         <FlatList
           data={items}
-          keyExtractor={(item, i) =>
-            item.kind === 'typing'
-              ? 'typing-indicator'
-              : `${item.message.id}-${i}`
-          }
+          keyExtractor={(item, i) => {
+            if (item.kind === 'typing') return 'typing-indicator';
+            if (item.kind === 'suggested-replies') return 'suggested-replies';
+            return `${item.message.id}-${i}`;
+          }}
           inverted
           contentContainerStyle={{ padding: 16, gap: 12 }}
-          renderItem={({ item }) =>
-            item.kind === 'typing' ? (
-              <TypingIndicator />
-            ) : (
-              <MessageBubble message={item.message} />
-            )
-          }
+          renderItem={({ item }) => {
+            if (item.kind === 'typing') return <TypingIndicator />;
+            if (item.kind === 'suggested-replies') {
+              return <SuggestedReplies onSelect={setInput} />;
+            }
+            return <MessageBubble message={item.message} />;
+          }}
         />
 
         <View className="bg-card border-t border-border px-3 py-2 flex-row items-end gap-2">
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder={`Xabar yozing${child ? `, ${child.name}` : ''}...`}
+            placeholder={
+              limitReached
+                ? 'Bugungi limit tugadi. Ertaga davom etamiz.'
+                : `Xabar yozing${child ? `, ${child.name}` : ''}...`
+            }
             multiline
             maxLength={2000}
-            editable={!send.isPending}
+            editable={!send.isPending && !limitReached}
             accessibilityLabel="Chat xabari"
             className="flex-1 max-h-32 px-4 py-3 border-2 border-border rounded-2xl bg-background text-base text-foreground"
           />

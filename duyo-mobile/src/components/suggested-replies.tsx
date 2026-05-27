@@ -1,0 +1,31 @@
+import { Pressable, Text, View } from 'react-native';
+
+interface SuggestedRepliesProps {
+  onSelect: (text: string) => void;
+}
+
+// Hardcoded for Bosqich B beta — Phase 1+ moves these to per-age-segment
+// suggestions returned alongside the chat response.
+const REPLIES: readonly string[] = [
+  'Boshlaymiz',
+  "Menga she'r o'qib ber",
+  "Bugungi missiyani ko'rsat",
+  'Men bilan gaplash',
+];
+
+export function SuggestedReplies({ onSelect }: SuggestedRepliesProps) {
+  return (
+    <View className="flex-row flex-wrap gap-2 justify-center">
+      {REPLIES.map((reply) => (
+        <Pressable
+          key={reply}
+          onPress={() => onSelect(reply)}
+          accessibilityRole="button"
+          className="px-4 py-2 rounded-full border border-border bg-card active:opacity-70"
+        >
+          <Text className="text-sm font-medium text-foreground">{reply}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
