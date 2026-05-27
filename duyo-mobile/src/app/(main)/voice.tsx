@@ -50,6 +50,10 @@ export default function VoiceScreen() {
   const [outputTranscript, setOutputTranscript] = useState('');
   const [crisisLevel, setCrisisLevel] = useState<'orange' | 'red' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Bosqich B debug overlay — last mic/ws/audio event, visible on screen
+  // so we can diagnose the voice pipeline without USB logcat.
+  const [debugLine, setDebugLine] = useState<string>('idle');
+  const dbg = (line: string) => setDebugLine(line);
 
   // Latest phase available to event handlers without re-binding the WS.
   const phaseRef = useRef(phase);
@@ -64,16 +68,22 @@ export default function VoiceScreen() {
   const pendingCrisisRef = useRef<'orange' | 'red' | null>(null);
 
   const voice = useVoiceSession({
-    onReady: (conversationId) => {
-      setStoreConversationId(conversationId);
-    },
-    onInputTranscript: (text) =>
-      setInputTranscript((prev) => prev + text),
     onOutputTranscript: (text) =>
       setOutputTranscript((prev) => prev + text),
     onAudioChunk: (pcm) => {
-      if (phaseRef.current !== 'responding') setPhase('responding');
+      if (phaseRef.current !== 'responding') {
+        setPhase('responding');
+        dbg(`first audio chunk ${pcm.byteLength}b`);
+      }
       playerRef.current.enqueueChunk(pcm);
+    },
+    onReady: (conversationId) => {
+      setStoreConversationId(conversationId);
+      dbg(`ws ready conv=${conversationId.slice(0, 8)}`);
+    },
+    onInputTranscript: (text) => {
+      setInputTranscript((prev) => prev + text);
+      dbg(`stt: ${text.slice(-30)}`);
     },
     onCrisis: (level) => {
       setCrisisLevel(level);
@@ -103,29 +113,43 @@ export default function VoiceScreen() {
     },
   });
 
+  const chunkCountRef = useRef(0);
   const mic = useMicRecorder({
-    onChunk: voice.sendAudio,
+    onChunk: (pcm) => {
+      voice.sendAudio(pcm);
+      chunkCountRef.current += 1;
+      if (chunkCountRef.current % 5 === 1) {
+        dbg(`mic chunk #${chunkCountRef.current} ${pcm.byteLength}b`);
+      }
+    },
     onError: (err) => {
       setErrorMessage(err.message);
       setPhase('error');
+      dbg(`mic err: ${err.message}`);
     },
   });
 
   const handleTap = useCallback(async () => {
-    if (!child) return;
+    if (!child) {
+      dbg('no child profile');
+      return;
+    }
     if (phase === 'idle' || phase === 'error') {
       setInputTranscript('');
       setOutputTranscript('');
       setCrisisLevel(null);
       setErrorMessage(null);
+      chunkCountRef.current = 0;
+      dbg('connect+mic.start');
       voice.connect({
         childId: child.id,
         conversationId: storeConversationId,
       });
       const started = await mic.start();
+      dbg(`mic.start returned ${started}`);
       if (!started) {
         voice.close();
-        setErrorMessage("Mikrofonga ruxsat yo'q");
+        setErrorMessage("Mikrofon ishga tushmadi");
         setPhase('error');
         return;
       }
@@ -133,6 +157,7 @@ export default function VoiceScreen() {
       return;
     }
     if (phase === 'recording') {
+      dbg('stop + endTurn');
       await mic.stop();
       voice.endTurn();
       setPhase('processing');
@@ -159,6 +184,13 @@ export default function VoiceScreen() {
           Ovozli suhbat
         </Text>
         <View className="w-10" />
+      </View>
+
+      {/* Debug strip — Bosqich B */}
+      <View className="bg-card px-3 py-1 border-b border-border">
+        <Text className="text-[10px] text-muted-foreground" numberOfLines={1}>
+          {phase} · {debugLine}
+        </Text>
       </View>
 
       {/* Avatar + status */}

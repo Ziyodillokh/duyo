@@ -24,7 +24,9 @@ const SAMPLE_RATE = 16_000;
 const CHANNELS = 1 as const;
 const BITS_PER_SAMPLE = 16 as const;
 const BUFFER_SIZE = 4096;
-const ANDROID_AUDIO_SOURCE_VOICE_RECOGNITION = 6;
+// MediaRecorder.AudioSource.MIC = 1 — most universally supported.
+// VOICE_RECOGNITION (6) silently failed on Samsung One UI 7.
+const ANDROID_AUDIO_SOURCE_MIC = 1;
 
 export function useMicRecorder({
   onChunk,
@@ -34,12 +36,21 @@ export function useMicRecorder({
   onChunkRef.current = onChunk;
   const isRecordingRef = useRef(false);
 
+  const chunkCounterRef = useRef(0);
+
   // Subscribe once on mount; AudioRecord.on internally replaces the listener
   // so re-binding with stale refs is unnecessary.
   useEffect(() => {
     AudioRecord.on('data', (base64) => {
       const buffer = base64ToArrayBuffer(base64);
-      if (buffer) onChunkRef.current(buffer);
+      if (!buffer) return;
+      chunkCounterRef.current += 1;
+      if (chunkCounterRef.current % 10 === 1) {
+        console.warn(
+          `[mic] data #${chunkCounterRef.current} ${buffer.byteLength}b`,
+        );
+      }
+      onChunkRef.current(buffer);
     });
     return () => {
       if (isRecordingRef.current) {
@@ -57,9 +68,11 @@ export function useMicRecorder({
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         );
+        console.warn('[mic] permission', granted);
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) return false;
       }
 
+      console.warn('[mic] init begin');
       // init internally constructs the native AudioRecord. Must be awaited
       // — without await the JS wrapper resolves immediately while `recorder`
       // is still null, and start() bails out without recording anything.
@@ -67,14 +80,17 @@ export function useMicRecorder({
         sampleRate: SAMPLE_RATE,
         channels: CHANNELS,
         bitsPerSample: BITS_PER_SAMPLE,
-        audioSource: ANDROID_AUDIO_SOURCE_VOICE_RECOGNITION,
+        audioSource: ANDROID_AUDIO_SOURCE_MIC,
         bufferSize: BUFFER_SIZE,
         wavFile: '', // streaming only — no file output
       });
+      console.warn('[mic] init ok, calling start');
       AudioRecord.start();
       isRecordingRef.current = true;
+      console.warn('[mic] start returned, isRecording=true');
       return true;
     } catch (err) {
+      console.warn('[mic] start failed', err);
       onError?.(err as Error);
       return false;
     }
