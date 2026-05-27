@@ -8,7 +8,10 @@
     "scheme": "duyomobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "DUYO sizdan tovush yozish uchun mikrofonga ruxsat so'raydi. Tovush faqat AI suhbat uchun ishlatiladi."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +20,11 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "output": "static",
@@ -35,7 +42,14 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@siteed/expo-audio-studio",
+        {
+          "iosBackgroundModes": false,
+          "androidForegroundService": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
