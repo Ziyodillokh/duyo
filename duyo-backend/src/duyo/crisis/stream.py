@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from duyo.crisis.detector import CrisisLevel, CrisisResult, KeywordCrisisDetector
 
-
 _LEVEL_RANK: dict[CrisisLevel, int] = {
     CrisisLevel.GREEN: 0,
     CrisisLevel.YELLOW: 1,

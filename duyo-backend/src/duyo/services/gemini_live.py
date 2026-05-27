@@ -33,7 +33,6 @@ from google.genai import types
 
 from duyo.core.config import get_settings
 
-
 LiveEventKind = Literal[
     "audio",          # PCM chunk (24000Hz mono 16-bit) to forward to client
     "input_tr",       # incremental child-speech transcription chunk
@@ -123,7 +122,7 @@ class GeminiVoiceSession:
         self._session: Any = None
         self._start: float = 0.0
 
-    async def __aenter__(self) -> "GeminiVoiceSession":
+    async def __aenter__(self) -> GeminiVoiceSession:
         client = _get_live_client()
         config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],

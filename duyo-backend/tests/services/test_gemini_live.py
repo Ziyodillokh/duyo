@@ -10,10 +10,11 @@ Network is mocked end-to-end — no real Google call.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any, AsyncIterator
+from typing import Any
 
 import pytest
 
@@ -22,7 +23,6 @@ from duyo.services.gemini_live import (
     LiveEvent,
     _parse_message,
 )
-
 
 # ---------------------------------------------------------------------------
 # _parse_message — pure translation from SDK message to our LiveEvent(s)
