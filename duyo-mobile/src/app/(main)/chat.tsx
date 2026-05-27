@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -157,6 +158,14 @@ export default function ChatScreen() {
             {todayCount}/{DAILY_LIMIT} suhbat
           </Text>
         </View>
+        <Pressable
+          onPress={() => router.push('/(main)/voice')}
+          accessibilityRole="button"
+          accessibilityLabel="Ovozli suhbat"
+          className="w-10 h-10 rounded-full items-center justify-center bg-primary/10"
+        >
+          <Text className="text-xl">🎤</Text>
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView
