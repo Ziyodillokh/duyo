@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -13,30 +13,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendChatMessage } from '@/api/endpoints/chat';
-import { type CrisisLevel } from '@/api/types';
 import { DuyoAvatar } from '@/components/duyo-avatar';
 import { TypingIndicator } from '@/components/typing-indicator';
+import { type ChatMessage, useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
-
-interface ChatMessage {
-  id: string;
-  role: 'child' | 'assistant';
-  content: string;
-  timestamp: number;
-  crisisLevel?: CrisisLevel;
-}
 
 interface AxiosErrorShape {
   response?: { data?: { detail?: string } };
 }
 
-const GREETING: ChatMessage = {
+const GREETING_TEMPLATE = (name?: string): ChatMessage => ({
   id: 'seed-greeting',
   role: 'assistant',
-  content:
-    "Salom! Men DUYO. Endi birga o'rganamiz, suhbatlashamiz va o'samiz. Bugun nima qilmoqchisiz?",
+  content: `Salom${name ? `, ${name}` : ''}! Men DUYO. Endi birga o'rganamiz, suhbatlashamiz va o'samiz. Bugun nima qilmoqchisiz?`,
   timestamp: Date.now(),
-};
+});
 
 type DisplayItem =
   | { kind: 'message'; message: ChatMessage }
@@ -44,9 +35,24 @@ type DisplayItem =
 
 export default function ChatScreen() {
   const child = useChildStore((s) => s.child);
-  const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
+  const messages = useChatStore((s) => s.messages);
+  const conversationId = useChatStore((s) => s.conversationId);
+  const hydrated = useChatStore((s) => s.hydrated);
+  const setActiveChild = useChatStore((s) => s.setActiveChild);
+  const setConversationId = useChatStore((s) => s.setConversationId);
+  const appendMessage = useChatStore((s) => s.appendMessage);
+
   const [input, setInput] = useState('');
-  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  // Bind chat store to the active child + seed a greeting on first visit.
+  useEffect(() => {
+    if (!child || !hydrated) return;
+    setActiveChild(child.id);
+    const state = useChatStore.getState();
+    if (state.messages.length === 0) {
+      appendMessage(GREETING_TEMPLATE(child.name));
+    }
+  }, [child, hydrated, setActiveChild, appendMessage]);
 
   const send = useMutation({
     mutationFn: (text: string) => {
@@ -61,16 +67,13 @@ export default function ChatScreen() {
     },
     onSuccess: (response) => {
       setConversationId(response.conversation_id);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: response.message_id,
-          role: 'assistant',
-          content: response.reply,
-          timestamp: Date.now(),
-          crisisLevel: response.crisis_level,
-        },
-      ]);
+      appendMessage({
+        id: response.message_id,
+        role: 'assistant',
+        content: response.reply,
+        timestamp: Date.now(),
+        crisisLevel: response.crisis_level,
+      });
     },
     onError: (err) => {
       const detail =
@@ -83,32 +86,30 @@ export default function ChatScreen() {
   const handleSend = () => {
     const text = input.trim();
     if (!text || !child || send.isPending) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `local-${Date.now()}`,
-        role: 'child',
-        content: text,
-        timestamp: Date.now(),
-      },
-    ]);
+    appendMessage({
+      id: `local-${Date.now()}`,
+      role: 'child',
+      content: text,
+      timestamp: Date.now(),
+    });
     setInput('');
     send.mutate(text);
   };
 
-  // Inverted FlatList — newest item first (index 0).
-  const items: DisplayItem[] = [
-    ...(send.isPending ? [{ kind: 'typing' as const }] : []),
-    ...[...messages].reverse().map(
-      (message): DisplayItem => ({ kind: 'message', message }),
-    ),
-  ];
+  const items: DisplayItem[] = useMemo(
+    () => [
+      ...(send.isPending ? [{ kind: 'typing' as const }] : []),
+      ...[...messages]
+        .reverse()
+        .map((message): DisplayItem => ({ kind: 'message', message })),
+    ],
+    [send.isPending, messages],
+  );
 
   const canSend = input.trim().length > 0 && !send.isPending && !!child;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      {/* Header */}
       <View className="bg-card border-b border-border px-4 py-3 flex-row items-center gap-3">
         <DuyoAvatar size="sm" state={send.isPending ? 'thinking' : 'happy'} />
         <View className="flex-1">
@@ -129,7 +130,9 @@ export default function ChatScreen() {
         <FlatList
           data={items}
           keyExtractor={(item, i) =>
-            item.kind === 'typing' ? 'typing-indicator' : `${item.message.id}-${i}`
+            item.kind === 'typing'
+              ? 'typing-indicator'
+              : `${item.message.id}-${i}`
           }
           inverted
           contentContainerStyle={{ padding: 16, gap: 12 }}
@@ -142,7 +145,6 @@ export default function ChatScreen() {
           }
         />
 
-        {/* Input bar */}
         <View className="bg-card border-t border-border px-3 py-2 flex-row items-end gap-2">
           <TextInput
             value={input}
