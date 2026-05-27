@@ -3,10 +3,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendOtp, verifyOtp } from '@/api/endpoints/auth';
-import { DuyoAvatar } from '@/components/duyo-avatar';
+import { Card } from '@/components/v2/card';
+import { MascotImage } from '@/components/v2/mascot-image';
+import { PrimaryButton } from '@/components/v2/primary-button';
+import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { OtpInput } from '@/components/otp-input';
 import { useAuthStore } from '@/store/auth';
 
@@ -70,66 +72,69 @@ export default function OtpScreen() {
   const canResend = secondsLeft === 0 && !resend.isPending;
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 px-6 justify-center gap-10">
-        <View className="items-center">
-          <DuyoAvatar size="lg" state="idle" />
-        </View>
+    <ScreenGradient>
+      <View className="flex-1 px-6 items-center justify-center">
+        <View className="w-full max-w-[345px] items-center">
+          <MascotImage size={160} glow="soft" />
 
-        <View className="bg-card p-6 rounded-2xl gap-6">
-          <View className="gap-2">
-            <Text className="text-2xl font-bold text-foreground text-center">
-              SMS kodni kiriting
-            </Text>
-            <Text className="text-sm text-muted-foreground text-center">
-              {fullPhone} raqamiga yuborildi
-            </Text>
+          <View className="w-full mt-12">
+            <Card>
+              <View className="gap-2 items-center">
+                <Text className="text-xl font-bold text-foreground text-center">
+                  SMS kodni kiriting
+                </Text>
+                <Text className="text-sm text-muted-foreground text-center">
+                  {fullPhone} raqamiga yuborildi
+                </Text>
+              </View>
+
+              <View className="gap-3 mt-6">
+                <Text className="text-sm font-medium text-foreground text-center">
+                  Tasdiqlash kodi
+                </Text>
+                <View className="items-center">
+                  <OtpInput
+                    value={code}
+                    onChange={setCode}
+                    length={OTP_LENGTH}
+                  />
+                </View>
+              </View>
+
+              <View className="mt-6">
+                <PrimaryButton
+                  onPress={() => verify.mutate()}
+                  disabled={!canVerify}
+                  accessibilityLabel="Tasdiqlash"
+                >
+                  {verify.isPending ? 'Tekshirilmoqda...' : 'Tasdiqlash'}
+                </PrimaryButton>
+              </View>
+
+              <Pressable
+                onPress={() => canResend && resend.mutate()}
+                disabled={!canResend}
+                accessibilityRole="button"
+                className="items-center mt-4"
+              >
+                <Text
+                  className={`text-sm ${
+                    canResend
+                      ? 'text-primary font-medium'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {resend.isPending
+                    ? 'Yuborilmoqda...'
+                    : canResend
+                      ? 'Qayta yuborish'
+                      : `Qayta yuborish: ${secondsLeft} soniya`}
+                </Text>
+              </Pressable>
+            </Card>
           </View>
-
-          <View className="gap-3">
-            <Text className="text-sm font-semibold text-foreground">
-              Tasdiqlash kodi
-            </Text>
-            <View className="items-center">
-              <OtpInput value={code} onChange={setCode} length={OTP_LENGTH} />
-            </View>
-          </View>
-
-          <Pressable
-            onPress={() => verify.mutate()}
-            disabled={!canVerify}
-            accessibilityRole="button"
-            className={`h-14 rounded-xl items-center justify-center ${
-              canVerify ? 'bg-primary' : 'bg-primary/40'
-            }`}
-          >
-            <Text className="text-base font-semibold text-primary-foreground">
-              {verify.isPending ? 'Tekshirilmoqda...' : 'Tasdiqlash'}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => canResend && resend.mutate()}
-            disabled={!canResend}
-            accessibilityRole="button"
-            className="items-center"
-          >
-            <Text
-              className={`text-sm ${
-                canResend
-                  ? 'text-primary font-semibold'
-                  : 'text-muted-foreground'
-              }`}
-            >
-              {resend.isPending
-                ? 'Yuborilmoqda...'
-                : canResend
-                  ? 'Qayta yuborish'
-                  : `Qayta yuborish: ${secondsLeft} soniya`}
-            </Text>
-          </Pressable>
         </View>
       </View>
-    </SafeAreaView>
+    </ScreenGradient>
   );
 }

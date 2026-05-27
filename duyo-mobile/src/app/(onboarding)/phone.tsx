@@ -5,15 +5,17 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendOtp } from '@/api/endpoints/auth';
-import { DuyoAvatar } from '@/components/duyo-avatar';
+import { Card } from '@/components/v2/card';
+import { CountryChip } from '@/components/v2/country-chip';
+import { FormInput } from '@/components/v2/form-input';
+import { MascotImage } from '@/components/v2/mascot-image';
+import { PrimaryButton } from '@/components/v2/primary-button';
+import { ScreenGradient } from '@/components/v2/screen-gradient';
 
 const PHONE_PREFIX = '+998';
 const NATIONAL_DIGITS = 9;
@@ -49,65 +51,63 @@ export default function PhoneScreen() {
   const canSend = isValid && !mutation.isPending;
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <ScreenGradient>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <View className="flex-1 px-6 justify-center gap-10">
-          <View className="items-center">
-            <DuyoAvatar size="lg" state="idle" />
-          </View>
+        <View className="flex-1 px-6 items-center justify-center">
+          <View className="w-full max-w-[345px] items-center">
+            <MascotImage size={160} glow="soft" />
 
-          <View className="bg-card p-6 rounded-2xl gap-6">
-            <View className="gap-2">
-              <Text className="text-2xl font-bold text-foreground text-center">
-                Telefon raqamingiz
-              </Text>
-              <Text className="text-sm text-muted-foreground text-center">
-                Xavfsizlik uchun telefon raqamingizni tasdiqlang
-              </Text>
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-sm font-semibold text-foreground">
-                Telefon raqam
-              </Text>
-              <View className="flex-row gap-3 items-center">
-                <View className="px-4 py-3 rounded-xl bg-primary/10">
-                  <Text className="text-base font-medium text-foreground">
-                    {PHONE_PREFIX}
+            <View className="w-full mt-12">
+              <Card>
+                <View className="gap-2 items-center">
+                  <Text className="text-xl font-bold text-foreground text-center">
+                    Telefon raqamingiz
+                  </Text>
+                  <Text className="text-sm text-muted-foreground text-center">
+                    Xavfsizlik uchun telefon raqamingizni tasdiqlang
                   </Text>
                 </View>
-                <TextInput
-                  value={phone}
-                  onChangeText={(t) =>
-                    setPhone(t.replace(/\D/g, '').slice(0, NATIONAL_DIGITS))
-                  }
-                  placeholder="901234567"
-                  keyboardType="phone-pad"
-                  autoFocus
-                  accessibilityLabel="Telefon raqam"
-                  className="flex-1 px-4 py-3 rounded-xl bg-background text-base text-foreground"
-                />
-              </View>
-            </View>
 
-            <Pressable
-              onPress={() => mutation.mutate(phone)}
-              disabled={!canSend}
-              accessibilityRole="button"
-              className={`h-14 rounded-xl items-center justify-center ${
-                canSend ? 'bg-primary' : 'bg-primary/40'
-              }`}
-            >
-              <Text className="text-base font-semibold text-primary-foreground">
-                {mutation.isPending ? 'Yuborilmoqda...' : 'SMS yuborish'}
-              </Text>
-            </Pressable>
+                <View className="gap-2 mt-6">
+                  <Text className="text-sm font-medium text-foreground">
+                    Telefon raqam
+                  </Text>
+                  <View className="flex-row gap-2 items-center">
+                    <CountryChip code={PHONE_PREFIX} />
+                    <View className="flex-1">
+                      <FormInput
+                        value={phone}
+                        onChangeText={(t) =>
+                          setPhone(
+                            t.replace(/\D/g, '').slice(0, NATIONAL_DIGITS),
+                          )
+                        }
+                        placeholder="901234567"
+                        keyboardType="phone-pad"
+                        autoFocus
+                        accessibilityLabel="Telefon raqam"
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <View className="mt-6">
+                  <PrimaryButton
+                    onPress={() => mutation.mutate(phone)}
+                    disabled={!canSend}
+                    accessibilityLabel="SMS yuborish"
+                  >
+                    {mutation.isPending ? 'Yuborilmoqda...' : 'SMS yuborish'}
+                  </PrimaryButton>
+                </View>
+              </Card>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenGradient>
   );
 }

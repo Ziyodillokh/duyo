@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, View } from 'react-native';
 
-import { DuyoAvatar } from '@/components/duyo-avatar';
+import { MascotImage } from '@/components/v2/mascot-image';
+import { PrimaryButton } from '@/components/v2/primary-button';
+import { ScreenGradient } from '@/components/v2/screen-gradient';
+import { SelectCard } from '@/components/v2/select-card';
 import { type Language, useLanguageStore } from '@/store/language';
 
 interface LanguageOption {
@@ -25,51 +27,45 @@ export default function LanguageScreen() {
 
   const handleContinue = () => {
     setLanguage(selected);
-    router.push('/(onboarding)/phone');
+    router.push('/(onboarding)/user-type');
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 items-center justify-center px-6 gap-8">
-        <DuyoAvatar size="lg" state="happy" />
+    <ScreenGradient>
+      <View className="flex-1 px-6 items-center">
+        <View className="flex-1 justify-center items-center w-full max-w-[345px]">
+          <MascotImage size={176} />
 
-        <Text className="text-2xl font-bold text-foreground">
-          Tilni tanlang
-        </Text>
+          <Text className="text-[24px] leading-8 font-bold text-foreground mt-6">
+            Tilni tanlang
+          </Text>
 
-        <View className="w-full gap-3">
-          {LANGUAGE_OPTIONS.map((option) => {
-            const isSelected = option.code === selected;
-            return (
-              <Pressable
+          <View className="w-full gap-3 mt-8">
+            {LANGUAGE_OPTIONS.map((option) => (
+              <SelectCard
                 key={option.code}
+                selected={option.code === selected}
                 onPress={() => setSelected(option.code)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: isSelected }}
                 accessibilityLabel={option.label}
-                className={`px-5 py-5 rounded-2xl bg-card flex-row items-center gap-4 border-2 ${
-                  isSelected ? 'border-primary' : 'border-transparent'
-                }`}
               >
-                <Text className="text-3xl">{option.flag}</Text>
-                <Text className="text-lg font-semibold text-foreground">
+                <Text className="text-[36px]">{option.flag}</Text>
+                <Text className="text-[20px] font-medium text-foreground">
                   {option.label}
                 </Text>
-              </Pressable>
-            );
-          })}
+              </SelectCard>
+            ))}
+          </View>
         </View>
 
-        <Pressable
-          onPress={handleContinue}
-          accessibilityRole="button"
-          className="w-full h-14 bg-primary rounded-xl items-center justify-center active:opacity-80"
-        >
-          <Text className="text-base font-semibold text-primary-foreground">
+        <View className="w-full max-w-[345px] pb-6">
+          <PrimaryButton
+            onPress={handleContinue}
+            accessibilityLabel="Davom etish"
+          >
             Davom etish
-          </Text>
-        </Pressable>
+          </PrimaryButton>
+        </View>
       </View>
-    </SafeAreaView>
+    </ScreenGradient>
   );
 }
