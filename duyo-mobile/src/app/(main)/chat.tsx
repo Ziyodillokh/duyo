@@ -1,5 +1,7 @@
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -10,7 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { sendChatMessage } from '@/api/endpoints/chat';
+import { type CrisisLevel } from '@/api/types';
 import { DuyoAvatar } from '@/components/duyo-avatar';
+import { TypingIndicator } from '@/components/typing-indicator';
 import { useChildStore } from '@/store/child';
 
 interface ChatMessage {
@@ -18,6 +23,11 @@ interface ChatMessage {
   role: 'child' | 'assistant';
   content: string;
   timestamp: number;
+  crisisLevel?: CrisisLevel;
+}
+
+interface AxiosErrorShape {
+  response?: { data?: { detail?: string } };
 }
 
 const GREETING: ChatMessage = {
@@ -28,35 +38,79 @@ const GREETING: ChatMessage = {
   timestamp: Date.now(),
 };
 
+type DisplayItem =
+  | { kind: 'message'; message: ChatMessage }
+  | { kind: 'typing' };
+
 export default function ChatScreen() {
   const child = useChildStore((s) => s.child);
-  // Phase 2.3 promotes messages to a persisted store.
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
-  // FlatList is inverted — newest item first (index 0).
-  const inverted = [...messages].reverse();
+  const send = useMutation({
+    mutationFn: (text: string) => {
+      if (!child) {
+        return Promise.reject(new Error('child profile missing'));
+      }
+      return sendChatMessage({
+        child_id: child.id,
+        message: text,
+        conversation_id: conversationId ?? undefined,
+      });
+    },
+    onSuccess: (response) => {
+      setConversationId(response.conversation_id);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: response.message_id,
+          role: 'assistant',
+          content: response.reply,
+          timestamp: Date.now(),
+          crisisLevel: response.crisis_level,
+        },
+      ]);
+    },
+    onError: (err) => {
+      const detail =
+        (err as AxiosErrorShape).response?.data?.detail ??
+        'Xabar yuborilmadi. Internetni tekshiring.';
+      Alert.alert('Xatolik', detail);
+    },
+  });
 
-  // Phase 2.2 wires the real send mutation.
   const handleSend = () => {
-    if (!input.trim()) return;
+    const text = input.trim();
+    if (!text || !child || send.isPending) return;
     setMessages((prev) => [
       ...prev,
       {
         id: `local-${Date.now()}`,
         role: 'child',
-        content: input.trim(),
+        content: text,
         timestamp: Date.now(),
       },
     ]);
     setInput('');
+    send.mutate(text);
   };
+
+  // Inverted FlatList — newest item first (index 0).
+  const items: DisplayItem[] = [
+    ...(send.isPending ? [{ kind: 'typing' as const }] : []),
+    ...[...messages].reverse().map(
+      (message): DisplayItem => ({ kind: 'message', message }),
+    ),
+  ];
+
+  const canSend = input.trim().length > 0 && !send.isPending && !!child;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Header */}
       <View className="bg-card border-b border-border px-4 py-3 flex-row items-center gap-3">
-        <DuyoAvatar size="sm" state="happy" />
+        <DuyoAvatar size="sm" state={send.isPending ? 'thinking' : 'happy'} />
         <View className="flex-1">
           <Text className="font-bold text-base text-foreground">DUYO</Text>
           <Text className="text-xs text-muted-foreground">Har doim online</Text>
@@ -70,40 +124,48 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         className="flex-1"
       >
         <FlatList
-          data={inverted}
-          keyExtractor={(item) => item.id}
+          data={items}
+          keyExtractor={(item, i) =>
+            item.kind === 'typing' ? 'typing-indicator' : `${item.message.id}-${i}`
+          }
           inverted
           contentContainerStyle={{ padding: 16, gap: 12 }}
-          renderItem={({ item }) => <MessageBubble message={item} />}
+          renderItem={({ item }) =>
+            item.kind === 'typing' ? (
+              <TypingIndicator />
+            ) : (
+              <MessageBubble message={item.message} />
+            )
+          }
         />
 
         {/* Input bar */}
-        <View className="bg-card border-t border-border px-3 py-2 flex-row items-center gap-2">
+        <View className="bg-card border-t border-border px-3 py-2 flex-row items-end gap-2">
           <TextInput
             value={input}
             onChangeText={setInput}
             placeholder={`Xabar yozing${child ? `, ${child.name}` : ''}...`}
             multiline
             maxLength={2000}
+            editable={!send.isPending}
             accessibilityLabel="Chat xabari"
             className="flex-1 max-h-32 px-4 py-3 border-2 border-border rounded-2xl bg-background text-base text-foreground"
           />
           <Pressable
             onPress={handleSend}
-            disabled={!input.trim()}
+            disabled={!canSend}
             accessibilityRole="button"
             accessibilityLabel="Yuborish"
             className={`w-12 h-12 rounded-full items-center justify-center ${
-              input.trim() ? 'bg-primary' : 'bg-muted'
+              canSend ? 'bg-primary' : 'bg-muted'
             }`}
           >
             <Text
               className={`text-xl font-bold ${
-                input.trim() ? 'text-primary-foreground' : 'text-muted-foreground'
+                canSend ? 'text-primary-foreground' : 'text-muted-foreground'
               }`}
             >
               ↑

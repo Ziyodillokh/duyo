@@ -2,6 +2,7 @@
 
 export type Language = 'uz' | 'ru' | 'en';
 export type AgeSegment = 'junior' | 'explorer' | 'companion';
+export type CrisisLevel = 'green' | 'yellow' | 'orange' | 'red';
 
 export interface AuthTokens {
   accessToken: string;
