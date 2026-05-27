@@ -132,6 +132,16 @@ class GeminiVoiceSession:
             realtime_input_config=types.RealtimeInputConfig(
                 automatic_activity_detection=types.AutomaticActivityDetection(disabled=True),
             ),
+            # Pin the prebuilt voice so the assistant doesn't randomly switch
+            # gender or timbre between turns. "Kore" is a warm, friendly
+            # female voice — a good fit for a child-companion persona.
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name="Kore",
+                    ),
+                ),
+            ),
         )
         self._inner_cm = client.aio.live.connect(model=self._model, config=config)
         self._session = await self._inner_cm.__aenter__()

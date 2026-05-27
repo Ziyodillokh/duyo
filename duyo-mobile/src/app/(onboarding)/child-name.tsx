@@ -27,9 +27,9 @@ interface AxiosErrorShape {
 }
 
 function ageSegmentLabel(age: number): string {
-  if (age <= 10) return "Junior — vizual va o'yinlar";
-  if (age <= 13) return 'Explorer — maktab yordami va missiyalar';
-  return "Companion — o'quv va karyera maslahat";
+  if (age <= 10) return "Junior — Ko'proq vizual va o'yinlar";
+  if (age <= 13) return 'Explorer — Maktab yordami va missiyalar';
+  return "Companion — O'quv va karyera maslahat";
 }
 
 export default function ChildNameScreen() {
@@ -37,13 +37,13 @@ export default function ChildNameScreen() {
   const setChild = useChildStore((s) => s.setChild);
   const [name, setName] = useState('');
   const [age, setAge] = useState(DEFAULT_AGE);
+  const [nameFocused, setNameFocused] = useState(false);
 
   const trimmedName = name.trim();
   const isValid = trimmedName.length > 0;
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createChild({ name: trimmedName, age, language }),
+    mutationFn: () => createChild({ name: trimmedName, age, language }),
     onSuccess: (child) => {
       setChild(child);
       router.replace('/(main)/chat');
@@ -55,20 +55,22 @@ export default function ChildNameScreen() {
     },
   });
 
+  const canSubmit = isValid && !mutation.isPending;
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <View className="flex-1 px-6 justify-center gap-6">
+        <View className="flex-1 px-6 justify-center gap-8">
           <View className="items-center">
             <DuyoAvatar size="lg" state="happy" />
           </View>
 
-          <View className="bg-card p-6 rounded-xl gap-6">
-            <View>
-              <Text className="text-xl font-bold text-foreground text-center mb-2">
+          <View className="bg-card p-6 rounded-2xl gap-6">
+            <View className="gap-2">
+              <Text className="text-2xl font-bold text-foreground text-center">
                 Isming va yoshing
               </Text>
               <Text className="text-sm text-muted-foreground text-center">
@@ -78,35 +80,42 @@ export default function ChildNameScreen() {
             </View>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-foreground">
+              <Text className="text-sm font-semibold text-foreground">
                 Ismingiz
               </Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="Masalan: Aziza"
+                placeholderTextColor="#94A3B8"
                 maxLength={NAME_MAX_LENGTH}
                 autoFocus
+                onFocus={() => setNameFocused(true)}
+                onBlur={() => setNameFocused(false)}
                 accessibilityLabel="Ismingiz"
-                className="px-4 py-3 border-2 border-border rounded-lg bg-card text-base text-foreground"
+                className={`px-4 py-4 rounded-xl bg-background text-base text-foreground border-2 ${
+                  nameFocused ? 'border-primary' : 'border-transparent'
+                }`}
               />
             </View>
 
             <View className="gap-3">
-              <Text className="text-sm font-medium text-foreground">
+              <Text className="text-sm font-semibold text-foreground">
                 Yoshingiz
               </Text>
-              <View className="flex-row items-center justify-center gap-4">
+              <View className="flex-row items-center justify-center gap-6">
                 <Pressable
                   onPress={() => setAge((a) => Math.max(MIN_AGE, a - 1))}
                   disabled={age <= MIN_AGE}
                   accessibilityRole="button"
                   accessibilityLabel="Yoshni kamaytirish"
-                  className="w-14 h-14 rounded-lg border-2 border-border items-center justify-center"
+                  className={`w-12 h-12 rounded-xl items-center justify-center ${
+                    age <= MIN_AGE ? 'bg-muted/40' : 'bg-primary/10'
+                  }`}
                 >
-                  <Text className="text-3xl font-bold text-foreground">−</Text>
+                  <Text className="text-2xl font-bold text-foreground">−</Text>
                 </Pressable>
-                <View className="min-w-[80px] items-center">
+                <View className="min-w-[96px] items-center">
                   <Text className="text-6xl font-bold text-primary">{age}</Text>
                 </View>
                 <Pressable
@@ -114,12 +123,14 @@ export default function ChildNameScreen() {
                   disabled={age >= MAX_AGE}
                   accessibilityRole="button"
                   accessibilityLabel="Yoshni oshirish"
-                  className="w-14 h-14 rounded-lg border-2 border-border items-center justify-center"
+                  className={`w-12 h-12 rounded-xl items-center justify-center ${
+                    age >= MAX_AGE ? 'bg-muted/40' : 'bg-primary/10'
+                  }`}
                 >
-                  <Text className="text-3xl font-bold text-foreground">+</Text>
+                  <Text className="text-2xl font-bold text-foreground">+</Text>
                 </Pressable>
               </View>
-              <View className="bg-accent/20 p-3 rounded-lg">
+              <View className="bg-accent/20 px-4 py-3 rounded-xl">
                 <Text className="text-sm text-foreground text-center">
                   {ageSegmentLabel(age)}
                 </Text>
@@ -128,23 +139,22 @@ export default function ChildNameScreen() {
 
             <Pressable
               onPress={() => mutation.mutate()}
-              disabled={!isValid || mutation.isPending}
+              disabled={!canSubmit}
               accessibilityRole="button"
-              className={`h-12 rounded-lg items-center justify-center ${
-                isValid && !mutation.isPending ? 'bg-primary' : 'bg-muted'
+              className={`h-14 rounded-xl items-center justify-center ${
+                canSubmit ? 'bg-primary' : 'bg-primary/40'
               }`}
             >
-              <Text
-                className={`text-base font-semibold ${
-                  isValid && !mutation.isPending
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }`}
-              >
+              <Text className="text-base font-semibold text-primary-foreground">
                 {mutation.isPending ? 'Saqlanmoqda...' : 'Boshlash'}
               </Text>
             </Pressable>
           </View>
+
+          <Text className="text-xs text-muted-foreground text-center px-4">
+            Ismingiz faqat men bilan suhbatlarda ishlatiladi va xavfsiz
+            saqlanadi
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

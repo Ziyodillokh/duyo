@@ -169,7 +169,7 @@ export default function VoiceScreen() {
   const isRecording = phase === 'recording';
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
       {/* Header */}
       <View className="px-4 py-3 flex-row items-center">
         <Pressable
@@ -184,13 +184,6 @@ export default function VoiceScreen() {
           Ovozli suhbat
         </Text>
         <View className="w-10" />
-      </View>
-
-      {/* Debug strip — Bosqich B */}
-      <View className="bg-card px-3 py-1 border-b border-border">
-        <Text className="text-[10px] text-muted-foreground" numberOfLines={1}>
-          {phase} · {debugLine}
-        </Text>
       </View>
 
       {/* Avatar + status */}

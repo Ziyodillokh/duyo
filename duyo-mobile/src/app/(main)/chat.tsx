@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { Mic, Send } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -142,7 +143,7 @@ export default function ChatScreen() {
     input.trim().length > 0 && !send.isPending && !!child && !limitReached;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
       <View className="bg-card border-b border-border px-4 py-3 flex-row items-center gap-3">
         <DuyoAvatar size="sm" state={send.isPending ? 'thinking' : 'happy'} />
         <View className="flex-1">
@@ -150,7 +151,7 @@ export default function ChatScreen() {
           <Text className="text-xs text-muted-foreground">Har doim online</Text>
         </View>
         <View
-          className={`px-3 py-1 rounded-full border ${
+          className={`px-3 py-1.5 rounded-full border ${
             limitReached
               ? 'border-destructive bg-destructive/10'
               : 'border-border bg-card'
@@ -164,14 +165,6 @@ export default function ChatScreen() {
             {todayCount}/{DAILY_LIMIT} suhbat
           </Text>
         </View>
-        <Pressable
-          onPress={() => router.push('/(main)/voice')}
-          accessibilityRole="button"
-          accessibilityLabel="Ovozli suhbat"
-          className="w-10 h-10 rounded-full items-center justify-center bg-primary/10"
-        >
-          <Text className="text-xl">🎤</Text>
-        </Pressable>
       </View>
 
       <KeyboardAvoidingView
@@ -196,37 +189,40 @@ export default function ChatScreen() {
           }}
         />
 
-        <View className="bg-card border-t border-border px-3 py-2 flex-row items-end gap-2">
+        <View className="bg-card border-t border-border px-3 py-3 flex-row items-end gap-2">
           <TextInput
             value={input}
             onChangeText={setInput}
             placeholder={
               limitReached
                 ? 'Bugungi limit tugadi. Ertaga davom etamiz.'
-                : `Xabar yozing${child ? `, ${child.name}` : ''}...`
+                : 'Xabar yozing...'
             }
+            placeholderTextColor="#94A3B8"
             multiline
             maxLength={2000}
             editable={!send.isPending && !limitReached}
             accessibilityLabel="Chat xabari"
-            className="flex-1 max-h-32 px-4 py-3 border-2 border-border rounded-2xl bg-background text-base text-foreground"
+            className="flex-1 max-h-32 px-4 py-3 rounded-2xl bg-background text-base text-foreground"
           />
+          <Pressable
+            onPress={() => router.push('/(main)/voice')}
+            accessibilityRole="button"
+            accessibilityLabel="Ovozli suhbat"
+            className="w-11 h-11 rounded-full items-center justify-center"
+          >
+            <Mic size={22} color="#64748B" />
+          </Pressable>
           <Pressable
             onPress={handleSend}
             disabled={!canSend}
             accessibilityRole="button"
             accessibilityLabel="Yuborish"
-            className={`w-12 h-12 rounded-full items-center justify-center ${
+            className={`w-11 h-11 rounded-full items-center justify-center ${
               canSend ? 'bg-primary' : 'bg-muted'
             }`}
           >
-            <Text
-              className={`text-xl font-bold ${
-                canSend ? 'text-primary-foreground' : 'text-muted-foreground'
-              }`}
-            >
-              ↑
-            </Text>
+            <Send size={20} color={canSend ? '#FFFFFF' : '#94A3B8'} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>

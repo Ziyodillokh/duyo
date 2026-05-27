@@ -36,7 +36,7 @@ export default function PhoneScreen() {
       if (status === 429) {
         Alert.alert(
           "Juda ko'p urinish",
-          'Bir necha daqiqadan keyin qayta urinib ko\'ring.',
+          "Bir necha daqiqadan keyin qayta urinib ko'ring.",
         );
         return;
       }
@@ -46,20 +46,22 @@ export default function PhoneScreen() {
     },
   });
 
+  const canSend = isValid && !mutation.isPending;
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <View className="flex-1 px-6 justify-center gap-8">
+        <View className="flex-1 px-6 justify-center gap-10">
           <View className="items-center">
             <DuyoAvatar size="lg" state="idle" />
           </View>
 
-          <View className="bg-card p-6 rounded-xl gap-6">
-            <View>
-              <Text className="text-xl font-bold text-foreground text-center mb-2">
+          <View className="bg-card p-6 rounded-2xl gap-6">
+            <View className="gap-2">
+              <Text className="text-2xl font-bold text-foreground text-center">
                 Telefon raqamingiz
               </Text>
               <Text className="text-sm text-muted-foreground text-center">
@@ -68,12 +70,12 @@ export default function PhoneScreen() {
             </View>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-foreground">
+              <Text className="text-sm font-semibold text-foreground">
                 Telefon raqam
               </Text>
-              <View className="flex-row gap-2 items-center">
-                <View className="px-4 py-3 border-2 border-border rounded-lg bg-muted">
-                  <Text className="text-base text-muted-foreground">
+              <View className="flex-row gap-3 items-center">
+                <View className="px-4 py-3 rounded-xl bg-primary/10">
+                  <Text className="text-base font-medium text-foreground">
                     {PHONE_PREFIX}
                   </Text>
                 </View>
@@ -86,26 +88,20 @@ export default function PhoneScreen() {
                   keyboardType="phone-pad"
                   autoFocus
                   accessibilityLabel="Telefon raqam"
-                  className="flex-1 px-4 py-3 border-2 border-border rounded-lg bg-card text-base text-foreground"
+                  className="flex-1 px-4 py-3 rounded-xl bg-background text-base text-foreground"
                 />
               </View>
             </View>
 
             <Pressable
               onPress={() => mutation.mutate(phone)}
-              disabled={!isValid || mutation.isPending}
+              disabled={!canSend}
               accessibilityRole="button"
-              className={`h-12 rounded-lg items-center justify-center ${
-                isValid && !mutation.isPending ? 'bg-primary' : 'bg-muted'
+              className={`h-14 rounded-xl items-center justify-center ${
+                canSend ? 'bg-primary' : 'bg-primary/40'
               }`}
             >
-              <Text
-                className={`text-base font-semibold ${
-                  isValid && !mutation.isPending
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }`}
-              >
+              <Text className="text-base font-semibold text-primary-foreground">
                 {mutation.isPending ? 'Yuborilmoqda...' : 'SMS yuborish'}
               </Text>
             </Pressable>

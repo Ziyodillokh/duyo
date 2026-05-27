@@ -33,7 +33,9 @@ export default function LanguageScreen() {
       <View className="flex-1 items-center justify-center px-6 gap-8">
         <DuyoAvatar size="lg" state="happy" />
 
-        <Text className="text-2xl font-bold text-foreground">Tilni tanlang</Text>
+        <Text className="text-2xl font-bold text-foreground">
+          Tilni tanlang
+        </Text>
 
         <View className="w-full gap-3">
           {LANGUAGE_OPTIONS.map((option) => {
@@ -45,12 +47,12 @@ export default function LanguageScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSelected }}
                 accessibilityLabel={option.label}
-                className={`p-5 rounded-lg border-2 bg-card flex-row items-center gap-4 ${
-                  isSelected ? 'border-primary' : 'border-border'
+                className={`px-5 py-5 rounded-2xl bg-card flex-row items-center gap-4 border-2 ${
+                  isSelected ? 'border-primary' : 'border-transparent'
                 }`}
               >
-                <Text className="text-4xl">{option.flag}</Text>
-                <Text className="text-xl font-medium text-foreground">
+                <Text className="text-3xl">{option.flag}</Text>
+                <Text className="text-lg font-semibold text-foreground">
                   {option.label}
                 </Text>
               </Pressable>
@@ -61,9 +63,9 @@ export default function LanguageScreen() {
         <Pressable
           onPress={handleContinue}
           accessibilityRole="button"
-          className="w-full h-14 bg-primary rounded-lg items-center justify-center active:opacity-80"
+          className="w-full h-14 bg-primary rounded-xl items-center justify-center active:opacity-80"
         >
-          <Text className="text-lg font-semibold text-primary-foreground">
+          <Text className="text-base font-semibold text-primary-foreground">
             Davom etish
           </Text>
         </Pressable>
