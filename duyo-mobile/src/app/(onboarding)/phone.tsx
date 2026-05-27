@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendOtp } from '@/api/endpoints/auth';
+import { DuyoAvatar } from '@/components/duyo-avatar';
 
 const PHONE_PREFIX = '+998';
 const NATIONAL_DIGITS = 9;
@@ -52,11 +53,8 @@ export default function PhoneScreen() {
         className="flex-1"
       >
         <View className="flex-1 px-6 justify-center gap-8">
-          {/* TODO Phase 1.4 — replace with DuyoAvatar size="lg" state="idle" */}
           <View className="items-center">
-            <View className="w-32 h-32 rounded-full bg-primary items-center justify-center">
-              <Text className="text-white text-5xl font-bold">D</Text>
-            </View>
+            <DuyoAvatar size="lg" state="idle" />
           </View>
 
           <View className="bg-card p-6 rounded-xl gap-6">

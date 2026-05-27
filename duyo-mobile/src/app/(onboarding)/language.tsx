@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DuyoAvatar } from '@/components/duyo-avatar';
 import { type Language, useLanguageStore } from '@/store/language';
 
 interface LanguageOption {
@@ -30,10 +31,7 @@ export default function LanguageScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 items-center justify-center px-6 gap-8">
-        {/* TODO Phase 1.4 — replace with DuyoAvatar size="lg" state="happy" */}
-        <View className="w-32 h-32 rounded-full bg-primary items-center justify-center">
-          <Text className="text-white text-5xl font-bold">D</Text>
-        </View>
+        <DuyoAvatar size="lg" state="happy" />
 
         <Text className="text-2xl font-bold text-foreground">Tilni tanlang</Text>
 
