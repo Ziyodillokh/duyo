@@ -3,12 +3,25 @@ import { useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { DuyoAvatar } from '@/components/duyo-avatar';
+import { useAuthStore } from '@/store/auth';
+import { useChildStore } from '@/store/child';
 
 const SPLASH_DURATION_MS = 1500;
 
 export default function SplashScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
+      const auth = useAuthStore.getState();
+      const childState = useChildStore.getState();
+
+      if (auth.isAuthenticated && childState.child) {
+        router.replace('/(main)/chat');
+        return;
+      }
+      if (auth.isAuthenticated) {
+        router.replace('/(onboarding)/child-name');
+        return;
+      }
       router.replace('/(onboarding)/language');
     }, SPLASH_DURATION_MS);
     return () => clearTimeout(timer);

@@ -46,7 +46,7 @@ export default function ChildNameScreen() {
       createChild({ name: trimmedName, age, language }),
     onSuccess: (child) => {
       setChild(child);
-      router.replace('/(onboarding)/welcome');
+      router.replace('/(main)/chat');
     },
     onError: (err) => {
       const detail =
