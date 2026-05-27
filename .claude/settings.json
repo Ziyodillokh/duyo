@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//private/tmp/**)",
+      "Bash(unzip -o -q \"/Users/raxmonjon/DUYO/DUYO_Concept_v2.1.docx\" -d duyo_concept)",
+      "Bash(unzip -o -q \"/Users/raxmonjon/DUYO/DUYO_TZ_v1.0.docx\" -d duyo_tz)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3)",
+      "Read(//tmp/**)",
+      "Bash(python3 -c \"import sys; print\\(sys.executable\\)\")",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//usr/local/bin/**)",
+      "mcp__obsidian-mcp-tools__get_server_info",
+      "mcp__obsidian-mcp-tools__list_vault_files",
+      "mcp__obsidian-mcp-tools__create_vault_file",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://github.com/polvonuzb/DUYO)",
+      "mcp__obsidian-mcp-tools__search_vault_simple",
+      "Bash(find ~ -maxdepth 6 -type d -name \"DUYO\" 2>/dev/null | grep -v node_modules | grep -v \".git\" | head -10)",
+      "Read(//Users/raxmonjon/**)",
+      "mcp__obsidian-mcp-tools__get_vault_file"
+    ]
+  }
+}

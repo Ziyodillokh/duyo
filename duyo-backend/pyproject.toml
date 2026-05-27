@@ -1,0 +1,61 @@
+[project]
+name = "duyo-backend"
+version = "0.1.0"
+description = "DUYO — AI Companion for Children. Backend services."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "XRR" }]
+license = { text = "Proprietary" }
+
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "sqlalchemy>=2.0.27",
+    "alembic>=1.13.0",
+    "asyncpg>=0.29.0",
+    "redis>=5.0.0",
+    "httpx>=0.27.0",
+    "python-jose[cryptography]>=3.3.0",
+    "google-genai>=2.6.0",
+    "phonenumbers>=8.13.0",
+    "python-multipart>=0.0.9",
+    "structlog>=24.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.0",
+    "mypy>=1.9.0",
+    "httpx>=0.27.0",
+    "anthropic>=0.20.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/duyo"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "ARG", "RUF"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --cov=src/duyo --cov-report=term-missing --cov-fail-under=80"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true

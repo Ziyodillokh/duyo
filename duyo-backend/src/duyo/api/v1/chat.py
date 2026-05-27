@@ -1,0 +1,236 @@
+"""Chat endpoint — single-turn child↔DUYO message with crisis detection."""
+
+import logging
+from datetime import datetime, timezone
+from uuid import UUID
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from duyo.api.deps import get_current_user, get_db
+from duyo.core.config import get_settings
+from duyo.crisis.detector import CrisisCategory as L1Category
+from duyo.crisis.detector import KeywordCrisisDetector
+from duyo.crisis.router import get_detector
+from duyo.models.child import AgeSegment, ChildProfile
+from duyo.models.conversation import Conversation
+from duyo.models.crisis_event import CrisisEvent, CrisisLevel
+from duyo.models.message import Message, MessageRole
+from duyo.models.user import User
+from duyo.schemas.chat import ChatRequest, ChatResponse, ChildCreate, ChildRead
+from duyo.services.crisis_l2 import classify
+from duyo.services.gemini import chat as gemini_chat
+from duyo.services.sms import get_sms_provider
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Parent SMS dispatch — runs in BackgroundTasks so it never blocks the response.
+# Per TZ §9.6: ABUSE_VICTIM ORANGE does NOT auto-send to parent (sending an
+# abuse alert to the abuser endangers the child). Those route to the 3rd-party
+# safety provider once D-002 is finalised.
+# ---------------------------------------------------------------------------
+
+_RED_TEMPLATE = (
+    "DUYO XAVF: {name} bola jiddiy xavf signal berdi. "
+    "Iltimos DARHOL bog'laning. Ishonch telefon: 1142"
+)
+_ORANGE_TEMPLATE = (
+    "DUYO: {name} bola xabarida tashvishli signallar bor. "
+    "24 soat ichida bola bilan suhbat o'tkazing. Maslahat: 1142"
+)
+
+
+async def _dispatch_parent_alert(parent_phone: str, child_name: str, level: CrisisLevel) -> None:
+    """Send SMS to the parent. Fire-and-forget — failures are logged."""
+    template = _RED_TEMPLATE if level == CrisisLevel.RED else _ORANGE_TEMPLATE
+    body = template.format(name=child_name)
+    try:
+        sms = get_sms_provider()
+        await sms.send(parent_phone, body)
+        log.info("Parent SMS dispatched: phone=%s level=%s child=%s", parent_phone, level.value, child_name)
+    except Exception:
+        log.exception("Parent SMS dispatch failed: phone=%s level=%s", parent_phone, level.value)
+
+
+@router.post("/children", response_model=ChildRead, status_code=status.HTTP_201_CREATED)
+async def create_child(
+    payload: ChildCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ChildProfile:
+    child = ChildProfile(
+        parent_id=current_user.id,
+        name=payload.name,
+        age=payload.age,
+        age_segment=AgeSegment.from_age(payload.age),
+        language=payload.language,
+    )
+    db.add(child)
+    await db.flush()
+    return child
+
+
+@router.post("", response_model=ChatResponse)
+async def chat_turn(
+    payload: ChatRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    detector: KeywordCrisisDetector = Depends(get_detector),
+) -> ChatResponse:
+    """One chat turn: child message → Layer 1 → Layer 2 → Gemini → persist → respond."""
+    # 1. Verify child belongs to caller
+    child = await db.scalar(
+        select(ChildProfile).where(
+            ChildProfile.id == payload.child_id,
+            ChildProfile.parent_id == current_user.id,
+        )
+    )
+    if child is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Child not found")
+
+    # 2. Resolve or create conversation
+    history: list[tuple[str, str]] = []
+    if payload.conversation_id is None:
+        conv = Conversation(child_id=child.id)
+        db.add(conv)
+        await db.flush()
+    else:
+        conv = await db.scalar(
+            select(Conversation).where(
+                Conversation.id == payload.conversation_id,
+                Conversation.child_id == child.id,
+            )
+        )
+        if conv is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+        # Fetch last N messages (chronological after reverse) for multi-turn context
+        max_msgs = get_settings().conversation_history_max_messages
+        prior = (
+            await db.scalars(
+                select(Message)
+                .where(Message.conversation_id == conv.id)
+                .order_by(Message.created_at.desc())
+                .limit(max_msgs)
+            )
+        ).all()
+        # Chronological order (oldest first) — Gemini expects that
+        history = [
+            ("user" if m.role == MessageRole.CHILD else "model", m.content)
+            for m in reversed(prior)
+        ]
+
+    # 3. Crisis Layer 1 (keyword) — runs synchronously, <100ms
+    l1 = detector.check(payload.message)
+    l1_level = CrisisLevel(l1.level.value)
+
+    # 4. Crisis Layer 2 (Gemini classifier) — sequential for simplicity
+    l2 = await classify(payload.message, l1_level)
+    final_level = l2.level  # already protected from downgrade
+
+    # 5. Persist child message
+    child_msg = Message(
+        conversation_id=conv.id,
+        role=MessageRole.CHILD,
+        content=payload.message,
+        crisis_level=final_level,
+    )
+    db.add(child_msg)
+    await db.flush()
+
+    # 6. Persist crisis events (one per layer that fired) — track for SMS marking
+    crisis_events: list[CrisisEvent] = []
+    if l1.matches:
+        ce1 = CrisisEvent(
+            message_id=child_msg.id,
+            child_id=child.id,
+            level=l1_level,
+            layer=1,
+            matches=[
+                {"keyword": m.keyword, "category": m.category.value, "language": m.language.value}
+                for m in l1.matches
+            ],
+        )
+        db.add(ce1)
+        crisis_events.append(ce1)
+    if l2.confidence > 0:
+        ce2 = CrisisEvent(
+            message_id=child_msg.id,
+            child_id=child.id,
+            level=l2.level,
+            layer=2,
+            matches=[{
+                "confidence": l2.confidence,
+                "reasoning": l2.reasoning,
+                "latency_ms": l2.latency_ms,
+            }],
+        )
+        db.add(ce2)
+        crisis_events.append(ce2)
+
+    # 7. Parent SMS dispatch policy (TZ §9.6 — DO NOT alert abusive parent)
+    l1_categories = {m.category for m in l1.matches}
+    is_abuse_only = bool(l1_categories) and l1_categories.issubset({L1Category.ABUSE_VICTIM})
+
+    should_notify_parent = (
+        final_level == CrisisLevel.RED
+        or (final_level == CrisisLevel.ORANGE and not is_abuse_only)
+    )
+
+    if should_notify_parent:
+        now = datetime.now(timezone.utc)
+        for ce in crisis_events:
+            ce.parent_notified = True
+            ce.parent_notified_at = now
+        background_tasks.add_task(
+            _dispatch_parent_alert,
+            current_user.phone,
+            child.name,
+            final_level,
+        )
+        log.warning(
+            "CRISIS dispatched level=%s child=%s msg=%s phone=%s",
+            final_level.value, child.id, child_msg.id, current_user.phone,
+        )
+    elif final_level in (CrisisLevel.ORANGE, CrisisLevel.RED):
+        # ORANGE + abuse-only: skip parent, log for 3rd-party safety provider routing later
+        log.warning(
+            "CRISIS abuse-only ORANGE — NOT notifying parent (TZ §9.6). child=%s msg=%s",
+            child.id, child_msg.id,
+        )
+
+    # 8. Call Gemini for the reply (with multi-turn history)
+    reply = await gemini_chat(
+        child_message=payload.message,
+        age_segment=child.age_segment,
+        history=history,  # type: ignore[arg-type]
+    )
+
+    # 9. Persist assistant message
+    assistant_msg = Message(
+        conversation_id=conv.id,
+        role=MessageRole.ASSISTANT,
+        content=reply.text,
+        model=reply.model,
+        latency_ms=reply.latency_ms,
+        tokens_in=reply.tokens_in,
+        tokens_out=reply.tokens_out,
+        crisis_level=CrisisLevel.GREEN,
+    )
+    db.add(assistant_msg)
+    conv.message_count = (conv.message_count or 0) + 2
+    await db.flush()
+
+    return ChatResponse(
+        conversation_id=conv.id,
+        message_id=assistant_msg.id,
+        reply=reply.text,
+        crisis_level=final_level,
+        model=reply.model,
+        latency_ms=reply.latency_ms,
+    )

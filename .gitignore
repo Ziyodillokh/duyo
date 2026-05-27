@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Node / React Native
+node_modules/
+*.log
+.expo/
+ios/Pods/
+ios/build/
+android/build/
+android/.gradle/
+android/app/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Env / secrets — CRITICAL: never commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Docker
+.docker-data/
+
+# Confidential business documents — DO NOT commit
+# (Concept v2.1, TZ v1.0, brand brief, internal proposals)
+*.docx
+*.doc
+*.docm
+*.xlsx
+*.xls
+*.pdf
+~$*
+
+# Dev / test artifacts (local only)
+*_validation.json
+tts_samples/
+*.bak
+*.orig
+
+# Backend Python local venv + cache
+duyo-backend/.venv/
+duyo-backend/*.egg-info/
+duyo-backend/.pytest_cache/
+
+# Claude
+.claude/settings.local.json

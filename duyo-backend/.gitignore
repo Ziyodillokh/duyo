@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Env / secrets — CRITICAL: never commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Local validation artifacts (dev only)
+gemini_uzbek_validation.json
+claude_uzbek_validation.json
+tts_samples/
+
+# Docker
+.docker-data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
