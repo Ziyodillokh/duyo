@@ -15,12 +15,15 @@ interface UseMicRecorderResult {
 }
 
 // Backend voice protocol requires 16kHz mono PCM-16
-// (duyo-backend/src/duyo/api/v1/voice.py). bufferSize 1600 → 100ms chunks at
-// 16kHz/16-bit/mono (1600 samples × 2 bytes = 3200 bytes/event).
+// (duyo-backend/src/duyo/api/v1/voice.py). bufferSize must be ≥
+// AudioRecord.getMinBufferSize() on Android — 1600 silently failed the
+// native AudioRecord constructor on Samsung devices and crashed the
+// recording thread. 4096 samples × 2 bytes = 8KB ≈ 256ms chunks, well
+// above min on every modern device while still fast enough for live STT.
 const SAMPLE_RATE = 16_000;
 const CHANNELS = 1 as const;
 const BITS_PER_SAMPLE = 16 as const;
-const BUFFER_SIZE = 1600;
+const BUFFER_SIZE = 4096;
 const ANDROID_AUDIO_SOURCE_VOICE_RECOGNITION = 6;
 
 export function useMicRecorder({
@@ -57,7 +60,10 @@ export function useMicRecorder({
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) return false;
       }
 
-      AudioRecord.init({
+      // init internally constructs the native AudioRecord. Must be awaited
+      // — without await the JS wrapper resolves immediately while `recorder`
+      // is still null, and start() bails out without recording anything.
+      await AudioRecord.init({
         sampleRate: SAMPLE_RATE,
         channels: CHANNELS,
         bitsPerSample: BITS_PER_SAMPLE,

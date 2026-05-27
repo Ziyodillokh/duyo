@@ -19,7 +19,9 @@ declare module '@fugood/react-native-audio-pcm-stream' {
   }
 
   export interface PcmStreamRecorder {
-    init: (options: PcmStreamOptions) => void;
+    // init internally constructs AudioRecord — must be awaited before start,
+    // otherwise the native `recorder` field is still null when start() runs.
+    init: (options: PcmStreamOptions) => Promise<void>;
     start: () => void;
     stop: () => Promise<string>;
     on: (event: 'data', callback: (data: string) => void) => void;
