@@ -2,13 +2,8 @@ import { Stack } from 'expo-router';
 
 export default function MainLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: '#F4F8FF' },
-      }}
-    >
-      <Stack.Screen name="chat" />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen name="voice" />
       <Stack.Screen
         name="crisis"

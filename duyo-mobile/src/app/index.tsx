@@ -15,7 +15,7 @@ export default function SplashScreen() {
       const childState = useChildStore.getState();
 
       if (auth.isAuthenticated && childState.child) {
-        router.replace('/(main)/chat');
+        router.replace('/(main)/(tabs)');
         return;
       }
       if (auth.isAuthenticated) {

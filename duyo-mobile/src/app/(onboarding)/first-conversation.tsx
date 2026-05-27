@@ -43,7 +43,7 @@ export default function FirstConversationScreen() {
     onSuccess: (child) => {
       setChild(child);
       resetOnboarding();
-      router.replace('/(main)/chat');
+      router.replace('/(main)/(tabs)');
     },
     onError: (err) => {
       const detail =
