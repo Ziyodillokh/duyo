@@ -55,9 +55,17 @@ export function usePcmPlayer(
 
   const kick = useCallback(() => {
     const player = playerRef.current;
-    if (!player || playingFlagRef.current) return;
+    if (!player) {
+      console.warn('[pcm] kick skip: no player yet');
+      return;
+    }
+    if (playingFlagRef.current) {
+      console.warn('[pcm] kick skip: still playing');
+      return;
+    }
     const next = queueRef.current.shift();
     if (!next) {
+      console.warn('[pcm] kick skip: queue empty');
       setIsPlaying(false);
       return;
     }
@@ -66,7 +74,9 @@ export function usePcmPlayer(
     try {
       player.replace({ uri: next });
       player.play();
-    } catch {
+      console.warn(`[pcm] play start ${next.slice(-30)}`);
+    } catch (err) {
+      console.warn('[pcm] play failed', err);
       playingFlagRef.current = false;
       setIsPlaying(false);
     }
@@ -122,9 +132,12 @@ export function usePcmPlayer(
   }, []);
 
   const writeBufferedWav = useCallback((): void => {
-    if (bufferBytesRef.current === 0) return;
+    if (bufferBytesRef.current === 0) {
+      return;
+    }
     try {
-      const merged = new Uint8Array(bufferBytesRef.current);
+      const totalBytes = bufferBytesRef.current;
+      const merged = new Uint8Array(totalBytes);
       let offset = 0;
       for (const chunk of bufferRef.current) {
         merged.set(chunk, offset);
@@ -134,17 +147,27 @@ export function usePcmPlayer(
       bufferBytesRef.current = 0;
 
       const wav = buildWavBuffer(merged.buffer, { sampleRate });
+      // Unique name: Date.now() + counter avoids collisions across app
+      // launches (counter resets to 0 each mount, so prior session files
+      // in Paths.cache would otherwise trip File.create()).
       const file = new File(
         Paths.cache,
-        `${TEMP_FILE_PREFIX}${counterRef.current++}.wav`,
+        `${TEMP_FILE_PREFIX}${Date.now()}-${counterRef.current++}.wav`,
       );
+      // File.create() throws if the file already exists — best-effort
+      // delete first so the same filename is never refused.
+      try {
+        file.delete();
+      } catch {
+        // File didn't exist — that's the happy path.
+      }
       file.create();
       file.write(new Uint8Array(wav));
       tempFilesRef.current.add(file);
       queueRef.current.push(file.uri);
       kick();
-    } catch {
-      // Drop the buffered audio; next chunks will resume the stream.
+    } catch (err) {
+      console.warn('[pcm] flush failed', err);
       bufferRef.current = [];
       bufferBytesRef.current = 0;
     }
@@ -162,10 +185,16 @@ export function usePcmPlayer(
       }
 
       if (bufferBytesRef.current >= FLUSH_BYTES) {
+        console.warn(
+          `[pcm] enqueue: hit FLUSH_BYTES (${bufferBytesRef.current}) → flush now`,
+        );
         writeBufferedWav();
       } else {
         idleTimerRef.current = setTimeout(() => {
           idleTimerRef.current = null;
+          console.warn(
+            `[pcm] enqueue: idle ${FLUSH_IDLE_MS}ms elapsed (${bufferBytesRef.current}b) → flush`,
+          );
           writeBufferedWav();
         }, FLUSH_IDLE_MS);
       }

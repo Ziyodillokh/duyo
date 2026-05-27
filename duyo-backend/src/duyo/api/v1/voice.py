@@ -144,10 +144,16 @@ async def voice_ws(
             return
         conv = existing
 
-    # 2. Fetch prior conversation history so the live session can continue
-    #    where the last turn left off instead of starting with "Salom..."
-    #    every time. Mirrors the chat (text) endpoint's behaviour.
-    history: list[tuple[str, str]] = []
+    # 2. Build the live system prompt: base age-segment prompt + (optionally)
+    #    prior conversation embedded as plain text so the model has context.
+    #    Gemini Live realtime audio mode rejects client_content turns mid-
+    #    session (closes WS with 1007), so we cannot stream history as
+    #    structured turns — embedding inside system_instruction is the
+    #    supported path. Also strips the "Salom-alik bilan boshla" line from
+    #    the base prompt so the model doesn't greet on every reconnect.
+    base_prompt = SYSTEM_PROMPTS[child.age_segment]
+    voice_prompt = base_prompt.replace("Salom-alik bilan boshla.", "").strip()
+
     if conversation_id is not None:
         max_msgs = get_settings().conversation_history_max_messages
         prior = (
@@ -158,11 +164,18 @@ async def voice_ws(
                 .limit(max_msgs)
             )
         ).all()
-        history = [
-            ("user" if m.role == MessageRole.CHILD else "model", m.content)
+        history_lines = [
+            f"{'Bola' if m.role == MessageRole.CHILD else 'DUYO'}: {m.content}"
             for m in reversed(prior)
             if m.content
         ]
+        if history_lines:
+            voice_prompt += (
+                "\n\nOldingi suhbat (kontekst uchun):\n"
+                + "\n".join(history_lines)
+                + "\n\nBu suhbatni tabiiy davom ettir. "
+                "Salomlashma — siz allaqachon bola bilan suhbatdasiz."
+            )
 
     # 3. Accept the socket — from here on the client is connected and we
     #    must answer every frame, even on error.
@@ -173,9 +186,14 @@ async def voice_ws(
     full_output_text = ""
     crisis_flagged_to_client: set[CrisisLevel] = set()
 
+    log.warning(
+        "voice_ws start child=%s conv=%s prompt_len=%d history_msgs=%d",
+        child.id, conv.id, len(voice_prompt),
+        len([1 for ln in voice_prompt.splitlines() if ln.startswith(("Bola:", "DUYO:"))]),
+    )
+
     try:
-        async with session_factory(system_prompt=SYSTEM_PROMPTS[child.age_segment]) as voice:
-            await voice.seed_history(history)
+        async with session_factory(system_prompt=voice_prompt) as voice:
             await voice.start_activity()
 
             async def pump_client_to_voice() -> None:
@@ -197,7 +215,9 @@ async def voice_ws(
             async def pump_voice_to_client() -> None:
                 """Forwards Gemini events to the client and feeds the crisis stream."""
                 nonlocal full_output_text
+                event_counts: dict[str, int] = {}
                 async for event in voice.events():
+                    event_counts[event.kind] = event_counts.get(event.kind, 0) + 1
                     if event.kind == "audio":
                         await websocket.send_bytes(event.audio_data)
                     elif event.kind == "input_tr":
@@ -220,6 +240,7 @@ async def voice_ws(
                             {"type": "output_transcript", "text": event.text}
                         )
                     # gen_complete / turn_complete close the iterator — no client emit.
+                log.warning("voice_ws gemini events conv=%s counts=%s", conv.id, event_counts)
 
             await asyncio.gather(pump_client_to_voice(), pump_voice_to_client())
     except Exception:
