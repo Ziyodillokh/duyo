@@ -146,6 +146,27 @@ class GeminiVoiceSession:
     def _elapsed_ms(self) -> int:
         return int((time.perf_counter() - self._start) * 1000)
 
+    async def seed_history(self, history: list[tuple[str, str]]) -> None:
+        """Prime the live session with prior conversation turns.
+
+        Each tuple is ``(role, text)`` where role is ``"user"`` (child) or
+        ``"model"`` (DUYO). Sent as ``client_content`` with
+        ``turn_complete=False`` so it is treated as context rather than a
+        prompt — the model will not respond until the live mic ends.
+        Without this, every voice turn starts the conversation from scratch
+        and DUYO greets the child again.
+        """
+        if not history:
+            return
+        turns = [
+            types.Content(role=role, parts=[types.Part(text=text)])
+            for role, text in history
+            if text
+        ]
+        if not turns:
+            return
+        await self._session.send_client_content(turns=turns, turn_complete=False)
+
     async def start_activity(self) -> None:
         """Manual VAD: signal the start of one continuous user utterance."""
         await self._session.send_realtime_input(activity_start=types.ActivityStart())

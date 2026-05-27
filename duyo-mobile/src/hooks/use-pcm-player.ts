@@ -16,9 +16,11 @@ import { buildWavBuffer } from '@/lib/wav';
 
 const DEFAULT_SAMPLE_RATE = 24_000;
 const TEMP_FILE_PREFIX = 'duyo-tts-';
-// Buffer ~1.5s of audio per WAV file to minimise inter-file gaps.
-// At 24kHz mono PCM-16, 1.5s = 24000 × 1.5 × 2 = 72_000 bytes.
-const FLUSH_BYTES = 72_000;
+// Buffer ~3s of audio per WAV file to minimise inter-file gaps.
+// At 24kHz mono PCM-16, 3s = 24000 × 3 × 2 = 144_000 bytes.
+// Trades 1.5s of extra initial latency for noticeably fewer audible
+// boundary clicks during long DUYO replies.
+const FLUSH_BYTES = 144_000;
 // Force-flush after this idle gap so the tail of a turn doesn't sit in the
 // buffer waiting for more bytes that never come.
 const FLUSH_IDLE_MS = 250;

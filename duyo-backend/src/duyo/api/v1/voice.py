@@ -42,6 +42,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_db
+from duyo.core.config import get_settings
 from duyo.core.security import decode_token
 from duyo.crisis.detector import CrisisCategory as L1Category
 from duyo.crisis.stream import StreamCrisisDetector
@@ -143,7 +144,27 @@ async def voice_ws(
             return
         conv = existing
 
-    # 2. Accept the socket — from here on the client is connected and we
+    # 2. Fetch prior conversation history so the live session can continue
+    #    where the last turn left off instead of starting with "Salom..."
+    #    every time. Mirrors the chat (text) endpoint's behaviour.
+    history: list[tuple[str, str]] = []
+    if conversation_id is not None:
+        max_msgs = get_settings().conversation_history_max_messages
+        prior = (
+            await db.scalars(
+                select(Message)
+                .where(Message.conversation_id == conv.id)
+                .order_by(Message.created_at.desc())
+                .limit(max_msgs)
+            )
+        ).all()
+        history = [
+            ("user" if m.role == MessageRole.CHILD else "model", m.content)
+            for m in reversed(prior)
+            if m.content
+        ]
+
+    # 3. Accept the socket — from here on the client is connected and we
     #    must answer every frame, even on error.
     await websocket.accept()
     await websocket.send_json({"type": "ready", "conversation_id": str(conv.id)})
@@ -154,6 +175,7 @@ async def voice_ws(
 
     try:
         async with session_factory(system_prompt=SYSTEM_PROMPTS[child.age_segment]) as voice:
+            await voice.seed_history(history)
             await voice.start_activity()
 
             async def pump_client_to_voice() -> None:
