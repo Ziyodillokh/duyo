@@ -5,6 +5,7 @@ export default function MainLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="voice" />
+      <Stack.Screen name="settings" />
       <Stack.Screen
         name="crisis"
         options={{
