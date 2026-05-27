@@ -1,24 +1,22 @@
 {
   "expo": {
-    "name": "duyo-mobile",
+    "name": "DUYO",
     "slug": "duyo-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/duyo-icon.png",
     "scheme": "duyomobile",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/duyo-icon.png",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "DUYO sizdan tovush yozish uchun mikrofonga ruxsat so'raydi. Tovush faqat AI suhbat uchun ishlatiladi."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#2563EB",
+        "foregroundImage": "./assets/images/duyo-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -28,18 +26,16 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/duyo-icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
+          "backgroundColor": "#2563EB",
+          "image": "./assets/images/duyo-icon.png",
+          "imageWidth": 280
         }
       ],
       "expo-secure-store",
