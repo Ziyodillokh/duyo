@@ -1,119 +1,56 @@
-# DUYO Mobile
+# Welcome to your Expo app 👋
 
-React Native (iOS + Android) mobile app for DUYO AI Companion.
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Hozir nima qilingan
+## Get started
 
-Faqat skeleton va struktura tavsiyasi. **Haqiqiy React Native loyiha hali init qilinmagan** — chunki RN CLI to'liq generatsiya yaratadi va uni faqat sizning machine'ingizda qilish optimal.
+1. Install dependencies
 
-## Init qilish (siz qilishingiz kerak)
+   ```bash
+   npm install
+   ```
 
-```bash
-cd /Users/raxmonjon/DUYO/duyo-mobile
+2. Start the app
 
-# React Native v0.74+ project init (Expo emas, bare RN)
-npx @react-native-community/cli@latest init DuyoApp \
-  --template react-native-template-typescript \
-  --directory .
+   ```bash
+   npx expo start
+   ```
 
-# Yoki Expo bilan (oddiyroq, lekin native module'larda chegaralar)
-# npx create-expo-app . --template blank-typescript
-```
+In the output, you'll find options to open the app in a
 
-## Tavsiya etilgan struktura (TZ §7.1)
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-Init qilingandan keyin `src/` papka ichida:
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-```
-src/
-├── api/              # API client (axios + react-query)
-│   ├── client.ts
-│   └── endpoints/
-├── assets/           # Images, fonts, animations (Lottie JSON)
-├── components/
-│   ├── atoms/        # Button, Input, Text, Icon
-│   ├── molecules/    # Card, ListItem, FormField
-│   └── organisms/    # ChatBubble, AvatarViewer, TamagochiStateBar
-├── screens/
-│   ├── onboarding/   # 8 ekran (TZ §4.2)
-│   ├── chat/         # Real-time suhbat
-│   ├── avatar/       # 3D customization
-│   ├── content/      # She'r, ertak katalog
-│   ├── gamification/ # Level, inventory, achievements
-│   └── settings/
-├── navigation/       # React Navigation v6 config
-├── store/            # Zustand stores (auth, avatar, tamagochi, chat)
-├── hooks/            # Custom React hooks
-├── utils/            # Helpers, validators, formatters
-├── services/         # Auth, push (FCM), analytics, voice
-├── locales/          # i18next bundles: uz, ru, en
-└── types/            # TypeScript shared types
-```
+## Get a fresh project
 
-## Asosiy bog'liqliklar (TZ §3.2)
+When you're ready, run:
 
 ```bash
-# State & data
-npm install zustand @tanstack/react-query axios
-
-# Navigation
-npm install @react-navigation/native @react-navigation/native-stack \
-            react-native-screens react-native-safe-area-context
-
-# 3D Avatar (TZ §7.3)
-npm install three @react-three/fiber @react-three/drei
-
-# Animations
-npm install react-native-reanimated lottie-react-native
-
-# Storage (encrypted)
-npm install react-native-mmkv
-
-# i18n
-npm install i18next react-i18next
-
-# Audio
-npm install react-native-track-player
-
-# Voice (STT/TTS)
-npm install @react-native-voice/voice
-
-# WebSocket
-npm install socket.io-client
+npm run reset-project
 ```
 
-## Build & test
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-```bash
-# iOS (CocoaPods kerak)
-cd ios && pod install && cd ..
-npm run ios
+### Other setup steps
 
-# Android
-npm run android
+- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
+- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
+- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
 
-# Tests
-npm test                # Jest unit tests
-npm run e2e:ios         # Detox E2E
-```
+## Learn more
 
-## Performance maqsadlari (TZ §13.1)
+To learn more about developing your project with Expo, look at the following resources:
 
-- App startup: < 3 sek (Splash → Home)
-- Avatar rendering: 60 fps (16ms frame budget)
-- Chat scripted response: < 150ms P95
-- App memory: < 200 MB
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-## Birinchi ekran (Sprint 1-2 priority)
+## Join the community
 
-1. **Splash** (1 sek logo)
-2. **Onboarding 8-step flow** — bu MVP'ning eng katta birinchi qismi
-3. **Avatar customization** — 3D React Three Fiber
-4. **Home screen** — DUYO avatari markazda
-5. **Chat** — WebSocket + AI response
+Join our community of developers creating universal apps.
 
-## Hujjatlar
-
-- [TZ §7 Mobile spec](../duyo-docs/) — to'liq frontend talablar
-- [TZ §4.2 Onboarding flow](../duyo-docs/) — 8 ekran ketma-ketligi
-- [TZ §7.3 3D Avatar](../duyo-docs/) — implementation detallari
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
