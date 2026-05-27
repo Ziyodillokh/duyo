@@ -43,13 +43,7 @@
         }
       ],
       "expo-secure-store",
-      [
-        "@siteed/expo-audio-studio",
-        {
-          "iosBackgroundModes": false,
-          "androidForegroundService": false
-        }
-      ]
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

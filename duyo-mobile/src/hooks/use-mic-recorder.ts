@@ -2,7 +2,7 @@ import {
   ExpoAudioStreamModule,
   useAudioRecorder,
 } from '@siteed/expo-audio-studio';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 interface UseMicRecorderOptions {
   onChunk: (pcm: ArrayBuffer) => void;
@@ -63,6 +63,20 @@ export function useMicRecorder({
       onError?.(err as Error);
     }
   }, [recorder, onError]);
+
+  // Best-effort cleanup so a forgotten recorder never keeps the mic hot
+  // after the screen unmounts.
+  const recorderRef = useRef(recorder);
+  recorderRef.current = recorder;
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current.isRecording) {
+        void recorderRef.current.stopRecording().catch(() => {
+          // Ignore — module already torn down.
+        });
+      }
+    };
+  }, []);
 
   return {
     start,
