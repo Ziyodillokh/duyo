@@ -59,6 +59,10 @@ export default function VoiceScreen() {
   const playerRef = useRef(player);
   playerRef.current = player;
 
+  // Crisis level captured during a turn — navigated to on turn_complete so
+  // we don't interrupt the assistant mid-reply.
+  const pendingCrisisRef = useRef<'orange' | 'red' | null>(null);
+
   const voice = useVoiceSession({
     onReady: (conversationId) => {
       setStoreConversationId(conversationId);
@@ -71,9 +75,20 @@ export default function VoiceScreen() {
       if (phaseRef.current !== 'responding') setPhase('responding');
       playerRef.current.enqueueChunk(pcm);
     },
-    onCrisis: (level) => setCrisisLevel(level),
+    onCrisis: (level) => {
+      setCrisisLevel(level);
+      pendingCrisisRef.current = level;
+    },
     onTurnComplete: () => {
       setPhase('idle');
+      const pending = pendingCrisisRef.current;
+      if (pending) {
+        pendingCrisisRef.current = null;
+        router.push({
+          pathname: '/(main)/crisis',
+          params: { level: pending },
+        });
+      }
     },
     onError: (message) => {
       setErrorMessage(message);

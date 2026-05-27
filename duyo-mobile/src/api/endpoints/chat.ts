@@ -7,6 +7,15 @@ export interface ChatRequest {
   conversation_id?: string;
 }
 
+interface ChatResponseWire {
+  conversation_id: string;
+  message_id: string;
+  reply: string;
+  crisis_level: string; // Backend serialises CrisisLevel enum as UPPERCASE.
+  model: string;
+  latency_ms: number;
+}
+
 export interface ChatResponse {
   conversation_id: string;
   message_id: string;
@@ -16,9 +25,22 @@ export interface ChatResponse {
   latency_ms: number;
 }
 
+function normalizeLevel(raw: string): CrisisLevel {
+  const lowered = raw.toLowerCase();
+  if (
+    lowered === 'green' ||
+    lowered === 'yellow' ||
+    lowered === 'orange' ||
+    lowered === 'red'
+  ) {
+    return lowered;
+  }
+  return 'green';
+}
+
 export async function sendChatMessage(
   request: ChatRequest,
 ): Promise<ChatResponse> {
-  const { data } = await apiClient.post<ChatResponse>('/chat', request);
-  return data;
+  const { data } = await apiClient.post<ChatResponseWire>('/chat', request);
+  return { ...data, crisis_level: normalizeLevel(data.crisis_level) };
 }

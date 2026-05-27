@@ -94,6 +94,12 @@ export default function ChatScreen() {
         timestamp: Date.now(),
         crisisLevel: response.crisis_level,
       });
+      if (response.crisis_level !== 'green') {
+        router.push({
+          pathname: '/(main)/crisis',
+          params: { level: response.crisis_level },
+        });
+      }
     },
     onError: (err) => {
       const detail =
