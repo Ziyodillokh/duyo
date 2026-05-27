@@ -11,7 +11,7 @@ import { OtpInput } from '@/components/otp-input';
 import { useAuthStore } from '@/store/auth';
 
 const PHONE_PREFIX = '+998';
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 4;
 
 interface JwtClaims {
   sub: string;
