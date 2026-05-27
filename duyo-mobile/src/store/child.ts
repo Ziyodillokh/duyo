@@ -1,30 +1,30 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { type Language } from '@/api/types';
+import { type ChildProfile } from '@/api/types';
 import { asyncStorage } from '@/lib/async-storage';
 
-export type { Language };
-
-interface LanguageState {
-  language: Language;
+interface ChildState {
+  child: ChildProfile | null;
   hydrated: boolean;
-  setLanguage: (language: Language) => void;
+  setChild: (child: ChildProfile) => void;
+  clearChild: () => void;
   setHydrated: (hydrated: boolean) => void;
 }
 
-export const useLanguageStore = create<LanguageState>()(
+export const useChildStore = create<ChildState>()(
   persist(
     (set) => ({
-      language: 'uz',
+      child: null,
       hydrated: false,
-      setLanguage: (language) => set({ language }),
+      setChild: (child) => set({ child }),
+      clearChild: () => set({ child: null }),
       setHydrated: (hydrated) => set({ hydrated }),
     }),
     {
-      name: 'duyo-language',
+      name: 'duyo-child',
       storage: createJSONStorage(() => asyncStorage),
-      partialize: (state) => ({ language: state.language }),
+      partialize: (state) => ({ child: state.child }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
