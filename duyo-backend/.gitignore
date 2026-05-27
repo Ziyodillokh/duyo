@@ -25,6 +25,7 @@ secrets/
 gemini_uzbek_validation.json
 claude_uzbek_validation.json
 tts_samples/
+live_poc_out/
 
 # Docker
 .docker-data/

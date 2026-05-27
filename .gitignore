@@ -54,6 +54,7 @@ secrets/
 # Dev / test artifacts (local only)
 *_validation.json
 tts_samples/
+live_poc_out/
 *.bak
 *.orig
 
