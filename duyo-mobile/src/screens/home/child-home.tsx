@@ -33,7 +33,8 @@ interface ChildActionCard {
   href:
     | '/(main)/(tabs)/chat'
     | '/(main)/(tabs)/library'
-    | '/(main)/(tabs)/inventory';
+    | '/(main)/(tabs)/inventory'
+    | '/(main)/lesson-help';
 }
 
 const ACTION_CARDS: ReadonlyArray<ChildActionCard> = [
@@ -56,7 +57,7 @@ const ACTION_CARDS: ReadonlyArray<ChildActionCard> = [
     Icon: PenLine,
     label: 'Dars yordami',
     iconColor: '#05DF72',
-    href: '/(main)/(tabs)/library',
+    href: '/(main)/lesson-help',
   },
   {
     key: 'inventory',

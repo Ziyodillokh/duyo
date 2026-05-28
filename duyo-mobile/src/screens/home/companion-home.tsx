@@ -298,7 +298,7 @@ export function CompanionHome() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push('/(main)/(tabs)/library')}
+              onPress={() => router.push('/(main)/dtm')}
               accessibilityRole="button"
               accessibilityLabel="DTM mashqlari"
               className="flex-1 bg-dark-surface rounded-xl border active:opacity-80"
