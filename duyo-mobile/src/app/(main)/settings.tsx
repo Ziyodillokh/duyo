@@ -145,7 +145,7 @@ export default function SettingsScreen() {
               }
               showChevron
               isLast
-              onPress={() => Alert.alert('Tez orada', 'Ota-ona ulanishi Faza 2 scope')}
+              onPress={() => router.push('/(main)/parent-connection')}
             />
           </SettingsSection>
 
@@ -156,7 +156,7 @@ export default function SettingsScreen() {
               trailing={<Text className="text-sm text-dark-muted">Do'st</Text>}
               showChevron
               isLast
-              onPress={() => Alert.alert('Tez orada', "Click/Payme integratsiyasi Faza 1 oxirida")}
+              onPress={() => router.push('/(main)/subscription')}
             />
           </SettingsSection>
 

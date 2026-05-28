@@ -14,6 +14,10 @@ export default function MainLayout() {
       <Stack.Screen name="library-item" />
       <Stack.Screen name="dtm" />
       <Stack.Screen name="lesson-help" />
+      <Stack.Screen name="parent-connection" />
+      <Stack.Screen name="parent-dashboard" />
+      <Stack.Screen name="subscription" />
+      <Stack.Screen name="payment" />
       <Stack.Screen
         name="crisis"
         options={{

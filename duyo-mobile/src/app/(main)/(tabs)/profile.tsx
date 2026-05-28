@@ -161,7 +161,7 @@ export default function ProfileScreen() {
           </DarkCard>
 
           <Pressable
-            onPress={() => router.push('/(main)/settings')}
+            onPress={() => router.push('/(main)/subscription')}
             accessibilityRole="button"
             accessibilityLabel="Premium'ga o'tish"
             className="bg-gradient-to-r rounded-xl overflow-hidden"
