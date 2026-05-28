@@ -22,6 +22,7 @@ import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useLanguageStore } from '@/store/language';
 import { useThemeStore } from '@/store/theme';
+import { useIsDark } from '@/store/theme';
 
 const LANGUAGE_LABELS = {
   uz: "O'zbek",
@@ -30,6 +31,7 @@ const LANGUAGE_LABELS = {
 } as const;
 
 export default function SettingsScreen() {
+  const isDark = useIsDark();
   const language = useLanguageStore((s) => s.language);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const clearChild = useChildStore((s) => s.clearChild);
@@ -60,7 +62,7 @@ export default function SettingsScreen() {
         end={{ x: 0.95, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.15)', 'rgba(252, 211, 77, 0.10)']}
         start={{ x: 0, y: 0 }}
@@ -76,7 +78,7 @@ export default function SettingsScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-2xl font-bold text-foreground dark:text-dark-text">Sozlamalar</Text>
         </View>
@@ -105,7 +107,7 @@ export default function SettingsScreen() {
                   value={themeMode === 'dark'}
                   onValueChange={toggleTheme}
                   trackColor={{ false: '#334155', true: '#60A5FA' }}
-                  thumbColor="#0A1628"
+                  thumbColor={isDark ? "#0A1628" : "#FFFFFF"}
                 />
               }
             />
@@ -117,7 +119,7 @@ export default function SettingsScreen() {
                   value={notifications}
                   onValueChange={setNotifications}
                   trackColor={{ false: '#334155', true: '#60A5FA' }}
-                  thumbColor="#0A1628"
+                  thumbColor={isDark ? "#0A1628" : "#FFFFFF"}
                 />
               }
             />

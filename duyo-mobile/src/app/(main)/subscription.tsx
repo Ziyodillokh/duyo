@@ -1,3 +1,4 @@
+import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, Check, Crown, X } from 'lucide-react-native';
@@ -61,6 +62,7 @@ const TIERS: ReadonlyArray<PricingTier> = [
 ];
 
 export default function SubscriptionScreen() {
+  const isDark = useIsDark();
   const [selected, setSelected] = useState<string>('friend');
 
   const selectedTier = TIERS.find((t) => t.key === selected);
@@ -78,7 +80,7 @@ export default function SubscriptionScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(252, 211, 77, 0.20)', 'rgba(96, 165, 250, 0.20)']}
         start={{ x: 0, y: 0 }}
@@ -94,7 +96,7 @@ export default function SubscriptionScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">
             DUYO Premium

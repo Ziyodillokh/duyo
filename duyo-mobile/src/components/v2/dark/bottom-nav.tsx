@@ -39,7 +39,7 @@ const LIGHT_INACTIVE = '#64748B';
 export function BottomNav({ active, onSelect }: BottomNavProps) {
   const isDark = useIsDark();
   const bgClass = isDark
-    ? 'bg-dark-surface border-t border-neon-blue/20'
+    ? 'bg-card dark:bg-dark-surface border-t border-neon-blue/20'
     : 'bg-white border-t border-primary/10';
   const activeColor = isDark ? DARK_ACTIVE : LIGHT_ACTIVE;
   const inactiveColor = isDark ? DARK_INACTIVE : LIGHT_INACTIVE;

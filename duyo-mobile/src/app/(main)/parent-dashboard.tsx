@@ -14,6 +14,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useIsDark } from '@/store/theme';
 
 // Static mock — Faza 2 brings real parent dashboard data
 const MOCK_CHILD = {
@@ -39,9 +40,10 @@ const MOCK_MOOD: ReadonlyArray<{ day: string; value: number }> = [
 const MOCK_ALERTS = 1;
 
 export default function ParentDashboardScreen() {
+  const isDark = useIsDark();
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
         start={{ x: 0, y: 0 }}
@@ -57,7 +59,7 @@ export default function ParentDashboardScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">
             Ota-ona paneli
@@ -70,7 +72,7 @@ export default function ParentDashboardScreen() {
         >
           <View
             className="rounded-xl border border-neon-blue/20"
-            style={{ padding: 20, backgroundColor: '#132340' }}
+            style={{ padding: 20, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
           >
             <View className="flex-row items-center gap-4">
               <View style={{ width: 72, height: 72 }}>
@@ -125,7 +127,7 @@ export default function ParentDashboardScreen() {
           <View className="flex-row gap-3">
             <View
               className="flex-1 rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: '#132340' }}
+              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
             >
               <Activity size={18} color="#60A5FA" />
               <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
@@ -135,7 +137,7 @@ export default function ParentDashboardScreen() {
             </View>
             <View
               className="flex-1 rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: '#132340' }}
+              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
             >
               <Clock size={18} color="#FDC700" />
               <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
@@ -145,7 +147,7 @@ export default function ParentDashboardScreen() {
             </View>
             <View
               className="flex-1 rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: '#132340' }}
+              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
             >
               <TrendingUp size={18} color="#05DF72" />
               <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
@@ -157,7 +159,7 @@ export default function ParentDashboardScreen() {
 
           <View
             className="rounded-xl border border-neon-blue/20"
-            style={{ padding: 20, backgroundColor: '#132340' }}
+            style={{ padding: 20, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
           >
             <View className="flex-row items-center gap-2 mb-4">
               <Heart size={18} color="#FB64B6" />
@@ -187,7 +189,7 @@ export default function ParentDashboardScreen() {
             accessibilityRole="button"
             accessibilityLabel="Suhbat tahlili"
             className="rounded-xl border border-neon-blue/20 active:opacity-80"
-            style={{ padding: 16, backgroundColor: '#132340' }}
+            style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
           >
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3 flex-1">
@@ -214,7 +216,7 @@ export default function ParentDashboardScreen() {
             accessibilityRole="button"
             accessibilityLabel="Ozod vaqt"
             className="rounded-xl border border-neon-blue/20 active:opacity-80"
-            style={{ padding: 16, backgroundColor: '#132340' }}
+            style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
           >
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3 flex-1">

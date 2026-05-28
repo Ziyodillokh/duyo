@@ -1,3 +1,4 @@
+import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CheckCircle2, CreditCard } from 'lucide-react-native';
@@ -51,6 +52,7 @@ const TIER_PRICE: Record<string, { name: string; price: number }> = {
 };
 
 export default function PaymentScreen() {
+  const isDark = useIsDark();
   const params = useLocalSearchParams<{ tier?: string }>();
   const tier = TIER_PRICE[params.tier ?? 'premium'] ?? TIER_PRICE.premium;
   const [method, setMethod] = useState<PaymentMethod>('click');
@@ -72,7 +74,7 @@ export default function PaymentScreen() {
     return (
       <View style={StyleSheet.absoluteFill}>
         <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]}
         />
         <LinearGradient
           colors={['rgba(5, 223, 114, 0.20)', 'rgba(96, 165, 250, 0.10)']}
@@ -121,7 +123,7 @@ export default function PaymentScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
         start={{ x: 0, y: 0 }}
@@ -137,7 +139,7 @@ export default function PaymentScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">To'lov</Text>
         </View>
@@ -151,7 +153,7 @@ export default function PaymentScreen() {
           >
             <View
               className="rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: '#132340' }}
+              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
             >
               <Text className="text-sm text-muted-foreground dark:text-dark-muted">Tanlangan reja</Text>
               <View className="flex-row items-center justify-between mt-2">
@@ -209,7 +211,7 @@ export default function PaymentScreen() {
             {method === 'card' && (
               <View
                 className="rounded-xl border border-neon-blue/20"
-                style={{ padding: 16, backgroundColor: '#132340', gap: 12 }}
+                style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF', gap: 12 }}
               >
                 <View>
                   <Text className="text-sm font-medium text-foreground dark:text-dark-text mb-2">

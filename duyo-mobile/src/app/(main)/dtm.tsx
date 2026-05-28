@@ -1,3 +1,4 @@
+import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
@@ -17,6 +18,7 @@ type Stage = 'subject-select' | 'quiz' | 'result';
 const FULL_SCREEN_BG = '#0A1628';
 
 export default function DTMScreen() {
+  const isDark = useIsDark();
   const [stage, setStage] = useState<Stage>('subject-select');
   const [subject, setSubject] = useState<DTMSubject | null>(null);
   const [qIndex, setQIndex] = useState(0);
@@ -91,7 +93,7 @@ export default function DTMScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">DTM mashq</Text>
         </View>

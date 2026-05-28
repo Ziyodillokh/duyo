@@ -1,3 +1,4 @@
+import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, BookOpen, Clock, Heart, Share2 } from 'lucide-react-native';
@@ -23,13 +24,14 @@ const MOCK_CONTENT: Record<string, string> = {
 };
 
 export default function LibraryItemScreen() {
+  const isDark = useIsDark();
   const params = useLocalSearchParams<{ id: string }>();
   const item = LIBRARY_ITEMS.find((i) => i.id === params.id);
   const [liked, setLiked] = useState(false);
 
   if (!item) {
     return (
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]}>
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <View className="flex-1 items-center justify-center px-6 gap-3">
             <Text className="text-5xl">🔍</Text>
@@ -57,7 +59,7 @@ export default function LibraryItemScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
         start={{ x: 0, y: 0 }}
@@ -73,7 +75,7 @@ export default function LibraryItemScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <View className="flex-row gap-2">
             <Pressable

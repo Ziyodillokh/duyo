@@ -42,9 +42,7 @@ export function DarkCard({
       : `border-[3px] ${GLOW_BORDER[glow]}`;
 
   return (
-    <View
-      className={`${bgClass} rounded-xl p-6 ${borderClass} ${className}`}
-    >
+    <View className={`${bgClass} rounded-xl p-6 ${borderClass} ${className}`}>
       {children}
     </View>
   );

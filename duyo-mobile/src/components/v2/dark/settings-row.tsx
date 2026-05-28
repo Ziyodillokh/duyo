@@ -2,6 +2,8 @@ import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { useIsDark } from '@/store/theme';
+
 interface SettingsRowProps {
   Icon: LucideIcon;
   label: string;
@@ -12,9 +14,6 @@ interface SettingsRowProps {
   accessibilityLabel?: string;
 }
 
-const ICON_COLOR = '#94A3B8';
-const CHEVRON_COLOR = '#94A3B8';
-
 export function SettingsRow({
   Icon,
   label,
@@ -24,19 +23,25 @@ export function SettingsRow({
   isLast = false,
   accessibilityLabel,
 }: SettingsRowProps) {
+  const isDark = useIsDark();
+  const iconColor = isDark ? '#94A3B8' : '#64748B';
+  const chevronColor = iconColor;
+  const dividerClass = isDark ? 'border-neon-blue/20' : 'border-primary/10';
+  const labelClass = isDark ? 'text-dark-text' : 'text-foreground';
+
   const content = (
     <View
       className={`flex-row items-center justify-between px-4 py-4 ${
-        isLast ? '' : 'border-b border-neon-blue/20'
+        isLast ? '' : `border-b ${dividerClass}`
       }`}
     >
       <View className="flex-row items-center gap-3 flex-1">
-        <Icon size={20} color={ICON_COLOR} />
-        <Text className="text-base font-medium text-dark-text">{label}</Text>
+        <Icon size={20} color={iconColor} />
+        <Text className={`text-base font-medium ${labelClass}`}>{label}</Text>
       </View>
       <View className="flex-row items-center gap-2">
         {trailing}
-        {showChevron && <ChevronRight size={20} color={CHEVRON_COLOR} />}
+        {showChevron && <ChevronRight size={20} color={chevronColor} />}
       </View>
     </View>
   );

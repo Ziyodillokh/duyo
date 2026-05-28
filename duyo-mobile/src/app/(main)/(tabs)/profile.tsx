@@ -8,6 +8,7 @@ import { DarkCard } from '@/components/v2/dark/dark-card';
 import { ProgressBar } from '@/components/v2/dark/progress-bar';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { useChildStore } from '@/store/child';
+import { useIsDark } from '@/store/theme';
 
 // Static mock per Bosqich B beta (gamification backend = Faza 1)
 const MOCK_LEVEL_NAME = "Do'st";
@@ -34,13 +35,14 @@ const RECENT_REWARDS = [
 ] as const;
 
 export default function ProfileScreen() {
+  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const childName = child?.name ?? 'Foydalanuvchi';
   const childAge = child?.age;
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
         start={{ x: 0, y: 0 }}

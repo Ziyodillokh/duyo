@@ -1,3 +1,4 @@
+import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Clock, Search } from 'lucide-react-native';
@@ -101,6 +102,7 @@ function LibraryCard({ item, onPress }: LibraryCardProps) {
 }
 
 export default function LibraryScreen() {
+  const isDark = useIsDark();
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] =
     useState<LibraryCategory | null>(null);
@@ -119,7 +121,7 @@ export default function LibraryScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
         start={{ x: 0, y: 0 }}

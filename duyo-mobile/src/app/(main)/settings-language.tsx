@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type Language, useLanguageStore } from '@/store/language';
+import { useIsDark } from '@/store/theme';
 
 interface LanguageOption {
   code: Language;
@@ -26,6 +27,7 @@ const OPTIONS: ReadonlyArray<LanguageOption> = [
 ];
 
 export default function LanguageSettingsScreen() {
+  const isDark = useIsDark();
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
 
@@ -35,7 +37,7 @@ export default function LanguageSettingsScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
         start={{ x: 0, y: 0 }}
@@ -51,7 +53,7 @@ export default function LanguageSettingsScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">Til</Text>
         </View>

@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DTM_SUBJECTS, type DTMSubject } from '@/mocks/dtm';
+import { useIsDark } from '@/store/theme';
 
 type Stage = 'input' | 'solving' | 'result';
 
@@ -48,6 +49,7 @@ const MOCK_SOLUTION_STEPS: ReadonlyArray<MockSolutionStep> = [
 const MOCK_FINAL_ANSWER = 'x = 4';
 
 export default function LessonHelpScreen() {
+  const isDark = useIsDark();
   const [stage, setStage] = useState<Stage>('input');
   const [subject, setSubject] = useState<DTMSubject>('math');
   const [question, setQuestion] = useState('');
@@ -62,7 +64,7 @@ export default function LessonHelpScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.15)', 'rgba(252, 211, 77, 0.10)']}
         start={{ x: 0, y: 0 }}
@@ -81,7 +83,7 @@ export default function LessonHelpScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">Dars yordami</Text>
         </View>

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useIsDark } from '@/store/theme';
 
 type TabKey = 'body' | 'color' | 'accent' | 'face';
 
@@ -66,6 +67,7 @@ const DEFAULTS: Record<TabKey, string> = {
 };
 
 export default function AvatarCustomizationScreen() {
+  const isDark = useIsDark();
   const [activeTab, setActiveTab] = useState<TabKey>('body');
   const [config, setConfig] = useState<Record<TabKey, string>>({ ...DEFAULTS });
 
@@ -84,7 +86,7 @@ export default function AvatarCustomizationScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
         start={{ x: 0, y: 0 }}
@@ -100,7 +102,7 @@ export default function AvatarCustomizationScreen() {
             accessibilityLabel="Orqaga"
             className="w-10 h-10 items-center justify-center"
           >
-            <ArrowLeft size={20} color="#E0E7FF" />
+            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">
             Avatar sozlash

@@ -23,7 +23,7 @@ export function SuggestedReplies({ onSelect }: SuggestedRepliesProps) {
           accessibilityRole="button"
           className="px-4 py-2 rounded-md border border-neon-blue/20 active:opacity-70"
         >
-          <Text className="text-sm font-medium text-dark-text">{reply}</Text>
+          <Text className="text-sm font-medium text-foreground dark:text-dark-text">{reply}</Text>
         </Pressable>
       ))}
     </View>

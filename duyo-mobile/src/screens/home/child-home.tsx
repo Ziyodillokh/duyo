@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
 import { useChildStore } from '@/store/child';
+import { useIsDark } from '@/store/theme';
 
 // Strict Figma fidelity — Figma node 9:21565 (ChildHome, Explorer age 11-13)
 // Background: linear-gradient(104deg, rgba(96,165,250,0.20), rgba(252,211,77,0.20))
@@ -70,10 +71,11 @@ const ACTION_CARDS: ReadonlyArray<ChildActionCard> = [
 
 export function ChildHome() {
   const childName = useChildStore((s) => s.child?.name ?? 'Foydalanuvchi');
+  const isDark = useIsDark();
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
         start={{ x: 0, y: 0 }}

@@ -1,3 +1,4 @@
+import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Coins, Plus, Sparkles } from 'lucide-react-native';
@@ -120,6 +121,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
 }
 
 export default function InventoryScreen() {
+  const isDark = useIsDark();
   const [selectedCategory, setSelectedCategory] =
     useState<InventoryCategory | null>(null);
   const items = useMemo(
@@ -143,7 +145,7 @@ export default function InventoryScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1628' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
         colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
         start={{ x: 0, y: 0 }}
@@ -197,7 +199,7 @@ export default function InventoryScreen() {
                   className="rounded-md flex-row items-center gap-1 active:opacity-80"
                   style={{ paddingHorizontal: 12, paddingVertical: 8 }}
                 >
-                  <Plus size={16} color="#E0E7FF" />
+                  <Plus size={16} color={isDark ? '#E0E7FF' : '#102033'} />
                   <Text className="text-sm font-medium text-foreground dark:text-dark-text">
                     Ball olish
                   </Text>
