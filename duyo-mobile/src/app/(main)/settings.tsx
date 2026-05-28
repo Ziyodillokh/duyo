@@ -93,7 +93,7 @@ export default function SettingsScreen() {
                 </Text>
               }
               showChevron
-              onPress={() => router.push('/(onboarding)/language')}
+              onPress={() => router.push('/(main)/settings-language')}
             />
             <SettingsRow
               Icon={Moon}
@@ -124,7 +124,7 @@ export default function SettingsScreen() {
               label="Ovoz sozlamalari"
               showChevron
               isLast
-              onPress={() => Alert.alert('Tez orada', "Ovoz sozlamalari Bosqich C'da qo'shiladi")}
+              onPress={() => router.push('/(main)/settings-voice')}
             />
           </SettingsSection>
 
@@ -133,7 +133,7 @@ export default function SettingsScreen() {
               Icon={Shield}
               label="Maxfiylik"
               showChevron
-              onPress={() => Alert.alert('Tez orada', "Maxfiylik sozlamalari Bosqich C'da qo'shiladi")}
+              onPress={() => router.push('/(main)/settings-privacy')}
             />
             <SettingsRow
               Icon={Users}
@@ -166,7 +166,7 @@ export default function SettingsScreen() {
               label="Yordam"
               showChevron
               isLast
-              onPress={() => Alert.alert('Tez orada', "Yordam markazi Bosqich C'da qo'shiladi")}
+              onPress={() => router.push('/(main)/settings-help')}
             />
           </SettingsSection>
 
