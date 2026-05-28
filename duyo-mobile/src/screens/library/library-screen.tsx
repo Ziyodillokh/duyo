@@ -141,7 +141,7 @@ export default function LibraryScreen() {
           <View
             className="flex-row items-center rounded-lg gap-2 border border-neon-blue/20"
             style={{
-              backgroundColor: '#1E3A5F',
+              backgroundColor: isDark ? '#1E3A5F' : '#FFFFFF',
               paddingHorizontal: 16,
               height: 44,
             }}
@@ -202,7 +202,7 @@ export default function LibraryScreen() {
                 <Text
                   className="text-sm font-medium"
                   style={{
-                    color: selectedCategory === null ? '#0A1628' : '#E0E7FF',
+                    color: selectedCategory === null ? '#0A1628' : isDark ? '#E0E7FF' : '#102033',
                   }}
                 >
                   Barchasi

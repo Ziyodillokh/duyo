@@ -28,6 +28,7 @@ interface InventoryCardProps {
 }
 
 function InventoryCard({ item, onPress }: InventoryCardProps) {
+  const isDark = useIsDark();
   const owned = isOwned(item);
   const premium = item.isPremium ?? false;
 
@@ -71,7 +72,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
           }}
         >
           {owned ? (
-            <Text className="text-4xl" style={{ color: '#E0E7FF' }}>
+            <Text className="text-4xl" style={{ color: isDark ? '#E0E7FF' : '#102033' }}>
               ✓
             </Text>
           ) : (
@@ -89,7 +90,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
             <View
               className="rounded-md"
               style={{
-                backgroundColor: '#1E3A5F',
+                backgroundColor: isDark ? '#1E3A5F' : '#FFFFFF',
                 paddingHorizontal: 9,
                 paddingVertical: 3,
               }}
@@ -226,7 +227,7 @@ export default function InventoryScreen() {
 
           <View
             className="flex-row rounded-2xl"
-            style={{ backgroundColor: '#1E3A5F', padding: 3 }}
+            style={{ backgroundColor: isDark ? '#1E3A5F' : '#FFFFFF', padding: 3 }}
           >
             <Pressable
               onPress={() => setSelectedCategory(null)}
@@ -241,7 +242,7 @@ export default function InventoryScreen() {
               <Text
                 className="text-sm font-medium"
                 style={{
-                  color: selectedCategory === null ? '#0A1628' : '#E0E7FF',
+                  color: selectedCategory === null ? '#0A1628' : isDark ? '#E0E7FF' : '#102033',
                 }}
               >
                 Barchasi

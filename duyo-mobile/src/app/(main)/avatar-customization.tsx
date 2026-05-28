@@ -131,7 +131,7 @@ export default function AvatarCustomizationScreen() {
 
           <View
             className="flex-row rounded-2xl"
-            style={{ backgroundColor: '#1E3A5F', padding: 3 }}
+            style={{ backgroundColor: isDark ? '#1E3A5F' : '#FFFFFF', padding: 3 }}
           >
             {TABS.map((t) => {
               const isActive = t.key === activeTab;

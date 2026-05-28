@@ -153,7 +153,7 @@ export default function DTMScreen() {
                 <Text
                   className="text-sm font-medium"
                   style={{
-                    color: secondsLeft < 10 ? '#FB64B6' : '#E0E7FF',
+                    color: secondsLeft < 10 ? '#FB64B6' : isDark ? '#E0E7FF' : '#102033',
                   }}
                 >
                   {secondsLeft}s
