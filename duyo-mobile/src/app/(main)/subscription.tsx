@@ -96,7 +96,7 @@ export default function SubscriptionScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
             DUYO Premium
           </Text>
         </View>
@@ -155,7 +155,7 @@ export default function SubscriptionScreen() {
                   <View className="flex-row items-start justify-between mb-3">
                     <View className="flex-1">
                       <View className="flex-row items-center gap-2">
-                        <Text className="text-lg font-bold text-dark-text">
+                        <Text className="text-lg font-bold text-foreground dark:text-dark-text">
                           {t.name}
                         </Text>
                         {t.highlight && (
@@ -176,18 +176,18 @@ export default function SubscriptionScreen() {
                           </View>
                         )}
                       </View>
-                      <Text className="text-sm text-dark-muted mt-1">
+                      <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                         {t.description}
                       </Text>
                     </View>
                     <View className="items-end">
-                      <Text className="text-xl font-bold text-dark-text">
+                      <Text className="text-xl font-bold text-foreground dark:text-dark-text">
                         {t.priceMonthly === 0
                           ? "Bepul"
                           : `${t.priceMonthly.toLocaleString('uz-UZ')} so'm`}
                       </Text>
                       {t.priceMonthly > 0 && (
-                        <Text className="text-xs text-dark-muted">/ oy</Text>
+                        <Text className="text-xs text-muted-foreground dark:text-dark-muted">/ oy</Text>
                       )}
                     </View>
                   </View>
@@ -239,7 +239,7 @@ export default function SubscriptionScreen() {
             </Text>
           </Pressable>
 
-          <Text className="text-xs text-dark-muted text-center">
+          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center">
             Istalgan vaqtda bekor qilishingiz mumkin. Avtoulanish yo'q.
           </Text>
         </ScrollView>

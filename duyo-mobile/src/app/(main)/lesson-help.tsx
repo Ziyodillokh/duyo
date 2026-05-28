@@ -83,7 +83,7 @@ export default function LessonHelpScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">Dars yordami</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">Dars yordami</Text>
         </View>
 
         <KeyboardAvoidingView
@@ -95,7 +95,7 @@ export default function LessonHelpScreen() {
               contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 48 }}
             >
               <View className="gap-2">
-                <Text className="text-base text-dark-text">Fan tanlang</Text>
+                <Text className="text-base text-foreground dark:text-dark-text">Fan tanlang</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -112,7 +112,7 @@ export default function LessonHelpScreen() {
                         className={`flex-row items-center gap-2 rounded-md border active:opacity-80 ${
                           sel
                             ? 'bg-neon-blue border-neon-blue'
-                            : 'bg-dark-surface border-neon-blue/20'
+                            : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                         }`}
                         style={{ paddingHorizontal: 16, paddingVertical: 10 }}
                       >
@@ -148,10 +148,10 @@ export default function LessonHelpScreen() {
                 }}
               >
                 <Camera size={32} color="#60A5FA" />
-                <Text className="text-base font-medium text-dark-text mt-3">
+                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-3">
                   Vazifani yuklash
                 </Text>
-                <Text className="text-sm text-dark-muted mt-1">
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                   Rasm chiqaring yoki galereyadan tanlang
                 </Text>
               </Pressable>
@@ -161,7 +161,7 @@ export default function LessonHelpScreen() {
                   className="flex-1 h-px"
                   style={{ backgroundColor: 'rgba(96, 165, 250, 0.20)' }}
                 />
-                <Text className="text-sm text-dark-muted">yoki yozing</Text>
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted">yoki yozing</Text>
                 <View
                   className="flex-1 h-px"
                   style={{ backgroundColor: 'rgba(96, 165, 250, 0.20)' }}
@@ -169,12 +169,12 @@ export default function LessonHelpScreen() {
               </View>
 
               <View
-                className="bg-dark-surface rounded-xl border border-neon-blue/20"
+                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
                 style={{ padding: 16 }}
               >
                 <View className="flex-row items-center gap-2 mb-2">
                   <PenLine size={16} color="#60A5FA" />
-                  <Text className="text-sm font-medium text-dark-text">
+                  <Text className="text-sm font-medium text-foreground dark:text-dark-text">
                     Vazifa matni
                   </Text>
                 </View>
@@ -184,7 +184,7 @@ export default function LessonHelpScreen() {
                   placeholder="Vazifani shu yerga yozing..."
                   placeholderTextColor="#94A3B8"
                   multiline
-                  className="text-base text-dark-text"
+                  className="text-base text-foreground dark:text-dark-text"
                   style={{ minHeight: 120, textAlignVertical: 'top' }}
                   accessibilityLabel="Vazifa matni"
                 />
@@ -214,7 +214,7 @@ export default function LessonHelpScreen() {
           {stage === 'solving' && (
             <View className="flex-1 items-center justify-center px-6 gap-4">
               <Text className="text-5xl">🤔</Text>
-              <Text className="text-lg font-medium text-dark-text">
+              <Text className="text-lg font-medium text-foreground dark:text-dark-text">
                 DUYO yechimni o'ylayapti...
               </Text>
               <View
@@ -238,32 +238,32 @@ export default function LessonHelpScreen() {
               contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 48 }}
             >
               <View
-                className="bg-dark-surface rounded-xl border border-neon-blue/20"
+                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
                 style={{ padding: 20 }}
               >
-                <Text className="text-sm text-dark-muted mb-2">
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted mb-2">
                   Sizning vazifangiz:
                 </Text>
-                <Text className="text-base text-dark-text">{question}</Text>
+                <Text className="text-base text-foreground dark:text-dark-text">{question}</Text>
               </View>
 
               <View className="gap-3">
                 <View className="flex-row items-center gap-2">
                   <Sparkles size={18} color="#60A5FA" />
-                  <Text className="text-lg font-bold text-dark-text tracking-tight">
+                  <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
                     DUYO yechimi
                   </Text>
                 </View>
                 {MOCK_SOLUTION_STEPS.map((step, i) => (
                   <View
                     key={i}
-                    className="bg-dark-surface rounded-xl border border-neon-blue/20"
+                    className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
                     style={{ padding: 16 }}
                   >
                     <Text className="text-sm font-medium text-neon-cyan mb-1">
                       {step.title}
                     </Text>
-                    <Text className="text-base text-dark-text leading-6">
+                    <Text className="text-base text-foreground dark:text-dark-text leading-6">
                       {step.detail}
                     </Text>
                   </View>
@@ -284,7 +284,7 @@ export default function LessonHelpScreen() {
                     Yakuniy javob
                   </Text>
                 </View>
-                <Text className="text-2xl font-bold text-dark-text mt-2">
+                <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
                   {MOCK_FINAL_ANSWER}
                 </Text>
               </View>
@@ -311,10 +311,10 @@ export default function LessonHelpScreen() {
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Yangi vazifa"
-                  className="flex-1 rounded-md bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
+                  className="flex-1 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
                   style={{ height: 56 }}
                 >
-                  <Text className="text-base font-medium text-dark-text">
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
                     Yangi vazifa
                   </Text>
                 </Pressable>

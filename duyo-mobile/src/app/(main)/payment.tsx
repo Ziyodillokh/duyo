@@ -92,10 +92,10 @@ export default function PaymentScreen() {
             >
               <CheckCircle2 size={56} color="#05DF72" />
             </View>
-            <Text className="text-2xl font-bold text-dark-text text-center">
+            <Text className="text-2xl font-bold text-foreground dark:text-dark-text text-center">
               To'lov muvaffaqiyatli
             </Text>
-            <Text className="text-base text-dark-muted text-center">
+            <Text className="text-base text-muted-foreground dark:text-dark-muted text-center">
               {tier.name} rejasi faollashdi.{'\n'}DUYO bilan o'rganishda davom
               eting!
             </Text>
@@ -139,7 +139,7 @@ export default function PaymentScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">To'lov</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">To'lov</Text>
         </View>
 
         <KeyboardAvoidingView
@@ -153,9 +153,9 @@ export default function PaymentScreen() {
               className="rounded-xl border border-neon-blue/20"
               style={{ padding: 16, backgroundColor: '#132340' }}
             >
-              <Text className="text-sm text-dark-muted">Tanlangan reja</Text>
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">Tanlangan reja</Text>
               <View className="flex-row items-center justify-between mt-2">
-                <Text className="text-lg font-bold text-dark-text">
+                <Text className="text-lg font-bold text-foreground dark:text-dark-text">
                   {tier.name}
                 </Text>
                 <Text className="text-lg font-bold text-neon-cyan">
@@ -165,7 +165,7 @@ export default function PaymentScreen() {
             </View>
 
             <View className="gap-3">
-              <Text className="text-sm text-dark-muted">To'lov usuli</Text>
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">To'lov usuli</Text>
               {PAYMENT_METHODS.map((m) => {
                 const isSel = m.key === method;
                 return (
@@ -193,10 +193,10 @@ export default function PaymentScreen() {
                         <CreditCard size={20} color={m.color} />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-base font-medium text-dark-text">
+                        <Text className="text-base font-medium text-foreground dark:text-dark-text">
                           {m.label}
                         </Text>
-                        <Text className="text-sm text-dark-muted mt-1">
+                        <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                           {m.description}
                         </Text>
                       </View>
@@ -212,7 +212,7 @@ export default function PaymentScreen() {
                 style={{ padding: 16, backgroundColor: '#132340', gap: 12 }}
               >
                 <View>
-                  <Text className="text-sm font-medium text-dark-text mb-2">
+                  <Text className="text-sm font-medium text-foreground dark:text-dark-text mb-2">
                     Karta raqami
                   </Text>
                   <TextInput
@@ -223,7 +223,7 @@ export default function PaymentScreen() {
                     placeholder="1234 5678 9012 3456"
                     placeholderTextColor="#94A3B8"
                     keyboardType="number-pad"
-                    className="text-base text-dark-text"
+                    className="text-base text-foreground dark:text-dark-text"
                     style={{
                       borderWidth: 1,
                       borderColor: 'rgba(96, 165, 250, 0.20)',
@@ -235,7 +235,7 @@ export default function PaymentScreen() {
                   />
                 </View>
                 <View>
-                  <Text className="text-sm font-medium text-dark-text mb-2">
+                  <Text className="text-sm font-medium text-foreground dark:text-dark-text mb-2">
                     Amal qilish muddati
                   </Text>
                   <TextInput
@@ -246,7 +246,7 @@ export default function PaymentScreen() {
                     placeholder="MM/YY"
                     placeholderTextColor="#94A3B8"
                     keyboardType="number-pad"
-                    className="text-base text-dark-text"
+                    className="text-base text-foreground dark:text-dark-text"
                     style={{
                       borderWidth: 1,
                       borderColor: 'rgba(96, 165, 250, 0.20)',
@@ -265,7 +265,7 @@ export default function PaymentScreen() {
               style={{ padding: 16, backgroundColor: 'rgba(252, 211, 77, 0.10)' }}
             >
               <View className="flex-row justify-between">
-                <Text className="text-base text-dark-text">Jami</Text>
+                <Text className="text-base text-foreground dark:text-dark-text">Jami</Text>
                 <Text className="text-xl font-bold text-neon-yellow">
                   {tier.price.toLocaleString('uz-UZ')} so'm
                 </Text>
@@ -287,7 +287,7 @@ export default function PaymentScreen() {
               </Text>
             </Pressable>
 
-            <Text className="text-xs text-dark-muted text-center">
+            <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center">
               To'lovni ortga qaytarib bo'lmaydi. 7 kun bepul sinov ulanmaydi.
             </Text>
           </ScrollView>

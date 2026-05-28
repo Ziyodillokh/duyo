@@ -102,7 +102,7 @@ export default function AvatarCustomizationScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
             Avatar sozlash
           </Text>
         </View>
@@ -171,8 +171,8 @@ export default function AvatarCustomizationScreen() {
                     isSelected
                       ? 'bg-neon-blue/20 border-neon-blue'
                       : owned
-                        ? 'bg-dark-surface border-neon-blue/20'
-                        : 'bg-dark-surface border-neon-blue/20'
+                        ? 'bg-card dark:bg-dark-surface border-neon-blue/20'
+                        : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                   }`}
                   style={{
                     width: '47%',
@@ -182,7 +182,7 @@ export default function AvatarCustomizationScreen() {
                   }}
                 >
                   <Text className="text-4xl">{opt.emoji}</Text>
-                  <Text className="text-sm font-medium text-dark-text">
+                  <Text className="text-sm font-medium text-foreground dark:text-dark-text">
                     {opt.label}
                   </Text>
                   {!owned && (
@@ -191,7 +191,7 @@ export default function AvatarCustomizationScreen() {
                       style={{ paddingHorizontal: 9, paddingVertical: 3 }}
                     >
                       <Coins size={12} color="#FCD34D" />
-                      <Text className="text-xs text-dark-text">{opt.price}</Text>
+                      <Text className="text-xs text-foreground dark:text-dark-text">{opt.price}</Text>
                     </View>
                   )}
                 </Pressable>

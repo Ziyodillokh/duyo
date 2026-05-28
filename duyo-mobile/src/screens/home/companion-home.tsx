@@ -96,19 +96,19 @@ export function CompanionHome() {
           showsVerticalScrollIndicator={false}
         >
           <View className="gap-1">
-            <Text className="text-[24px] leading-8 font-bold text-dark-text tracking-tight">
+            <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
               Salom, {childName}
             </Text>
-            <Text className="text-base text-dark-muted">
+            <Text className="text-base text-muted-foreground dark:text-dark-muted">
               Maqsadingiz sari intilamiz
             </Text>
           </View>
 
           <View
-            className="bg-dark-surface rounded-xl border"
+            className="bg-card dark:bg-dark-surface rounded-xl border"
             style={{ padding: 20, borderColor: 'rgba(96, 165, 250, 0.20)' }}
           >
-            <Text className="text-base font-medium text-dark-text mb-4">
+            <Text className="text-base font-medium text-foreground dark:text-dark-text mb-4">
               Bugun o'zingizni qanday his qilyapsiz?
             </Text>
             <View className="flex-row justify-between">
@@ -126,7 +126,7 @@ export function CompanionHome() {
                     style={{ padding: 8, minWidth: 56 }}
                   >
                     <Text className="text-3xl">{m.emoji}</Text>
-                    <Text className="text-xs text-dark-muted mt-1">
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1">
                       {m.label}
                     </Text>
                   </Pressable>
@@ -141,7 +141,7 @@ export function CompanionHome() {
                   padding: 12,
                 }}
               >
-                <Text className="text-sm text-dark-text">
+                <Text className="text-sm text-foreground dark:text-dark-text">
                   Rahmat! DUYO sizning his-tuyg'ularingizni hisobga oladi.
                 </Text>
               </View>
@@ -164,7 +164,7 @@ export function CompanionHome() {
                   DUYO tavsiyasi
                 </Text>
               </View>
-              <Text className="text-base text-dark-text leading-6">
+              <Text className="text-base text-foreground dark:text-dark-text leading-6">
                 Matematikada yuqori natija ko'rsatyapsiz. Bugun fizikaga
                 e'tibor bering — bu DTM'da kuchli ball beradi.
               </Text>
@@ -172,12 +172,12 @@ export function CompanionHome() {
           </View>
 
           <View
-            className="bg-dark-surface rounded-xl border"
+            className="bg-card dark:bg-dark-surface rounded-xl border"
             style={{ padding: 20, borderColor: 'rgba(96, 165, 250, 0.20)' }}
           >
             <View className="flex-row items-center gap-2 mb-4">
               <TrendingUp size={20} color="#60A5FA" />
-              <Text className="text-lg font-bold text-dark-text tracking-tight">
+              <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
                 Fanlar bo'yicha
               </Text>
             </View>
@@ -185,8 +185,8 @@ export function CompanionHome() {
               {SUBJECTS.map((s) => (
                 <View key={s.key}>
                   <View className="flex-row items-center justify-between mb-1">
-                    <Text className="text-sm text-dark-text">{s.label}</Text>
-                    <Text className="text-xs text-dark-muted">
+                    <Text className="text-sm text-foreground dark:text-dark-text">{s.label}</Text>
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted">
                       {s.scoreLabel}
                     </Text>
                   </View>
@@ -211,19 +211,19 @@ export function CompanionHome() {
           </View>
 
           <View
-            className="bg-dark-surface rounded-xl border"
+            className="bg-card dark:bg-dark-surface rounded-xl border"
             style={{ padding: 20, borderColor: 'rgba(96, 165, 250, 0.20)' }}
           >
             <View className="flex-row items-center gap-2 mb-3">
               <Clock size={20} color="#05DF72" />
-              <Text className="text-lg font-bold text-dark-text tracking-tight">
+              <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
                 Bugungi o'qish
               </Text>
             </View>
-            <Text className="text-3xl font-bold text-dark-text mb-1">
+            <Text className="text-3xl font-bold text-foreground dark:text-dark-text mb-1">
               {MOCK_STUDY_MINUTES_TODAY} daqiqa
             </Text>
-            <Text className="text-sm text-dark-muted mb-3">
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted mb-3">
               Maqsad: {MOCK_STUDY_MINUTES_GOAL} daqiqa
             </Text>
             <View
@@ -256,7 +256,7 @@ export function CompanionHome() {
               >
                 {MOCK_STREAK}
               </Text>
-              <Text className="text-xs text-dark-muted">Kunlik seriya</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Kunlik seriya</Text>
             </View>
             <Pressable
               onPress={() => router.push('/(main)/(tabs)/chat')}
@@ -286,14 +286,14 @@ export function CompanionHome() {
               onPress={() => router.push('/(main)/(tabs)/chat')}
               accessibilityRole="button"
               accessibilityLabel="DUYO bilan suhbat"
-              className="flex-1 bg-dark-surface rounded-xl border active:opacity-80"
+              className="flex-1 bg-card dark:bg-dark-surface rounded-xl border active:opacity-80"
               style={{
                 padding: 16,
                 borderColor: 'rgba(96, 165, 250, 0.20)',
               }}
             >
               <MessageCircle size={24} color="#60A5FA" />
-              <Text className="text-sm font-medium text-dark-text mt-2">
+              <Text className="text-sm font-medium text-foreground dark:text-dark-text mt-2">
                 Suhbat
               </Text>
             </Pressable>
@@ -301,14 +301,14 @@ export function CompanionHome() {
               onPress={() => router.push('/(main)/dtm')}
               accessibilityRole="button"
               accessibilityLabel="DTM mashqlari"
-              className="flex-1 bg-dark-surface rounded-xl border active:opacity-80"
+              className="flex-1 bg-card dark:bg-dark-surface rounded-xl border active:opacity-80"
               style={{
                 padding: 16,
                 borderColor: 'rgba(96, 165, 250, 0.20)',
               }}
             >
               <BookOpen size={24} color="#FDC700" />
-              <Text className="text-sm font-medium text-dark-text mt-2">
+              <Text className="text-sm font-medium text-foreground dark:text-dark-text mt-2">
                 DTM mashq
               </Text>
             </Pressable>
@@ -316,14 +316,14 @@ export function CompanionHome() {
               onPress={() => router.push('/(main)/(tabs)/library')}
               accessibilityRole="button"
               accessibilityLabel="Podkast"
-              className="flex-1 bg-dark-surface rounded-xl border active:opacity-80"
+              className="flex-1 bg-card dark:bg-dark-surface rounded-xl border active:opacity-80"
               style={{
                 padding: 16,
                 borderColor: 'rgba(96, 165, 250, 0.20)',
               }}
             >
               <Headphones size={24} color="#FB64B6" />
-              <Text className="text-sm font-medium text-dark-text mt-2">
+              <Text className="text-sm font-medium text-foreground dark:text-dark-text mt-2">
                 Podkast
               </Text>
             </Pressable>
@@ -338,7 +338,7 @@ export function CompanionHome() {
             }}
           >
             <Text
-              className="text-sm italic text-dark-subtitle text-center leading-6"
+              className="text-sm italic text-muted-foreground dark:text-dark-subtitle text-center leading-6"
             >
               "Maqsadga erishish yo'lida har bir qadam muhim"
             </Text>

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
+import { useIsDark } from '@/store/theme';
+
 type GlowColor =
   | 'purple'
   | 'magenta'
@@ -30,14 +32,18 @@ export function DarkCard({
   glow = 'none',
   className = '',
 }: DarkCardProps) {
+  const isDark = useIsDark();
+  const bgClass = isDark ? 'bg-dark-surface' : 'bg-white';
   const borderClass =
     glow === 'none'
-      ? 'border border-dark-text/10'
+      ? isDark
+        ? 'border border-dark-text/10'
+        : 'border border-primary/10'
       : `border-[3px] ${GLOW_BORDER[glow]}`;
 
   return (
     <View
-      className={`bg-dark-surface rounded-xl p-6 ${borderClass} ${className}`}
+      className={`${bgClass} rounded-xl p-6 ${borderClass} ${className}`}
     >
       {children}
     </View>

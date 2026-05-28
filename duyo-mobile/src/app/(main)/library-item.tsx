@@ -33,7 +33,7 @@ export default function LibraryItemScreen() {
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <View className="flex-1 items-center justify-center px-6 gap-3">
             <Text className="text-5xl">🔍</Text>
-            <Text className="text-lg font-medium text-dark-text">
+            <Text className="text-lg font-medium text-foreground dark:text-dark-text">
               Kontent topilmadi
             </Text>
             <Pressable
@@ -80,7 +80,7 @@ export default function LibraryItemScreen() {
               onPress={() => setLiked((v) => !v)}
               accessibilityRole="button"
               accessibilityLabel={liked ? "Sevimlilardan olib tashlash" : "Sevimlilarga"}
-              className="w-10 h-10 items-center justify-center rounded-md bg-dark-surface border border-neon-blue/20"
+              className="w-10 h-10 items-center justify-center rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20"
             >
               <Heart
                 size={18}
@@ -91,7 +91,7 @@ export default function LibraryItemScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Ulashish"
-              className="w-10 h-10 items-center justify-center rounded-md bg-dark-surface border border-neon-blue/20"
+              className="w-10 h-10 items-center justify-center rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20"
             >
               <Share2 size={18} color="#94A3B8" />
             </Pressable>
@@ -103,22 +103,22 @@ export default function LibraryItemScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View
-            className="bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
+            className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
             style={{ padding: 32 }}
           >
             <Text className="text-7xl mb-3">{item.emoji}</Text>
-            <Text className="text-[24px] leading-8 font-bold text-dark-text text-center tracking-tight">
+            <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text text-center tracking-tight">
               {item.title}
             </Text>
             {item.author && (
-              <Text className="text-base text-dark-muted mt-1">
+              <Text className="text-base text-muted-foreground dark:text-dark-muted mt-1">
                 {item.author}
               </Text>
             )}
             <View className="flex-row items-center gap-3 mt-3">
               <View className="flex-row items-center gap-1">
                 <Clock size={14} color="#94A3B8" />
-                <Text className="text-sm text-dark-muted">
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                   {item.duration}
                 </Text>
               </View>
@@ -143,16 +143,16 @@ export default function LibraryItemScreen() {
           </View>
 
           <View
-            className="bg-dark-surface rounded-xl border border-neon-blue/20"
+            className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
             style={{ padding: 20 }}
           >
             <View className="flex-row items-center gap-2 mb-4">
               <BookOpen size={18} color="#60A5FA" />
-              <Text className="text-base font-bold text-dark-text">
+              <Text className="text-base font-bold text-foreground dark:text-dark-text">
                 Mazmun
               </Text>
             </View>
-            <Text className="text-base text-dark-text leading-7">
+            <Text className="text-base text-foreground dark:text-dark-text leading-7">
               {content}
             </Text>
           </View>

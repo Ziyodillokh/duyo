@@ -8,6 +8,8 @@ import {
 import type { ComponentType } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { useIsDark } from '@/store/theme';
+
 export type TabKey = 'home' | 'chat' | 'library' | 'profile' | 'inventory';
 
 interface TabItem {
@@ -29,15 +31,23 @@ interface BottomNavProps {
   onSelect: (key: TabKey) => void;
 }
 
-const ACTIVE_COLOR = '#60A5FA';
-const INACTIVE_COLOR = '#94A3B8';
+const DARK_ACTIVE = '#60A5FA';
+const DARK_INACTIVE = '#94A3B8';
+const LIGHT_ACTIVE = '#2563EB';
+const LIGHT_INACTIVE = '#64748B';
 
 export function BottomNav({ active, onSelect }: BottomNavProps) {
+  const isDark = useIsDark();
+  const bgClass = isDark
+    ? 'bg-dark-surface border-t border-neon-blue/20'
+    : 'bg-white border-t border-primary/10';
+  const activeColor = isDark ? DARK_ACTIVE : LIGHT_ACTIVE;
+  const inactiveColor = isDark ? DARK_INACTIVE : LIGHT_INACTIVE;
   return (
-    <View className="bg-dark-surface border-t border-neon-blue/20 flex-row h-16">
+    <View className={`${bgClass} flex-row h-16`}>
       {TABS.map((tab) => {
         const isActive = tab.key === active;
-        const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
+        const color = isActive ? activeColor : inactiveColor;
         return (
           <Pressable
             key={tab.key}

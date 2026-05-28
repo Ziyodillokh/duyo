@@ -56,7 +56,7 @@ export default function VoiceSettingsScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
             Ovoz sozlamalari
           </Text>
         </View>
@@ -65,7 +65,7 @@ export default function VoiceSettingsScreen() {
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
         >
           <View className="gap-3">
-            <Text className="text-sm text-dark-muted">DUYO ovozi</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO ovozi</Text>
             {VOICE_OPTIONS.map((v) => {
               const isSel = v.key === selectedVoice;
               return (
@@ -78,16 +78,16 @@ export default function VoiceSettingsScreen() {
                   className={`rounded-xl border active:opacity-80 ${
                     isSel
                       ? 'bg-neon-blue/10 border-neon-blue'
-                      : 'bg-dark-surface border-neon-blue/20'
+                      : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                   }`}
                   style={{ padding: 16 }}
                 >
                   <View className="flex-row items-center gap-3">
                     <View className="flex-1">
-                      <Text className="text-base font-medium text-dark-text">
+                      <Text className="text-base font-medium text-foreground dark:text-dark-text">
                         {v.label}
                       </Text>
-                      <Text className="text-sm text-dark-muted mt-1">
+                      <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                         {v.description}
                       </Text>
                     </View>
@@ -112,7 +112,7 @@ export default function VoiceSettingsScreen() {
           </View>
 
           <View className="gap-3">
-            <Text className="text-sm text-dark-muted">Gapirish tezligi</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">Gapirish tezligi</Text>
             <View className="flex-row gap-3">
               {SPEED_OPTIONS.map((s) => {
                 const isSel = s.key === selectedSpeed;
@@ -126,7 +126,7 @@ export default function VoiceSettingsScreen() {
                     className={`flex-1 rounded-xl border items-center active:opacity-80 ${
                       isSel
                         ? 'bg-neon-blue border-neon-blue'
-                        : 'bg-dark-surface border-neon-blue/20'
+                        : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                     }`}
                     style={{ paddingVertical: 16 }}
                   >

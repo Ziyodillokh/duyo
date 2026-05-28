@@ -59,7 +59,7 @@ export default function ParentDashboardScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
             Ota-ona paneli
           </Text>
         </View>
@@ -77,10 +77,10 @@ export default function ParentDashboardScreen() {
                 <MascotImage size={72} glow="soft" />
               </View>
               <View className="flex-1">
-                <Text className="text-xl font-bold text-dark-text">
+                <Text className="text-xl font-bold text-foreground dark:text-dark-text">
                   {MOCK_CHILD.name}
                 </Text>
-                <Text className="text-sm text-dark-muted">
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                   {MOCK_CHILD.age} yosh
                 </Text>
                 <View className="flex-row items-center gap-2 mt-2">
@@ -113,7 +113,7 @@ export default function ParentDashboardScreen() {
                   <Text className="text-sm font-medium text-neon-pink">
                     {MOCK_ALERTS} ta diqqat talab qiluvchi mavzu
                   </Text>
-                  <Text className="text-xs text-dark-muted mt-1">
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1">
                     Suhbatda hissiy qiyinchilik aniqlandi
                   </Text>
                 </View>
@@ -128,30 +128,30 @@ export default function ParentDashboardScreen() {
               style={{ padding: 16, backgroundColor: '#132340' }}
             >
               <Activity size={18} color="#60A5FA" />
-              <Text className="text-2xl font-bold text-dark-text mt-2">
+              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
                 {MOCK_CHILD.activityScore}/{MOCK_CHILD.activityMax}
               </Text>
-              <Text className="text-xs text-dark-muted">Faollik</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Faollik</Text>
             </View>
             <View
               className="flex-1 rounded-xl border border-neon-blue/20"
               style={{ padding: 16, backgroundColor: '#132340' }}
             >
               <Clock size={18} color="#FDC700" />
-              <Text className="text-2xl font-bold text-dark-text mt-2">
+              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
                 {MOCK_CHILD.todayMinutes}
               </Text>
-              <Text className="text-xs text-dark-muted">daqiqa bugun</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">daqiqa bugun</Text>
             </View>
             <View
               className="flex-1 rounded-xl border border-neon-blue/20"
               style={{ padding: 16, backgroundColor: '#132340' }}
             >
               <TrendingUp size={18} color="#05DF72" />
-              <Text className="text-2xl font-bold text-dark-text mt-2">
+              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
                 {MOCK_CHILD.weekMinutes}
               </Text>
-              <Text className="text-xs text-dark-muted">hafta</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">hafta</Text>
             </View>
           </View>
 
@@ -161,7 +161,7 @@ export default function ParentDashboardScreen() {
           >
             <View className="flex-row items-center gap-2 mb-4">
               <Heart size={18} color="#FB64B6" />
-              <Text className="text-base font-bold text-dark-text">
+              <Text className="text-base font-bold text-foreground dark:text-dark-text">
                 Haftalik kayfiyat
               </Text>
             </View>
@@ -176,7 +176,7 @@ export default function ParentDashboardScreen() {
                       backgroundColor: '#60A5FA',
                     }}
                   />
-                  <Text className="text-xs text-dark-muted">{m.day}</Text>
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">{m.day}</Text>
                 </View>
               ))}
             </View>
@@ -198,10 +198,10 @@ export default function ParentDashboardScreen() {
                   <Eye size={18} color="#60A5FA" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-medium text-dark-text">
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
                     Suhbat tahlili
                   </Text>
-                  <Text className="text-sm text-dark-muted">
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                     AI tomonidan tahlil qilingan asosiy mavzular
                   </Text>
                 </View>
@@ -225,10 +225,10 @@ export default function ParentDashboardScreen() {
                   <Lock size={18} color="#FDC700" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-medium text-dark-text">
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
                     Vaqt cheklash
                   </Text>
-                  <Text className="text-sm text-dark-muted">
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                     Kunlik foydalanish vaqtini sozlash
                   </Text>
                 </View>
@@ -236,7 +236,7 @@ export default function ParentDashboardScreen() {
             </View>
           </Pressable>
 
-          <Text className="text-xs text-dark-muted text-center mt-4">
+          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center mt-4">
             Bola va ota-ona o'rtasidagi maxfiylik DUYO uchun muhim. Faqat
             xavfsizlik ko'rsatkichlari ko'rsatiladi.
           </Text>

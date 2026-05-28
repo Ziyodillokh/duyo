@@ -34,7 +34,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
     ? ''
     : premium
       ? ''
-      : 'bg-dark-surface border-neon-blue/20';
+      : 'bg-card dark:bg-dark-surface border-neon-blue/20';
   const cardStyle = owned
     ? {
         backgroundColor: 'rgba(52, 211, 153, 0.10)',
@@ -78,7 +78,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
           )}
         </LinearGradient>
         <Text
-          className="text-sm font-medium text-dark-text text-center mt-3"
+          className="text-sm font-medium text-foreground dark:text-dark-text text-center mt-3"
           numberOfLines={1}
         >
           {item.name}
@@ -93,7 +93,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
                 paddingVertical: 3,
               }}
             >
-              <Text className="text-xs font-medium text-dark-text">
+              <Text className="text-xs font-medium text-foreground dark:text-dark-text">
                 Egallangan
               </Text>
             </View>
@@ -103,14 +103,14 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
               style={{ paddingHorizontal: 9, paddingVertical: 3 }}
             >
               <Coins size={12} color="#FCD34D" />
-              <Text className="text-xs font-medium text-dark-text">
+              <Text className="text-xs font-medium text-foreground dark:text-dark-text">
                 {item.price}
               </Text>
             </View>
           )}
         </View>
         {item.occasion && (
-          <Text className="text-xs text-dark-muted text-center mt-2">
+          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center mt-2">
             {item.occasion}
           </Text>
         )}
@@ -156,7 +156,7 @@ export default function InventoryScreen() {
           contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 96 }}
           showsVerticalScrollIndicator={false}
         >
-          <Text className="text-[24px] leading-8 font-bold text-dark-text tracking-tight">
+          <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
             Inventar
           </Text>
 
@@ -182,8 +182,8 @@ export default function InventoryScreen() {
                     <Coins size={24} color="#0A1628" />
                   </View>
                   <View>
-                    <Text className="text-sm text-dark-muted">Balansim</Text>
-                    <Text className="text-[24px] leading-8 font-bold text-dark-text tracking-tight">
+                    <Text className="text-sm text-muted-foreground dark:text-dark-muted">Balansim</Text>
+                    <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
                       {MOCK_BALANCE}
                     </Text>
                   </View>
@@ -198,7 +198,7 @@ export default function InventoryScreen() {
                   style={{ paddingHorizontal: 12, paddingVertical: 8 }}
                 >
                   <Plus size={16} color="#E0E7FF" />
-                  <Text className="text-sm font-medium text-dark-text">
+                  <Text className="text-sm font-medium text-foreground dark:text-dark-text">
                     Ball olish
                   </Text>
                 </Pressable>
@@ -282,10 +282,10 @@ export default function InventoryScreen() {
               style={{ padding: 32 }}
             >
               <Text className="text-4xl">📦</Text>
-              <Text className="text-base font-medium text-dark-text mt-2">
+              <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
                 Hech narsa yo'q
               </Text>
-              <Text className="text-sm text-dark-muted mt-1 text-center">
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
                 Bu kategoriyada hech narsa topilmadi
               </Text>
             </View>

@@ -93,14 +93,14 @@ export default function DTMScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">DTM mashq</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">DTM mashq</Text>
         </View>
 
         {stage === 'subject-select' && (
           <ScrollView
             contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
           >
-            <Text className="text-base text-dark-muted">
+            <Text className="text-base text-muted-foreground dark:text-dark-muted">
               Qaysi fan bo'yicha mashq qilamiz?
             </Text>
             {DTM_SUBJECTS.map((s) => (
@@ -109,7 +109,7 @@ export default function DTMScreen() {
                 onPress={() => startQuiz(s.key)}
                 accessibilityRole="button"
                 accessibilityLabel={s.label}
-                className="bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
+                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
                 style={{ padding: 20 }}
               >
                 <View className="flex-row items-center gap-4">
@@ -124,10 +124,10 @@ export default function DTMScreen() {
                     <Text className="text-2xl">{s.emoji}</Text>
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-medium text-dark-text">
+                    <Text className="text-base font-medium text-foreground dark:text-dark-text">
                       {s.label}
                     </Text>
-                    <Text className="text-sm text-dark-muted mt-1">
+                    <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                       {questionsBySubject(s.key).length} ta savol
                     </Text>
                   </View>
@@ -140,7 +140,7 @@ export default function DTMScreen() {
         {stage === 'quiz' && question && (
           <View className="flex-1 px-6 pb-6">
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-sm text-dark-muted">
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                 Savol {qIndex + 1} / {questions.length}
               </Text>
               <View className="flex-row items-center gap-1">
@@ -173,10 +173,10 @@ export default function DTMScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
               <View
-                className="bg-dark-surface rounded-xl border border-neon-blue/20 mb-6"
+                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 mb-6"
                 style={{ padding: 24 }}
               >
-                <Text className="text-lg text-dark-text leading-7">
+                <Text className="text-lg text-foreground dark:text-dark-text leading-7">
                   {question.text}
                 </Text>
               </View>
@@ -194,7 +194,7 @@ export default function DTMScreen() {
                       className={`rounded-xl border active:opacity-80 ${
                         isSel
                           ? 'bg-neon-blue/20 border-neon-blue'
-                          : 'bg-dark-surface border-neon-blue/20'
+                          : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                       }`}
                       style={{ padding: 16 }}
                     >
@@ -213,7 +213,7 @@ export default function DTMScreen() {
                             {String.fromCharCode(65 + idx)}
                           </Text>
                         </View>
-                        <Text className="text-base text-dark-text flex-1">
+                        <Text className="text-base text-foreground dark:text-dark-text flex-1">
                           {choice}
                         </Text>
                       </View>
@@ -248,16 +248,16 @@ export default function DTMScreen() {
             contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
           >
             <View
-              className="bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
+              className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
               style={{ padding: 32 }}
             >
               <Text className="text-6xl mb-3">
                 {correctCount >= questions.length * 0.7 ? '🎉' : '💪'}
               </Text>
-              <Text className="text-2xl font-bold text-dark-text">
+              <Text className="text-2xl font-bold text-foreground dark:text-dark-text">
                 {correctCount} / {questions.length}
               </Text>
-              <Text className="text-base text-dark-muted mt-2 text-center">
+              <Text className="text-base text-muted-foreground dark:text-dark-muted mt-2 text-center">
                 {correctCount === questions.length
                   ? "Ajoyib! Hammasi to'g'ri!"
                   : correctCount >= questions.length * 0.7
@@ -272,7 +272,7 @@ export default function DTMScreen() {
                 return (
                   <View
                     key={q.id}
-                    className="bg-dark-surface rounded-xl border border-neon-blue/20"
+                    className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
                     style={{ padding: 16 }}
                   >
                     <View className="flex-row items-start gap-2">
@@ -282,14 +282,14 @@ export default function DTMScreen() {
                         <XCircle size={20} color="#FB64B6" />
                       )}
                       <View className="flex-1">
-                        <Text className="text-sm text-dark-text mb-2">
+                        <Text className="text-sm text-foreground dark:text-dark-text mb-2">
                           {q.text}
                         </Text>
-                        <Text className="text-xs text-dark-muted">
+                        <Text className="text-xs text-muted-foreground dark:text-dark-muted">
                           To'g'ri javob: {q.choices[q.correctIndex]}
                         </Text>
                         {q.explanation && (
-                          <Text className="text-xs text-dark-subtitle mt-1">
+                          <Text className="text-xs text-muted-foreground dark:text-dark-subtitle mt-1">
                             {q.explanation}
                           </Text>
                         )}
@@ -319,10 +319,10 @@ export default function DTMScreen() {
                 onPress={() => setStage('subject-select')}
                 accessibilityRole="button"
                 accessibilityLabel="Boshqa fan"
-                className="flex-1 rounded-md bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
+                className="flex-1 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
                 style={{ height: 56 }}
               >
-                <Text className="text-base font-medium text-dark-text">
+                <Text className="text-base font-medium text-foreground dark:text-dark-text">
                   Boshqa fan
                 </Text>
               </Pressable>

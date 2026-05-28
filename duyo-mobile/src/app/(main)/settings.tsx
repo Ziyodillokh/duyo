@@ -78,7 +78,7 @@ export default function SettingsScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-2xl font-bold text-dark-text">Sozlamalar</Text>
+          <Text className="text-2xl font-bold text-foreground dark:text-dark-text">Sozlamalar</Text>
         </View>
 
         <ScrollView
@@ -90,7 +90,7 @@ export default function SettingsScreen() {
               Icon={Languages}
               label="Til"
               trailing={
-                <Text className="text-sm text-dark-muted">
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                   {LANGUAGE_LABELS[language]}
                 </Text>
               }
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
             <SettingsRow
               Icon={Crown}
               label="Obuna rejasi"
-              trailing={<Text className="text-sm text-dark-muted">Do'st</Text>}
+              trailing={<Text className="text-sm text-muted-foreground dark:text-dark-muted">Do'st</Text>}
               showChevron
               isLast
               onPress={() => router.push('/(main)/subscription')}
@@ -183,8 +183,8 @@ export default function SettingsScreen() {
           </Pressable>
 
           <View className="items-center gap-1 pt-4">
-            <Text className="text-sm text-dark-muted">DUYO v1.0.0</Text>
-            <Text className="text-sm text-dark-muted">
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO v1.0.0</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
               © 2026 DUYO. Barcha huquqlar himoyalangan.
             </Text>
           </View>

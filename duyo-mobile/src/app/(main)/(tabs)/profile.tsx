@@ -58,7 +58,7 @@ export default function ProfileScreen() {
               onPress={() => router.push('/(main)/settings')}
               accessibilityRole="button"
               accessibilityLabel="Sozlamalar"
-              className="w-10 h-10 rounded-md items-center justify-center bg-dark-surface border border-neon-blue/20"
+              className="w-10 h-10 rounded-md items-center justify-center bg-card dark:bg-dark-surface border border-neon-blue/20"
             >
               <SettingsIcon size={20} color="#94A3B8" />
             </Pressable>
@@ -66,11 +66,11 @@ export default function ProfileScreen() {
 
           <DarkCard className="items-center">
             <MascotImage size={180} glow="cosmic" />
-            <Text className="text-2xl font-bold text-dark-text mt-2">
+            <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
               {childName}
             </Text>
             {childAge !== undefined && (
-              <Text className="text-sm text-dark-muted">{childAge} yosh</Text>
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">{childAge} yosh</Text>
             )}
             <View className="bg-neon-purple rounded-md px-4 py-1.5 mt-3">
               <Text className="text-sm font-medium text-dark-bg-to">
@@ -81,7 +81,7 @@ export default function ProfileScreen() {
 
           <DarkCard>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-sm text-dark-muted">
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                 Keyingi daraja: {MOCK_NEXT_LEVEL_NAME}
               </Text>
               <Text className="text-sm font-bold text-neon-cyan">
@@ -89,7 +89,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <ProgressBar value={MOCK_XP / MOCK_XP_TOTAL_FOR_LEVEL} color="blue" />
-            <Text className="text-xs text-dark-muted text-right mt-2">
+            <Text className="text-xs text-muted-foreground dark:text-dark-muted text-right mt-2">
               {MOCK_XP_TO_NEXT} XP keyingi darajaga
             </Text>
           </DarkCard>
@@ -97,31 +97,31 @@ export default function ProfileScreen() {
           <View className="flex-row gap-3">
             <DarkCard className="flex-1 items-center">
               <Flame size={28} color="#FF8904" />
-              <Text className="text-2xl font-bold text-dark-text mt-2">
+              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
                 {MOCK_STREAK}
               </Text>
-              <Text className="text-xs text-dark-muted">Kun seriya</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Kun seriya</Text>
             </DarkCard>
             <DarkCard className="flex-1 items-center">
               <Star size={28} color="#FDC700" />
-              <Text className="text-2xl font-bold text-dark-text mt-2">
+              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
                 {MOCK_XP}
               </Text>
-              <Text className="text-xs text-dark-muted">Jami XP</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Jami XP</Text>
             </DarkCard>
             <DarkCard className="flex-1 items-center">
               <Trophy size={28} color="#FB64B6" />
-              <Text className="text-2xl font-bold text-dark-text mt-2">
+              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
                 {MOCK_ACHIEVEMENTS_COUNT}
               </Text>
-              <Text className="text-xs text-dark-muted">Yutuqlar</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Yutuqlar</Text>
             </DarkCard>
           </View>
 
           <DarkCard>
             <View className="flex-row items-center gap-2 mb-4">
               <Award size={20} color="#FDC700" />
-              <Text className="text-lg font-bold text-dark-text">Yutuqlar</Text>
+              <Text className="text-lg font-bold text-foreground dark:text-dark-text">Yutuqlar</Text>
             </View>
             <View className="flex-row flex-wrap gap-3">
               {ACHIEVEMENTS.map((a) => (
@@ -130,7 +130,7 @@ export default function ProfileScreen() {
                   className="w-[30%] bg-neon-yellow/10 rounded-lg p-3 items-center gap-1"
                 >
                   <Text className="text-3xl">{a.emoji}</Text>
-                  <Text className="text-xs text-dark-text text-center">
+                  <Text className="text-xs text-foreground dark:text-dark-text text-center">
                     {a.label}
                   </Text>
                 </View>
@@ -139,18 +139,18 @@ export default function ProfileScreen() {
           </DarkCard>
 
           <DarkCard>
-            <Text className="text-lg font-bold text-dark-text mb-3">
+            <Text className="text-lg font-bold text-foreground dark:text-dark-text mb-3">
               Oxirgi mukofotlar
             </Text>
             <View className="gap-3">
               {RECENT_REWARDS.map((r) => (
                 <View
                   key={r.key}
-                  className="flex-row items-center justify-between bg-dark-surface-soft rounded-lg px-3 py-3"
+                  className="flex-row items-center justify-between bg-secondary dark:bg-card dark:bg-dark-surface-soft rounded-lg px-3 py-3"
                 >
                   <View className="flex-row items-center gap-3 flex-1">
                     <Text className="text-2xl">{r.emoji}</Text>
-                    <Text className="text-base text-dark-text">{r.label}</Text>
+                    <Text className="text-base text-foreground dark:text-dark-text">{r.label}</Text>
                   </View>
                   <Text className="text-sm font-bold text-neon-yellow">
                     +{r.xp} XP

@@ -72,10 +72,10 @@ export function JuniorHome() {
       >
         <View className="items-center gap-2">
           <Text className="text-6xl">👋</Text>
-          <Text className="text-3xl font-bold text-dark-heading text-center">
+          <Text className="text-3xl font-bold text-primary dark:text-dark-heading text-center">
             Salom, {childName}!
           </Text>
-          <Text className="text-xl text-dark-subtitle text-center">
+          <Text className="text-xl text-muted-foreground dark:text-dark-subtitle text-center">
             Bugun nima qilamiz?
           </Text>
         </View>
@@ -83,7 +83,7 @@ export function JuniorHome() {
         <DarkCard glow="purple" className="items-center">
           <MascotImage size={200} glow="cosmic" />
           <View className="items-center mt-2 gap-2">
-            <Text className="text-2xl font-bold text-dark-subtitle">DUYO</Text>
+            <Text className="text-2xl font-bold text-muted-foreground dark:text-dark-subtitle">DUYO</Text>
             <View className="bg-neon-purple rounded-md px-6 py-2">
               <Text className="text-lg font-medium text-dark-bg-to">
                 Level {MOCK_LEVEL}
@@ -130,7 +130,7 @@ export function JuniorHome() {
             </Text>
           </View>
           <View className="bg-neon-green/10 rounded-lg p-4 items-center gap-2">
-            <Text className="text-lg font-medium text-dark-text text-center">
+            <Text className="text-lg font-medium text-foreground dark:text-dark-text text-center">
               DUYO bilan 5 daqiqa gaplash
             </Text>
             <XPBadge amount={50} />
@@ -206,7 +206,7 @@ export function JuniorHome() {
 
         <DarkCard glow="pink" className="items-center gap-3">
           <Text className="text-4xl">🌟</Text>
-          <Text className="text-xl font-bold text-dark-subtitle text-center">
+          <Text className="text-xl font-bold text-muted-foreground dark:text-dark-subtitle text-center">
             Sen ajoyibsan! Davom et!
           </Text>
         </DarkCard>

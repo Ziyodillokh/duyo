@@ -34,7 +34,7 @@ function LibraryCard({ item, onPress }: LibraryCardProps) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={item.title}
-      className="bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
+      className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
       style={{ padding: 16, gap: 12 }}
     >
       <View className="flex-row items-start gap-3">
@@ -49,16 +49,16 @@ function LibraryCard({ item, onPress }: LibraryCardProps) {
           <Text className="text-3xl">{item.emoji}</Text>
         </View>
         <View className="flex-1 gap-1">
-          <Text className="text-base font-medium text-dark-text" numberOfLines={1}>
+          <Text className="text-base font-medium text-foreground dark:text-dark-text" numberOfLines={1}>
             {item.title}
           </Text>
           {item.author && (
-            <Text className="text-sm text-dark-muted">{item.author}</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">{item.author}</Text>
           )}
           <View className="flex-row items-center gap-3 mt-1">
             <View className="flex-row items-center gap-1">
               <Clock size={12} color="#94A3B8" />
-              <Text className="text-xs text-dark-muted">{item.duration}</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">{item.duration}</Text>
             </View>
             <View
               className="rounded-md"
@@ -132,7 +132,7 @@ export default function LibraryScreen() {
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 96 }}
           showsVerticalScrollIndicator={false}
         >
-          <Text className="text-[24px] leading-8 font-bold text-dark-text tracking-tight">
+          <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
             Kutubxona
           </Text>
 
@@ -150,14 +150,14 @@ export default function LibraryScreen() {
               onChangeText={setQuery}
               placeholder="Qidiruv..."
               placeholderTextColor="#94A3B8"
-              className="flex-1 text-base text-dark-text"
+              className="flex-1 text-base text-foreground dark:text-dark-text"
               accessibilityLabel="Kutubxonadan qidirish"
             />
           </View>
 
           {CONTINUE_ITEMS.length > 0 && !selectedCategory && !query && (
             <View className="gap-3">
-              <Text className="text-lg font-bold text-dark-text tracking-tight">
+              <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
                 O'rganishda davom eting
               </Text>
               <View className="gap-3">
@@ -178,7 +178,7 @@ export default function LibraryScreen() {
           )}
 
           <View className="gap-3">
-            <Text className="text-lg font-bold text-dark-text tracking-tight">
+            <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
               Yoshingizga mos
             </Text>
             <ScrollView
@@ -193,7 +193,7 @@ export default function LibraryScreen() {
                 className={`rounded-md border active:opacity-80 ${
                   selectedCategory === null
                     ? 'bg-neon-blue border-neon-blue'
-                    : 'bg-dark-surface border-neon-blue/20'
+                    : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                 }`}
                 style={{ paddingHorizontal: 16, paddingVertical: 10 }}
               >
@@ -217,7 +217,7 @@ export default function LibraryScreen() {
                     className={`flex-row items-center gap-2 rounded-md border active:opacity-80 ${
                       sel
                         ? 'bg-neon-blue border-neon-blue'
-                        : 'bg-dark-surface border-neon-blue/20'
+                        : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                     }`}
                     style={{ paddingHorizontal: 16, paddingVertical: 10 }}
                   >
@@ -241,10 +241,10 @@ export default function LibraryScreen() {
                 style={{ padding: 24 }}
               >
                 <Text className="text-4xl">🔍</Text>
-                <Text className="text-base font-medium text-dark-text mt-2">
+                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
                   Hech narsa topilmadi
                 </Text>
-                <Text className="text-sm text-dark-muted mt-1 text-center">
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
                   Boshqa kalit so'z bilan urinib ko'ring
                 </Text>
               </View>
@@ -264,7 +264,7 @@ export default function LibraryScreen() {
             )}
           </View>
 
-          <Text className="text-xs text-dark-muted text-center">
+          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center">
             Barcha kontentlar yoshingizga mos ravishda tanlanadi
           </Text>
         </ScrollView>

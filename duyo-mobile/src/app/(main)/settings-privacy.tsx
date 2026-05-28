@@ -117,7 +117,7 @@ export default function PrivacySettingsScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">Maxfiylik</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">Maxfiylik</Text>
         </View>
 
         <ScrollView
@@ -129,11 +129,11 @@ export default function PrivacySettingsScreen() {
           >
             <View className="flex-row items-center gap-2 mb-2">
               <FileText size={18} color="#60A5FA" />
-              <Text className="text-base font-medium text-dark-text">
+              <Text className="text-base font-medium text-foreground dark:text-dark-text">
                 Maxfiylik siyosati
               </Text>
             </View>
-            <Text className="text-sm text-dark-muted leading-5 mb-3">
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted leading-5 mb-3">
               DUYO sizning ma'lumotlaringizni qanday saqlaydi va himoya qilishi
               haqida ma'lumot.
             </Text>
@@ -156,7 +156,7 @@ export default function PrivacySettingsScreen() {
           </View>
 
           <View className="gap-3">
-            <Text className="text-sm text-dark-muted">
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
               Ma'lumotlar boshqaruvi
             </Text>
             {ACTIONS.map((a) => (
@@ -165,7 +165,7 @@ export default function PrivacySettingsScreen() {
                 onPress={a.onPress}
                 accessibilityRole="button"
                 accessibilityLabel={a.label}
-                className="rounded-xl bg-dark-surface border border-neon-blue/20 active:opacity-80"
+                className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
                 style={{ padding: 16 }}
               >
                 <View className="flex-row items-center gap-3">
@@ -191,7 +191,7 @@ export default function PrivacySettingsScreen() {
                     >
                       {a.label}
                     </Text>
-                    <Text className="text-sm text-dark-muted mt-1">
+                    <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                       {a.description}
                     </Text>
                   </View>

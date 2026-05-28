@@ -84,14 +84,14 @@ export default function HelpSettingsScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">Yordam</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">Yordam</Text>
         </View>
 
         <ScrollView
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
         >
           <View className="gap-3">
-            <Text className="text-sm text-dark-muted">Ko'p so'raladigan</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">Ko'p so'raladigan</Text>
             {FAQ_ITEMS.map((f) => {
               const isOpen = openId === f.id;
               return (
@@ -101,11 +101,11 @@ export default function HelpSettingsScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ expanded: isOpen }}
                   accessibilityLabel={f.question}
-                  className="rounded-xl bg-dark-surface border border-neon-blue/20 active:opacity-80"
+                  className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
                   style={{ padding: 16 }}
                 >
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-base font-medium text-dark-text flex-1 mr-2">
+                    <Text className="text-base font-medium text-foreground dark:text-dark-text flex-1 mr-2">
                       {f.question}
                     </Text>
                     {isOpen ? (
@@ -115,7 +115,7 @@ export default function HelpSettingsScreen() {
                     )}
                   </View>
                   {isOpen && (
-                    <Text className="text-sm text-dark-muted leading-6 mt-3">
+                    <Text className="text-sm text-muted-foreground dark:text-dark-muted leading-6 mt-3">
                       {f.answer}
                     </Text>
                   )}
@@ -125,7 +125,7 @@ export default function HelpSettingsScreen() {
           </View>
 
           <View className="gap-3">
-            <Text className="text-sm text-dark-muted">Bog'lanish</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">Bog'lanish</Text>
             <Pressable
               onPress={() =>
                 Alert.alert(
@@ -135,7 +135,7 @@ export default function HelpSettingsScreen() {
               }
               accessibilityRole="button"
               accessibilityLabel="Email"
-              className="rounded-xl bg-dark-surface border border-neon-blue/20 active:opacity-80"
+              className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
               style={{ padding: 16 }}
             >
               <View className="flex-row items-center gap-3">
@@ -146,10 +146,10 @@ export default function HelpSettingsScreen() {
                   <Mail size={18} color="#60A5FA" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-medium text-dark-text">
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
                     Email yuborish
                   </Text>
-                  <Text className="text-sm text-dark-muted mt-1">
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                     support@duyo.uz
                   </Text>
                 </View>
@@ -166,7 +166,7 @@ export default function HelpSettingsScreen() {
               }
               accessibilityRole="button"
               accessibilityLabel="Telegram"
-              className="rounded-xl bg-dark-surface border border-neon-blue/20 active:opacity-80"
+              className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
               style={{ padding: 16 }}
             >
               <View className="flex-row items-center gap-3">
@@ -177,10 +177,10 @@ export default function HelpSettingsScreen() {
                   <MessageSquare size={18} color="#60A5FA" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-medium text-dark-text">
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
                     Telegram qo'llab-quvvatlash
                   </Text>
-                  <Text className="text-sm text-dark-muted mt-1">
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                     @duyo_support
                   </Text>
                 </View>
@@ -190,8 +190,8 @@ export default function HelpSettingsScreen() {
           </View>
 
           <View className="items-center gap-1 pt-4">
-            <Text className="text-sm text-dark-muted">DUYO v1.0.0</Text>
-            <Text className="text-xs text-dark-muted">
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO v1.0.0</Text>
+            <Text className="text-xs text-muted-foreground dark:text-dark-muted">
               © 2026 DUYO. Barcha huquqlar himoyalangan.
             </Text>
           </View>

@@ -53,13 +53,13 @@ export default function LanguageSettingsScreen() {
           >
             <ArrowLeft size={20} color="#E0E7FF" />
           </Pressable>
-          <Text className="text-xl font-bold text-dark-text">Til</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">Til</Text>
         </View>
 
         <ScrollView
           contentContainerStyle={{ padding: 24, gap: 12, paddingBottom: 48 }}
         >
-          <Text className="text-sm text-dark-muted mb-2">
+          <Text className="text-sm text-muted-foreground dark:text-dark-muted mb-2">
             Ilova tilini tanlang
           </Text>
           {OPTIONS.map((opt) => {
@@ -74,17 +74,17 @@ export default function LanguageSettingsScreen() {
                 className={`rounded-xl border active:opacity-80 ${
                   isSel
                     ? 'bg-neon-blue/10 border-neon-blue'
-                    : 'bg-dark-surface border-neon-blue/20'
+                    : 'bg-card dark:bg-dark-surface border-neon-blue/20'
                 }`}
                 style={{ padding: 16 }}
               >
                 <View className="flex-row items-center gap-3">
                   <Text className="text-3xl">{opt.flag}</Text>
                   <View className="flex-1">
-                    <Text className="text-base font-medium text-dark-text">
+                    <Text className="text-base font-medium text-foreground dark:text-dark-text">
                       {opt.label}
                     </Text>
-                    <Text className="text-sm text-dark-muted">{opt.hint}</Text>
+                    <Text className="text-sm text-muted-foreground dark:text-dark-muted">{opt.hint}</Text>
                   </View>
                   {isSel && <Check size={20} color="#60A5FA" />}
                 </View>

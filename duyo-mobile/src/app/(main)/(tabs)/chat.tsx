@@ -147,18 +147,18 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-dark-surface"
+      className="flex-1 bg-card dark:bg-dark-surface"
       edges={['top']}
     >
-      <View className="bg-dark-surface border-b border-neon-blue/20 px-4 py-3 flex-row items-center gap-3">
+      <View className="bg-card dark:bg-dark-surface border-b border-neon-blue/20 px-4 py-3 flex-row items-center gap-3">
         <View className="w-16 h-16">
           <MascotImage size={64} glow="cosmic" />
         </View>
         <View className="flex-1">
-          <Text className="font-bold text-base text-dark-text">DUYO</Text>
+          <Text className="font-bold text-base text-foreground dark:text-dark-text">DUYO</Text>
           <View className="flex-row items-center gap-2">
             <View className="w-2 h-2 rounded-full bg-neon-green" />
-            <Text className="text-xs text-dark-muted">
+            <Text className="text-xs text-muted-foreground dark:text-dark-muted">
               {send.isPending ? "O'ylayapti..." : 'Xursand'}
             </Text>
           </View>
@@ -172,7 +172,7 @@ export default function ChatScreen() {
         >
           <Text
             className={`text-xs font-medium ${
-              limitReached ? 'text-destructive' : 'text-dark-text'
+              limitReached ? 'text-destructive' : 'text-foreground dark:text-dark-text'
             }`}
           >
             {todayCount}/{DAILY_LIMIT} suhbat
@@ -182,7 +182,7 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 bg-dark-surface"
+        className="flex-1 bg-card dark:bg-dark-surface"
       >
         <FlatList
           data={items}
@@ -201,8 +201,8 @@ export default function ChatScreen() {
             }
             if (item.kind === 'counter') {
               return (
-                <View className="bg-dark-surface-soft border border-glow-blue rounded-xl px-4 py-3">
-                  <Text className="text-sm text-dark-text text-center">
+                <View className="bg-secondary dark:bg-card dark:bg-dark-surface-soft border border-glow-blue rounded-xl px-4 py-3">
+                  <Text className="text-sm text-foreground dark:text-dark-text text-center">
                     Bugun{' '}
                     <Text className="font-bold text-neon-cyan">
                       {remaining}/{DAILY_LIMIT}
@@ -216,7 +216,7 @@ export default function ChatScreen() {
           }}
         />
 
-        <View className="bg-dark-surface border-t border-neon-blue/20 px-3 py-3 flex-row items-end gap-2">
+        <View className="bg-card dark:bg-dark-surface border-t border-neon-blue/20 px-3 py-3 flex-row items-end gap-2">
           <TextInput
             value={input}
             onChangeText={setInput}
@@ -230,7 +230,7 @@ export default function ChatScreen() {
             maxLength={2000}
             editable={!send.isPending && !limitReached}
             accessibilityLabel="Chat xabari"
-            className="flex-1 max-h-32 px-4 py-3 rounded-md text-base text-dark-text"
+            className="flex-1 max-h-32 px-4 py-3 rounded-md text-base text-foreground dark:text-dark-text"
             style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
           />
           <Pressable
@@ -247,7 +247,7 @@ export default function ChatScreen() {
             accessibilityRole="button"
             accessibilityLabel="Yuborish"
             className={`w-11 h-11 rounded-md items-center justify-center ${
-              canSend ? 'bg-neon-blue' : 'bg-dark-surface-soft'
+              canSend ? 'bg-neon-blue' : 'bg-secondary dark:bg-card dark:bg-dark-surface-soft'
             }`}
           >
             <Send size={20} color={canSend ? '#FFFFFF' : '#94A3B8'} />
@@ -266,12 +266,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         className={`max-w-[80%] rounded-2xl px-4 py-3 ${
           isChild
             ? 'bg-neon-blue'
-            : 'bg-dark-surface border border-neon-blue/20'
+            : 'bg-card dark:bg-dark-surface border border-neon-blue/20'
         }`}
       >
         <Text
           className={`text-base leading-6 ${
-            isChild ? 'text-white' : 'text-dark-text'
+            isChild ? 'text-white' : 'text-foreground dark:text-dark-text'
           }`}
         >
           {message.content}

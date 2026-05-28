@@ -87,16 +87,16 @@ export function ChildHome() {
           showsVerticalScrollIndicator={false}
         >
           <View className="pt-4 items-center gap-2">
-            <Text className="text-[24px] leading-8 font-bold text-dark-text text-center tracking-tight">
+            <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text text-center tracking-tight">
               Salom, {childName}!
             </Text>
-            <Text className="text-base text-dark-muted text-center">
+            <Text className="text-base text-muted-foreground dark:text-dark-muted text-center">
               Bugun ajoyib kunni boshlaymiz
             </Text>
           </View>
 
           <View
-            className="bg-dark-surface rounded-xl border border-neon-blue/20"
+            className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
             style={{ padding: 25 }}
           >
             <View className="items-center mb-6">
@@ -114,7 +114,7 @@ export function ChildHome() {
                 >
                   <Text className="text-xl">{stat.emoji}</Text>
                   <View className="flex-1">
-                    <Text className="text-xs text-dark-muted leading-4">
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted leading-4">
                       {stat.label}
                     </Text>
                     <View
@@ -133,17 +133,17 @@ export function ChildHome() {
           </View>
 
           <View
-            className="bg-dark-surface rounded-xl border border-neon-blue/20"
+            className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
             style={{ padding: 16 }}
           >
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-row items-center gap-2">
                 <Award size={20} color="#60A5FA" />
-                <Text className="text-base font-medium text-dark-text">
+                <Text className="text-base font-medium text-foreground dark:text-dark-text">
                   {MOCK_LEVEL_NAME} • Level {MOCK_LEVEL}
                 </Text>
               </View>
-              <Text className="text-sm text-dark-muted">{MOCK_XP} XP</Text>
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">{MOCK_XP} XP</Text>
             </View>
             <View
               className="bg-neon-blue/20 rounded-full overflow-hidden"
@@ -154,7 +154,7 @@ export function ChildHome() {
                 style={{ width: `${MOCK_XP_PROGRESS * 100}%` }}
               />
             </View>
-            <Text className="text-xs text-dark-muted text-right mt-3">
+            <Text className="text-xs text-muted-foreground dark:text-dark-muted text-right mt-3">
               {MOCK_XP_TO_NEXT_LEVEL} XP keyingi darajaga
             </Text>
           </View>
@@ -173,10 +173,10 @@ export function ChildHome() {
                 <View className="flex-row items-center gap-3 flex-1">
                   <Text className="text-3xl">🔥</Text>
                   <View>
-                    <Text className="text-lg font-bold text-dark-text tracking-tight">
+                    <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
                       {MOCK_STREAK} kunlik seriya!
                     </Text>
-                    <Text className="text-sm text-dark-muted">
+                    <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                       Davom eting!
                     </Text>
                   </View>
@@ -198,12 +198,12 @@ export function ChildHome() {
           </View>
 
           <View
-            className="bg-dark-surface rounded-xl border border-neon-blue/20"
+            className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
             style={{ padding: 25 }}
           >
             <View className="flex-row items-center gap-3 mb-10">
               <Text className="text-xl">🎯</Text>
-              <Text className="text-lg font-bold text-dark-text tracking-tight">
+              <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
                 Bugungi missiya
               </Text>
             </View>
@@ -215,14 +215,14 @@ export function ChildHome() {
                 paddingVertical: 12,
               }}
             >
-              <Text className="text-sm text-dark-text">
+              <Text className="text-sm text-foreground dark:text-dark-text">
                 5 daqiqa inglizcha gaplash
               </Text>
               <View
                 className="rounded-md border border-neon-blue/20"
                 style={{ paddingHorizontal: 9, paddingVertical: 3 }}
               >
-                <Text className="text-xs font-medium text-dark-text">
+                <Text className="text-xs font-medium text-foreground dark:text-dark-text">
                   +50 XP
                 </Text>
               </View>
@@ -250,7 +250,7 @@ export function ChildHome() {
                 onPress={() => router.push(card.href)}
                 accessibilityRole="button"
                 accessibilityLabel={card.label}
-                className="bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
+                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
                 style={{
                   width: '47%',
                   padding: 25,
@@ -259,7 +259,7 @@ export function ChildHome() {
                 }}
               >
                 <card.Icon size={32} color={card.iconColor} />
-                <Text className="text-base font-medium text-dark-text">
+                <Text className="text-base font-medium text-foreground dark:text-dark-text">
                   {card.label}
                 </Text>
               </Pressable>
