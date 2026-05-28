@@ -21,6 +21,7 @@ import { SettingsSection } from '@/components/v2/dark/settings-section';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useLanguageStore } from '@/store/language';
+import { useThemeStore } from '@/store/theme';
 
 const LANGUAGE_LABELS = {
   uz: "O'zbek",
@@ -32,7 +33,8 @@ export default function SettingsScreen() {
   const language = useLanguageStore((s) => s.language);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const clearChild = useChildStore((s) => s.clearChild);
-  const [darkMode, setDarkMode] = useState(true);
+  const themeMode = useThemeStore((s) => s.mode);
+  const toggleTheme = useThemeStore((s) => s.toggle);
   const [notifications, setNotifications] = useState(true);
 
   const handleLogout = () => {
@@ -100,8 +102,8 @@ export default function SettingsScreen() {
               label="Qorongʻu rejim"
               trailing={
                 <Switch
-                  value={darkMode}
-                  onValueChange={setDarkMode}
+                  value={themeMode === 'dark'}
+                  onValueChange={toggleTheme}
                   trackColor={{ false: '#334155', true: '#60A5FA' }}
                   thumbColor="#0A1628"
                 />
