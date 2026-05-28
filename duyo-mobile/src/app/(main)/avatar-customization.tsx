@@ -149,7 +149,7 @@ export default function AvatarCustomizationScreen() {
                 >
                   <Text
                     className="text-sm font-medium"
-                    style={{ color: isActive ? '#0A1628' : '#E0E7FF' }}
+                    style={{ color: isActive ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033' }}
                   >
                     {t.label}
                   </Text>

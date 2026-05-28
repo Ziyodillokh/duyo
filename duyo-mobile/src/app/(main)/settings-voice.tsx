@@ -135,7 +135,7 @@ export default function VoiceSettingsScreen() {
                     <Text
                       className="text-base font-medium"
                       style={{
-                        color: isSel ? '#0A1628' : '#E0E7FF',
+                        color: isSel ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033',
                       }}
                     >
                       {s.label}

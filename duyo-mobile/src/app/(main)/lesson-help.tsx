@@ -122,7 +122,7 @@ export default function LessonHelpScreen() {
                         <Text
                           className="text-sm font-medium"
                           style={{
-                            color: sel ? '#0A1628' : '#E0E7FF',
+                            color: sel ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033',
                           }}
                         >
                           {s.label}
