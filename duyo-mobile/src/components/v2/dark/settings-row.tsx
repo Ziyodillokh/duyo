@@ -24,8 +24,9 @@ export function SettingsRow({
   accessibilityLabel,
 }: SettingsRowProps) {
   const isDark = useIsDark();
-  const iconColor = isDark ? '#94A3B8' : '#64748B';
-  const chevronColor = iconColor;
+  // Per Figma: row icons use neon blue accent in both themes for visual harmony
+  const iconColor = isDark ? '#60A5FA' : '#2563EB';
+  const chevronColor = isDark ? '#94A3B8' : '#64748B';
   const dividerClass = isDark ? 'border-neon-blue/20' : 'border-primary/10';
   const labelClass = isDark ? 'text-dark-text' : 'text-foreground';
 

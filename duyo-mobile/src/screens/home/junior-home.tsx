@@ -70,9 +70,9 @@ export function JuniorHome() {
         contentContainerStyle={{ padding: 24, gap: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="items-center gap-2">
-          <Text className="text-6xl">👋</Text>
-          <Text className="text-3xl font-bold text-primary dark:text-dark-heading text-center">
+        <View className="items-center gap-1">
+          <Text className="text-4xl">👋</Text>
+          <Text className="text-[24px] leading-8 font-bold text-primary dark:text-dark-heading text-center tracking-tight">
             Salom, {childName}!
           </Text>
           <Text className="text-xl text-muted-foreground dark:text-dark-subtitle text-center">

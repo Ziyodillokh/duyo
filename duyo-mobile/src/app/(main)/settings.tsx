@@ -4,8 +4,8 @@ import {
   ArrowLeft,
   Bell,
   Crown,
+  Globe,
   HelpCircle,
-  Languages,
   LogOut,
   Mic,
   Moon,
@@ -89,7 +89,7 @@ export default function SettingsScreen() {
         >
           <SettingsSection title="Umumiy">
             <SettingsRow
-              Icon={Languages}
+              Icon={Globe}
               label="Til"
               trailing={
                 <Text className="text-sm text-muted-foreground dark:text-dark-muted">
