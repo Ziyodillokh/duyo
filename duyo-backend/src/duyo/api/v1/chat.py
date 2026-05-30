@@ -22,6 +22,7 @@ from duyo.schemas.chat import ChatRequest, ChatResponse, ChildCreate, ChildRead
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini import chat as gemini_chat
 from duyo.services.sms import get_sms_provider
+from duyo.textbook.retriever import retrieve_for_chat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 log = logging.getLogger(__name__)
@@ -204,14 +205,20 @@ async def chat_turn(
             child.id, child_msg.id,
         )
 
-    # 8. Call Gemini for the reply (with multi-turn history)
+    # 8. RAG retrieval — inject relevant textbook context into system prompt.
+    # Graceful degradation: if DB is empty or embedding fails, rag_context=None
+    # and Gemini replies from its own knowledge (existing behaviour unchanged).
+    rag_context = await retrieve_for_chat(db, payload.message, grade=child.age)
+
+    # 9. Call Gemini for the reply (with multi-turn history + optional RAG context)
     reply = await gemini_chat(
         child_message=payload.message,
         age_segment=child.age_segment,
         history=history,  # type: ignore[arg-type]
+        rag_context=rag_context,
     )
 
-    # 9. Persist assistant message
+    # 10. Persist assistant message
     assistant_msg = Message(
         conversation_id=conv.id,
         role=MessageRole.ASSISTANT,
