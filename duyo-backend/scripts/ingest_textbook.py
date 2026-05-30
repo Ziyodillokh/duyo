@@ -65,10 +65,15 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+_SUPPORTED_EXTENSIONS = {".txt", ".pdf", ".docx", ".doc", ".html", ".htm", ".pptx"}
+
+
 def _collect_files(path: Path) -> list[Path]:
     if path.is_file():
         return [path]
-    return sorted(path.rglob("*.txt"))
+    return sorted(
+        f for f in path.rglob("*") if f.suffix.lower() in _SUPPORTED_EXTENSIONS
+    )
 
 
 async def _run(args: argparse.Namespace) -> None:
@@ -110,14 +115,23 @@ async def _run(args: argparse.Namespace) -> None:
                   f"lang={doc_meta.language}", file=sys.stderr)
 
             if args.dry_run:
+                from duyo.textbook.docling_parser import is_supported
                 from duyo.textbook.pipeline import chunk_text
                 from duyo.textbook.rule_classifier import classify as rule_classify
 
-                text = f.read_text(encoding="utf-8", errors="replace")
-                for i, chunk in enumerate(chunk_text(text)):
+                if is_supported(f):
+                    from duyo.textbook.docling_parser import parse as docling_parse
+                    raw_chunks = docling_parse(f)
+                    chunk_texts = [(r.text, r.chapter) for r in raw_chunks]
+                else:
+                    text = f.read_text(encoding="utf-8", errors="replace")
+                    chunk_texts = [(c, None) for c in chunk_text(text)]
+
+                for i, (chunk, chapter) in enumerate(chunk_texts):
                     r = rule_classify(chunk)
                     row = {
                         "chunk_index": i,
+                        "chapter": chapter,
                         "content_type": r.content_type,
                         "confidence": round(r.confidence, 2),
                         "has_formula": r.has_formula,

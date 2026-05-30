@@ -9,9 +9,10 @@ Stage 2 — LLM (Gemini Flash):
   Runs when rule confidence < 0.90.
   Merges has_formula/table/image from rule stage (more reliable).
 
-Also handles:
-  - Plain text chunking (paragraph-based)
-  - Document-level metadata extraction from file path
+Supported input formats:
+  .txt          → paragraph-based text splitter
+  .pdf, .docx,
+  .html, .pptx  → Docling parser (heading-based, structured metadata)
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pathlib import Path
 import structlog
 
 from duyo.textbook import llm_classifier, rule_classifier
+from duyo.textbook.docling_parser import RawChunk, is_supported, parse as docling_parse
 from duyo.textbook.schema import (
     ChunkMetadata,
     ClassifiedChunk,
@@ -173,8 +175,17 @@ def chunk_text(text: str) -> list[str]:
 async def classify_chunk(
     chunk: str,
     doc_meta: DocumentMeta,
+    *,
+    docling_hints: RawChunk | None = None,
 ) -> ChunkMetadata:
-    """Classify a single chunk through rule → LLM stages."""
+    """Classify a single chunk through rule → LLM stages.
+
+    Args:
+        chunk: Raw text of the chunk.
+        doc_meta: Document-level metadata.
+        docling_hints: Optional structural hints from Docling (heading, tables, images).
+                       When provided, has_table/has_image/chapter are pre-filled.
+    """
     rule = rule_classifier.classify(chunk)
 
     log.debug(
@@ -235,11 +246,18 @@ async def classify_chunk(
         )
         return meta
 
-    # Override has_formula/table/image with rule results (more reliable)
+    # Merge structural signals: rule + LLM + Docling (Docling most reliable)
+    docling_has_formula = docling_hints.has_formula if docling_hints else False
+    docling_has_table = docling_hints.has_table if docling_hints else False
+    docling_has_image = docling_hints.has_image if docling_hints else False
+    docling_chapter = docling_hints.chapter if docling_hints else None
+
     meta = meta.model_copy(update={
-        "has_formula": rule.has_formula or meta.has_formula,
-        "has_table": rule.has_table or meta.has_table,
-        "has_image": rule.has_image or meta.has_image,
+        "has_formula": rule.has_formula or meta.has_formula or docling_has_formula,
+        "has_table": rule.has_table or meta.has_table or docling_has_table,
+        "has_image": rule.has_image or meta.has_image or docling_has_image,
+        # Use Docling chapter heading if LLM didn't detect one
+        "chapter": meta.chapter or docling_chapter,
         "classified_by": "llm+rule" if hint else "llm",
     })
     return meta
@@ -258,43 +276,65 @@ async def process_file(
     *,
     doc_meta: DocumentMeta | None = None,
 ) -> list[ClassifiedChunk]:
-    """Read a plain-text file, chunk it, and classify each chunk.
+    """Read and classify a textbook file.
+
+    Routes to Docling parser for PDF/DOCX/HTML, plain-text splitter for .txt.
 
     Args:
-        path: Path to the .txt file.
+        path: Path to the file (.txt, .pdf, .docx, .html, etc.).
         doc_meta: Optional override. If None, extracted from `path`.
 
     Returns:
-        List of ClassifiedChunk, one per text chunk.
+        List of ClassifiedChunk, one per chunk.
     """
     p = Path(path)
-    text = p.read_text(encoding="utf-8", errors="replace")
 
     if doc_meta is None:
         doc_meta = extract_doc_meta(p)
 
     log.info("processing_file", path=str(p), subject=doc_meta.subject, grade=doc_meta.grade)
 
-    chunks = chunk_text(text)
     doc_hash = _doc_id(p)
     results: list[ClassifiedChunk] = []
 
-    for i, chunk in enumerate(chunks):
-        meta = await classify_chunk(chunk, doc_meta)
-        results.append(ClassifiedChunk(
-            text=chunk,
-            metadata=meta,
-            chunk_index=i,
-            doc_id=doc_hash,
-        ))
-        log.debug(
-            "chunk_classified",
-            index=i,
-            content_type=meta.content_type,
-            classified_by=meta.classified_by,
-            confidence=meta.confidence.content_type,
-            needs_review=meta.needs_review,
-        )
+    if is_supported(p):
+        # Docling path: structured parsing for PDF/DOCX/HTML
+        raw_chunks = docling_parse(p)
+        for i, raw in enumerate(raw_chunks):
+            meta = await classify_chunk(raw.text, doc_meta, docling_hints=raw)
+            results.append(ClassifiedChunk(
+                text=raw.text,
+                metadata=meta,
+                chunk_index=i,
+                doc_id=doc_hash,
+            ))
+            log.debug(
+                "chunk_classified",
+                index=i,
+                content_type=meta.content_type,
+                classified_by=meta.classified_by,
+                chapter=raw.chapter,
+            )
+    else:
+        # Plain text path
+        text = p.read_text(encoding="utf-8", errors="replace")
+        chunks = chunk_text(text)
+        for i, chunk in enumerate(chunks):
+            meta = await classify_chunk(chunk, doc_meta)
+            results.append(ClassifiedChunk(
+                text=chunk,
+                metadata=meta,
+                chunk_index=i,
+                doc_id=doc_hash,
+            ))
+            log.debug(
+                "chunk_classified",
+                index=i,
+                content_type=meta.content_type,
+                classified_by=meta.classified_by,
+                confidence=meta.confidence.content_type,
+                needs_review=meta.needs_review,
+            )
 
     review_count = sum(1 for r in results if r.metadata.needs_review)
     log.info(
