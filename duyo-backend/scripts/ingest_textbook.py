@@ -42,15 +42,25 @@ from duyo.textbook.schema import Language, Script
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Ingest textbook .txt files into DUYO RAG pipeline."
+        description="Ingest textbook files (.txt/.pdf/.docx/…) into DUYO RAG pipeline."
     )
-    parser.add_argument("path", type=Path, help="File (.txt) or directory")
+    parser.add_argument("path", type=Path, help="File or directory to ingest")
     parser.add_argument("--out", type=Path, default=None,
                         help="Output JSONL file (default: stdout). Ignored with --store/--embed.")
     parser.add_argument("--subject", default=None)
     parser.add_argument("--grade", type=int, default=None)
     parser.add_argument("--language", choices=["uz", "ru", "en"], default=None)
     parser.add_argument("--script", choices=["latin", "cyrillic", "mixed"], default=None)
+    parser.add_argument(
+        "--ocr-strategy",
+        choices=["auto", "docling", "mistral"],
+        default="auto",
+        help=(
+            "auto   — Docling first; Mistral OCR fallback for scanned/low-text PDFs (default)\n"
+            "docling — Always use Docling (fast, free, digital PDFs only)\n"
+            "mistral — Always use Mistral OCR (scanned, Cyrillic, formulas)"
+        ),
+    )
 
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true",
@@ -142,7 +152,9 @@ async def _run(args: argparse.Namespace) -> None:
                     total += 1
                 continue
 
-            classified = await process_file(f, doc_meta=doc_meta)
+            classified = await process_file(
+                f, doc_meta=doc_meta, ocr_strategy=args.ocr_strategy
+            )
 
             if use_db and session_factory:
                 async with session_factory() as session:

@@ -18,7 +18,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 log = logging.getLogger(__name__)
 
@@ -52,16 +52,76 @@ class RawChunk:
     page_number: int | None = None
 
 
+OcrStrategy = Literal["auto", "docling", "mistral"]
+
+# Minimum total chars from Docling before we decide a PDF is "scanned"
+_SCANNED_THRESHOLD_CHARS = 200
+
 def is_supported(path: Path) -> bool:
     return path.suffix.lower() in DOCLING_EXTENSIONS
 
 
-def parse(path: Path) -> list[RawChunk]:
-    """Convert a document file to a list of RawChunks using Docling.
+async def parse(
+    path: Path,
+    *,
+    strategy: OcrStrategy = "auto",
+) -> list[RawChunk]:
+    """Convert a document file to RawChunks.
+
+    Strategies:
+      "auto"    — Docling first; if extracted text < threshold → Mistral OCR fallback.
+                  Best for mixed collections (digital + scanned).
+      "docling" — Always use Docling. Fast, free, offline.
+                  Use for digital PDFs and non-PDF formats (DOCX, HTML, PPTX).
+      "mistral" — Always use Mistral OCR.
+                  Use for scanned PDFs, Cyrillic, or formula-heavy documents.
 
     Raises:
-        RuntimeError: If docling is not installed (pip install -e ".[ingestion]").
+        RuntimeError: If docling not installed when strategy requires it.
+        RuntimeError: If MISTRAL_API_KEY not set when strategy requires it.
     """
+    suffix = path.suffix.lower()
+
+    # Non-PDF formats → always Docling (Mistral OCR only handles PDFs)
+    if suffix != ".pdf":
+        return _docling_parse(path)
+
+    # PDF routing
+    if strategy == "mistral":
+        return await _mistral_parse(path)
+
+    if strategy == "docling":
+        return _docling_parse(path)
+
+    # strategy == "auto"
+    log.info("parse_auto_start", path=str(path))
+    try:
+        chunks = _docling_parse(path)
+        total_chars = sum(len(c.text) for c in chunks)
+        if total_chars >= _SCANNED_THRESHOLD_CHARS:
+            log.info(
+                "parse_auto_docling_ok",
+                path=str(path),
+                chunks=len(chunks),
+                total_chars=total_chars,
+            )
+            return chunks
+        log.info(
+            "parse_auto_scanned_detected",
+            path=str(path),
+            total_chars=total_chars,
+            threshold=_SCANNED_THRESHOLD_CHARS,
+        )
+    except Exception as exc:
+        log.warning("parse_auto_docling_failed", path=str(path), error=str(exc))
+
+    # Fall back to Mistral OCR
+    log.info("parse_auto_mistral_fallback", path=str(path))
+    return await _mistral_parse(path)
+
+
+def _docling_parse(path: Path) -> list[RawChunk]:
+    """Parse with Docling (sync). For digital PDFs, DOCX, HTML, PPTX."""
     if not _HAS_DOCLING:
         raise RuntimeError(
             "docling is not installed. Run: pip install -e '.[ingestion]'\n"
@@ -71,9 +131,7 @@ def parse(path: Path) -> list[RawChunk]:
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    # Use fast pipeline — accurate enough for educational text.
-    # do_ocr=False: textbook PDFs are selectable text (not scanned).
-    # Change to do_ocr=True for scanned/image PDFs.
+    # do_ocr=False: selectable-text PDFs only (faster, no ML model loading)
     pipeline_options = PdfPipelineOptions()
     pipeline_options.do_ocr = False
     pipeline_options.do_table_structure = True
@@ -241,6 +299,16 @@ def _parse_from_markdown(md: str) -> list[RawChunk]:
         buffer.append(line)
 
     flush()
+    return chunks
+
+
+async def _mistral_parse(path: Path) -> list[RawChunk]:
+    """Parse a scanned/complex PDF with Mistral OCR → markdown → RawChunks."""
+    from duyo.textbook.mistral_ocr import ocr_pdf_as_markdown
+
+    md = await ocr_pdf_as_markdown(path)
+    chunks = _parse_from_markdown(md)
+    log.info("mistral_parse_done", path=str(path), chunks=len(chunks))
     return chunks
 
 

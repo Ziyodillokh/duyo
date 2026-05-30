@@ -24,7 +24,7 @@ from pathlib import Path
 import structlog
 
 from duyo.textbook import llm_classifier, rule_classifier
-from duyo.textbook.docling_parser import RawChunk, is_supported, parse as docling_parse
+from duyo.textbook.docling_parser import OcrStrategy, RawChunk, is_supported, parse as docling_parse
 from duyo.textbook.schema import (
     ChunkMetadata,
     ClassifiedChunk,
@@ -275,10 +275,13 @@ async def process_file(
     path: Path | str,
     *,
     doc_meta: DocumentMeta | None = None,
+    ocr_strategy: OcrStrategy = "auto",
 ) -> list[ClassifiedChunk]:
     """Read and classify a textbook file.
 
-    Routes to Docling parser for PDF/DOCX/HTML, plain-text splitter for .txt.
+    Routes by extension and OCR strategy:
+      .txt          → paragraph splitter (always)
+      .pdf/.docx/… → Docling / Mistral OCR / auto (see OcrStrategy)
 
     Args:
         path: Path to the file (.txt, .pdf, .docx, .html, etc.).
@@ -298,8 +301,8 @@ async def process_file(
     results: list[ClassifiedChunk] = []
 
     if is_supported(p):
-        # Docling path: structured parsing for PDF/DOCX/HTML
-        raw_chunks = docling_parse(p)
+        # Structured path: PDF/DOCX/HTML via Docling ± Mistral OCR
+        raw_chunks = await docling_parse(p, strategy=ocr_strategy)
         for i, raw in enumerate(raw_chunks):
             meta = await classify_chunk(raw.text, doc_meta, docling_hints=raw)
             results.append(ClassifiedChunk(

@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # In production this is False and missing creds will fail loudly.
     sms_stub_enabled: bool = True
 
+    # Mistral OCR — for scanned PDFs, Uzbek Cyrillic, complex formulas
+    # Leave empty to disable; only needed for local ingestion, not API serving.
+    mistral_api_key: str = ""
+    mistral_ocr_model: str = "mistral-ocr-latest"
+
     # Crisis detection thresholds (Layer 3 ML classifier — not used yet)
     crisis_threshold_yellow: float = 0.70
     crisis_threshold_orange: float = 0.85
