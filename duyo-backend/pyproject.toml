@@ -27,14 +27,15 @@ dependencies = [
 
 [project.optional-dependencies]
 # Install for local textbook ingestion only — NOT in production Docker image.
-# Usage: pip install -e ".[ingestion]"
-# PaddleOCR handles scanned PDFs, Uzbek Cyrillic, and formula-heavy documents.
-# pymupdf renders PDF pages to images for PaddleOCR.
+# Usage: brew install tesseract tesseract-lang && pip install -e ".[ingestion]"
+# Tesseract handles scanned PDFs, Uzbek Cyrillic, broken-encoding PDFs.
+# Stable on Apple Silicon (PaddlePaddle's detection model fails on macOS ARM).
+# pymupdf renders PDF pages to images; Pillow passes them to Tesseract.
 ingestion = [
     "docling>=2.0.0",
-    "paddlepaddle>=2.6.0",
-    "paddleocr>=2.7.0",
+    "pytesseract>=0.3.10",
     "pymupdf>=1.23.0",
+    "Pillow>=10.0.0",
 ]
 dev = [
     "pytest>=8.0.0",
@@ -74,6 +75,13 @@ extend-immutable-calls = [
     "fastapi.Form",
     "fastapi.Cookie",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# The textbook module embeds Uzbek/Russian Cyrillic and Latin characters in
+# regex patterns and test data on purpose — RUF001 ambiguous-char warnings
+# are false positives there.
+"src/duyo/textbook/*" = ["RUF001"]
+"tests/textbook/*" = ["RUF001"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

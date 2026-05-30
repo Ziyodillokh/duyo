@@ -66,36 +66,44 @@ class TestResolveLang:
 
 
 # ---------------------------------------------------------------------------
-# _ocr_image
+# _ocr_png_bytes — subprocess to tesseract CLI
 # ---------------------------------------------------------------------------
 
-class TestOcrImage:
-    def test_calls_pytesseract(self) -> None:
+class TestOcrPngBytes:
+    def test_returns_decoded_stdout(self) -> None:
         from duyo.textbook import tesseract_ocr as mod
 
-        mock_pt = MagicMock()
-        mock_pt.image_to_string.return_value = "Ta'rif: kasrlar."
-        with patch.dict("sys.modules", {"pytesseract": mock_pt}):
-            result = mod._ocr_image(object(), "uzb+eng")
+        completed = MagicMock()
+        completed.returncode = 0
+        completed.stdout = "Ta'rif: kasrlar.".encode("utf-8")
+        with patch("duyo.textbook.tesseract_ocr.subprocess.run", return_value=completed), \
+             patch("duyo.textbook.tesseract_ocr._tesseract_cmd", return_value="tesseract"):
+            result = mod._ocr_png_bytes(b"PNG", "uzb+eng")
 
         assert result == "Ta'rif: kasrlar."
-        mock_pt.image_to_string.assert_called_once()
 
-    def test_raises_without_pytesseract(self) -> None:
-        import builtins
-
+    def test_raises_on_nonzero_exit(self) -> None:
         from duyo.textbook import tesseract_ocr as mod
 
-        real_import = builtins.__import__
+        completed = MagicMock()
+        completed.returncode = 1
+        completed.stderr = b"some tesseract error"
+        with patch("duyo.textbook.tesseract_ocr.subprocess.run", return_value=completed), \
+             patch("duyo.textbook.tesseract_ocr._tesseract_cmd", return_value="tesseract"):
+            with pytest.raises(RuntimeError, match="tesseract failed"):
+                mod._ocr_png_bytes(b"PNG", "eng")
 
-        def fake_import(name, *args, **kwargs):
-            if name == "pytesseract":
-                raise ImportError("simulated missing pytesseract")
-            return real_import(name, *args, **kwargs)
+    def test_tolerates_non_utf8_stderr(self) -> None:
+        """tesseract may emit non-UTF-8 bytes on stderr; must not crash."""
+        from duyo.textbook import tesseract_ocr as mod
 
-        with patch("builtins.__import__", side_effect=fake_import):
-            with pytest.raises(RuntimeError, match="pytesseract"):
-                mod._ocr_image(object(), "eng")
+        completed = MagicMock()
+        completed.returncode = 1
+        completed.stderr = b"\x89PNG warning \xff\xfe"  # invalid UTF-8
+        with patch("duyo.textbook.tesseract_ocr.subprocess.run", return_value=completed), \
+             patch("duyo.textbook.tesseract_ocr._tesseract_cmd", return_value="tesseract"):
+            with pytest.raises(RuntimeError, match="tesseract failed"):
+                mod._ocr_png_bytes(b"PNG", "eng")
 
 
 # ---------------------------------------------------------------------------
