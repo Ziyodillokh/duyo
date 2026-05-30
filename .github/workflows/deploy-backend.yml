@@ -59,7 +59,7 @@ jobs:
           echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Rsync source → server
+      - name: Rsync api source → server
         run: |
           rsync -avz --delete --no-perms \
             --exclude='.venv' --exclude='__pycache__' --exclude='*.pyc' \
@@ -71,21 +71,57 @@ jobs:
             src migrations pyproject.toml README.md alembic.ini Dockerfile .dockerignore \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/api/
 
-      - name: Build image + run migration + recreate api
+      - name: Rsync docker-compose.yml → server
+        working-directory: .
+        run: |
+          rsync -avz --no-perms \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            duyo-backend/docker-compose.yml \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/docker-compose.yml
+
+      - name: Ensure pgvector postgres + build api + migrate + recreate
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
             bash -se <<'REMOTE'
               set -e
+              cd /opt/duyo
+
+              # 1. Pull pgvector postgres image if image changed.
+              # Data is in docker volume — survives container recreation.
+              echo "--- pull postgres image ---"
+              docker compose pull postgres 2>&1 | tail -3
+
+              # 2. Recreate postgres only if image actually changed.
+              CURRENT_IMAGE=$(docker inspect --format '{{.Config.Image}}' duyo-postgres 2>/dev/null || echo "none")
+              WANTED_IMAGE=$(docker compose config | grep -A2 'postgres:' | grep image | awk '{print $2}' || echo "pgvector/pgvector:pg16")
+              if [ "$CURRENT_IMAGE" != "$WANTED_IMAGE" ]; then
+                echo "--- postgres image changed: $CURRENT_IMAGE → $WANTED_IMAGE ---"
+                docker compose up -d --force-recreate postgres 2>&1 | tail -3
+                # Wait for postgres to be ready
+                for i in $(seq 1 12); do
+                  docker compose exec -T postgres pg_isready -U duyo && break
+                  echo "  postgres not ready yet ($i/12)..."
+                  sleep 5
+                done
+              else
+                echo "--- postgres image unchanged ($CURRENT_IMAGE) ---"
+              fi
+
+              # 3. Build API image
               cd /opt/duyo/api
               echo "--- docker build ---"
               docker build -t duyo-api:latest . 2>&1 | tail -10
-              echo "--- alembic upgrade head (idempotent) ---"
+
+              # 4. Run alembic migrations (idempotent — safe to re-run)
+              echo "--- alembic upgrade head ---"
               docker run --rm \
                 --network duyo_internal \
                 --env-file /opt/duyo/.env \
-                -e DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER:-duyo}:$(cat /opt/duyo/secrets/db_password.txt)@postgres:5432/${POSTGRES_DB:-duyo}" \
+                -e DATABASE_URL="postgresql+asyncpg://duyo:$(cat /opt/duyo/secrets/db_password.txt)@postgres:5432/duyo" \
                 duyo-api:latest alembic upgrade head 2>&1 | tail -5
+
+              # 5. Recreate API container
               echo "--- recreate api container ---"
               cd /opt/duyo
               docker compose up -d --force-recreate api 2>&1 | tail -3

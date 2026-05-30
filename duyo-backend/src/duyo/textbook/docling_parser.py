@@ -22,6 +22,15 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
+# Docling is an optional dependency — only needed for local ingestion.
+# Install with: pip install -e ".[ingestion]"
+# Production API container does NOT include docling.
+try:
+    import docling as _docling_available  # noqa: F401
+    _HAS_DOCLING = True
+except ImportError:
+    _HAS_DOCLING = False
+
 # Supported extensions (Docling handles all of these)
 DOCLING_EXTENSIONS = {".pdf", ".docx", ".doc", ".html", ".htm", ".pptx", ".md"}
 
@@ -50,9 +59,14 @@ def is_supported(path: Path) -> bool:
 def parse(path: Path) -> list[RawChunk]:
     """Convert a document file to a list of RawChunks using Docling.
 
-    Docling is loaded lazily here to avoid import overhead for .txt-only pipelines.
-    Heavy model loading happens on first call (~3-5s with cached models).
+    Raises:
+        RuntimeError: If docling is not installed (pip install -e ".[ingestion]").
     """
+    if not _HAS_DOCLING:
+        raise RuntimeError(
+            "docling is not installed. Run: pip install -e '.[ingestion]'\n"
+            "docling is an optional dependency — not included in the production container."
+        )
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
