@@ -5,7 +5,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // DUYO brand palette (source: duyo-web-prototype/src/styles/theme.css)
+        // DUYO brand palette (Light theme — onboarding)
         'duyo-primary': '#2563EB',
         'duyo-navy': '#102033',
         'duyo-star': '#FFC700',
@@ -16,7 +16,7 @@ module.exports = {
         'duyo-white': '#FFFFFF',
         'duyo-muted': '#64748B',
 
-        // Semantic tokens (mirror web prototype semantic layer)
+        // Light theme semantic tokens
         primary: '#2563EB',
         'primary-foreground': '#FFFFFF',
         secondary: '#F4F8FF',
@@ -37,12 +37,44 @@ module.exports = {
         'warning-foreground': '#102033',
         border: 'rgba(37, 99, 235, 0.1)',
         ring: '#2563EB',
+
+        // Dark theme palette (main app)
+        // Surfaces
+        'dark-bg-from': '#3C0366', // gradient start (purple)
+        'dark-bg-mid': '#510424', // gradient middle (burgundy)
+        'dark-bg-to': '#162456', // gradient end (navy)
+        'dark-surface': '#132340', // card/header/footer base
+        'dark-surface-soft': 'rgba(22, 36, 86, 0.3)', // subtle overlay
+        'dark-track': '#364153', // progress bar track
+        // Text
+        'dark-heading': '#C27AFF', // purple-pink heading
+        'dark-subtitle': '#DAB2FF', // light lavender subtitle
+        'dark-text': '#E0E7FF', // body text on dark
+        'dark-muted': '#94A3B8', // muted gray
+        // Neon accents
+        'neon-pink': '#FB64B6',
+        'neon-magenta': '#E60076',
+        'neon-cyan': '#51A2FF',
+        'neon-blue': '#60A5FA',
+        'neon-purple': '#8200DB',
+        'neon-green': '#05DF72',
+        'neon-orange': '#FF8904',
+        'neon-yellow': '#FDC700',
+        'neon-gold': '#D08700',
+        // Glow borders
+        'glow-purple': '#8200DB',
+        'glow-magenta': '#A3004C',
+        'glow-orange': '#CA3500',
+        'glow-green': '#008236',
+        'glow-blue': '#1447E6',
+        'glow-pink': '#C6005C',
       },
       borderRadius: {
         sm: '12px',
         md: '14px',
         lg: '16px',
         xl: '20px',
+        '2xl': '24px',
       },
     },
   },

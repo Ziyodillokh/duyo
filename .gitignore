@@ -65,3 +65,6 @@ duyo-backend/.pytest_cache/
 
 # Claude
 .claude/settings.local.json
+
+# Figma v2 reference screenshots (downloaded, not committed)
+duyo-figma-v2/

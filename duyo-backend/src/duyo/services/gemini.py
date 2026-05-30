@@ -65,6 +65,7 @@ async def chat(
     age_segment: AgeSegment,
     history: list[tuple[HistoryRole, str]] | None = None,
     use_pro: bool = False,
+    rag_context: str | None = None,
 ) -> GeminiReply:
     """Multi-turn chat. `history` is the prior conversation in chronological order.
 
@@ -82,12 +83,17 @@ async def chat(
 
     contents = _build_contents(history, child_message)
 
+    base_prompt = SYSTEM_PROMPTS[age_segment]
+    system_instruction = (
+        f"{base_prompt}\n\n{rag_context}" if rag_context else base_prompt
+    )
+
     start = time.perf_counter()
     resp = await client.aio.models.generate_content(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPTS[age_segment],
+            system_instruction=system_instruction,
             max_output_tokens=settings.gemini_max_output_tokens,
             temperature=settings.gemini_temperature,
             thinking_config=thinking_cfg,

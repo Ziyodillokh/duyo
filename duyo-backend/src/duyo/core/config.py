@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     gemini_model_primary: str = "gemini-2.5-flash"
     gemini_model_fallback: str = "gemini-2.5-pro"
+    # Embedding — 768-dim, used for textbook RAG
+    gemini_embedding_model: str = "text-embedding-004"
     # Voice mode (D-005 v3, 2026-05-27 POC accepted) — single-stack STT+chat+native audio.
     gemini_model_live: str = "gemini-3.1-flash-live-preview"
     gemini_live_input_sample_rate: int = 16_000
