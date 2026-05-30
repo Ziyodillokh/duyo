@@ -1,9 +1,9 @@
-"""Hybrid document parser: Docling (digital PDFs) + PaddleOCR (scanned PDFs).
+"""Hybrid document parser: Docling (digital PDFs) + Tesseract (scanned PDFs).
 
 Routing strategy:
-  auto    — Docling first; if extracted text < threshold → PaddleOCR fallback.
-  docling — Always Docling (fast, free, offline). Good for digital PDFs/DOCX/HTML.
-  paddle  — Always PaddleOCR. Good for scanned PDFs, Uzbek Cyrillic, formulas.
+  auto      — Docling first; fall back to Tesseract if text < threshold OR glyph garbage.
+  docling   — Always Docling (fast, free, offline). Digital PDFs/DOCX/HTML.
+  tesseract — Always Tesseract. Scanned PDFs, Uzbek Cyrillic, broken encoding.
 
 Non-PDF formats (.docx/.html/.pptx) always use Docling regardless of strategy.
 
@@ -50,10 +50,25 @@ class RawChunk:
     page_number: int | None = None
 
 
-OcrStrategy = Literal["auto", "docling", "paddle"]
+OcrStrategy = Literal["auto", "docling", "tesseract"]
 
 # Minimum total chars from Docling before we decide a PDF is "scanned"
 _SCANNED_THRESHOLD_CHARS = 200
+
+# Glyph-ID garbage: PDFs with broken CID font encoding (no ToUnicode CMap)
+# extract as "/G31/G2E/G20…" tokens instead of real Unicode. If more than this
+# fraction of extracted text is glyph-ID noise, treat the text layer as unusable
+# and fall back to OCR.
+_GLYPH_ID_RE = re.compile(r"/G[0-9A-Fa-f]{2,4}")
+_GLYPH_GARBAGE_THRESHOLD = 0.30
+
+
+def _is_glyph_garbage(text: str) -> bool:
+    """Return True if extracted text is mostly broken glyph-ID tokens."""
+    if not text:
+        return False
+    glyph_chars = sum(len(m.group()) for m in _GLYPH_ID_RE.finditer(text))
+    return glyph_chars / len(text) > _GLYPH_GARBAGE_THRESHOLD
 
 def is_supported(path: Path) -> bool:
     return path.suffix.lower() in DOCLING_EXTENSIONS
@@ -67,7 +82,7 @@ async def parse(
     """Convert a document file to RawChunks.
 
     Strategies:
-      "auto"    — Docling first; if extracted text < threshold → Mistral OCR fallback.
+      "auto"    — Docling first; if extracted text < threshold → Tesseract fallback.
                   Best for mixed collections (digital + scanned).
       "docling" — Always use Docling. Fast, free, offline.
                   Use for digital PDFs and non-PDF formats (DOCX, HTML, PPTX).
@@ -76,17 +91,17 @@ async def parse(
 
     Raises:
         RuntimeError: If docling not installed when strategy requires it.
-        RuntimeError: If MISTRAL_API_KEY not set when strategy requires it.
+        RuntimeError: If docling/pytesseract not installed when strategy requires it.
     """
     suffix = path.suffix.lower()
 
-    # Non-PDF formats → always Docling (Mistral OCR only handles PDFs)
+    # Non-PDF formats → always Docling (OCR only handles PDFs)
     if suffix != ".pdf":
         return _docling_parse(path)
 
     # PDF routing
-    if strategy == "paddle":
-        return await _paddle_parse(path)
+    if strategy == "tesseract":
+        return await _tesseract_parse(path)
 
     if strategy == "docling":
         return _docling_parse(path)
@@ -95,27 +110,24 @@ async def parse(
     log.info("parse_auto_start", path=str(path))
     try:
         chunks = _docling_parse(path)
-        total_chars = sum(len(c.text) for c in chunks)
-        if total_chars >= _SCANNED_THRESHOLD_CHARS:
-            log.info(
-                "parse_auto_docling_ok",
-                path=str(path),
-                chunks=len(chunks),
-                total_chars=total_chars,
-            )
+        combined = "\n".join(c.text for c in chunks)
+        total_chars = len(combined)
+
+        if total_chars < _SCANNED_THRESHOLD_CHARS:
+            log.info("parse_auto_scanned_detected", path=str(path), total_chars=total_chars)
+        elif _is_glyph_garbage(combined):
+            # Broken CID font encoding — text layer is unusable, OCR instead
+            log.info("parse_auto_glyph_garbage_detected", path=str(path))
+        else:
+            log.info("parse_auto_docling_ok", path=str(path),
+                     chunks=len(chunks), total_chars=total_chars)
             return chunks
-        log.info(
-            "parse_auto_scanned_detected",
-            path=str(path),
-            total_chars=total_chars,
-            threshold=_SCANNED_THRESHOLD_CHARS,
-        )
     except Exception as exc:
         log.warning("parse_auto_docling_failed", path=str(path), error=str(exc))
 
-    # Fall back to Mistral OCR
-    log.info("parse_auto_paddle_fallback", path=str(path))
-    return await _paddle_parse(path)
+    # Fall back to Tesseract (renders pages → OCR, ignores broken text layer)
+    log.info("parse_auto_tesseract_fallback", path=str(path))
+    return await _tesseract_parse(path)
 
 
 def _docling_parse(path: Path) -> list[RawChunk]:
@@ -125,14 +137,23 @@ def _docling_parse(path: Path) -> list[RawChunk]:
             "docling is not installed. Run: pip install -e '.[ingestion]'\n"
             "docling is an optional dependency — not included in the production container."
         )
+    from docling.datamodel.accelerator_options import (
+        AcceleratorDevice,
+        AcceleratorOptions,
+    )
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
+
+    # Force CPU — Apple Silicon MPS backend doesn't support float64, which the
+    # RT-DETR layout model requires (TypeError on MPS otherwise).
+    accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CPU)
 
     # do_ocr=False: selectable-text PDFs only (faster, no ML model loading)
     pipeline_options = PdfPipelineOptions()
     pipeline_options.do_ocr = False
     pipeline_options.do_table_structure = True
+    pipeline_options.accelerator_options = accelerator_options
 
     converter = DocumentConverter(
         format_options={
@@ -300,21 +321,20 @@ def _parse_from_markdown(md: str) -> list[RawChunk]:
     return chunks
 
 
-async def _paddle_parse(path: Path) -> list[RawChunk]:
-    """Parse a scanned/complex PDF with PaddleOCR → markdown → RawChunks.
+async def _tesseract_parse(path: Path) -> list[RawChunk]:
+    """Parse a scanned/broken-encoding PDF with Tesseract → markdown → RawChunks.
 
-    PaddleOCR runs locally (no API key needed).
-    Install: pip install -e '.[ingestion]'
+    Tesseract runs locally (no API key). Stable on Apple Silicon.
+    Install: brew install tesseract tesseract-lang && pip install -e '.[ingestion]'
     """
-    from duyo.textbook.paddle_ocr import ocr_pdf_as_markdown
-
-    # PaddleOCR is synchronous — run in thread to keep the async chain intact
     import asyncio
+
+    from duyo.textbook.tesseract_ocr import ocr_pdf_as_markdown
     md = await asyncio.get_event_loop().run_in_executor(
         None, lambda: ocr_pdf_as_markdown(path)
     )
     chunks = _parse_from_markdown(md)
-    log.info("paddle_parse_done", path=str(path), chunks=len(chunks))
+    log.info("tesseract_parse_done", path=str(path), chunks=len(chunks))
     return chunks
 
 

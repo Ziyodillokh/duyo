@@ -131,7 +131,7 @@ async def _run(args: argparse.Namespace) -> None:
 
                 if is_supported(f):
                     from duyo.textbook.docling_parser import parse as docling_parse
-                    raw_chunks = docling_parse(f)
+                    raw_chunks = await docling_parse(f, strategy=args.ocr_strategy)
                     chunk_texts = [(r.text, r.chapter) for r in raw_chunks]
                 else:
                     text = f.read_text(encoding="utf-8", errors="replace")
