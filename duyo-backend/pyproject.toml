@@ -28,8 +28,13 @@ dependencies = [
 [project.optional-dependencies]
 # Install for local textbook ingestion only — NOT in production Docker image.
 # Usage: pip install -e ".[ingestion]"
+# PaddleOCR handles scanned PDFs, Uzbek Cyrillic, and formula-heavy documents.
+# pymupdf renders PDF pages to images for PaddleOCR.
 ingestion = [
     "docling>=2.0.0",
+    "paddlepaddle>=2.6.0",
+    "paddleocr>=2.7.0",
+    "pymupdf>=1.23.0",
 ]
 dev = [
     "pytest>=8.0.0",

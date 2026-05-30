@@ -53,12 +53,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--script", choices=["latin", "cyrillic", "mixed"], default=None)
     parser.add_argument(
         "--ocr-strategy",
-        choices=["auto", "docling", "mistral"],
+        choices=["auto", "docling", "paddle"],
         default="auto",
         help=(
-            "auto   — Docling first; Mistral OCR fallback for scanned/low-text PDFs (default)\n"
-            "docling — Always use Docling (fast, free, digital PDFs only)\n"
-            "mistral — Always use Mistral OCR (scanned, Cyrillic, formulas)"
+            "auto    — Docling first; PaddleOCR fallback for scanned/low-text PDFs (default)\n"
+            "docling — Always Docling (fast, digital PDFs / DOCX / HTML)\n"
+            "paddle  — Always PaddleOCR (scanned, Uzbek Cyrillic, formulas)"
         ),
     )
 

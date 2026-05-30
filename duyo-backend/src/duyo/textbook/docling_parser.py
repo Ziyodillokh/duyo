@@ -1,15 +1,13 @@
-"""Docling-based parser for PDF, DOCX, HTML, and image files.
+"""Hybrid document parser: Docling (digital PDFs) + PaddleOCR (scanned PDFs).
 
-Replaces the plain-text paragraph splitter for structured document formats.
-Key advantages over plain-text parsing:
-  - Heading hierarchy → chapter/section hints for the classifier
-  - Native table detection → reliable has_table
-  - Formula/math detection → reliable has_formula
-  - Image detection → reliable has_image
-  - Section-based chunking instead of blank-line-based
+Routing strategy:
+  auto    — Docling first; if extracted text < threshold → PaddleOCR fallback.
+  docling — Always Docling (fast, free, offline). Good for digital PDFs/DOCX/HTML.
+  paddle  — Always PaddleOCR. Good for scanned PDFs, Uzbek Cyrillic, formulas.
 
-Output: list of RawChunk, each with detected structural metadata.
-The downstream classifier then runs on each RawChunk.text.
+Non-PDF formats (.docx/.html/.pptx) always use Docling regardless of strategy.
+
+Output: list of RawChunk with heading, formula, table, image metadata.
 """
 
 from __future__ import annotations
@@ -52,7 +50,7 @@ class RawChunk:
     page_number: int | None = None
 
 
-OcrStrategy = Literal["auto", "docling", "mistral"]
+OcrStrategy = Literal["auto", "docling", "paddle"]
 
 # Minimum total chars from Docling before we decide a PDF is "scanned"
 _SCANNED_THRESHOLD_CHARS = 200
@@ -87,8 +85,8 @@ async def parse(
         return _docling_parse(path)
 
     # PDF routing
-    if strategy == "mistral":
-        return await _mistral_parse(path)
+    if strategy == "paddle":
+        return await _paddle_parse(path)
 
     if strategy == "docling":
         return _docling_parse(path)
@@ -116,8 +114,8 @@ async def parse(
         log.warning("parse_auto_docling_failed", path=str(path), error=str(exc))
 
     # Fall back to Mistral OCR
-    log.info("parse_auto_mistral_fallback", path=str(path))
-    return await _mistral_parse(path)
+    log.info("parse_auto_paddle_fallback", path=str(path))
+    return await _paddle_parse(path)
 
 
 def _docling_parse(path: Path) -> list[RawChunk]:
@@ -302,13 +300,21 @@ def _parse_from_markdown(md: str) -> list[RawChunk]:
     return chunks
 
 
-async def _mistral_parse(path: Path) -> list[RawChunk]:
-    """Parse a scanned/complex PDF with Mistral OCR → markdown → RawChunks."""
-    from duyo.textbook.mistral_ocr import ocr_pdf_as_markdown
+async def _paddle_parse(path: Path) -> list[RawChunk]:
+    """Parse a scanned/complex PDF with PaddleOCR → markdown → RawChunks.
 
-    md = await ocr_pdf_as_markdown(path)
+    PaddleOCR runs locally (no API key needed).
+    Install: pip install -e '.[ingestion]'
+    """
+    from duyo.textbook.paddle_ocr import ocr_pdf_as_markdown
+
+    # PaddleOCR is synchronous — run in thread to keep the async chain intact
+    import asyncio
+    md = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: ocr_pdf_as_markdown(path)
+    )
     chunks = _parse_from_markdown(md)
-    log.info("mistral_parse_done", path=str(path), chunks=len(chunks))
+    log.info("paddle_parse_done", path=str(path), chunks=len(chunks))
     return chunks
 
 
