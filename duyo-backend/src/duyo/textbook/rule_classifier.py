@@ -92,13 +92,41 @@ _RULES: list[_Rule] = [
 
 # ── Formula / table / image signals ─────────────────────────────────────────
 
-_FORMULA_PATTERNS: list[re.Pattern[str]] = [
-    _p(r"[=+\-*/^√∫∑∏]{2,}"),        # dense math operators
-    _p(r"\d+\s*/\s*\d+"),             # fraction a/b
-    _p(r"\$[^$]+\$|\\\(.+?\\\)"),     # LaTeX inline
-    _p(r"\b[a-zA-Z]\s*[²³⁴]"),       # exponents
-    _p(r"\b(?:sin|cos|tan|log|sqrt|frac)\b"),  # math functions
+# STRONG signals are reliable in ANY subject — LaTeX, named math functions,
+# unicode super/subscripts, and unambiguous math operators (times, divide,
+# root, integral, sigma, product). These rarely appear by accident in prose.
+_STRONG_FORMULA_PATTERNS: list[re.Pattern[str]] = [
+    _p(r"\$[^$]+\$|\\\(.+?\\\)"),       # LaTeX inline
+    _p(r"\\frac|\\sqrt|\\sum|\\int"),   # LaTeX commands
+    _p(r"[×÷√∫∑∏]"),                    # unambiguous math operators
+    _p(r"\b[a-zA-Z]\s*[²³⁴]"),         # exponents  x²
+    _p(r"[½⅓¼⅔¾⅕⅖]"),                   # unicode fractions
+    _p(r"\b(?:sin|cos|tan|log|sqrt)\b"),  # math functions
 ]
+
+# LOOSE signals fire ONLY for math-like subjects. In text subjects (ona-tili,
+# tarix, biologiya) they collide with suffix lists ("-bon, -gi"), exercise
+# numbering, and OCR noise, producing false has_formula=true.
+_MATH_FORMULA_PATTERNS: list[re.Pattern[str]] = [
+    _p(r"[=+\-*/^]{2,}"),             # dense ASCII operators
+    _p(r"\d+\s*/\s*\d+"),             # fraction a/b
+    _p(r"\b[a-zA-Z]\s*=\s*\d"),       # variable assignment  x = 5
+    _p(r"\bfrac\b"),                  # bare "frac"
+]
+
+# Subjects where loose numeric patterns indicate real formulas.
+_MATH_SUBJECTS = frozenset({
+    "matematika", "algebra", "geometriya", "fizika", "kimyo",
+})
+
+
+def _detect_formula(text: str, subject: str | None) -> bool:
+    """Detect formulas; loose numeric patterns only for math-like subjects."""
+    if any(p.search(text) for p in _STRONG_FORMULA_PATTERNS):
+        return True
+    if subject and subject.lower() in _MATH_SUBJECTS:
+        return any(p.search(text) for p in _MATH_FORMULA_PATTERNS)
+    return False
 
 _TABLE_PATTERNS: list[re.Pattern[str]] = [
     _p(r"\|.+\|"),                    # markdown table row
@@ -127,11 +155,15 @@ class RuleResult:
     matched_rules: list[str] = field(default_factory=list)
 
 
-def classify(text: str) -> RuleResult:
+def classify(text: str, subject: str | None = None) -> RuleResult:
     """Apply all rules and return the highest-confidence content_type match.
 
     Ties are broken by the order rules appear (earlier = higher priority).
     Falls back to EXPLANATION at confidence 0.40 when nothing matches.
+
+    `subject` gates loose numeric formula patterns: in text subjects they
+    collide with exercise numbering and suffix lists, so they only fire for
+    math-like subjects.
     """
     best_type = ContentType.EXPLANATION
     best_conf = 0.40
@@ -156,7 +188,7 @@ def classify(text: str) -> RuleResult:
         best_type = ContentType.WORKED_SOLUTION
         best_conf = min(best_conf + 0.05, 0.95)
 
-    has_formula = any(p.search(text) for p in _FORMULA_PATTERNS)
+    has_formula = _detect_formula(text, subject)
     has_table = any(p.search(text) for p in _TABLE_PATTERNS)
     has_image = any(p.search(text) for p in _IMAGE_PATTERNS)
 

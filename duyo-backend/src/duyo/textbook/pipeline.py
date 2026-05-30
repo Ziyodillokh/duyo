@@ -186,7 +186,7 @@ async def classify_chunk(
         docling_hints: Optional structural hints from Docling (heading, tables, images).
                        When provided, has_table/has_image/chapter are pre-filled.
     """
-    rule = rule_classifier.classify(chunk)
+    rule = rule_classifier.classify(chunk, doc_meta.subject)
 
     log.debug(
         "rule_classifier",

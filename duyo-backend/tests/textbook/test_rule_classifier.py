@@ -119,8 +119,14 @@ class TestQuiz:
 
 class TestStructuralDetection:
     def test_detects_formula_fraction(self) -> None:
-        result = classify("3/4 + 5/6 ni hisoblang.")
+        # Bare fractions are a loose signal — only count as a formula for
+        # math-like subjects (in text subjects they collide with dates/IDs).
+        result = classify("3/4 + 5/6 ni hisoblang.", subject="matematika")
         assert result.has_formula is True
+
+    def test_fraction_not_formula_in_text_subject(self) -> None:
+        result = classify("21/5 dars: so'z turkumlari", subject="ona-tili")
+        assert result.has_formula is False
 
     def test_detects_formula_operators(self) -> None:
         result = classify("a² + b² = c² formulasi yordamida toping.")
