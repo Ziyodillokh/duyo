@@ -1,7 +1,7 @@
 import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Coins, Plus, Sparkles } from 'lucide-react-native';
+import { Plus, Sparkles } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -104,7 +104,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
               className="flex-row items-center gap-1 rounded-md border border-neon-blue/20"
               style={{ paddingHorizontal: 9, paddingVertical: 3 }}
             >
-              <Coins size={12} color="#FCD34D" />
+              <Text style={{ fontSize: 11 }}>⭐</Text>
               <Text className="text-xs font-medium text-foreground dark:text-dark-text">
                 {item.price}
               </Text>
@@ -174,16 +174,7 @@ export default function InventoryScreen() {
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
-                  <View
-                    className="rounded-full items-center justify-center"
-                    style={{
-                      width: 48,
-                      height: 48,
-                      backgroundColor: '#FCD34D',
-                    }}
-                  >
-                    <Coins size={24} color="#0A1628" />
-                  </View>
+                  <Text style={{ fontSize: 28 }}>⭐</Text>
                   <View>
                     <Text className="text-sm text-muted-foreground dark:text-dark-muted">Balansim</Text>
                     <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">

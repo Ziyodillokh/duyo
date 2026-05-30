@@ -18,6 +18,12 @@ const MOCK_XP_TO_NEXT = 50;
 const MOCK_XP_TOTAL_FOR_LEVEL = 500;
 const MOCK_STREAK = 5;
 const MOCK_ACHIEVEMENTS_COUNT = 6;
+const MOCK_AVG_MINUTES = 23;
+
+const WEEK_DAYS = ['Du', 'Se', 'Cho', 'Pa', 'Ju', 'Sha', 'Ya'] as const;
+const WEEK_DONE = [true, true, true, true, true, false, false];
+// Bar heights 0-1 for haftalik faollik (Mon-Fri active, weekends lower)
+const WEEK_BAR_HEIGHTS = [0.85, 0.60, 0.90, 0.70, 0.80, 0.20, 0.10];
 
 const ACHIEVEMENTS = [
   { key: 'first_chat', emoji: '🎯', label: 'Birinchi suhbat' },
@@ -119,6 +125,72 @@ export default function ProfileScreen() {
               <Text className="text-xs text-muted-foreground dark:text-dark-muted">Yutuqlar</Text>
             </DarkCard>
           </View>
+
+          {/* Week streak calendar */}
+          <DarkCard>
+            <View className="flex-row justify-between mb-3">
+              {WEEK_DAYS.map((day, i) => (
+                <View key={day} className="items-center gap-1">
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 17,
+                      backgroundColor: WEEK_DONE[i]
+                        ? '#60A5FA'
+                        : 'rgba(96,165,250,0.12)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {WEEK_DONE[i] && (
+                      <Text style={{ color: '#0A1628', fontSize: 14, fontWeight: '700' }}>✓</Text>
+                    )}
+                  </View>
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">{day}</Text>
+                </View>
+              ))}
+            </View>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted text-center">
+              {MOCK_STREAK} kunlik seriya davom etmoqda!
+            </Text>
+          </DarkCard>
+
+          {/* Haftalik faollik + o'rtacha kunlik */}
+          <DarkCard>
+            <View className="flex-row items-center gap-2 mb-4">
+              <Star size={18} color="#60A5FA" />
+              <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                Haftalik faollik
+              </Text>
+            </View>
+            <View className="flex-row items-end justify-between" style={{ height: 64 }}>
+              {WEEK_DAYS.map((day, i) => (
+                <View key={day} className="items-center gap-1 flex-1">
+                  <View
+                    style={{
+                      width: 20,
+                      height: Math.max(6, WEEK_BAR_HEIGHTS[i] * 56),
+                      borderRadius: 4,
+                      backgroundColor: WEEK_DONE[i] ? '#60A5FA' : 'rgba(96,165,250,0.20)',
+                    }}
+                  />
+                  <Text
+                    className="text-muted-foreground dark:text-dark-muted"
+                    style={{ fontSize: 10 }}
+                  >
+                    {day}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            <View className="flex-row items-center gap-1 mt-3">
+              <Text className="text-base">⚡</Text>
+              <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                O'rtacha kunlik: {MOCK_AVG_MINUTES} daqiqa
+              </Text>
+            </View>
+          </DarkCard>
 
           <DarkCard>
             <View className="flex-row items-center gap-2 mb-4">
