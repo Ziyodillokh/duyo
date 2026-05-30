@@ -185,7 +185,7 @@ class TestSearchChunks:
             "duyo.textbook.retriever.emb_service.embed_query",
             new_callable=AsyncMock,
             return_value=[0.1] * 768,
-        ) as mock_embed, patch(
+        ), patch(
             "duyo.textbook.retriever.chunk_store.search",
             new_callable=AsyncMock,
             return_value=[],
