@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
-"""CLI: ingest a textbook file or directory → JSONL output for review.
+"""CLI: ingest a textbook file or directory into the DUYO RAG pipeline.
+
+Modes:
+  (default)  classify → JSONL stdout/file
+  --store    classify → save to PostgreSQL (textbook_chunks)
+  --embed    classify → save to DB → generate embeddings (full pipeline)
+  --dry-run  rule-only preview, no LLM or DB
 
 Usage:
-    python scripts/ingest_textbook.py path/to/file.txt
-    python scripts/ingest_textbook.py path/to/dir/ --subject matematika --grade 6
-    python scripts/ingest_textbook.py file.txt --out reviewed/output.jsonl --dry-run
+    # Preview what would be classified (no LLM, no DB)
+    python scripts/ingest_textbook.py file.txt --dry-run
 
-Output:
-    Newline-delimited JSON, one ClassifiedChunk per line.
-    Fields marked needs_review=true should be checked by a human
-    before being inserted into pgvector.
+    # Classify with LLM → review JSONL
+    python scripts/ingest_textbook.py file.txt --out output.jsonl
+
+    # Full pipeline: classify → store → embed
+    python scripts/ingest_textbook.py textbooks/ --subject matematika --grade 6 --embed
+
+    # Classify → store (skip embedding for now)
+    python scripts/ingest_textbook.py file.txt --store
 
 Environment:
     GOOGLE_API_KEY must be set (reads from .env via pydantic-settings).
+    DATABASE_URL must be set when using --store or --embed.
 """
 
 from __future__ import annotations
@@ -27,26 +37,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from duyo.textbook.pipeline import extract_doc_meta, process_file
-from duyo.textbook.schema import DocumentMeta, Language, Script
+from duyo.textbook.schema import Language, Script
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Ingest textbook text files into DUYO RAG metadata pipeline."
+        description="Ingest textbook .txt files into DUYO RAG pipeline."
     )
-    parser.add_argument("path", type=Path, help="File (.txt) or directory to ingest")
+    parser.add_argument("path", type=Path, help="File (.txt) or directory")
     parser.add_argument("--out", type=Path, default=None,
-                        help="Output JSONL file (default: stdout)")
-    parser.add_argument("--subject", default=None,
-                        help="Override subject (e.g. matematika, ona-tili)")
-    parser.add_argument("--grade", type=int, default=None,
-                        help="Override grade (1-12)")
+                        help="Output JSONL file (default: stdout). Ignored with --store/--embed.")
+    parser.add_argument("--subject", default=None)
+    parser.add_argument("--grade", type=int, default=None)
     parser.add_argument("--language", choices=["uz", "ru", "en"], default=None)
     parser.add_argument("--script", choices=["latin", "cyrillic", "mixed"], default=None)
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Chunk and show rule-only results, skip LLM calls")
+
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true",
+                      help="Rule-only preview; no LLM or DB calls")
+    mode.add_argument("--store", action="store_true",
+                      help="Classify and save to PostgreSQL (no embedding)")
+    mode.add_argument("--embed", action="store_true",
+                      help="Classify, save to PostgreSQL, and generate embeddings")
+
     parser.add_argument("--review-only", action="store_true",
-                        help="Only output chunks marked needs_review=true")
+                        help="Output only chunks marked needs_review=true")
     return parser.parse_args()
 
 
@@ -62,15 +77,25 @@ async def _run(args: argparse.Namespace) -> None:
         print(f"No .txt files found in {args.path}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Found {len(files)} file(s) to ingest.", file=sys.stderr)
+    use_db = args.store or args.embed
+    print(f"Found {len(files)} file(s). Mode: "
+          f"{'dry-run' if args.dry_run else 'store+embed' if args.embed else 'store' if args.store else 'jsonl'}",
+          file=sys.stderr)
 
-    out_file = open(args.out, "w", encoding="utf-8") if args.out else None
+    # Lazy import DB deps only when needed
+    session_factory = None
+    if use_db:
+        from duyo.core.database import get_session_factory
+        from duyo.textbook import store as chunk_store
+        session_factory = get_session_factory()
+
+    out_file = open(args.out, "w", encoding="utf-8") if (args.out and not use_db) else None
     total = 0
-    review = 0
+    review_count = 0
+    stored = 0
 
     try:
         for f in files:
-            # Build doc_meta with optional overrides
             doc_meta = extract_doc_meta(f)
             if args.subject:
                 doc_meta = doc_meta.model_copy(update={"subject": args.subject})
@@ -85,60 +110,63 @@ async def _run(args: argparse.Namespace) -> None:
                   f"lang={doc_meta.language}", file=sys.stderr)
 
             if args.dry_run:
-                # Rule-only — no LLM calls
                 from duyo.textbook.pipeline import chunk_text
                 from duyo.textbook.rule_classifier import classify as rule_classify
 
                 text = f.read_text(encoding="utf-8", errors="replace")
-                chunks = chunk_text(text)
-                for i, chunk in enumerate(chunks):
-                    result = rule_classify(chunk)
+                for i, chunk in enumerate(chunk_text(text)):
+                    r = rule_classify(chunk)
                     row = {
                         "chunk_index": i,
-                        "content_type": result.content_type,
-                        "confidence": result.confidence,
-                        "has_formula": result.has_formula,
-                        "has_table": result.has_table,
+                        "content_type": r.content_type,
+                        "confidence": round(r.confidence, 2),
+                        "has_formula": r.has_formula,
                         "text_preview": chunk[:120],
                     }
                     line = json.dumps(row, ensure_ascii=False)
-                    if out_file:
-                        out_file.write(line + "\n")
-                    else:
-                        print(line)
+                    print(line, file=out_file or sys.stdout)
                     total += 1
                 continue
 
             classified = await process_file(f, doc_meta=doc_meta)
 
-            for chunk in classified:
-                if args.review_only and not chunk.metadata.needs_review:
-                    continue
-                row = {
-                    "doc_id": chunk.doc_id,
-                    "chunk_index": chunk.chunk_index,
-                    "text": chunk.text,
-                    "metadata": chunk.metadata.model_dump(),
-                }
-                line = json.dumps(row, ensure_ascii=False)
-                if out_file:
-                    out_file.write(line + "\n")
-                else:
-                    print(line)
-                total += 1
-                if chunk.metadata.needs_review:
-                    review += 1
+            if use_db and session_factory:
+                async with session_factory() as session:
+                    written = await chunk_store.upsert_chunks(session, classified)
+                    stored += written
+
+                    if args.embed:
+                        doc_id = classified[0].doc_id if classified else None
+                        embedded = await chunk_store.embed_pending(session, doc_id=doc_id)
+                        print(f"    embedded {embedded} chunks", file=sys.stderr)
+
+                    await session.commit()
+            else:
+                for chunk in classified:
+                    if args.review_only and not chunk.metadata.needs_review:
+                        continue
+                    row = {
+                        "doc_id": chunk.doc_id,
+                        "chunk_index": chunk.chunk_index,
+                        "text": chunk.text,
+                        "metadata": chunk.metadata.model_dump(),
+                    }
+                    line = json.dumps(row, ensure_ascii=False)
+                    print(line, file=out_file or sys.stdout)
+
+            total += len(classified)
+            review_count += sum(1 for c in classified if c.metadata.needs_review)
 
     finally:
         if out_file:
             out_file.close()
 
-    print(
-        f"\nDone. {total} chunks written"
-        + (f", {review} need review ({review*100//total if total else 0}%)" if not args.dry_run else "")
-        + (f" → {args.out}" if args.out else " → stdout"),
-        file=sys.stderr,
-    )
+    if use_db:
+        print(f"\nDone. {total} chunks classified, {stored} upserted to DB.", file=sys.stderr)
+    else:
+        suffix = f" → {args.out}" if args.out else " → stdout"
+        pct = f", {review_count*100//total if total else 0}% need review" if not args.dry_run else ""
+        print(f"\nDone. {total} chunks{pct}{suffix}", file=sys.stderr)
 
 
 def main() -> None:
