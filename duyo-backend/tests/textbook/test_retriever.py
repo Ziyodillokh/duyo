@@ -255,7 +255,7 @@ class TestRetrieveForChat:
         ), patch(
             "duyo.textbook.retriever.chunk_store.search",
             new_callable=AsyncMock,
-            return_value=[mock_chunk],
+            return_value=[(mock_chunk, 0.88)],
         ):
             result = await retrieve_for_chat(session, "kasrlar nima?", grade=6)
 
