@@ -39,6 +39,12 @@ _MIN_CHUNK_CHARS = 40
 # Device for MinerU. MPS = Apple Silicon GPU; falls back to CPU if unavailable.
 _DEVICE = os.environ.get("MINERU_DEVICE_MODE", "mps")
 
+# Backend: 'pipeline' (classic OCR + formula detector) is ~25x faster than the
+# VLM backend on Apple Silicon (10 pages: 19s vs 8min) with comparable LaTeX
+# quality, so it's the default. Override with MINERU_BACKEND=vlm-auto-engine
+# for maximum accuracy when speed doesn't matter.
+_BACKEND = os.environ.get("MINERU_BACKEND", "pipeline")
+
 
 def _mineru_cmd() -> str:
     """Locate the mineru CLI (installed in the active venv)."""
@@ -67,9 +73,10 @@ def _run_mineru(pdf_path: Path, out_dir: Path, lang: str) -> Path:
     env.setdefault("MINERU_DEVICE_MODE", _DEVICE)
 
     result = subprocess.run(
-        [_mineru_cmd(), "-p", str(pdf_path), "-o", str(out_dir), "-l", lang],
+        [_mineru_cmd(), "-p", str(pdf_path), "-o", str(out_dir),
+         "-l", lang, "-b", _BACKEND],
         capture_output=True,
-        timeout=1800,  # 30 min for a full textbook
+        timeout=3600,  # 60 min ceiling for a full textbook
         env=env,
     )
     if result.returncode != 0:
@@ -125,10 +132,17 @@ def parse_content_list(content_list_path: Path) -> list[dict]:
             return
         text = _items_to_text(buffer)
         if len(text) >= _MIN_CHUNK_CHARS:
+            # MinerU often emits inline math as $...$ inside text items rather
+            # than a separate 'equation' item, so detect LaTeX in the text too.
+            has_formula = (
+                any(i.get("type") == "equation" for i in buffer)
+                or "\\frac" in text
+                or "$" in text
+            )
             chunks.append({
                 "text": text,
                 "chapter": current_chapter,
-                "has_formula": any(i.get("type") == "equation" for i in buffer),
+                "has_formula": has_formula,
                 "has_table": any(i.get("type") == "table" for i in buffer),
                 "has_image": any(i.get("type") == "image" for i in buffer),
             })
@@ -150,21 +164,58 @@ def parse_content_list(content_list_path: Path) -> list[dict]:
     return chunks
 
 
+# Pages per MinerU invocation. MinerU's 64-page window loads all formula crops
+# at once; on Apple Silicon MPS (≈1GB usable) a 240-page book OOMs during MFR
+# (formula recognition). Slicing into small batches caps peak memory; each
+# slice reloads the model (~6s) but reliably completes.
+_PAGES_PER_BATCH = int(os.environ.get("MINERU_PAGES_PER_BATCH", "20"))
+
+
+def _page_count(pdf_path: Path) -> int:
+    import fitz
+    doc = fitz.open(str(pdf_path))
+    n = len(doc)
+    doc.close()
+    return n
+
+
 def parse(pdf_path: Path, *, lang: str = "latin") -> list[dict]:
-    """Run MinerU on a PDF and return grouped chunk dicts.
+    """Run MinerU on a PDF (sliced into page batches) → grouped chunk dicts.
 
     Each dict: {text, chapter, has_formula, has_table, has_image}.
     Caller wraps these into RawChunk.
+
+    The PDF is split into _PAGES_PER_BATCH-page slices and MinerU runs on each
+    slice separately so peak memory stays bounded (MPS OOMs on large batches).
 
     lang: MinerU OCR language. NOT ISO codes — one of MinerU's script names:
       latin     — Uzbek Latin, English (default; most UZ textbooks)
       cyrillic  — Uzbek Cyrillic, Russian
       east_slavic, arabic, devanagari, en, ch, …
     """
+    import fitz
+
+    n_pages = _page_count(pdf_path)
+    all_chunks: list[dict] = []
+
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp)
-        log.info("mineru_start", path=str(pdf_path), device=_DEVICE)
-        content_list = _run_mineru(pdf_path, out_dir, lang)
-        chunks = parse_content_list(content_list)
-        log.info("mineru_done", path=str(pdf_path), chunks=len(chunks))
-        return chunks
+        src = fitz.open(str(pdf_path))
+
+        for start in range(0, n_pages, _PAGES_PER_BATCH):
+            end = min(start + _PAGES_PER_BATCH, n_pages)
+            slice_pdf = out_dir / f"slice_{start:04d}.pdf"
+            sub = fitz.open()
+            sub.insert_pdf(src, from_page=start, to_page=end - 1)
+            sub.save(str(slice_pdf))
+            sub.close()
+
+            log.info("mineru_slice_start", path=str(pdf_path),
+                     pages=f"{start + 1}-{end}/{n_pages}", device=_DEVICE)
+            content_list = _run_mineru(slice_pdf, out_dir, lang)
+            all_chunks.extend(parse_content_list(content_list))
+
+        src.close()
+
+    log.info("mineru_done", path=str(pdf_path), chunks=len(all_chunks))
+    return all_chunks
