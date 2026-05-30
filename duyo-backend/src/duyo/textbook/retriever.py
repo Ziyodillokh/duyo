@@ -55,7 +55,7 @@ async def search_chunks(
         return []
 
     try:
-        chunks = await chunk_store.search(
+        results = await chunk_store.search(
             session,
             query_vec,
             subject=subject,
@@ -68,22 +68,9 @@ async def search_chunks(
         log.warning("vector_search_failed", error=str(exc))
         return []
 
-    if not chunks:
-        return []
-
-    # pgvector returns chunks in cosine distance order (lower = better).
-    # We need to compute similarity = 1 - distance for the API response.
-    # Since SQLAlchemy doesn't expose the distance in the result directly,
-    # we approximate: the first result has highest similarity.
-    # For the API we compute approximate similarity via dot product estimation.
-    results = []
-    for i, chunk in enumerate(chunks):
-        # Approximate similarity: rank-based decay as a simple heuristic.
-        # Replace with real distance when pgvector exposes it via label.
-        approx_similarity = max(0.0, 1.0 - i * 0.05)
-        results.append((chunk, round(approx_similarity, 3)))
-
-    return results
+    # store.search() returns (chunk, similarity) pairs with real pgvector
+    # cosine similarity (1 - distance). Round for a tidy API response.
+    return [(chunk, round(score, 3)) for chunk, score in results]
 
 
 def build_rag_context(chunks_with_scores: list[tuple[TextbookChunk, float]]) -> str | None:
