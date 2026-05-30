@@ -11,7 +11,7 @@ and allows re-embedding without re-classifying.
 from __future__ import annotations
 
 import structlog
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,29 @@ from duyo.textbook import embeddings as emb_service
 from duyo.textbook.schema import ClassifiedChunk
 
 log = structlog.get_logger(__name__)
+
+
+async def doc_is_ingested(session: AsyncSession, doc_id: str) -> bool:
+    """Return True if this document is already fully ingested AND embedded.
+
+    Used by --skip-existing to resume a batch run without re-processing files.
+    A doc counts as done only when it has chunks and every chunk is embedded
+    (no NULL embeddings), so a half-finished run is not skipped.
+    """
+    total = await session.scalar(
+        select(func.count())
+        .select_from(TextbookChunk)
+        .where(TextbookChunk.doc_id == doc_id)
+    )
+    if not total:
+        return False
+
+    missing = await session.scalar(
+        select(func.count())
+        .select_from(TextbookChunk)
+        .where(TextbookChunk.doc_id == doc_id, TextbookChunk.embedding.is_(None))
+    )
+    return missing == 0
 
 
 async def upsert_chunks(

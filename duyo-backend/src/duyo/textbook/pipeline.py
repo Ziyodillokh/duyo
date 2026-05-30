@@ -267,8 +267,17 @@ async def classify_chunk(
 # Full document pipeline
 # ---------------------------------------------------------------------------
 
-def _doc_id(path: Path | str) -> str:
+def compute_doc_id(path: Path | str) -> str:
+    """Deterministic 16-char document id from the file path.
+
+    Same path → same doc_id, which lets --skip-existing detect already-ingested
+    files. Exposed publicly so the CLI can check the DB before processing.
+    """
     return hashlib.sha256(str(path).encode()).hexdigest()[:16]
+
+
+# Backwards-compatible internal alias.
+_doc_id = compute_doc_id
 
 
 async def process_file(

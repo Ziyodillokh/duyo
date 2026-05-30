@@ -72,6 +72,9 @@ def _parse_args() -> argparse.Namespace:
 
     parser.add_argument("--review-only", action="store_true",
                         help="Output only chunks marked needs_review=true")
+    parser.add_argument("--skip-existing", action="store_true",
+                        help="Skip files already fully ingested+embedded in the DB "
+                             "(resume a batch run). Only effective with --store/--embed.")
     return parser.parse_args()
 
 
@@ -108,6 +111,7 @@ async def _run(args: argparse.Namespace) -> None:
     total = 0
     review_count = 0
     stored = 0
+    skipped = 0
 
     try:
         for f in files:
@@ -123,6 +127,16 @@ async def _run(args: argparse.Namespace) -> None:
 
             print(f"  [{f.name}] subject={doc_meta.subject} grade={doc_meta.grade} "
                   f"lang={doc_meta.language}", file=sys.stderr)
+
+            # Resume support: skip files already fully ingested + embedded.
+            if args.skip_existing and use_db and session_factory:
+                from duyo.textbook.pipeline import compute_doc_id
+                doc_id = compute_doc_id(f)
+                async with session_factory() as session:
+                    if await chunk_store.doc_is_ingested(session, doc_id):
+                        print("    ↳ skip (already ingested)", file=sys.stderr)
+                        skipped += 1
+                        continue
 
             if args.dry_run:
                 from duyo.textbook.docling_parser import is_supported

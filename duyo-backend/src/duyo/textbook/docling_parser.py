@@ -55,20 +55,37 @@ OcrStrategy = Literal["auto", "docling", "tesseract"]
 # Minimum total chars from Docling before we decide a PDF is "scanned"
 _SCANNED_THRESHOLD_CHARS = 200
 
-# Glyph-ID garbage: PDFs with broken CID font encoding (no ToUnicode CMap)
-# extract as "/G31/G2E/G20…" tokens instead of real Unicode. If more than this
-# fraction of extracted text is glyph-ID noise, treat the text layer as unusable
-# and fall back to OCR.
+# Broken text layer detection. Two failure modes in Uzbek textbook PDFs:
+#   1. CID font, no ToUnicode CMap → "/G31/G2E…" glyph-ID tokens.
+#   2. Type1 CFF custom encoding → raw control chars (\x02\t\x1f…).
+# In both cases the extracted text is unusable and we must OCR the page image.
 _GLYPH_ID_RE = re.compile(r"/G[0-9A-Fa-f]{2,4}")
 _GLYPH_GARBAGE_THRESHOLD = 0.30
+_READABLE_RATIO_MIN = 0.60
+_READABLE_RE = re.compile(
+    r"[0-9A-Za-zА-Яа-яЁёЎўҚқҒғҲҳ"
+    r"\s.,;:!?()\[\]{}+\-*/=<>%°²³√∫∑#&@'\"«»—–]"
+)
 
 
 def _is_glyph_garbage(text: str) -> bool:
-    """Return True if extracted text is mostly broken glyph-ID tokens."""
+    """Return True if the extracted text layer is unusable (needs OCR).
+
+    Catches glyph-ID tokens (/G31…) and control-char garbage from broken
+    Type1/CFF font encodings.
+    """
     if not text:
         return False
+
     glyph_chars = sum(len(m.group()) for m in _GLYPH_ID_RE.finditer(text))
-    return glyph_chars / len(text) > _GLYPH_GARBAGE_THRESHOLD
+    if glyph_chars / len(text) > _GLYPH_GARBAGE_THRESHOLD:
+        return True
+
+    non_ws = [c for c in text if not c.isspace()]
+    if not non_ws:
+        return False
+    readable = sum(1 for c in non_ws if _READABLE_RE.match(c))
+    return readable / len(non_ws) < _READABLE_RATIO_MIN
 
 def is_supported(path: Path) -> bool:
     return path.suffix.lower() in DOCLING_EXTENSIONS

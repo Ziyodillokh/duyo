@@ -20,7 +20,7 @@ from duyo.textbook.schema import (
     Language,
     Script,
 )
-from duyo.textbook.store import _to_row
+from duyo.textbook.store import _to_row, doc_is_ingested
 
 
 # ---------------------------------------------------------------------------
@@ -180,3 +180,29 @@ class TestEmbedPending:
 
         assert count == 2
         session.flush.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# doc_is_ingested — resume support
+# ---------------------------------------------------------------------------
+
+class TestDocIsIngested:
+    @pytest.mark.asyncio
+    async def test_returns_false_when_no_chunks(self) -> None:
+        session = AsyncMock()
+        session.scalar.return_value = 0  # total count = 0
+        assert await doc_is_ingested(session, "abc123") is False
+
+    @pytest.mark.asyncio
+    async def test_returns_true_when_all_embedded(self) -> None:
+        session = AsyncMock()
+        # 1st scalar() = total (5), 2nd = missing embeddings (0)
+        session.scalar.side_effect = [5, 0]
+        assert await doc_is_ingested(session, "abc123") is True
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_partially_embedded(self) -> None:
+        session = AsyncMock()
+        # total=5, missing=2 → half-finished, must NOT skip
+        session.scalar.side_effect = [5, 2]
+        assert await doc_is_ingested(session, "abc123") is False

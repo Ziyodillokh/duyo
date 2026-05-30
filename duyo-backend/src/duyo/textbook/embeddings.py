@@ -1,15 +1,19 @@
-"""Gemini text-embedding-004 service for textbook chunks.
+"""Gemini embedding service for textbook chunks.
+
+Model: gemini-embedding-001 (text-embedding-004 retired).
+Native output is 3072-dim; we truncate to 768 via MRL (output_dimensionality)
+to match the vector(768) DB column. Truncated MRL vectors must be L2-normalised.
 
 Task types:
   RETRIEVAL_DOCUMENT — for chunks stored in pgvector (ingestion time)
   RETRIEVAL_QUERY    — for search queries (retrieval time)
 
-Dimensions: 768 (fixed for text-embedding-004).
-Batch size: up to 100 texts per API call (Gemini limit).
+Batch size: gemini-embedding-001 accepts ONE text per call, so we loop.
 """
 
 from __future__ import annotations
 
+import math
 from functools import lru_cache
 
 from google import genai
@@ -18,7 +22,14 @@ from google.genai import types
 from duyo.core.config import get_settings
 
 EMBEDDING_DIM = 768
-_BATCH_SIZE = 100  # Gemini embed_content batch limit
+
+
+def _normalize(vec: list[float]) -> list[float]:
+    """L2-normalise a vector. Required for MRL-truncated embeddings."""
+    norm = math.sqrt(sum(x * x for x in vec))
+    if norm == 0:
+        return vec
+    return [x / norm for x in vec]
 
 
 @lru_cache
@@ -41,20 +52,21 @@ async def embed_documents(texts: list[str]) -> list[list[float]]:
     settings = get_settings()
     client = _get_client()
     model = settings.gemini_embedding_model
+    dim = settings.gemini_embedding_dim
 
     all_embeddings: list[list[float]] = []
 
-    for i in range(0, len(texts), _BATCH_SIZE):
-        batch = texts[i : i + _BATCH_SIZE]
+    # gemini-embedding-001 processes one text per call.
+    for text in texts:
         resp = await client.aio.models.embed_content(
             model=model,
-            contents=batch,
+            contents=[text],
             config=types.EmbedContentConfig(
                 task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=dim,
             ),
         )
-        for emb in resp.embeddings:
-            all_embeddings.append(emb.values)
+        all_embeddings.append(_normalize(resp.embeddings[0].values))
 
     return all_embeddings
 
@@ -73,6 +85,7 @@ async def embed_query(query: str) -> list[float]:
         contents=[query],
         config=types.EmbedContentConfig(
             task_type="RETRIEVAL_QUERY",
+            output_dimensionality=settings.gemini_embedding_dim,
         ),
     )
-    return resp.embeddings[0].values
+    return _normalize(resp.embeddings[0].values)

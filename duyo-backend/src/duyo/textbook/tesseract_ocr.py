@@ -3,8 +3,13 @@
 Tesseract is the most stable OCR engine on Apple Silicon (PaddlePaddle's
 detection model silently fails on macOS ARM). Free, local, offline.
 
+Calls the `tesseract` CLI via subprocess, piping the PNG image through stdin.
+We avoid pytesseract (its error handler crashes with UnicodeDecodeError when
+tesseract writes non-UTF-8 bytes to stderr) and avoid temp files (stdin piping
+sidesteps sandbox temp-dir access issues).
+
 Pipeline:
-  PDF → pymupdf page render (300 DPI) → Tesseract → per-page text → markdown
+  PDF → pymupdf page render (300 DPI, PNG bytes) → tesseract stdin → text → markdown
 
 Language packs (install via: brew install tesseract-lang):
   uzb       — Uzbek Latin
@@ -20,18 +25,35 @@ Language auto-detection from the PDF's own (possibly broken) text layer:
 from __future__ import annotations
 
 import logging
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-# Tesseract page segmentation mode 3 = fully automatic, no OSD (good for pages).
-_PSM = 3
+# Tesseract page segmentation mode 6 = assume a single uniform block of text.
+# Works better than psm 3 (auto) on textbook pages with mixed exercises.
+_PSM = 6
 # OCR engine mode 1 = LSTM neural net only (best accuracy).
 _OEM = 1
 # DPI for PDF→image rendering.
 _RENDER_DPI = 300
 _DPI_SCALE = _RENDER_DPI / 72
+
+# Common Homebrew tessdata location (Apple Silicon).
+_DEFAULT_TESSDATA = "/opt/homebrew/share/tessdata"
+
+
+def _tesseract_cmd() -> str:
+    """Locate the tesseract binary."""
+    cmd = shutil.which("tesseract") or "/opt/homebrew/bin/tesseract"
+    if not Path(cmd).exists():
+        raise RuntimeError(
+            "tesseract binary not found. Run: brew install tesseract tesseract-lang"
+        )
+    return cmd
 
 
 def _detect_lang(sample: str) -> str:
@@ -44,47 +66,63 @@ def _detect_lang(sample: str) -> str:
 
 
 def _available_langs() -> set[str]:
-    """Return the set of Tesseract language packs installed locally."""
+    """Return the set of installed Tesseract language packs."""
     try:
-        import pytesseract
-        return set(pytesseract.get_languages(config=""))
+        result = subprocess.run(
+            [_tesseract_cmd(), "--list-langs"],
+            capture_output=True, text=True, errors="replace", timeout=30,
+        )
+        return {ln.strip() for ln in result.stdout.splitlines()[1:] if ln.strip()}
     except Exception:
         return set()
 
 
 def _resolve_lang(requested: str) -> str:
-    """Drop language codes that aren't installed; fall back to 'eng'.
-
-    e.g. "uzb+eng" with only eng installed → "eng".
-    """
+    """Drop language codes that aren't installed; fall back to 'eng'."""
     available = _available_langs()
     if not available:
-        return requested  # let pytesseract raise a clear error later
+        return requested
     wanted = [code for code in requested.split("+") if code in available]
     return "+".join(wanted) if wanted else "eng"
 
 
-def _render_page_to_image(page):  # type: ignore[no-untyped-def]
-    """Render a pymupdf page to a PIL Image at _RENDER_DPI."""
+def _ocr_png_bytes(png_bytes: bytes, lang: str) -> str:
+    """Run tesseract on PNG bytes via stdin. Returns recognised text.
+
+    stderr is decoded with errors='replace' so tesseract's resolution
+    warnings (which may contain non-UTF-8 bytes) never crash us.
+    """
+    env = os.environ.copy()
+    if "TESSDATA_PREFIX" not in env and Path(_DEFAULT_TESSDATA).exists():
+        env["TESSDATA_PREFIX"] = _DEFAULT_TESSDATA
+
+    result = subprocess.run(
+        [
+            _tesseract_cmd(), "stdin", "stdout",
+            "-l", lang,
+            "--oem", str(_OEM),
+            "--psm", str(_PSM),
+            "--dpi", str(_RENDER_DPI),
+        ],
+        input=png_bytes,
+        capture_output=True,
+        timeout=120,
+        env=env,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        raise RuntimeError(f"tesseract failed (code {result.returncode}): {stderr[:200]}")
+
+    return result.stdout.decode("utf-8", errors="replace")
+
+
+def _render_page_to_png_bytes(page) -> bytes:  # type: ignore[no-untyped-def]
+    """Render a pymupdf page to PNG bytes at _RENDER_DPI."""
     import fitz  # pymupdf
-    from PIL import Image
 
     mat = fitz.Matrix(_DPI_SCALE, _DPI_SCALE)
     pix = page.get_pixmap(matrix=mat, alpha=False)
-    return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-
-
-def _ocr_image(image, lang: str) -> str:  # type: ignore[no-untyped-def]
-    """Run Tesseract on a PIL image. Returns extracted text."""
-    try:
-        import pytesseract
-    except ImportError as exc:
-        raise RuntimeError(
-            "pytesseract is not installed. Run: pip install -e '.[ingestion]'"
-        ) from exc
-
-    config = f"--oem {_OEM} --psm {_PSM}"
-    return pytesseract.image_to_string(image, lang=lang, config=config)
+    return pix.tobytes("png")
 
 
 def ocr_pdf(
@@ -104,7 +142,7 @@ def ocr_pdf(
         List of per-page text strings.
 
     Raises:
-        RuntimeError: If pymupdf or pytesseract is not installed.
+        RuntimeError: If pymupdf or the tesseract binary is missing.
     """
     try:
         import fitz  # pymupdf
@@ -126,8 +164,8 @@ def ocr_pdf(
 
     pages_text: list[str] = []
     for i in range(n_pages):
-        image = _render_page_to_image(doc[i])
-        text = _ocr_image(image, resolved_lang)
+        png_bytes = _render_page_to_png_bytes(doc[i])
+        text = _ocr_png_bytes(png_bytes, resolved_lang)
         pages_text.append(text)
         log.debug("tesseract_page", page=i + 1, chars=len(text))
 
