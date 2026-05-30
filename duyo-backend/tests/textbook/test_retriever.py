@@ -133,7 +133,10 @@ class TestSearchChunks:
     @pytest.mark.asyncio
     async def test_returns_chunks_with_scores(self) -> None:
         session = AsyncMock()
-        mock_chunks = [_make_db_chunk(), _make_db_chunk(text="Ikkinchi chunk.")]
+        mock_results = [
+            (_make_db_chunk(), 0.92),
+            (_make_db_chunk(text="Ikkinchi chunk."), 0.85),
+        ]
 
         with patch(
             "duyo.textbook.retriever.emb_service.embed_query",
@@ -142,20 +145,23 @@ class TestSearchChunks:
         ), patch(
             "duyo.textbook.retriever.chunk_store.search",
             new_callable=AsyncMock,
-            return_value=mock_chunks,
+            return_value=mock_results,
         ):
             results = await search_chunks(session, "kasrlar")
 
         assert len(results) == 2
-        # Each result is (chunk, score) tuple
         for chunk, score in results:
             assert hasattr(chunk, "text")
             assert 0.0 <= score <= 1.0
 
     @pytest.mark.asyncio
-    async def test_scores_decrease_by_rank(self) -> None:
+    async def test_passes_through_store_scores(self) -> None:
         session = AsyncMock()
-        mock_chunks = [_make_db_chunk(), _make_db_chunk(), _make_db_chunk()]
+        mock_results = [
+            (_make_db_chunk(), 0.95),
+            (_make_db_chunk(), 0.70),
+            (_make_db_chunk(), 0.55),
+        ]
 
         with patch(
             "duyo.textbook.retriever.emb_service.embed_query",
@@ -164,13 +170,12 @@ class TestSearchChunks:
         ), patch(
             "duyo.textbook.retriever.chunk_store.search",
             new_callable=AsyncMock,
-            return_value=mock_chunks,
+            return_value=mock_results,
         ):
             results = await search_chunks(session, "kasrlar", limit=3)
 
         scores = [score for _, score in results]
-        # First result should have highest similarity
-        assert scores[0] >= scores[-1]
+        assert scores == [0.95, 0.70, 0.55]
 
     @pytest.mark.asyncio
     async def test_filters_passed_to_store(self) -> None:
