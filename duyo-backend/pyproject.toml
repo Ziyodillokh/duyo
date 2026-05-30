@@ -36,6 +36,9 @@ ingestion = [
     "pytesseract>=0.3.10",
     "pymupdf>=1.23.0",
     "Pillow>=10.0.0",
+    # MinerU: VLM+OCR pipeline for math/physics — extracts formulas as LaTeX.
+    # Heavy (16GB+ RAM, ~2GB models); Apple Silicon MPS supported.
+    "mineru[core]>=3.0.0",
 ]
 dev = [
     "pytest>=8.0.0",

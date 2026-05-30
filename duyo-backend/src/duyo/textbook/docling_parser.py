@@ -50,7 +50,7 @@ class RawChunk:
     page_number: int | None = None
 
 
-OcrStrategy = Literal["auto", "docling", "tesseract"]
+OcrStrategy = Literal["auto", "docling", "tesseract", "mineru"]
 
 # Minimum total chars from Docling before we decide a PDF is "scanned"
 _SCANNED_THRESHOLD_CHARS = 200
@@ -119,6 +119,9 @@ async def parse(
     # PDF routing
     if strategy == "tesseract":
         return await _tesseract_parse(path)
+
+    if strategy == "mineru":
+        return await _mineru_parse(path)
 
     if strategy == "docling":
         return _docling_parse(path)
@@ -352,6 +355,34 @@ async def _tesseract_parse(path: Path) -> list[RawChunk]:
     )
     chunks = _parse_from_markdown(md)
     log.info("tesseract_parse_done", path=str(path), chunks=len(chunks))
+    return chunks
+
+
+async def _mineru_parse(path: Path) -> list[RawChunk]:
+    """Parse a formula-heavy PDF with MinerU → LaTeX-aware RawChunks.
+
+    MinerU extracts equations as $$...$$ LaTeX, ideal for math/physics.
+    Heavy (16GB+ RAM, MPS); ingestion-only, never in the production image.
+    Install: pip install -e '.[ingestion]'
+    """
+    import asyncio
+
+    from duyo.textbook.mineru_parser import parse as mineru_parse
+
+    chunk_dicts = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: mineru_parse(path)
+    )
+    chunks = [
+        RawChunk(
+            text=c["text"],
+            chapter=c.get("chapter"),
+            has_formula=c.get("has_formula", False),
+            has_table=c.get("has_table", False),
+            has_image=c.get("has_image", False),
+        )
+        for c in chunk_dicts
+    ]
+    log.info("mineru_parse_done", path=str(path), chunks=len(chunks))
     return chunks
 
 

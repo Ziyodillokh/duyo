@@ -53,12 +53,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--script", choices=["latin", "cyrillic", "mixed"], default=None)
     parser.add_argument(
         "--ocr-strategy",
-        choices=["auto", "docling", "paddle"],
+        choices=["auto", "docling", "tesseract", "mineru"],
         default="auto",
         help=(
-            "auto    — Docling first; PaddleOCR fallback for scanned/low-text PDFs (default)\n"
-            "docling — Always Docling (fast, digital PDFs / DOCX / HTML)\n"
-            "paddle  — Always PaddleOCR (scanned, Uzbek Cyrillic, formulas)"
+            "auto      — Docling first; Tesseract fallback for scanned/broken PDFs (default)\n"
+            "docling   — Always Docling (fast, digital PDFs / DOCX / HTML)\n"
+            "tesseract — Always Tesseract (scanned, Uzbek Cyrillic, broken encoding)\n"
+            "mineru    — Always MinerU (math/physics: formulas to LaTeX; heavy, 16GB+ RAM)"
         ),
     )
 
