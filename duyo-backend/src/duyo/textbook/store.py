@@ -154,10 +154,11 @@ async def search(
     content_type: str | None = None,
     topic_id: str | None = None,
     limit: int = 5,
-) -> list[TextbookChunk]:
+) -> list[tuple[TextbookChunk, float]]:
     """ANN cosine similarity search with optional metadata filters.
 
-    Returns up to `limit` chunks ordered by similarity (most similar first).
+    Returns up to `limit` (chunk, similarity) pairs ordered by relevance.
+    similarity = 1 - cosine_distance (1.0 = identical), computed in-DB by pgvector.
     Only returns chunks that have been embedded (embedding IS NOT NULL).
     """
     # Build filter conditions
@@ -171,18 +172,19 @@ async def search(
     if topic_id:
         filters.append(TextbookChunk.topic_id == topic_id)
 
-    # pgvector cosine distance operator: <=>
+    # pgvector cosine distance (<=>); similarity = 1 - distance.
     distance_expr = TextbookChunk.embedding.cosine_distance(query_vector)
+    similarity_expr = (1 - distance_expr).label("similarity")
 
     stmt = (
-        select(TextbookChunk)
+        select(TextbookChunk, similarity_expr)
         .where(*filters)
         .order_by(distance_expr)
         .limit(limit)
     )
 
     result = await session.execute(stmt)
-    return list(result.scalars().all())
+    return [(row[0], float(row[1])) for row in result.all()]
 
 
 # ---------------------------------------------------------------------------
