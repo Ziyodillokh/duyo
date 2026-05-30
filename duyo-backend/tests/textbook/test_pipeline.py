@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -18,7 +17,6 @@ from duyo.textbook.schema import (
     Language,
     Script,
 )
-
 
 # ---------------------------------------------------------------------------
 # chunk_text

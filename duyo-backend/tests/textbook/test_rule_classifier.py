@@ -1,10 +1,8 @@
 """Unit tests for rule_classifier — no LLM, no DB, pure logic."""
 
-import pytest
 
 from duyo.textbook.rule_classifier import classify
 from duyo.textbook.schema import ContentType
-
 
 # ---------------------------------------------------------------------------
 # Definition patterns

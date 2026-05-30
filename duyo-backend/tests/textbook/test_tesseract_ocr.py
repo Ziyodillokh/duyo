@@ -75,7 +75,7 @@ class TestOcrPngBytes:
 
         completed = MagicMock()
         completed.returncode = 0
-        completed.stdout = "Ta'rif: kasrlar.".encode("utf-8")
+        completed.stdout = b"Ta'rif: kasrlar."
         with patch("duyo.textbook.tesseract_ocr.subprocess.run", return_value=completed), \
              patch("duyo.textbook.tesseract_ocr._tesseract_cmd", return_value="tesseract"):
             result = mod._ocr_png_bytes(b"PNG", "uzb+eng")

@@ -4,7 +4,6 @@ import pytest
 
 from duyo.textbook.schema import (
     ChunkMetadata,
-    ClassifiedChunk,
     Confidence,
     ContentType,
     Difficulty,
@@ -13,7 +12,6 @@ from duyo.textbook.schema import (
     Script,
 )
 from duyo.textbook.taxonomy import find_topic_id, get_topic
-
 
 # ---------------------------------------------------------------------------
 # DocumentMeta validation

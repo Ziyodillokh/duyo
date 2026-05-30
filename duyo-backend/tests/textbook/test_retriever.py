@@ -11,7 +11,6 @@ import pytest
 
 from duyo.textbook.retriever import build_rag_context, search_chunks
 
-
 # ---------------------------------------------------------------------------
 # build_rag_context — pure function
 # ---------------------------------------------------------------------------
