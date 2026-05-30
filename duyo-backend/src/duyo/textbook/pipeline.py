@@ -24,12 +24,12 @@ from pathlib import Path
 import structlog
 
 from duyo.textbook import llm_classifier, rule_classifier
-from duyo.textbook.docling_parser import OcrStrategy, RawChunk, is_supported, parse as docling_parse
+from duyo.textbook.docling_parser import OcrStrategy, RawChunk, is_supported
+from duyo.textbook.docling_parser import parse as docling_parse
 from duyo.textbook.schema import (
     ChunkMetadata,
     ClassifiedChunk,
     Confidence,
-    ContentType,
     DocumentMeta,
     Language,
     Script,

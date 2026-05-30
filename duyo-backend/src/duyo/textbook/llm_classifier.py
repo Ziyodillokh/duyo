@@ -23,8 +23,6 @@ from duyo.textbook.schema import (
     ContentType,
     Difficulty,
     DocumentMeta,
-    Language,
-    Script,
 )
 from duyo.textbook.taxonomy import find_topic_id
 
@@ -143,7 +141,7 @@ def _build_prompt(chunk: str, doc_meta: DocumentMeta, rule_hint: str | None) -> 
     for ex in _FEW_SHOT:
         lines.append(f"\nMatn:\n{ex['chunk']}\nJSON:\n{ex['output']}")
 
-    lines.append(f"\n--- Siz tahlil qiling ---")
+    lines.append("\n--- Siz tahlil qiling ---")
     lines.append(f"Matn:\n{chunk}")
     lines.append(f"\nJSON sxemasi:\n{json.dumps(_SCHEMA, ensure_ascii=False)}")
     lines.append("\nJSON:")

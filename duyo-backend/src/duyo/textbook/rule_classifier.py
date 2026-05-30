@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 
 from duyo.textbook.schema import ContentType
 
-
 # ---------------------------------------------------------------------------
 # Pattern registry
 # ---------------------------------------------------------------------------

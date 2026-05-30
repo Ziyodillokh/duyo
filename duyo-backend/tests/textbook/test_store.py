@@ -16,12 +16,10 @@ from duyo.textbook.schema import (
     Confidence,
     ContentType,
     Difficulty,
-    DocumentMeta,
     Language,
     Script,
 )
 from duyo.textbook.store import _to_row, doc_is_ingested
-
 
 # ---------------------------------------------------------------------------
 # _to_row — pure function, no DB needed
@@ -39,7 +37,7 @@ def _make_chunk(
         language=Language.UZ,
         script=Script.LATIN,
         source_path="textbooks/matematika-6.txt",
-        topic="Bir xil maxrajli kasrlarni qo'shish",
+        topic="Bir xil maxrajli kasrlarni qoshish",
         topic_id="math_6_fractions_add_same",
         content_type=content_type,
         difficulty=Difficulty.EASY,
