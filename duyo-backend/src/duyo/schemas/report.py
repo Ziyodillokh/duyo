@@ -26,10 +26,17 @@ class SafetySection(BaseModel):
     had_red: bool
 
 
+class GuidanceSection(BaseModel):
+    tips: list[str]
+    focus: str
+
+
 class ReportSections(BaseModel):
     activity: ActivitySection
     mood: MoodSection
     safety: SafetySection
+    # Optional: older cached reports (pre-guidance) won't have this section.
+    guidance: GuidanceSection | None = None
 
 
 class ReportRead(BaseModel):

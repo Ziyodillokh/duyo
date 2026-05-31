@@ -60,7 +60,7 @@ async def get_report(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ReportRead:
-    await _owned_child(child_id, current_user, db)
+    child = await _owned_child(child_id, current_user, db)
     now = datetime.now(UTC)
 
     if not refresh:
@@ -77,7 +77,7 @@ async def get_report(
             if now - created < CACHE_TTL:
                 return _to_read(latest, cached=True)
 
-    data = await build_report(db, child_id, now=now)
+    data = await build_report(db, child_id, now=now, age=child.age)
     report = Report(
         child_id=child_id,
         period_start=data.period_start,

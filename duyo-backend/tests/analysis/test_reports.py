@@ -123,6 +123,10 @@ def test_build_report_assembles_sections(monkeypatch):
                  "topics": ["maktab"], "stress_signals": "", "highlight": ""}, True)
     monkeypatch.setattr(rpt, "_mood_section", _fake_mood)
 
+    async def _fake_guidance(_age, _sections, **_kw):
+        return {"tips": ["maslahat"], "focus": "diqqat"}
+    monkeypatch.setattr(rpt, "build_guidance", _fake_guidance)
+
     data = _run(rpt.build_report(db, child_id, now=now))
 
     assert data.period_end == now
@@ -155,6 +159,10 @@ def test_build_report_privacy_no_text_leak(monkeypatch):
         return ({"mood_trend": "barqaror", "mood_summary": "umumiy xulosa",
                  "topics": [], "stress_signals": "", "highlight": ""}, True)
     monkeypatch.setattr(rpt, "_mood_section", _fake_mood)
+
+    async def _fake_guidance(_age, _sections, **_kw):
+        return {"tips": ["umumiy maslahat"], "focus": ""}
+    monkeypatch.setattr(rpt, "build_guidance", _fake_guidance)
 
     data = _run(rpt.build_report(db, child_id, now=now))
     assert secret not in str(data.sections)

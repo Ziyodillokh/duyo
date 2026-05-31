@@ -19,6 +19,7 @@ from google.genai import types
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from duyo.analysis.guidance import build_guidance
 from duyo.core.config import get_settings
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisLevel
@@ -196,9 +197,13 @@ async def _mood_section(messages: list[str]) -> tuple[dict, bool]:
 # ---------------------------------------------------------------------------
 
 async def build_report(
-    session: AsyncSession, child_id: UUID, *, now: datetime
+    session: AsyncSession, child_id: UUID, *, now: datetime, age: int = 10
 ) -> ReportData:
-    """Build a fresh 10-day report for a child (no caching here — caller caches)."""
+    """Build a fresh 10-day report for a child (no caching here — caller caches).
+
+    `age` conditions the guidance tips (Concept §5). Defaults to 10 if the
+    caller doesn't know it.
+    """
     start = now - timedelta(days=REPORT_WINDOW_DAYS)
 
     activity = await _activity_section(session, child_id, start, now)
@@ -211,6 +216,10 @@ async def build_report(
         "mood": mood,
         "safety": safety,
     }
+    # Guidance (Concept §5) — actionable advice from the aggregate sections.
+    # No raw messages are passed, preserving the §11.3 privacy contract.
+    sections["guidance"] = await build_guidance(age, sections)
+
     return ReportData(
         period_start=start,
         period_end=now,
