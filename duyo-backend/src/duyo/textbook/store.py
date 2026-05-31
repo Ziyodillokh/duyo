@@ -172,6 +172,14 @@ async def search(
     if topic_id:
         filters.append(TextbookChunk.topic_id == topic_id)
 
+    # The IVFFlat index (lists=100) defaults to probes=1, which scans only one
+    # centroid's list (~rows/lists candidates). With metadata filters (e.g.
+    # subject=...) those few candidates may all be filtered out, yielding zero
+    # results. Raise probes so enough candidates survive the WHERE clause; this
+    # trades a little latency for correct recall. SET LOCAL scopes it to the
+    # current transaction only.
+    await session.execute(text(f"SET LOCAL ivfflat.probes = {_IVFFLAT_PROBES}"))
+
     # pgvector cosine distance (<=>); similarity = 1 - distance.
     distance_expr = TextbookChunk.embedding.cosine_distance(query_vector)
     similarity_expr = (1 - distance_expr).label("similarity")
