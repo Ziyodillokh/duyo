@@ -93,8 +93,8 @@ def _patch_build(monkeypatch, *, llm_ok=True):
             self.sections = _SECTIONS
             self.llm_ok = llm_ok
 
-    async def _fake_build(_session, _child_id, *, now, age=10):
-        return _Data(now)
+    async def _fake_build(*_a, **kw):
+        return _Data(kw["now"])
     monkeypatch.setattr(rep, "build_report", _fake_build)
 
 
