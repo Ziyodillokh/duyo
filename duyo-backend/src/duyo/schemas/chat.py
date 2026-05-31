@@ -1,11 +1,29 @@
 """Chat-related schemas."""
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from duyo.models.child import AgeSegment, Language
 from duyo.models.crisis_event import CrisisLevel
+
+
+class SourceRef(BaseModel):
+    title: str
+    url: str | None = None
+
+
+class ChatSource(BaseModel):
+    type: Literal["textbook", "web", "none"]
+    label: str
+    refs: list[SourceRef] = []
+
+
+class QuickReply(BaseModel):
+    label: str
+    action: Literal["web_search", "dismiss"]
+    query: str | None = None
 
 
 class ChildCreate(BaseModel):
@@ -28,6 +46,8 @@ class ChatRequest(BaseModel):
     child_id: UUID
     message: str = Field(min_length=1, max_length=2000)
     conversation_id: UUID | None = None  # null → create new conversation
+    action: Literal["web_search"] | None = None
+    action_query: str | None = Field(default=None, max_length=2000)
 
 
 class ChatResponse(BaseModel):
@@ -37,3 +57,5 @@ class ChatResponse(BaseModel):
     crisis_level: CrisisLevel
     model: str
     latency_ms: int
+    source: ChatSource | None = None
+    quick_replies: list[QuickReply] = []
