@@ -10,8 +10,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-import pytest
-
 from duyo.analysis import reports as rpt
 
 

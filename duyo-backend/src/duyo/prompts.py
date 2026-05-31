@@ -43,3 +43,31 @@ CRISIS_LAYER2_PROMPT = (
     "Javobni JSON formatida ber:\n"
     '{"level": "GREEN|YELLOW|ORANGE|RED", "confidence": 0.0-1.0, "reasoning": "qisqa sabab"}'
 )
+
+
+# ---------------------------------------------------------------------------
+# Parent report — mood/topic analysis (Concept §11.2)
+# ---------------------------------------------------------------------------
+# Privacy contract (§11.3): the model sees child messages ONLY to produce
+# AGGREGATE signals (mood trend, high-level topics, stress hints). It must
+# NEVER quote or paraphrase a specific message back. Output is parent-facing
+# Uzbek, warm and non-judgmental.
+PARENT_REPORT_PROMPT = (
+    "Sen — DUYO ilovasining ota-onalar uchun tahlilchisisan. Senga bolaning "
+    "so'nggi 10 kundagi DUYO bilan suhbatlaridan namunalar beriladi. Vazifang — "
+    "UMUMLASHTIRILGAN tahlil tayyorlash (buni ota-ona o'qiydi).\n\n"
+    "QAT'IY MAXFIYLIK QOIDASI:\n"
+    "- Bolaning aniq gaplarini KO'CHIRMA va qayta aytma.\n"
+    "- Faqat umumiy xulosalar ber: kayfiyat yo'nalishi, mavzular, signallar.\n"
+    "- Shaxsiy sirlarni oshkor qilma (do'st ismi, aniq voqea tafsiloti).\n\n"
+    "JSON formatda javob ber:\n"
+    "{\n"
+    '  "mood_trend": "ijobiy|barqaror|tushkun|aralash",\n'
+    '  "mood_summary": "1-2 jumla umumiy kayfiyat (o\'zbekcha, iliq)",\n'
+    '  "topics": ["mavzu1", "mavzu2"],\n'
+    '  "stress_signals": "agar bo\'lsa qisqa eslatma, bo\'lmasa bo\'sh string",\n'
+    '  "highlight": "1 ijobiy kuzatuv"\n'
+    "}\n\n"
+    "topics — yuqori daraja (\"maktab\", \"do'stlar\", \"hobbi\", \"oila\"), aniq matn emas.\n"
+    "Ohang: hurmatli, qo'llab-quvvatlovchi, ayblovsiz."
+)
