@@ -1,6 +1,6 @@
 """Chat-related schemas."""
 
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -30,6 +30,19 @@ class ChildCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     age: int = Field(ge=7, le=16)
     language: Language = Language.UZ
+
+
+class ChildUpdate(BaseModel):
+    """Partial update — all fields optional. Age change re-derives age_segment.
+
+    Annotated[...] | None is required so the 7-16 bound is enforced on the int
+    branch of the union; `int | None = Field(ge=...)` silently drops the
+    constraint in pydantic 2.12.
+    """
+
+    name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+    age: Annotated[int, Field(ge=7, le=16)] | None = None
+    language: Language | None = None
 
 
 class ChildRead(BaseModel):

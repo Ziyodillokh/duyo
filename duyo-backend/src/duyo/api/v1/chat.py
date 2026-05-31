@@ -25,6 +25,7 @@ from duyo.schemas.chat import (
     ChatSource,
     ChildCreate,
     ChildRead,
+    ChildUpdate,
     QuickReply,
     SourceRef,
 )
@@ -83,6 +84,82 @@ async def create_child(
     db.add(child)
     await db.flush()
     return child
+
+
+async def _get_owned_child(
+    child_id: UUID, current_user: User, db: AsyncSession
+) -> ChildProfile:
+    """Fetch a child owned by current_user, or raise 404.
+
+    Returns 404 (not 403) for another family's child so existence never leaks.
+    """
+    result = await db.execute(
+        select(ChildProfile).where(
+            ChildProfile.id == child_id,
+            ChildProfile.parent_id == current_user.id,
+        )
+    )
+    child = result.scalar_one_or_none()
+    if child is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Child not found")
+    return child
+
+
+@router.get("/children", response_model=list[ChildRead])
+async def list_children(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[ChildProfile]:
+    result = await db.execute(
+        select(ChildProfile)
+        .where(ChildProfile.parent_id == current_user.id)
+        .order_by(ChildProfile.created_at)
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/children/{child_id}", response_model=ChildRead)
+async def get_child(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ChildProfile:
+    return await _get_owned_child(child_id, current_user, db)
+
+
+@router.put("/children/{child_id}", response_model=ChildRead)
+async def update_child(
+    child_id: UUID,
+    payload: ChildUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ChildProfile:
+    child = await _get_owned_child(child_id, current_user, db)
+    if payload.name is not None:
+        child.name = payload.name
+    if payload.age is not None:
+        child.age = payload.age
+        child.age_segment = AgeSegment.from_age(payload.age)
+    if payload.language is not None:
+        child.language = payload.language
+    await db.flush()
+    return child
+
+
+@router.delete("/children/{child_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_child(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Erase a child profile and dependent data.
+
+    Conversations cascade via the ORM relationship; crisis_events cascade at
+    the DB level. Satisfies the parent's right to erase (TZ §8 / COPPA / GDPR-K).
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    await db.delete(child)
+    await db.flush()
 
 
 @router.post("", response_model=ChatResponse)
