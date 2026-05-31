@@ -68,3 +68,6 @@ duyo-backend/.pytest_cache/
 
 # Figma v2 reference screenshots (downloaded, not committed)
 duyo-figma-v2/
+
+# OmniVoice TTS test (1.2GB venv + 3GB model cache + wav samples)
+omnivoice-test/
