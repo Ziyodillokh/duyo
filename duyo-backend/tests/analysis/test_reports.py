@@ -118,7 +118,7 @@ def test_build_report_assembles_sections(monkeypatch):
         scalar_queue=[3],  # conversations
     )
 
-    async def _fake_mood(messages):
+    async def _fake_mood(_messages):
         return ({"mood_trend": "barqaror", "mood_summary": "ok",
                  "topics": ["maktab"], "stress_signals": "", "highlight": ""}, True)
     monkeypatch.setattr(rpt, "_mood_section", _fake_mood)
@@ -150,7 +150,7 @@ def test_build_report_privacy_no_text_leak(monkeypatch):
         scalar_queue=[1],
     )
 
-    async def _fake_mood(messages):
+    async def _fake_mood(_messages):
         # A correct mood pass aggregates; it must not echo raw text.
         return ({"mood_trend": "barqaror", "mood_summary": "umumiy xulosa",
                  "topics": [], "stress_signals": "", "highlight": ""}, True)
