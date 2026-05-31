@@ -24,6 +24,7 @@ from pathlib import Path
 import structlog
 
 from duyo.textbook import llm_classifier, rule_classifier
+from duyo.textbook.chunk_quality import is_low_quality
 from duyo.textbook.docling_parser import OcrStrategy, RawChunk, is_supported
 from duyo.textbook.docling_parser import parse as docling_parse
 from duyo.textbook.schema import (
@@ -309,20 +310,27 @@ async def process_file(
     doc_hash = _doc_id(p)
     results: list[ClassifiedChunk] = []
 
+    dropped = 0  # non-content chunks skipped by the quality gate
+
     if is_supported(p):
         # Structured path: PDF/DOCX/HTML via Docling ± Mistral OCR
         raw_chunks = await docling_parse(p, strategy=ocr_strategy)
-        for i, raw in enumerate(raw_chunks):
+        for raw in raw_chunks:
+            # Quality gate: skip front-matter, TOC lines, and OCR gibberish
+            # before classification (also avoids wasting LLM calls on noise).
+            if is_low_quality(raw.text):
+                dropped += 1
+                continue
             meta = await classify_chunk(raw.text, doc_meta, docling_hints=raw)
             results.append(ClassifiedChunk(
                 text=raw.text,
                 metadata=meta,
-                chunk_index=i,
+                chunk_index=len(results),
                 doc_id=doc_hash,
             ))
             log.debug(
                 "chunk_classified",
-                index=i,
+                index=len(results) - 1,
                 content_type=meta.content_type,
                 classified_by=meta.classified_by,
                 chapter=raw.chapter,
@@ -331,22 +339,29 @@ async def process_file(
         # Plain text path
         text = p.read_text(encoding="utf-8", errors="replace")
         chunks = chunk_text(text)
-        for i, chunk in enumerate(chunks):
+        for chunk in chunks:
+            if is_low_quality(chunk):
+                dropped += 1
+                continue
             meta = await classify_chunk(chunk, doc_meta)
             results.append(ClassifiedChunk(
                 text=chunk,
                 metadata=meta,
-                chunk_index=i,
+                chunk_index=len(results),
                 doc_id=doc_hash,
             ))
             log.debug(
                 "chunk_classified",
-                index=i,
+                index=len(results) - 1,
                 content_type=meta.content_type,
                 classified_by=meta.classified_by,
                 confidence=meta.confidence.content_type,
                 needs_review=meta.needs_review,
             )
+
+    if dropped:
+        log.info("low_quality_chunks_dropped", path=str(p),
+                 dropped=dropped, kept=len(results))
 
     review_count = sum(1 for r in results if r.metadata.needs_review)
     log.info(
