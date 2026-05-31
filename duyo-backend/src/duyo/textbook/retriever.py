@@ -38,12 +38,13 @@ _DEFAULT_LIMIT = 3
 _MAX_CONTEXT_CHARS = 2000  # truncate chunks to keep system prompt manageable
 
 # Minimum cosine similarity for a chunk to be injected into a chat reply.
-# Relevant matches score ~0.65-0.77; off-topic/typo matches land ~0.55-0.60.
-# A floor drops irrelevant context (e.g. a misspelled "Vakoul" matching a
-# Russian-textbook chunk) so the model answers from its own knowledge instead
-# of being misled. The direct /search endpoint keeps no floor (min_similarity
-# defaults to None) so it can surface everything for debugging.
-_CHAT_MIN_SIMILARITY = 0.68
+# On-topic matches observed ~0.67-0.77 (yadro 0.674, vakuol 0.686, fotosintez
+# 0.766); weak/off-topic matches land ~0.60-0.64. The topic gate in
+# _normalize_query already drops meta-instructions and greetings, so this floor
+# only needs to trim weak matches — set just below the lowest real match so we
+# don't lose legitimate answers. The direct /search endpoint keeps no floor
+# (min_similarity=None) so it can surface everything for debugging.
+_CHAT_MIN_SIMILARITY = 0.64
 
 
 @dataclass
