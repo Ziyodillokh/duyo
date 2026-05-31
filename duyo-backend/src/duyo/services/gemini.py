@@ -9,7 +9,7 @@ order and Gemini will treat the whole conversation as one session.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Literal
 
@@ -24,12 +24,19 @@ HistoryRole = Literal["user", "model"]
 
 
 @dataclass(frozen=True)
+class WebSource:
+    title: str
+    url: str
+
+
+@dataclass(frozen=True)
 class GeminiReply:
     text: str
     model: str
     latency_ms: int
     tokens_in: int | None
     tokens_out: int | None
+    sources: tuple[WebSource, ...] = field(default_factory=tuple)
 
 
 @lru_cache
@@ -109,3 +116,68 @@ async def chat(
         tokens_in=usage.prompt_token_count if usage else None,
         tokens_out=usage.candidates_token_count if usage else None,
     )
+
+
+async def chat_with_web_search(
+    *,
+    child_message: str,
+    age_segment: AgeSegment,
+    history: list[tuple[HistoryRole, str]] | None = None,
+) -> GeminiReply:
+    """Grounded reply backed by Google Search. Same child-safe system prompt as
+    `chat()`; returns web sources in `GeminiReply.sources`."""
+    settings = get_settings()
+    client = get_client()
+    model = settings.gemini_model_primary
+
+    thinking_cfg = (
+        types.ThinkingConfig(thinking_budget=settings.gemini_thinking_budget_flash)
+        if "flash" in model
+        else None
+    )
+    contents = _build_contents(history, child_message)
+
+    start = time.perf_counter()
+    resp = await client.aio.models.generate_content(
+        model=model,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPTS[age_segment],
+            max_output_tokens=settings.gemini_max_output_tokens,
+            temperature=settings.gemini_temperature,
+            thinking_config=thinking_cfg,
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+        ),
+    )
+    latency_ms = int((time.perf_counter() - start) * 1000)
+    usage = resp.usage_metadata
+    return GeminiReply(
+        text=resp.text or "",
+        model=model,
+        latency_ms=latency_ms,
+        tokens_in=usage.prompt_token_count if usage else None,
+        tokens_out=usage.candidates_token_count if usage else None,
+        sources=_extract_web_sources(resp),
+    )
+
+
+def _extract_web_sources(resp) -> tuple[WebSource, ...]:
+    """Pull grounding URLs from a grounded Gemini response. Tolerant of any
+    missing attribute (returns empty tuple) so a malformed response never
+    breaks the reply."""
+    out: list[WebSource] = []
+    try:
+        cand = resp.candidates[0]
+        meta = getattr(cand, "grounding_metadata", None)
+        for ch in (getattr(meta, "grounding_chunks", None) or []):
+            web = getattr(ch, "web", None)
+            uri = getattr(web, "uri", None) if web else None
+            if uri:
+                title = getattr(web, "title", None) or uri
+                out.append(WebSource(title=title, url=uri))
+    except (AttributeError, IndexError, TypeError):
+        pass
+    # de-dup by url, preserve order
+    seen: set[str] = set()
+    deduped = [s for s in out if not (s.url in seen or seen.add(s.url))]
+    return tuple(deduped)
