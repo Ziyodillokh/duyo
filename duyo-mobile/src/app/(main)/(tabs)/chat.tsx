@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { sendChatMessage } from '@/api/endpoints/chat';
+import { sendChatMessage, type QuickReply } from '@/api/endpoints/chat';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -78,14 +78,16 @@ export default function ChatScreen() {
   const limitReached = todayCount >= DAILY_LIMIT;
 
   const send = useMutation({
-    mutationFn: (text: string) => {
+    mutationFn: (vars: { text: string; action?: 'web_search'; actionQuery?: string }) => {
       if (!child) {
         return Promise.reject(new Error('child profile missing'));
       }
       return sendChatMessage({
         child_id: child.id,
-        message: text,
+        message: vars.text,
         conversation_id: conversationId ?? undefined,
+        action: vars.action,
+        action_query: vars.actionQuery,
       });
     },
     onSuccess: (response) => {
@@ -96,6 +98,8 @@ export default function ChatScreen() {
         content: response.reply,
         timestamp: Date.now(),
         crisisLevel: response.crisis_level,
+        source: response.source ?? null,
+        quickReplies: response.quick_replies ?? [],
       });
       if (response.crisis_level !== 'green') {
         router.push({
@@ -122,7 +126,19 @@ export default function ChatScreen() {
       timestamp: Date.now(),
     });
     setInput('');
-    send.mutate(text);
+    send.mutate({ text });
+  };
+
+  const handleQuickReply = (messageId: string, reply: QuickReply) => {
+    useChatStore.getState().clearQuickReplies(messageId); // one-shot: chips vanish
+    if (reply.action === 'dismiss' || !child) return;
+    appendMessage({
+      id: `local-${Date.now()}`,
+      role: 'child',
+      content: reply.label, // "Ha"
+      timestamp: Date.now(),
+    });
+    send.mutate({ text: reply.label, action: 'web_search', actionQuery: reply.query });
   };
 
   const showSuggestions =
@@ -212,7 +228,12 @@ export default function ChatScreen() {
                 </View>
               );
             }
-            return <MessageBubble message={item.message} />;
+            return (
+              <MessageBubble
+                message={item.message}
+                onQuickReply={handleQuickReply}
+              />
+            );
           }}
         />
 
@@ -258,24 +279,56 @@ export default function ChatScreen() {
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+interface MessageBubbleProps {
+  message: ChatMessage;
+  onQuickReply: (messageId: string, reply: QuickReply) => void;
+}
+
+function MessageBubble({ message, onQuickReply }: MessageBubbleProps) {
   const isChild = message.role === 'child';
+  const source = message.source;
+  const quickReplies = message.quickReplies;
   return (
     <View className={`flex-row ${isChild ? 'justify-end' : 'justify-start'}`}>
-      <View
-        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-          isChild
-            ? 'bg-neon-blue'
-            : 'bg-card dark:bg-dark-surface border border-neon-blue/20'
-        }`}
-      >
-        <Text
-          className={`text-base leading-6 ${
-            isChild ? 'text-white' : 'text-foreground dark:text-dark-text'
+      <View className="max-w-[80%]">
+        <View
+          className={`rounded-2xl px-4 py-3 ${
+            isChild
+              ? 'bg-neon-blue'
+              : 'bg-card dark:bg-dark-surface border border-neon-blue/20'
           }`}
         >
-          {message.content}
-        </Text>
+          <Text
+            className={`text-base leading-6 ${
+              isChild ? 'text-white' : 'text-foreground dark:text-dark-text'
+            }`}
+          >
+            {message.content}
+          </Text>
+        </View>
+        {source && source.type !== 'none' && (
+          <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1 ml-2">
+            {source.type === 'textbook' ? '📚 ' : '🌐 '}
+            {source.type === 'web'
+              ? source.refs.map((r) => r.title).join(', ') || source.label
+              : source.label}
+          </Text>
+        )}
+        {!!quickReplies?.length && (
+          <View className="flex-row gap-2 mt-1.5 ml-2">
+            {quickReplies.map((qr) => (
+              <Pressable
+                key={qr.label}
+                onPress={() => onQuickReply(message.id, qr)}
+                accessibilityRole="button"
+                accessibilityLabel={qr.label}
+                className="py-1.5 px-4 rounded-2xl bg-neon-blue/15 border border-neon-blue/30"
+              >
+                <Text className="text-neon-blue font-semibold">{qr.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
     </View>
   );
