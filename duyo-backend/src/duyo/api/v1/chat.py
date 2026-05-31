@@ -223,9 +223,13 @@ async def chat_turn(
     quick_replies: list[QuickReply] = []
 
     if payload.action == "web_search":
+        # "Ha" follow-up: search the web for the ORIGINAL question (action_query).
+        # Pass NO history on purpose — the history ends with the literal "Ha",
+        # which makes the model reply socially ("shall we talk about apples?")
+        # instead of delivering the web answer. The query is self-contained.
         query = payload.action_query or payload.message
         reply = await chat_with_web_search(
-            child_message=query, age_segment=child.age_segment, history=history,  # type: ignore[arg-type]
+            child_message=query, age_segment=child.age_segment,
         )
         source = _web_source(reply.sources)
     else:
