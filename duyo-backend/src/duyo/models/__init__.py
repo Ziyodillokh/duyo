@@ -11,6 +11,7 @@ from duyo.models.gamification import (
     Streak,
 )
 from duyo.models.message import Message, MessageRole
+from duyo.models.tamagochi import TamagochiState
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
 
@@ -28,6 +29,7 @@ __all__ = [
     "Message",
     "MessageRole",
     "Streak",
+    "TamagochiState",
     "TextbookChunk",
     "User",
 ]
