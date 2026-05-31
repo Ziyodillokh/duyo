@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { type ChatSource, type QuickReply } from '@/api/endpoints/chat';
 import { type CrisisLevel } from '@/api/types';
 import { asyncStorage } from '@/lib/async-storage';
 
@@ -10,6 +11,8 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   crisisLevel?: CrisisLevel;
+  source?: ChatSource | null;
+  quickReplies?: QuickReply[];
 }
 
 interface ChatState {
@@ -22,6 +25,7 @@ interface ChatState {
   setActiveChild: (id: string) => void;
   setConversationId: (id: string) => void;
   appendMessage: (message: ChatMessage) => void;
+  clearQuickReplies: (messageId: string) => void;
   clearConversation: () => void;
   setHydrated: (hydrated: boolean) => void;
 }
@@ -40,6 +44,12 @@ export const useChatStore = create<ChatState>()(
       setConversationId: (id) => set({ conversationId: id }),
       appendMessage: (message) =>
         set((state) => ({ messages: [...state.messages, message] })),
+      clearQuickReplies: (messageId) =>
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === messageId ? { ...m, quickReplies: [] } : m,
+          ),
+        })),
       clearConversation: () =>
         set({ conversationId: null, messages: [] }),
       setHydrated: (hydrated) => set({ hydrated }),
