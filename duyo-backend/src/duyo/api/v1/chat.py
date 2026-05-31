@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
+from duyo.billing.limits import check_daily_message_limit
 from duyo.core.config import get_settings
 from duyo.crisis.detector import CrisisCategory as L1Category
 from duyo.crisis.detector import KeywordCrisisDetector
@@ -180,6 +181,19 @@ async def chat_turn(
     )
     if child is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Child not found")
+
+    # 1b. Enforce the subscription daily message limit (Concept §12.1).
+    #     Free tier = 20 child messages/day; paid tiers unlimited. Checked
+    #     BEFORE any LLM call so an over-limit turn costs nothing.
+    limit_status = await check_daily_message_limit(db, current_user.id)
+    if not limit_status.allowed:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Kunlik xabar chegarasi tugadi ({limit_status.used}/"
+                f"{limit_status.limit}). Ko'proq suhbat uchun obunani yangilang."
+            ),
+        )
 
     # 2. Resolve or create conversation
     history: list[tuple[str, str]] = []
