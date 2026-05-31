@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from duyo.analysis import reports as rpt
+from duyo.models.crisis_event import CrisisLevel
 
 
 def _run(coro):
@@ -111,7 +112,7 @@ def test_build_report_assembles_sections(monkeypatch):
     db = _FakeSession(
         execute_queue=[
             _Result([(12, 4)]),                       # total_messages=12, active_days=4
-            _Result([("green", 10), ("yellow", 2)]),  # crisis levels
+            _Result([(CrisisLevel.GREEN, 10), (CrisisLevel.YELLOW, 2)]),  # crisis levels
             _Result([("xabar1",), ("xabar2",), ("xabar3",)]),  # message texts
         ],
         scalar_queue=[3],  # conversations
@@ -143,7 +144,7 @@ def test_build_report_privacy_no_text_leak(monkeypatch):
     db = _FakeSession(
         execute_queue=[
             _Result([(5, 2)]),
-            _Result([("green", 5)]),
+            _Result([(CrisisLevel.GREEN, 5)]),
             _Result([(secret,), (secret,), (secret,)]),
         ],
         scalar_queue=[1],
