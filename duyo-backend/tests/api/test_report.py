@@ -40,6 +40,7 @@ class _User:
 def _child():
     c = type("C", (), {})()
     c.id = uuid4()
+    c.age = 10  # endpoint passes child.age to build_report
     return c
 
 
@@ -92,7 +93,7 @@ def _patch_build(monkeypatch, *, llm_ok=True):
             self.sections = _SECTIONS
             self.llm_ok = llm_ok
 
-    async def _fake_build(_session, _child_id, *, now):
+    async def _fake_build(_session, _child_id, *, now, age=10):
         return _Data(now)
     monkeypatch.setattr(rep, "build_report", _fake_build)
 

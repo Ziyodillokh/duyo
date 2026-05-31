@@ -34,15 +34,26 @@ def _build_payload(age: int, sections: dict, rag_context: str | None) -> str:
     mood = sections.get("mood", {})
     activity = sections.get("activity", {})
     safety = sections.get("safety", {})
+
+    none_word = "yo'q"
+    mood_trend = mood.get("mood_trend") or none_word
+    mood_summary = mood.get("mood_summary", "")
+    topics = ", ".join(mood.get("topics", [])) or none_word
+    stress = mood.get("stress_signals", "") or none_word
+    active_days = activity.get("active_days", 0)
+    window = activity.get("window_days", 10)
+    total_messages = activity.get("total_messages", 0)
+    concerning = safety.get("concerning_count", 0)
+
     lines = [
         f"Bola yoshi: {age}",
-        f"Kayfiyat yo'nalishi: {mood.get('mood_trend', 'noma\\'lum')}",
-        f"Kayfiyat xulosasi: {mood.get('mood_summary', '')}",
-        f"Mavzular: {', '.join(mood.get('topics', [])) or 'yo\\'q'}",
-        f"Stress signali: {mood.get('stress_signals', '') or 'yo\\'q'}",
-        f"Faol kunlar: {activity.get('active_days', 0)}/{activity.get('window_days', 10)}",
-        f"Xabarlar soni: {activity.get('total_messages', 0)}",
-        f"Tashvishli signallar soni: {safety.get('concerning_count', 0)}",
+        f"Kayfiyat yo'nalishi: {mood_trend}",
+        f"Kayfiyat xulosasi: {mood_summary}",
+        f"Mavzular: {topics}",
+        f"Stress signali: {stress}",
+        f"Faol kunlar: {active_days}/{window}",
+        f"Xabarlar soni: {total_messages}",
+        f"Tashvishli signallar soni: {concerning}",
     ]
     payload = "\n".join(lines)
     if rag_context:

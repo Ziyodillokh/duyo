@@ -92,7 +92,7 @@ PARENT_GUIDANCE_PROMPT = (
     "JSON formatda javob ber:\n"
     "{\n"
     '  "tips": ["maslahat1", "maslahat2", "maslahat3"],\n'
-    '  "focus": "shu davr uchun 1 asosiy yo'nalish (qisqa)"\n'
+    '  "focus": "shu davr uchun 1 asosiy yonalish (qisqa)"\n'
     "}\n\n"
     "Ohang: hamkor, hurmatli. Har maslahat 1-2 jumla."
 )
