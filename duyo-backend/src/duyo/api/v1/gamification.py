@@ -5,8 +5,6 @@ scoped to a child owned by the authenticated parent; another family's child
 returns 404 so existence never leaks.
 """
 
-from __future__ import annotations
-
 from datetime import date
 from uuid import UUID
 
