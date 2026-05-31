@@ -62,7 +62,13 @@ async def _get_or_create_state(child_id: UUID, db: AsyncSession) -> TamagochiSta
         select(TamagochiState).where(TamagochiState.child_id == child_id)
     )
     if state is None:
-        state = TamagochiState(child_id=child_id, last_decay_at=datetime.now(UTC))
+        # Set metrics explicitly (not relying on flush-time column defaults) so
+        # a freshly-created state is fully populated in-memory before decay runs.
+        state = TamagochiState(
+            child_id=child_id,
+            energy=100, joy=100, learning=100, health=100,
+            last_decay_at=datetime.now(UTC),
+        )
         db.add(state)
         await db.flush()
     return state

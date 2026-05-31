@@ -28,7 +28,7 @@ _METRICS = ("energy", "joy", "learning", "health")
 
 def _clamp(v: float) -> int:
     """Clamp to the valid 0-100 integer range (DUYO never dies → floor 0)."""
-    return max(0, min(100, int(round(v))))
+    return max(0, min(100, round(v)))
 
 
 @dataclass(frozen=True)
