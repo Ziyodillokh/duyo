@@ -21,7 +21,7 @@ RUN pip install --upgrade pip && \
     pip wheel --no-deps --wheel-dir /wheels -e . && \
     pip wheel --wheel-dir /wheels \
         fastapi 'uvicorn[standard]' pydantic pydantic-settings \
-        sqlalchemy alembic asyncpg redis httpx \
+        sqlalchemy alembic asyncpg pgvector redis httpx \
         'python-jose[cryptography]' google-genai \
         phonenumbers python-multipart structlog greenlet
 

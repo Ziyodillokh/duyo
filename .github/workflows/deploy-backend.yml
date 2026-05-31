@@ -71,60 +71,91 @@ jobs:
             src migrations pyproject.toml README.md alembic.ini Dockerfile .dockerignore \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/api/
 
-      - name: Rsync docker-compose.yml → server
-        working-directory: .
-        run: |
-          rsync -avz --no-perms \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
-            duyo-backend/docker-compose.yml \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/docker-compose.yml
-
-      - name: Ensure pgvector postgres + build api + migrate + recreate
+      # NOTE: production runs the api/nginx/postgres/redis stack imperatively
+      # (docker run on the duyo_internal network), NOT via docker-compose.
+      # duyo-backend/docker-compose.yml is a LOCAL-DEV file (no api/nginx/networks)
+      # and must never be rsynced over the server — doing so previously detached
+      # postgres onto the compose default network and broke DB name resolution.
+      - name: Build image, migrate, recreate api (imperative, postgres untouched)
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            bash -se <<'REMOTE'
-              set -e
-              cd /opt/duyo
+            "GIT_SHA='${{ github.sha }}' bash -se" <<'REMOTE'
+              set -euo pipefail
+              SHA="${GIT_SHA:0:12}"
+              cd /opt/duyo/api
 
-              # 1. Pull pgvector postgres image if image changed.
-              # Data is in docker volume — survives container recreation.
-              echo "--- pull postgres image ---"
-              docker compose pull postgres 2>&1 | tail -3
+              # 1. Build image — UNMASKED so a failed build fails the deploy.
+              #    (Old `... 2>&1 | tail` swallowed build errors via the pipe exit code.)
+              echo "--- docker build duyo-api:$SHA ---"
+              docker build -t "duyo-api:$SHA" -t duyo-api:latest .
 
-              # 2. Recreate postgres only if image actually changed.
-              CURRENT_IMAGE=$(docker inspect --format '{{.Config.Image}}' duyo-postgres 2>/dev/null || echo "none")
-              WANTED_IMAGE=$(docker compose config | grep -A2 'postgres:' | grep image | awk '{print $2}' || echo "pgvector/pgvector:pg16")
-              if [ "$CURRENT_IMAGE" != "$WANTED_IMAGE" ]; then
-                echo "--- postgres image changed: $CURRENT_IMAGE → $WANTED_IMAGE ---"
-                docker compose up -d --force-recreate postgres 2>&1 | tail -3
-                # Wait for postgres to be ready
-                for i in $(seq 1 12); do
-                  docker compose exec -T postgres pg_isready -U duyo && break
-                  echo "  postgres not ready yet ($i/12)..."
-                  sleep 5
-                done
+              # 2. Ensure postgres reachable on the api network. NEVER recreate it
+              #    (stateful, data in volume). Just connect with the service alias
+              #    'postgres' if missing — idempotent.
+              if ! docker inspect duyo-postgres \
+                   -f '{{range $n,$c := .NetworkSettings.Networks}}{{$n}} {{end}}' \
+                   | grep -qw duyo_internal; then
+                echo "--- connecting postgres to duyo_internal (alias postgres) ---"
+                docker network connect --alias postgres duyo_internal duyo-postgres
               else
-                echo "--- postgres image unchanged ($CURRENT_IMAGE) ---"
+                echo "--- postgres already on duyo_internal ---"
               fi
 
-              # 3. Build API image
-              cd /opt/duyo/api
-              echo "--- docker build ---"
-              docker build -t duyo-api:latest . 2>&1 | tail -10
-
-              # 4. Run alembic migrations (idempotent — safe to re-run)
+              # 3. Alembic migrations (idempotent). Unmasked.
               echo "--- alembic upgrade head ---"
               docker run --rm \
                 --network duyo_internal \
                 --env-file /opt/duyo/.env \
                 -e DATABASE_URL="postgresql+asyncpg://duyo:$(cat /opt/duyo/secrets/db_password.txt)@postgres:5432/duyo" \
-                duyo-api:latest alembic upgrade head 2>&1 | tail -5
+                "duyo-api:$SHA" alembic upgrade head
 
-              # 5. Recreate API container
+              # 4. Recreate the api container with the NEW image.
+              #    Env is dumped from the currently-running container (the proven,
+              #    authoritative set — /opt/duyo/.env does NOT carry the full app env
+              #    such as DATABASE_URL/REDIS_URL/ESKIZ_*). nginx upstream points at
+              #    host 'api', so the new container MUST keep --network-alias api.
               echo "--- recreate api container ---"
-              cd /opt/duyo
-              docker compose up -d --force-recreate api 2>&1 | tail -3
+              if docker inspect duyo-api >/dev/null 2>&1; then
+                docker inspect duyo-api --format '{{range .Config.Env}}{{println .}}{{end}}' \
+                  | grep -vE '^(PATH|LANG|GPG_KEY|PYTHON_VERSION|PYTHON_SHA256|PYTHONDONTWRITEBYTECODE|PYTHONUNBUFFERED|PIP_)=' \
+                  > /tmp/duyo-api-deploy.env || true
+                docker stop duyo-api >/dev/null 2>&1 || true
+                docker rename duyo-api "duyo-api-prev-$SHA"
+              else
+                echo "  no existing duyo-api; falling back to /opt/duyo/.env"
+                cp /opt/duyo/.env /tmp/duyo-api-deploy.env
+              fi
+
+              docker run -d --name duyo-api --restart unless-stopped \
+                --network duyo_internal --network-alias api \
+                --env-file /tmp/duyo-api-deploy.env \
+                duyo-api:latest
+              rm -f /tmp/duyo-api-deploy.env
+
+              # 5. Health-gate the new container; roll back to the previous one on failure.
+              ok=0
+              for i in $(seq 1 12); do
+                if docker exec duyo-api curl -fsS http://localhost:8000/v1/health >/dev/null 2>&1; then
+                  ok=1; break
+                fi
+                echo "  api not healthy yet ($i/12)..."; sleep 3
+              done
+              if [ "$ok" != "1" ]; then
+                echo "!!! new api failed health — rolling back"
+                docker logs duyo-api 2>&1 | tail -30 || true
+                docker stop duyo-api >/dev/null 2>&1 || true
+                docker rm duyo-api >/dev/null 2>&1 || true
+                if docker inspect "duyo-api-prev-$SHA" >/dev/null 2>&1; then
+                  docker rename "duyo-api-prev-$SHA" duyo-api
+                  docker start duyo-api
+                fi
+                exit 1
+              fi
+
+              # 6. Success — drop the previous container.
+              docker rm "duyo-api-prev-$SHA" >/dev/null 2>&1 || true
+              echo "--- deploy ok: $(docker ps --filter name=duyo-api --format '{{.Status}} | {{.Image}}') ---"
           REMOTE
 
       - name: Smoke test (HTTPS health endpoints, with retry)
