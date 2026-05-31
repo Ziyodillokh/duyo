@@ -1,6 +1,6 @@
 """Auth endpoints — SMS OTP login + JWT refresh."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -65,11 +65,11 @@ async def verify_otp(
 
     user = await db.scalar(select(User).where(User.phone == payload.phone))
     if user is None:
-        user = User(phone=payload.phone, last_login_at=datetime.now(timezone.utc))
+        user = User(phone=payload.phone, last_login_at=datetime.now(UTC))
         db.add(user)
         await db.flush()  # populate user.id
     else:
-        user.last_login_at = datetime.now(timezone.utc)
+        user.last_login_at = datetime.now(UTC)
 
     return _build_token_response(str(user.id))
 

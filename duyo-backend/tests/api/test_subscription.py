@@ -2,6 +2,7 @@
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import UTC
 from uuid import uuid4
 
 import pytest
@@ -116,10 +117,10 @@ def test_subscribe_rejects_free_tier_at_schema():
 
 def test_cancel_reverts_to_free():
     user = _User(uuid4())
-    from datetime import datetime, timezone
+    from datetime import datetime
     existing = Subscription(
         user_id=user.id, tier="premium", status="active", provider="mock",
-        started_at=datetime.now(timezone.utc), expires_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC), expires_at=datetime.now(UTC),
     )
     db = _FakeSession(scalars_queue=[existing])
     sub = _run(sub_api.cancel(current_user=user, db=db))

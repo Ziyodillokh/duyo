@@ -10,7 +10,7 @@ with provider='mock' and no real charge. Click/Payme webhooks come later.
   POST /subscriptions/cancel    revert to free (auth)
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -76,7 +76,7 @@ async def subscribe(
     if not tiers.is_paid(payload.tier):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Not a paid tier")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     days = _YEARLY_DAYS if payload.period == "yearly" else _MONTHLY_DAYS
 
     sub = await _get_or_create(current_user.id, db)

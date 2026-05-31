@@ -22,10 +22,10 @@ from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
 from duyo.schemas.textbook import (
     ApprovePayload,
+    ChunkResult,
     ReviewChunk,
     ReviewListResponse,
     SearchResponse,
-    ChunkResult,
     StatsResponse,
 )
 from duyo.textbook.retriever import search_chunks

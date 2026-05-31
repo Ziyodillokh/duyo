@@ -5,7 +5,7 @@ If passwords are added later, use the `bcrypt` library directly (passlib
 has compatibility issues with bcrypt 4.x).
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from jose import JWTError, jwt
@@ -21,7 +21,7 @@ def create_token(
     extra_claims: dict[str, Any] | None = None,
 ) -> str:
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if token_type == "access":
         expire = now + timedelta(minutes=settings.jwt_access_token_expire_minutes)
     else:

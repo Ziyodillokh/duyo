@@ -7,7 +7,7 @@ from sqlalchemy import ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from duyo.models.base import Base, TimestampMixin, UUIDPK
+from duyo.models.base import UUIDPK, Base, TimestampMixin
 from duyo.models.crisis_event import CrisisLevel, _crisis_level_enum
 
 

@@ -8,7 +8,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from duyo.models.base import Base, TimestampMixin, UUIDPK
+from duyo.models.base import UUIDPK, Base, TimestampMixin
 
 
 class CrisisLevel(str, Enum):

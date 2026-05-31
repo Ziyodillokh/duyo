@@ -8,7 +8,6 @@ import pytest
 
 from duyo.crisis.detector import CrisisCategory, CrisisLevel
 
-
 # ---------------------------------------------------------------------------
 # Safe messages — must NOT trigger
 # ---------------------------------------------------------------------------

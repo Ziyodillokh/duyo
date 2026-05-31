@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from uuid import UUID
-
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, Float, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from duyo.models.base import Base, TimestampMixin, UUIDPK
+from duyo.models.base import UUIDPK, Base, TimestampMixin
 
 EMBEDDING_DIM = 768  # Gemini text-embedding-004
 

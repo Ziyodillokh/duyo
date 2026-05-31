@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import replace as _dc_replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -271,7 +271,7 @@ async def chat_turn(
     )
 
     if should_notify_parent:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for ce in crisis_events:
             ce.parent_notified = True
             ce.parent_notified_at = now

@@ -161,9 +161,9 @@ _LEVEL_PRIORITY: dict[CrisisLevel, int] = {
 }
 
 
-def _highest_level(levels: "Iterable[CrisisLevel]") -> CrisisLevel:  # noqa: F821
+def _highest_level(levels: Iterable[CrisisLevel]) -> CrisisLevel:
     return max(levels, key=lambda lvl: _LEVEL_PRIORITY[lvl])
 
 
 # Re-export at module level for ergonomic imports.
-from typing import Iterable  # noqa: E402, F401  (used by type-string above)
+from collections.abc import Iterable  # noqa: E402  (used by type-string above)

@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from duyo.models.base import Base, TimestampMixin, UUIDPK
+from duyo.models.base import UUIDPK, Base, TimestampMixin
 
 
 class Subscription(Base, UUIDPK, TimestampMixin):

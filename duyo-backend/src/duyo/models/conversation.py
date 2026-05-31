@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from duyo.models.base import Base, TimestampMixin, UUIDPK
+from duyo.models.base import UUIDPK, Base, TimestampMixin
 
 
 class Conversation(Base, UUIDPK, TimestampMixin):

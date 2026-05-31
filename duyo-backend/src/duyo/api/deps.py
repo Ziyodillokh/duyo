@@ -1,6 +1,5 @@
 """Shared FastAPI dependencies."""
 
-from collections.abc import AsyncIterator
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status

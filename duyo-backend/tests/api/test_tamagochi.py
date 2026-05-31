@@ -7,7 +7,7 @@ mutation by the endpoint is observable.
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -71,7 +71,7 @@ def test_get_state_unowned_404():
 def test_get_state_applies_decay():
     user = _User(uuid4())
     child = _child()
-    one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+    one_day_ago = datetime.now(UTC) - timedelta(days=1)
     state = _state(child.id, one_day_ago)
     db = _FakeSession(scalars_queue=[child, state])
     result = _run(tam.get_state(child_id=child.id, current_user=user, db=db))
@@ -95,7 +95,7 @@ def test_get_state_creates_default_when_missing():
 def test_interact_lesson_restores_learning():
     user = _User(uuid4())
     child = _child()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     state = _state(child.id, now, learning=50)
     db = _FakeSession(scalars_queue=[child, state])
     result = _run(tam.interact(
@@ -109,7 +109,7 @@ def test_interact_lesson_restores_learning():
 def test_interact_check_in_restores_energy_clamped():
     user = _User(uuid4())
     child = _child()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     state = _state(child.id, now, energy=90)
     db = _FakeSession(scalars_queue=[child, state])
     result = _run(tam.interact(
@@ -122,7 +122,7 @@ def test_interact_check_in_restores_energy_clamped():
 def test_interact_settles_decay_before_boost():
     user = _User(uuid4())
     child = _child()
-    one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+    one_day_ago = datetime.now(UTC) - timedelta(days=1)
     state = _state(child.id, one_day_ago, joy=100)
     db = _FakeSession(scalars_queue=[child, state])
     # joy decays 8/day → ~92, then play +10 → ~100 (clamped) or ~100
