@@ -264,5 +264,5 @@ class TestRetrieveForChat:
             result = await retrieve_for_chat(session, "kasrlar nima?", grade=6)
 
         assert result is not None
-        assert "[DARSLIK KONTEKST]" in result
-        assert "Kasrlar" in result
+        assert "[DARSLIK KONTEKST]" in result.context
+        assert "Kasrlar" in result.context

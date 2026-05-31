@@ -18,6 +18,8 @@ If no chunks are found, returns None (caller falls back to normal generation).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import structlog
 from google import genai
 from google.genai import types
@@ -42,6 +44,15 @@ _MAX_CONTEXT_CHARS = 2000  # truncate chunks to keep system prompt manageable
 # of being misled. The direct /search endpoint keeps no floor (min_similarity
 # defaults to None) so it can surface everything for debugging.
 _CHAT_MIN_SIMILARITY = 0.62
+
+
+@dataclass
+class RagRetrieval:
+    """What chat needs from one retrieval: the prompt context block plus the
+    distinct (subject, grade, topic) refs for source attribution."""
+    context: str
+    refs: list[tuple[str, int, str | None]]
+
 
 # Children misspell ("Vakoul" → "vakuol"). Normalising the query before
 # embedding recovers the right textbook section. Falls back to the raw query.
@@ -153,8 +164,10 @@ def build_rag_context(chunks_with_scores: list[tuple[TextbookChunk, float]]) -> 
     lines.append("[/DARSLIK KONTEKST]")
     lines.append("")
     lines.append(
-        "Yuqoridagi darslik matniga asoslanib javob ber. "
-        "Agar kontekst bolaning savoliga mos kelmasa, o'z bilimingdan foydalanasan."
+        "Yuqoridagi darslik matniga asoslanib javob ber. Javobing boshida "
+        "qaysi sinf va fan darsligidan ekanini ayt, masalan: "
+        "\"6-sinf Botanika darsligiga ko'ra, ...\". "
+        "Agar kontekst bolaning savoliga umuman mos kelmasa, o'z bilimingdan foydalan."
     )
 
     return "\n".join(lines)
@@ -166,33 +179,32 @@ async def retrieve_for_chat(
     *,
     grade: int | None = None,
     subject: str | None = None,
-) -> str | None:
+) -> RagRetrieval | None:
     """High-level helper used by the chat endpoint.
 
-    Returns a formatted RAG context string or None if nothing relevant found.
     Normalises the (possibly misspelled) child message and applies a similarity
-    floor so only on-topic textbook context reaches the model.
+    floor so only on-topic textbook context reaches the model. Returns the
+    context block and source refs, or None when nothing relevant is found.
     """
     normalized = await _normalize_query(child_message)
     results = await search_chunks(
-        session,
-        normalized,
-        grade=grade,
-        subject=subject,
-        limit=_DEFAULT_LIMIT,
-        min_similarity=_CHAT_MIN_SIMILARITY,
+        session, normalized, grade=grade, subject=subject,
+        limit=_DEFAULT_LIMIT, min_similarity=_CHAT_MIN_SIMILARITY,
     )
     if not results:
-        log.info("rag_no_match", query=normalized[:60], grade=grade, subject=subject)
+        log.info("rag_no_match", query=normalized[:60])
         return None
 
     context = build_rag_context(results)
-    log.info(
-        "rag_context_built",
-        chunks=len(results),
-        top_score=results[0][1],
-        query=normalized[:60],
-        grade=grade,
-        subject=subject,
-    )
-    return context
+    if context is None:
+        return None
+    seen: set[tuple[str, int]] = set()
+    refs: list[tuple[str, int, str | None]] = []
+    for chunk, _ in results:
+        key = (chunk.subject, chunk.grade)
+        if key in seen:
+            continue
+        seen.add(key)
+        refs.append((chunk.subject, chunk.grade, chunk.topic))
+    log.info("rag_context_built", chunks=len(results), top_score=results[0][1], query=normalized[:60])
+    return RagRetrieval(context=context, refs=refs)
