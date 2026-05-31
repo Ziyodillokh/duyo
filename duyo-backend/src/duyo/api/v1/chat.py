@@ -1,6 +1,7 @@
 """Chat endpoint — single-turn child↔DUYO message with crisis detection."""
 
 import logging
+from dataclasses import replace as _dc_replace
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -18,11 +19,20 @@ from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
-from duyo.schemas.chat import ChatRequest, ChatResponse, ChildCreate, ChildRead
+from duyo.schemas.chat import (
+    ChatRequest,
+    ChatResponse,
+    ChatSource,
+    ChildCreate,
+    ChildRead,
+    QuickReply,
+    SourceRef,
+)
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini import chat as gemini_chat
+from duyo.services.gemini import chat_with_web_search
 from duyo.services.sms import get_sms_provider
-from duyo.textbook.retriever import retrieve_for_chat
+from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 log = logging.getLogger(__name__)
@@ -205,22 +215,37 @@ async def chat_turn(
             child.id, child_msg.id,
         )
 
-    # 8. RAG retrieval — inject relevant textbook context into system prompt.
-    # Search the whole corpus regardless of the child's age/grade: any child
-    # should get a textbook-grounded answer no matter which grade the source
-    # material lives in. (child.age is age-in-years, not a school grade, so it
-    # must NOT be passed as the grade filter.)
-    # Graceful degradation: if DB is empty or embedding fails, rag_context=None
-    # and Gemini replies from its own knowledge (existing behaviour unchanged).
-    rag_context = await retrieve_for_chat(db, payload.message)
+    # 8-9. Build the reply. Three flows:
+    #   (a) action="web_search" → skip RAG, answer from Google Search grounding
+    #   (b) RAG hit            → textbook answer + cite + offer web search
+    #   (c) RAG miss           → answer from Google Search grounding
+    source: ChatSource | None = None
+    quick_replies: list[QuickReply] = []
 
-    # 9. Call Gemini for the reply (with multi-turn history + optional RAG context)
-    reply = await gemini_chat(
-        child_message=payload.message,
-        age_segment=child.age_segment,
-        history=history,  # type: ignore[arg-type]
-        rag_context=rag_context,
-    )
+    if payload.action == "web_search":
+        query = payload.action_query or payload.message
+        reply = await chat_with_web_search(
+            child_message=query, age_segment=child.age_segment, history=history,  # type: ignore[arg-type]
+        )
+        source = _web_source(reply.sources)
+    else:
+        rag = await retrieve_for_chat(db, payload.message)
+        if rag is not None:
+            reply = await gemini_chat(
+                child_message=payload.message, age_segment=child.age_segment,
+                history=history, rag_context=rag.context,  # type: ignore[arg-type]
+            )
+            reply = _append_offer(reply)
+            source = _textbook_source(rag)
+            quick_replies = [
+                QuickReply(label="Ha", action="web_search", query=payload.message),
+                QuickReply(label="Yo'q", action="dismiss"),
+            ]
+        else:
+            reply = await chat_with_web_search(
+                child_message=payload.message, age_segment=child.age_segment, history=history,  # type: ignore[arg-type]
+            )
+            source = _web_source(reply.sources)
 
     # 10. Persist assistant message
     assistant_msg = Message(
@@ -244,4 +269,32 @@ async def chat_turn(
         crisis_level=final_level,
         model=reply.model,
         latency_ms=reply.latency_ms,
+        source=source,
+        quick_replies=quick_replies,
     )
+
+
+_WEB_OFFER = "\n\nXohlasang internetdan ham qo'shimcha ma'lumot qidiraman."
+
+
+def _textbook_source(rag: RagRetrieval) -> ChatSource:
+    subject, grade, _ = rag.refs[0]
+    pretty = subject.replace("-", " ").capitalize()
+    return ChatSource(
+        type="textbook",
+        label=f"{grade}-sinf {pretty} darsligi",
+        refs=[SourceRef(title=f"{g}-sinf {s.replace('-', ' ').capitalize()}" + (f" — {t}" if t else ""))
+              for s, g, t in rag.refs],
+    )
+
+
+def _web_source(sources) -> ChatSource:
+    return ChatSource(
+        type="web",
+        label="Internet",
+        refs=[SourceRef(title=s.title, url=s.url) for s in sources],
+    )
+
+
+def _append_offer(reply):
+    return _dc_replace(reply, text=reply.text + _WEB_OFFER)

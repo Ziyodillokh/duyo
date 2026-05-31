@@ -1,7 +1,10 @@
 from uuid import uuid4
 
+from duyo.api.v1.chat import _textbook_source, _web_source
 from duyo.models.crisis_event import CrisisLevel
 from duyo.schemas.chat import ChatRequest, ChatResponse, ChatSource, QuickReply, SourceRef
+from duyo.services.gemini import WebSource
+from duyo.textbook.retriever import RagRetrieval
 
 
 def test_chat_request_accepts_web_search_action():
@@ -20,3 +23,18 @@ def test_chat_response_carries_source_and_quick_replies():
     )
     assert resp.source.type == "textbook"
     assert resp.quick_replies[0].action == "web_search"
+
+
+def test_textbook_source_label_and_refs():
+    rag = RagRetrieval(context="...", refs=[("botanika", 6, "Hujayra"), ("tarix", 6, None)])
+    src = _textbook_source(rag)
+    assert src.type == "textbook"
+    assert src.label == "6-sinf Botanika darsligi"
+    assert src.refs[0].title == "6-sinf Botanika — Hujayra"
+    assert src.refs[1].title == "6-sinf Tarix"
+
+
+def test_web_source_maps_urls():
+    src = _web_source((WebSource("Wiki", "https://wikipedia.org"),))
+    assert src.type == "web"
+    assert src.refs[0].url == "https://wikipedia.org"
