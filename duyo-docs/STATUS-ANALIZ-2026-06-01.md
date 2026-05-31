@@ -44,7 +44,7 @@
 |-------|-------|-------------|------|
 | **Crisis SMS** | `_dispatch_parent_alert` kodi bor | `sms.py` **STUB** — Eskiz creds yo'q, SMS faqat log'ga yoziladi | 🔴 KRITIK — xavf signalida ota-ona xabar olmaydi |
 | **Subscription** | tier + plans/current/subscribe/cancel | To'lov **MOCK** (Click/Payme 501); limit enforcement (tier → AI turn cheklovi) ulanmagan | 🟠 Daromad yo'q + limitlar ishlamaydi |
-| **Voice** | WS karkas + Gemini Live STT | TTS yo'q (OmniVoice GPU kutilmoqda); MVP'da ovoz javob yo'q | 🟡 NFR-1.2 (<5s ovoz) bajarilmaydi |
+| **Voice** | WS karkas + **Gemini Live native audio (STT+TTS, D-005)** | Mobil ovoz oqimini to'liq ulash. (OmniVoice — KELAJAK rejasi: GPU server bo'lganda arzonroq alternativa) | 🟡 ulanish to'liq emas |
 
 ---
 
@@ -78,7 +78,7 @@ Ustuvorlik bo'yicha tartiblangan:
 | # | Ish | Izoh |
 |---|-----|------|
 | 11 | **Monitoring** | Netdata/Telegram alert (server health + RED crisis) — rejada, yo'q |
-| 12 | **Voice GPU server** | OmniVoice real-time uchun (park qilingan) |
+| 12 | **OmniVoice GPU server** | KELAJAK — Gemini Live TTS o'rniga arzonroq self-host alternativa (GPU bo'lganda). Hozir TTS = Gemini Live |
 | 13 | **Fine-tuned model** | 12-18 oy, margins uchun (hozir kerak emas) |
 
 ---
@@ -116,4 +116,4 @@ Ustuvorlik bo'yicha tartiblangan:
 - `aiohttp` `pyproject.toml`da yo'q (google-genai orqali tranzitiv keladi) — kelajakda sinishi mumkin, qo'shish tavsiya.
 - Eski modullarda (crisis/keywords, detector) ruff xatolari bor (yangi kodda emas) — alohida tozalash mumkin.
 - `users` ↔ `subscriptions` ORM relationship qo'shilmagan (FK bor, navigatsiya yo'q) — kerak bo'lsa qo'shiladi.
-- Voice STT Gemini Live ichida; mustaqil STT service yo'q (Concept Yandex SpeechKit deydi — qayta ko'rib chiqilsin).
+- Voice STT+TTS = Gemini Live native audio (D-005). Mustaqil STT/TTS service yo'q. OmniVoice — park qilingan kelajak alternativasi.
