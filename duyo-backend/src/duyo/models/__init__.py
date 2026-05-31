@@ -1,23 +1,33 @@
-"""SQLAlchemy declarative models."""
+"""SQLAlchemy models package."""
 
 from duyo.models.base import Base
-from duyo.models.child import ChildProfile, AgeSegment, Language
+from duyo.models.child import AgeSegment, ChildProfile, Language
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
+from duyo.models.gamification import (
+    Avatar,
+    BallsTransaction,
+    InventoryItem,
+    Streak,
+)
 from duyo.models.message import Message, MessageRole
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
 
 __all__ = [
-    "Base",
-    "User",
-    "ChildProfile",
     "AgeSegment",
-    "Language",
+    "Avatar",
+    "BallsTransaction",
+    "Base",
+    "ChildProfile",
     "Conversation",
-    "Message",
-    "MessageRole",
     "CrisisEvent",
     "CrisisLevel",
+    "InventoryItem",
+    "Language",
+    "Message",
+    "MessageRole",
+    "Streak",
     "TextbookChunk",
+    "User",
 ]
