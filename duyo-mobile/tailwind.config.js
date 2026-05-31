@@ -15,6 +15,7 @@ module.exports = {
         'duyo-crisis': '#EF4444',
         'duyo-white': '#FFFFFF',
         'duyo-muted': '#64748B',
+        'tutor-teal': '#006687',
 
         // Light theme semantic tokens
         primary: '#2563EB',
