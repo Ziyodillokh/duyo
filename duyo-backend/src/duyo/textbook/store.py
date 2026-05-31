@@ -21,11 +21,15 @@ from duyo.textbook.schema import ClassifiedChunk
 
 log = structlog.get_logger(__name__)
 
-# IVFFlat probe count for vector search. The index uses lists=100; probes=10
-# scans 10% of centroids per query — enough candidates to survive metadata
-# filters (subject/grade) while keeping search fast. Tune up if recall drops
-# as the corpus grows. See migrations/versions/0002_textbook_chunks.py.
-_IVFFLAT_PROBES = 10
+# IVFFlat probe count for vector search. The index uses lists=100. At 10 probes
+# the ANN missed real matches once the corpus grew to ~3000 chunks (e.g.
+# "yadro nima" returned only ~0.64 dictionary noise while the botanika cell
+# chunk at ~0.674 sat in an unscanned centroid). 50 probes scans half the
+# centroids — effectively near-exact for this corpus size, negligible latency —
+# so the true nearest neighbours are reliably found. If the corpus grows much
+# larger, rebuild the index with more lists (~sqrt(rows)) instead of raising
+# this further. See migrations/versions/0002_textbook_chunks.py.
+_IVFFLAT_PROBES = 50
 
 
 async def doc_is_ingested(session: AsyncSession, doc_id: str) -> bool:
