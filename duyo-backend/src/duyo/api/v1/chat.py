@@ -206,9 +206,13 @@ async def chat_turn(
         )
 
     # 8. RAG retrieval — inject relevant textbook context into system prompt.
+    # Search the whole corpus regardless of the child's age/grade: any child
+    # should get a textbook-grounded answer no matter which grade the source
+    # material lives in. (child.age is age-in-years, not a school grade, so it
+    # must NOT be passed as the grade filter.)
     # Graceful degradation: if DB is empty or embedding fails, rag_context=None
     # and Gemini replies from its own knowledge (existing behaviour unchanged).
-    rag_context = await retrieve_for_chat(db, payload.message, grade=child.age)
+    rag_context = await retrieve_for_chat(db, payload.message)
 
     # 9. Call Gemini for the reply (with multi-turn history + optional RAG context)
     reply = await gemini_chat(
