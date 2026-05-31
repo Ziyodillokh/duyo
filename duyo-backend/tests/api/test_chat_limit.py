@@ -44,7 +44,7 @@ def test_chat_blocked_when_over_limit(monkeypatch):
     # Only the child lookup scalar is consumed before the limit check fires.
     db = _FakeSession(scalar_queue=[child])
 
-    async def _blocked(session, user_id, *, now=None):
+    async def _blocked(_session, _user_id, *, now=None):
         return LimitStatus(allowed=False, limit=20, used=20, tier="free")
     monkeypatch.setattr(chat_module, "check_daily_message_limit", _blocked)
 
