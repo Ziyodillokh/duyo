@@ -137,12 +137,23 @@ async def chat_with_web_search(
     )
     contents = _build_contents(history, child_message)
 
+    # Force web grounding: tell the model to search the internet for THIS
+    # question and answer from the web (not from prior textbook context in the
+    # history — otherwise it copies "...darsligiga ko'ra" citations it shouldn't).
+    web_instruction = (
+        f"{SYSTEM_PROMPTS[age_segment]}\n\n"
+        "MUHIM: bu savolga javob berish uchun Google Search bilan internetdan "
+        "qidir va topilgan ma'lumotga asoslanib javob ber. Bu javob darslikdan "
+        "EMAS — 'darsligiga ko'ra' kabi iboralarni ishlatma. Avvalgi suhbatdagi "
+        "darslik javoblaridan nusxa olma."
+    )
+
     start = time.perf_counter()
     resp = await client.aio.models.generate_content(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPTS[age_segment],
+            system_instruction=web_instruction,
             max_output_tokens=settings.gemini_max_output_tokens,
             temperature=settings.gemini_temperature,
             thinking_config=thinking_cfg,

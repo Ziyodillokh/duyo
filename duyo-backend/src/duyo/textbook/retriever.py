@@ -43,7 +43,7 @@ _MAX_CONTEXT_CHARS = 2000  # truncate chunks to keep system prompt manageable
 # Russian-textbook chunk) so the model answers from its own knowledge instead
 # of being misled. The direct /search endpoint keeps no floor (min_similarity
 # defaults to None) so it can surface everything for debugging.
-_CHAT_MIN_SIMILARITY = 0.62
+_CHAT_MIN_SIMILARITY = 0.68
 
 
 @dataclass
@@ -57,10 +57,16 @@ class RagRetrieval:
 # Children misspell ("Vakoul" → "vakuol"). Normalising the query before
 # embedding recovers the right textbook section. Falls back to the raw query.
 _NORMALIZE_PROMPT = (
-    "Sen o'quvchi savolini darslik bazasida qidirish uchun tayyorlaysan. "
-    "Imlo xatolarini tuzat va savolni qisqa o'zbekcha qidiruv so'roviga "
-    "aylantir (asosiy atamalar). FAQAT to'g'rilangan so'rovni qaytar, "
-    "izoh yozma.\n\nSavol: {q}\nSo'rov:"
+    "Sen o'quvchining xabarini darslik bazasida qidirish uchun tahlil qilasan.\n"
+    "Agar xabar darslik javob bera oladigan BILIM/MAVZU savoli bo'lsa "
+    "(masalan 'fotosintez nima', 'vakuol'), imlo xatolarini tuzatib, qisqa "
+    "o'zbekcha qidiruv so'rovini (asosiy atamalar) qaytar.\n"
+    "Agar xabar salomlashish, oddiy suhbat, buyruq yoki ko'rsatma bo'lsa "
+    "(masalan 'salom', 'darslik bo'yicha javob ber', 'soddaroq tushuntir', "
+    "'15 yoshli bolaga javob ber'), yoki maxsus ism/atama darslik mavzusi "
+    "emas, yoki tushunarsiz bo'lsa — FAQAT 'NONE' deb qaytar.\n"
+    "FAQAT qidiruv so'rovini YOKI 'NONE' qaytar, boshqa hech narsa yozma.\n\n"
+    "Xabar: {q}\nNatija:"
 )
 
 
@@ -164,10 +170,13 @@ def build_rag_context(chunks_with_scores: list[tuple[TextbookChunk, float]]) -> 
     lines.append("[/DARSLIK KONTEKST]")
     lines.append("")
     lines.append(
-        "Yuqoridagi darslik matniga asoslanib javob ber. Javobing boshida "
-        "qaysi sinf va fan darsligidan ekanini ayt, masalan: "
+        "Quyidagi darslik matnidan FOYDALANIB javob ber. Javob boshida qaysi "
+        "sinf va fan darsligidan ekanini tabiiy ayt, masalan: "
         "\"6-sinf Botanika darsligiga ko'ra, ...\". "
-        "Agar kontekst bolaning savoliga umuman mos kelmasa, o'z bilimingdan foydalan."
+        "MUHIM: hech qachon \"kontekst\", \"berilgan matn\" yoki boshqa fan "
+        "darsliklari nomlarini bolaga aytma. Agar bu matn savolga mos kelmasa, "
+        "matn yo'qdek, jimgina o'z bilimingdan to'g'ri javob ber va mos "
+        "kelmasligini umuman izohlama."
     )
 
     return "\n".join(lines)
@@ -187,6 +196,11 @@ async def retrieve_for_chat(
     context block and source refs, or None when nothing relevant is found.
     """
     normalized = await _normalize_query(child_message)
+    # Topic gate: greetings, commands, meta-instructions and gibberish are not
+    # textbook queries — skip RAG so we don't inject keyword-overlap junk.
+    if not normalized or normalized.strip().upper().startswith("NONE"):
+        log.info("rag_skip_non_topical", query=child_message[:60])
+        return None
     results = await search_chunks(
         session, normalized, grade=grade, subject=subject,
         limit=_DEFAULT_LIMIT, min_similarity=_CHAT_MIN_SIMILARITY,
@@ -194,6 +208,11 @@ async def retrieve_for_chat(
     if not results:
         log.info("rag_no_match", query=normalized[:60])
         return None
+
+    # Keep only the dominant subject (the top hit's): drop cross-subject
+    # outliers so the injected context and the citation stay coherent.
+    top_subject = results[0][0].subject
+    results = [(c, s) for c, s in results if c.subject == top_subject]
 
     context = build_rag_context(results)
     if context is None:
