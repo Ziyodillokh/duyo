@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import Date, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from duyo.models.base import Base, TimestampMixin, UUIDPK
+from duyo.models.base import UUIDPK, Base, TimestampMixin
 
 
 class Avatar(Base, UUIDPK, TimestampMixin):
