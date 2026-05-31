@@ -2,7 +2,6 @@
 
 from datetime import date, datetime
 from typing import Annotated, Literal
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
