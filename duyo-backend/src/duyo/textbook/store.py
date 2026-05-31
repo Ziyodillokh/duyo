@@ -11,7 +11,7 @@ and allows re-embedding without re-classifying.
 from __future__ import annotations
 
 import structlog
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,12 @@ from duyo.textbook import embeddings as emb_service
 from duyo.textbook.schema import ClassifiedChunk
 
 log = structlog.get_logger(__name__)
+
+# IVFFlat probe count for vector search. The index uses lists=100; probes=10
+# scans 10% of centroids per query — enough candidates to survive metadata
+# filters (subject/grade) while keeping search fast. Tune up if recall drops
+# as the corpus grows. See migrations/versions/0002_textbook_chunks.py.
+_IVFFLAT_PROBES = 10
 
 
 async def doc_is_ingested(session: AsyncSession, doc_id: str) -> bool:
