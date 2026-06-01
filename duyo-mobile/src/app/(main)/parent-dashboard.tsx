@@ -4,43 +4,37 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
-  Clock,
-  Eye,
+  CheckCircle,
   Heart,
-  Lock,
-  TrendingUp,
+  Lightbulb,
+  MessageCircle,
+  Sparkles,
 } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useReport } from '@/hooks/use-report';
+import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
-
-// Static mock — Faza 2 brings real parent dashboard data
-const MOCK_CHILD = {
-  name: 'Dunyo',
-  age: 10,
-  status: 'online' as const,
-  activityScore: 8,
-  activityMax: 10,
-  todayMinutes: 23,
-  weekMinutes: 184,
-};
-
-const MOCK_MOOD: ReadonlyArray<{ day: string; value: number }> = [
-  { day: 'Du', value: 7 },
-  { day: 'Se', value: 8 },
-  { day: 'Ch', value: 6 },
-  { day: 'Pa', value: 9 },
-  { day: 'Ju', value: 8 },
-  { day: 'Sh', value: 9 },
-  { day: 'Ya', value: 7 },
-];
-
-const MOCK_ALERTS = 1;
 
 export default function ParentDashboardScreen() {
   const isDark = useIsDark();
+  const child = useChildStore((s) => s.child);
+  const childName = child?.name ?? 'Farzand';
+  const childAge = child?.age;
+
+  const report = useReport();
+  const sections = report.data?.sections;
+  const cardBg = isDark ? '#132340' : '#FFFFFF';
+
   return (
     <View style={StyleSheet.absoluteFill}>
       <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
@@ -70,9 +64,10 @@ export default function ParentDashboardScreen() {
           contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
           showsVerticalScrollIndicator={false}
         >
+          {/* Child header */}
           <View
             className="rounded-xl border border-neon-blue/20"
-            style={{ padding: 20, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
+            style={{ padding: 20, backgroundColor: cardBg }}
           >
             <View className="flex-row items-center gap-4">
               <View style={{ width: 72, height: 72 }}>
@@ -80,27 +75,32 @@ export default function ParentDashboardScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-                  {MOCK_CHILD.name}
+                  {childName}
                 </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  {MOCK_CHILD.age} yosh
-                </Text>
-                <View className="flex-row items-center gap-2 mt-2">
-                  <View
-                    className="rounded-full"
-                    style={{
-                      width: 8,
-                      height: 8,
-                      backgroundColor: '#05DF72',
-                    }}
-                  />
-                  <Text className="text-xs text-neon-green">Onlayn</Text>
-                </View>
+                {childAge !== undefined && (
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                    {childAge} yosh
+                  </Text>
+                )}
+                {sections && (
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-2">
+                    Oxirgi {sections.activity.window_days} kun
+                  </Text>
+                )}
               </View>
             </View>
           </View>
 
-          {MOCK_ALERTS > 0 && (
+          {/* Loading / error */}
+          {report.isLoading && (
+            <View className="items-center" style={{ padding: 32 }}>
+              <ActivityIndicator color={isDark ? '#60A5FA' : '#102033'} />
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-3">
+                Hisobot tayyorlanmoqda…
+              </Text>
+            </View>
+          )}
+          {report.isError && (
             <View
               className="rounded-xl border"
               style={{
@@ -109,138 +109,194 @@ export default function ParentDashboardScreen() {
                 backgroundColor: 'rgba(251, 100, 182, 0.10)',
               }}
             >
-              <View className="flex-row items-center gap-3">
-                <AlertTriangle size={20} color="#FB64B6" />
-                <View className="flex-1">
-                  <Text className="text-sm font-medium text-neon-pink">
-                    {MOCK_ALERTS} ta diqqat talab qiluvchi mavzu
-                  </Text>
-                  <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1">
-                    Suhbatda hissiy qiyinchilik aniqlandi
-                  </Text>
-                </View>
-                <Eye size={18} color="#FB64B6" />
-              </View>
+              <Text className="text-sm font-medium text-neon-pink">
+                Hisobotni yuklab bo'lmadi
+              </Text>
+              <Pressable
+                onPress={() => report.refetch()}
+                accessibilityRole="button"
+                accessibilityLabel="Qayta urinish"
+                className="mt-2"
+              >
+                <Text className="text-sm font-semibold text-neon-blue">
+                  Qayta urinish
+                </Text>
+              </Pressable>
             </View>
           )}
 
-          <View className="flex-row gap-3">
-            <View
-              className="flex-1 rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-            >
-              <Activity size={18} color="#60A5FA" />
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {MOCK_CHILD.activityScore}/{MOCK_CHILD.activityMax}
-              </Text>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Faollik</Text>
-            </View>
-            <View
-              className="flex-1 rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-            >
-              <Clock size={18} color="#FDC700" />
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {MOCK_CHILD.todayMinutes}
-              </Text>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">daqiqa bugun</Text>
-            </View>
-            <View
-              className="flex-1 rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-            >
-              <TrendingUp size={18} color="#05DF72" />
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {MOCK_CHILD.weekMinutes}
-              </Text>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">hafta</Text>
-            </View>
-          </View>
+          {sections && (
+            <>
+              {/* Safety */}
+              {sections.safety.concerning_count > 0 ? (
+                <View
+                  className="rounded-xl border"
+                  style={{
+                    padding: 16,
+                    borderColor: 'rgba(251, 100, 182, 0.40)',
+                    backgroundColor: 'rgba(251, 100, 182, 0.10)',
+                  }}
+                >
+                  <View className="flex-row items-center gap-3">
+                    <AlertTriangle size={20} color="#FB64B6" />
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-neon-pink">
+                        {sections.safety.concerning_count} ta diqqat talab qiluvchi mavzu
+                      </Text>
+                      <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1">
+                        {sections.safety.had_red
+                          ? 'Jiddiy signal aniqlandi — suhbatlashing'
+                          : 'Hissiy qiyinchilik belgilari'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <View
+                  className="rounded-xl border"
+                  style={{
+                    padding: 16,
+                    borderColor: 'rgba(5, 223, 114, 0.30)',
+                    backgroundColor: 'rgba(5, 223, 114, 0.10)',
+                  }}
+                >
+                  <View className="flex-row items-center gap-3">
+                    <CheckCircle size={20} color="#05DF72" />
+                    <Text className="text-sm font-medium" style={{ color: '#05DF72' }}>
+                      Xavfsizlik signallari aniqlanmadi
+                    </Text>
+                  </View>
+                </View>
+              )}
 
-          <View
-            className="rounded-xl border border-neon-blue/20"
-            style={{ padding: 20, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-          >
-            <View className="flex-row items-center gap-2 mb-4">
-              <Heart size={18} color="#FB64B6" />
-              <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                Haftalik kayfiyat
-              </Text>
-            </View>
-            <View className="flex-row justify-between items-end" style={{ height: 100 }}>
-              {MOCK_MOOD.map((m) => (
-                <View key={m.day} className="items-center gap-2 flex-1">
+              {/* Activity stats */}
+              <View className="flex-row gap-3">
+                <View
+                  className="flex-1 rounded-xl border border-neon-blue/20"
+                  style={{ padding: 16, backgroundColor: cardBg }}
+                >
+                  <Activity size={18} color="#60A5FA" />
+                  <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
+                    {sections.activity.active_days}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                    faol kun
+                  </Text>
+                </View>
+                <View
+                  className="flex-1 rounded-xl border border-neon-blue/20"
+                  style={{ padding: 16, backgroundColor: cardBg }}
+                >
+                  <MessageCircle size={18} color="#FDC700" />
+                  <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
+                    {sections.activity.conversations}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                    suhbat
+                  </Text>
+                </View>
+                <View
+                  className="flex-1 rounded-xl border border-neon-blue/20"
+                  style={{ padding: 16, backgroundColor: cardBg }}
+                >
+                  <Sparkles size={18} color="#05DF72" />
+                  <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
+                    {sections.activity.total_messages}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                    xabar
+                  </Text>
+                </View>
+              </View>
+
+              {/* Mood summary */}
+              <View
+                className="rounded-xl border border-neon-blue/20"
+                style={{ padding: 20, backgroundColor: cardBg }}
+              >
+                <View className="flex-row items-center gap-2 mb-3">
+                  <Heart size={18} color="#FB64B6" />
+                  <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                    Kayfiyat
+                  </Text>
                   <View
-                    className="rounded-md"
+                    className="rounded-full ml-auto"
                     style={{
-                      width: 16,
-                      height: `${m.value * 10}%`,
-                      backgroundColor: '#60A5FA',
+                      backgroundColor: 'rgba(96,165,250,0.15)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 3,
                     }}
-                  />
-                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">{m.day}</Text>
+                  >
+                    <Text className="text-xs font-medium text-neon-blue">
+                      {sections.mood.mood_trend}
+                    </Text>
+                  </View>
                 </View>
-              ))}
-            </View>
-          </View>
-
-          <Pressable
-            onPress={() => router.push('/(main)/(tabs)/chat')}
-            accessibilityRole="button"
-            accessibilityLabel="Suhbat tahlili"
-            className="rounded-xl border border-neon-blue/20 active:opacity-80"
-            style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-          >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3 flex-1">
-                <View
-                  className="w-10 h-10 items-center justify-center rounded-md"
-                  style={{ backgroundColor: 'rgba(96, 165, 250, 0.10)' }}
-                >
-                  <Eye size={18} color="#60A5FA" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                    Suhbat tahlili
+                <Text className="text-sm text-foreground dark:text-dark-text leading-5">
+                  {sections.mood.mood_summary}
+                </Text>
+                {sections.mood.highlight !== '' && (
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-3 leading-5">
+                    ⭐ {sections.mood.highlight}
                   </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                    AI tomonidan tahlil qilingan asosiy mavzular
-                  </Text>
-                </View>
+                )}
+                {sections.mood.topics.length > 0 && (
+                  <View className="flex-row flex-wrap gap-2 mt-4">
+                    {sections.mood.topics.map((t) => (
+                      <View
+                        key={t}
+                        className="rounded-md"
+                        style={{
+                          backgroundColor: isDark ? '#1E3A5F' : '#F1F5F9',
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                        }}
+                      >
+                        <Text className="text-xs text-foreground dark:text-dark-text">
+                          {t}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
-            </View>
-          </Pressable>
 
-          <Pressable
-            onPress={() => router.push('/(main)/settings-privacy')}
-            accessibilityRole="button"
-            accessibilityLabel="Ozod vaqt"
-            className="rounded-xl border border-neon-blue/20 active:opacity-80"
-            style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-          >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3 flex-1">
+              {/* Guidance */}
+              {sections.guidance && (
                 <View
-                  className="w-10 h-10 items-center justify-center rounded-md"
-                  style={{ backgroundColor: 'rgba(252, 211, 77, 0.10)' }}
+                  className="rounded-xl border border-neon-blue/20"
+                  style={{ padding: 20, backgroundColor: cardBg }}
                 >
-                  <Lock size={18} color="#FDC700" />
+                  <View className="flex-row items-center gap-2 mb-3">
+                    <Lightbulb size={18} color="#FDC700" />
+                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                      Maslahatlar
+                    </Text>
+                  </View>
+                  {sections.guidance.focus !== '' && (
+                    <Text className="text-sm font-medium text-foreground dark:text-dark-text mb-3">
+                      {sections.guidance.focus}
+                    </Text>
+                  )}
+                  <View className="gap-3">
+                    {sections.guidance.tips.map((tip, i) => (
+                      <View key={i} className="flex-row gap-2">
+                        <Text className="text-sm text-neon-yellow">•</Text>
+                        <Text className="text-sm flex-1 text-foreground dark:text-dark-text leading-5">
+                          {tip}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                    Vaqt cheklash
-                  </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                    Kunlik foydalanish vaqtini sozlash
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Pressable>
+              )}
+            </>
+          )}
 
           <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center mt-4">
             Bola va ota-ona o'rtasidagi maxfiylik DUYO uchun muhim. Faqat
-            xavfsizlik ko'rsatkichlari ko'rsatiladi.
+            umumlashtirilgan ko'rsatkichlar ko'rsatiladi — suhbat matni hech
+            qachon ulashilmaydi.
           </Text>
         </ScrollView>
       </SafeAreaView>
