@@ -7,6 +7,8 @@ from duyo.api.v1.auth import router as auth_router
 from duyo.api.v1.chat import router as chat_router
 from duyo.api.v1.gamification import router as gamification_router
 from duyo.api.v1.health import router as health_router
+from duyo.api.v1.report import router as report_router
+from duyo.api.v1.subscription import router as subscription_router
 from duyo.api.v1.tamagochi import router as tamagochi_router
 from duyo.api.v1.textbook import router as textbook_router
 from duyo.api.v1.voice import router as voice_router
@@ -19,6 +21,8 @@ api_v1.include_router(voice_router)
 api_v1.include_router(textbook_router)
 api_v1.include_router(gamification_router)
 api_v1.include_router(tamagochi_router)
+api_v1.include_router(subscription_router)
+api_v1.include_router(report_router)
 api_v1.include_router(admin_router)
 
 __all__ = ["api_v1"]
