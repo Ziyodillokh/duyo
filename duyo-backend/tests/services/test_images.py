@@ -78,16 +78,18 @@ def test_keywordize_strips_question_words():
 
 
 @pytest.mark.asyncio
-async def test_search_images_parses_results_and_prefers_thumbnail(monkeypatch):
+async def test_search_images_uses_direct_raster_url(monkeypatch):
     calls = []
     _patch(monkeypatch, responder=_two_images, calls=calls)
     results = await img.search_images("fotosintez", limit=3)
 
     assert len(results) == 2
-    assert results[0].url == "https://api.openverse.org/thumb/1.jpg"  # thumbnail preferred
+    # Direct url (raster) is used, not the proxied thumbnail (which 424s).
+    assert results[0].url == "https://example.org/raw1.jpg"
     assert results[0].source_url == "https://commons.wikimedia.org/1"
     assert results[0].creator == "Alice"
     assert calls[0]["mature"] == "false"  # child-safe filter always on
+    assert calls[0]["extension"] == "jpg,png,webp"  # raster only (RN can't SVG)
 
 
 @pytest.mark.asyncio

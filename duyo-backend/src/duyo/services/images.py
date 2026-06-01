@@ -42,7 +42,7 @@ def _keywordize(query: str) -> list[str]:
 @dataclass(frozen=True)
 class ImageResult:
     """One illustrative image for a chat answer."""
-    url: str            # display URL (Openverse-proxied thumbnail — reliable)
+    url: str            # direct raster image URL (jpg/png/webp) — loads in RN
     title: str
     source_url: str     # page to open for attribution / more context
     creator: str | None
@@ -54,7 +54,15 @@ async def _fetch(client: httpx.AsyncClient, q: str, page_size: int) -> list[Imag
     try:
         resp = await client.get(
             _OPENVERSE_URL,
-            params={"q": q, "page_size": str(page_size), "mature": "false"},
+            params={
+                "q": q,
+                "page_size": str(page_size),
+                "mature": "false",
+                # Raster only: the Openverse thumbnail proxy returns 424 and the
+                # raw url is often an SVG, which React Native's <Image> can't
+                # render. Restrict to formats that load directly on device.
+                "extension": "jpg,png,webp",
+            },
             headers={"User-Agent": "DUYO/1.0 (kids education app)"},
         )
         resp.raise_for_status()
@@ -65,8 +73,8 @@ async def _fetch(client: httpx.AsyncClient, q: str, page_size: int) -> list[Imag
 
     results: list[ImageResult] = []
     for item in (data.get("results") or [])[:page_size]:
-        # Prefer the Openverse-proxied thumbnail (hotlink-safe) over the raw url.
-        display = item.get("thumbnail") or item.get("url")
+        # Use the direct raster image URL (the proxied thumbnail 424s).
+        display = item.get("url")
         if not display:
             continue
         results.append(
