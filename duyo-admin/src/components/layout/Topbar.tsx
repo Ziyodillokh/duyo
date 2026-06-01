@@ -1,11 +1,16 @@
 import { useTranslation } from "react-i18next";
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, LogOut } from "lucide-react";
 import i18n from "@/i18n";
+import { useAuth } from "@/auth/AuthContext";
+import { ROLE_LABELS } from "@/api/admin";
 
 const LOCALES = ["uz", "ru", "en"] as const;
 
 export function Topbar() {
   const { t } = useTranslation();
+  const { admin, logout } = useAuth();
+  const name = admin?.full_name || admin?.email?.split("@")[0] || "Admin";
+  const roleLabel = admin ? ROLE_LABELS[admin.role] : "";
 
   const setLng = (lng: string) => {
     localStorage.setItem("duyo-admin-lng", lng);
@@ -54,13 +59,21 @@ export function Topbar() {
 
         {/* Profile + role */}
         <div className="flex items-center gap-2 border-l border-line pl-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-100 text-sm font-semibold text-duyo-dark">
-            A
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-100 text-sm font-semibold uppercase text-duyo-dark">
+            {name.charAt(0)}
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-medium text-ink">Admin</div>
-            <div className="text-[11px] text-muted">Super Admin</div>
+            <div className="text-sm font-medium text-ink">{name}</div>
+            <div className="text-[11px] text-muted">{roleLabel}</div>
           </div>
+          <button
+            onClick={logout}
+            className="ml-1 rounded-lg p-2 text-muted hover:bg-bg hover:text-urgent"
+            aria-label="Chiqish"
+            title="Chiqish"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </header>
