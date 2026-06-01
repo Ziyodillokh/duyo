@@ -1,3 +1,5 @@
+import type { BillingPeriod, PaidTier } from '@/api/endpoints/subscription';
+import { usePlans, useSubscribe } from '@/hooks/use-subscription';
 import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -46,15 +48,24 @@ const PAYMENT_METHODS: ReadonlyArray<PaymentMethodOption> = [
   },
 ];
 
-const TIER_PRICE: Record<string, { name: string; price: number }> = {
-  premium: { name: 'Premium', price: 49000 },
-  friend: { name: "Do'st", price: 29000 },
-};
-
 export default function PaymentScreen() {
   const isDark = useIsDark();
-  const params = useLocalSearchParams<{ tier?: string }>();
-  const tier = TIER_PRICE[params.tier ?? 'premium'] ?? TIER_PRICE.premium;
+  const params = useLocalSearchParams<{ tier?: string; period?: string }>();
+  const tierKey = (params.tier ?? 'standart') as PaidTier;
+  const period: BillingPeriod = params.period === 'yearly' ? 'yearly' : 'monthly';
+
+  const plans = usePlans();
+  const subscribeMutation = useSubscribe();
+
+  const tierInfo = plans.data?.find((t) => t.key === tierKey);
+  const tierName = tierInfo?.name ?? tierKey;
+  const price = tierInfo
+    ? period === 'yearly'
+      ? tierInfo.price_yearly
+      : tierInfo.price_monthly
+    : 0;
+  const priceUnit = period === 'yearly' ? 'so\'m/yil' : 'so\'m/oy';
+
   const [method, setMethod] = useState<PaymentMethod>('click');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -67,7 +78,16 @@ export default function PaymentScreen() {
         return;
       }
     }
-    setTimeout(() => setSuccess(true), 800);
+    // MVP: payment is mocked server-side — only provider 'mock' activates the
+    // tier. The method picker above is cosmetic until Click/Payme integrate.
+    subscribeMutation.mutate(
+      { tier: tierKey, period, provider: 'mock' },
+      {
+        onSuccess: () => setSuccess(true),
+        onError: () =>
+          Alert.alert('Xatolik', "To'lovni amalga oshirib bo'lmadi. Qayta urinib ko'ring."),
+      },
+    );
   };
 
   if (success) {
@@ -98,7 +118,7 @@ export default function PaymentScreen() {
               To'lov muvaffaqiyatli
             </Text>
             <Text className="text-base text-muted-foreground dark:text-dark-muted text-center">
-              {tier.name} rejasi faollashdi.{'\n'}DUYO bilan o'rganishda davom
+              {tierName} rejasi faollashdi.{'\n'}DUYO bilan o'rganishda davom
               eting!
             </Text>
             <Pressable
@@ -158,10 +178,10 @@ export default function PaymentScreen() {
               <Text className="text-sm text-muted-foreground dark:text-dark-muted">Tanlangan reja</Text>
               <View className="flex-row items-center justify-between mt-2">
                 <Text className="text-lg font-bold text-foreground dark:text-dark-text">
-                  {tier.name}
+                  {tierName}
                 </Text>
                 <Text className="text-lg font-bold text-neon-cyan">
-                  {tier.price.toLocaleString('uz-UZ')} so'm/oy
+                  {price.toLocaleString('uz-UZ')} {priceUnit}
                 </Text>
               </View>
             </View>
@@ -269,23 +289,25 @@ export default function PaymentScreen() {
               <View className="flex-row justify-between">
                 <Text className="text-base text-foreground dark:text-dark-text">Jami</Text>
                 <Text className="text-xl font-bold text-neon-yellow">
-                  {tier.price.toLocaleString('uz-UZ')} so'm
+                  {price.toLocaleString('uz-UZ')} so'm
                 </Text>
               </View>
             </View>
 
             <Pressable
               onPress={handlePay}
+              disabled={subscribeMutation.isPending}
               accessibilityRole="button"
               accessibilityLabel="To'lashga o'tish"
+              accessibilityState={{ disabled: subscribeMutation.isPending }}
               className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-              style={{ height: 56 }}
+              style={{ height: 56, opacity: subscribeMutation.isPending ? 0.6 : 1 }}
             >
               <Text
                 className="text-base font-medium"
                 style={{ color: '#0A1628' }}
               >
-                To'lashga o'tish
+                {subscribeMutation.isPending ? 'Yuborilmoqda…' : "To'lashga o'tish"}
               </Text>
             </Pressable>
 

@@ -1,60 +1,18 @@
+import { usePlans, useCurrentSubscription } from '@/hooks/use-subscription';
 import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-interface PricingTier {
-  key: string;
-  name: string;
-  priceMonthly: number;
-  priceYearly?: number;
-  features: ReadonlyArray<string>;
-  isCurrent?: boolean;
-  isPremium?: boolean;
-}
-
-const TIERS: ReadonlyArray<PricingTier> = [
-  {
-    key: 'tanish',
-    name: 'Tanish',
-    priceMonthly: 0,
-    features: [
-      '1 ta til',
-      'Faqat skript javoblar',
-      'Kuniga 20 daqiqa',
-      'Cheklangan kontent',
-    ],
-    isCurrent: true,
-  },
-  {
-    key: 'dost',
-    name: "Do'st",
-    priceMonthly: 29000,
-    features: [
-      '3 ta til',
-      'AI suhbat - kuniga 30 ta',
-      "To'liq gamifikatsiya",
-      'Barcha oddiy kontent',
-      'Ota-ona hisoboti',
-    ],
-  },
-  {
-    key: 'hamroh',
-    name: 'Hamroh',
-    priceMonthly: 59000,
-    features: [
-      'Cheklanmagan AI suhbat',
-      'Ovozli suhbat',
-      '2 ta bola uchun',
-      'Premium kontent',
-      'Ustuvor yordam',
-    ],
-    isPremium: true,
-  },
-];
 
 const ALL_PLAN_BENEFITS: ReadonlyArray<string> = [
   '7 kun bepul sinov',
@@ -65,17 +23,21 @@ const ALL_PLAN_BENEFITS: ReadonlyArray<string> = [
 
 const PAYMENT_METHODS = ['Click', 'Payme', 'Uzcard', 'Humo', 'Visa/Mastercard'];
 
+// The premium tier gets the gold "Premium" treatment.
+const PREMIUM_KEY = 'premium';
+
 export default function SubscriptionScreen() {
   const isDark = useIsDark();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
-  const [selected, setSelected] = useState<string>('dost');
 
-  const selectedTier = TIERS.find((t) => t.key === selected);
+  const plansQuery = usePlans();
+  const currentQuery = useCurrentSubscription();
+  const plans = plansQuery.data ?? [];
+  const currentTier = currentQuery.data?.tier ?? 'free';
 
-  const handleSelect = (key: string) => {
-    const tier = TIERS.find((t) => t.key === key);
-    if (!tier || tier.priceMonthly === 0) return;
-    router.push({ pathname: '/(main)/payment', params: { tier: key } });
+  const handleSelect = (key: string, priceMonthly: number) => {
+    if (priceMonthly === 0 || key === currentTier) return;
+    router.push({ pathname: '/(main)/payment', params: { tier: key, period: billing } });
   };
 
   const bgColor = isDark ? '#0A1628' : '#F4F8FF';
@@ -183,33 +145,58 @@ export default function SubscriptionScreen() {
           </View>
 
           {/* Pricing cards */}
-          {TIERS.map((tier) => {
-            const isSel = selected === tier.key;
+          {plansQuery.isLoading && (
+            <View className="items-center" style={{ padding: 32 }}>
+              <ActivityIndicator color={isDark ? '#60A5FA' : '#102033'} />
+            </View>
+          )}
+          {plansQuery.isError && (
+            <View
+              className="rounded-xl border"
+              style={{
+                padding: 16,
+                borderColor: 'rgba(251, 100, 182, 0.40)',
+                backgroundColor: 'rgba(251, 100, 182, 0.10)',
+              }}
+            >
+              <Text className="text-sm font-medium text-neon-pink">
+                Rejalarni yuklab bo'lmadi
+              </Text>
+              <Pressable
+                onPress={() => plansQuery.refetch()}
+                accessibilityRole="button"
+                accessibilityLabel="Qayta urinish"
+                className="mt-2"
+              >
+                <Text className="text-sm font-semibold text-neon-blue">
+                  Qayta urinish
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          {plans.map((tier) => {
+            const isPremium = tier.key === PREMIUM_KEY;
+            const isCurrent = tier.key === currentTier;
             const price =
-              billing === 'yearly' && tier.priceMonthly > 0
-                ? Math.round(tier.priceMonthly * 0.83)
-                : tier.priceMonthly;
+              billing === 'yearly' ? tier.price_yearly : tier.price_monthly;
+            const unit = billing === 'yearly' ? '/ yil' : '/ oy';
 
             return (
-              <Pressable
+              <View
                 key={tier.key}
-                onPress={() => setSelected(tier.key)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: isSel }}
-                accessibilityLabel={tier.name}
-                className="rounded-2xl active:opacity-90"
+                className="rounded-2xl"
                 style={{
                   backgroundColor: isDark ? '#132340' : '#FFFFFF',
-                  borderWidth: isSel ? 2 : 1,
-                  borderColor: tier.isPremium
+                  borderWidth: isCurrent ? 2 : 1,
+                  borderColor: isPremium
                     ? '#FDC700'
-                    : isSel
+                    : isCurrent
                       ? '#2563EB'
                       : isDark ? 'rgba(96,165,250,0.20)' : '#E2EAF4',
                   padding: 20,
                 }}
               >
-                {tier.isPremium && (
+                {isPremium && (
                   <View
                     className="self-center rounded-full mb-3"
                     style={{
@@ -241,12 +228,12 @@ export default function SubscriptionScreen() {
                   </Text>
                   {price > 0 && (
                     <Text className="text-sm" style={{ color: isDark ? '#94A3B8' : '#64748B' }}>
-                      / oy
+                      {unit}
                     </Text>
                   )}
                 </View>
 
-                {tier.isCurrent && (
+                {isCurrent && (
                   <View className="items-center mb-3">
                     <Text
                       className="text-xs"
@@ -271,9 +258,9 @@ export default function SubscriptionScreen() {
                   ))}
                 </View>
 
-                {!tier.isCurrent && (
+                {!isCurrent && tier.price_monthly > 0 && (
                   <Pressable
-                    onPress={() => handleSelect(tier.key)}
+                    onPress={() => handleSelect(tier.key, tier.price_monthly)}
                     accessibilityRole="button"
                     accessibilityLabel="Tanlash"
                     className="rounded-xl mt-5 items-center justify-center active:opacity-80"
@@ -284,7 +271,7 @@ export default function SubscriptionScreen() {
                     </Text>
                   </Pressable>
                 )}
-              </Pressable>
+              </View>
             );
           })}
 
