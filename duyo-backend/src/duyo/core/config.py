@@ -72,6 +72,19 @@ class Settings(BaseSettings):
     crisis_threshold_orange: float = 0.85
     crisis_threshold_red: float = 0.95
 
+    # Payments — Click + Payme, one-time per billing period. Credential-ready:
+    # checkout/webhooks return 503 until the matching keys are configured, so
+    # the build ships without secrets and keys are added per environment.
+    payme_merchant_id: str = ""
+    payme_key: str = ""  # merchant key — the webhook Basic-auth password (Paycom:KEY)
+    payme_checkout_url: str = "https://checkout.paycom.uz"
+    click_merchant_id: str = ""
+    click_service_id: str = ""
+    click_secret_key: str = ""
+    click_checkout_url: str = "https://my.click.uz/services/pay"
+    # Deep link the gateway returns the user to after payment (optional).
+    payment_return_url: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
