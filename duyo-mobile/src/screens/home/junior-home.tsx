@@ -7,19 +7,23 @@ import { ScreenDark } from '@/components/v2/dark/screen-dark';
 import { StatRow } from '@/components/v2/dark/stat-row';
 import { XPBadge } from '@/components/v2/dark/xp-badge';
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useBalls, useStreak } from '@/hooks/use-gamification';
+import { useTamagochi } from '@/hooks/use-tamagochi';
+import type { TamagochiState } from '@/api/endpoints/tamagochi';
 import { useChildStore } from '@/store/child';
 
-// Static mock per Bosqich B beta (gamification backend lands in Faza 1)
-const MOCK_LEVEL = 2;
-const MOCK_XP = 450;
-const MOCK_XP_TO_NEXT = 50;
-const MOCK_STREAK = 5;
-
-const MOCK_STATS = [
-  { emoji: '⚡', label: 'Energiya', percent: 85, color: 'gold' as const },
-  { emoji: '🧠', label: "O'rganish", percent: 70, color: 'blue' as const },
-  { emoji: '💖', label: 'Quvonch', percent: 90, color: 'pink' as const },
-  { emoji: '⭐', label: "Sog'liq", percent: 95, color: 'green' as const },
+// Emoji/label/color are static config; percent comes from the live tamagochi
+// metric of the matching key (Concept §4).
+const STAT_CONFIG: ReadonlyArray<{
+  key: keyof TamagochiState;
+  emoji: string;
+  label: string;
+  color: 'gold' | 'blue' | 'pink' | 'green';
+}> = [
+  { key: 'energy', emoji: '⚡', label: 'Energiya', color: 'gold' },
+  { key: 'learning', emoji: '🧠', label: "O'rganish", color: 'blue' },
+  { key: 'joy', emoji: '💖', label: 'Quvonch', color: 'pink' },
+  { key: 'health', emoji: '⭐', label: "Sog'liq", color: 'green' },
 ];
 
 interface ActionCard {
@@ -64,6 +68,22 @@ const ACTION_CARDS: ReadonlyArray<ActionCard> = [
 export function JuniorHome() {
   const childName = useChildStore((s) => s.child?.name ?? 'Dunyo');
 
+  const balls = useBalls();
+  const streak = useStreak();
+  const tamagochi = useTamagochi();
+
+  const level = balls.data?.level ?? 1;
+  const balance = balls.data?.balance ?? 0;
+  const nextThreshold = balls.data?.next_threshold ?? null;
+  const currentThreshold = balls.data?.current_threshold ?? 0;
+  const ballsToNext = balls.data?.balls_to_next ?? null;
+  const isMaxLevel = nextThreshold === null;
+  const xpProgress =
+    nextThreshold !== null && nextThreshold > currentThreshold
+      ? (balance - currentThreshold) / (nextThreshold - currentThreshold)
+      : 1;
+  const currentStreak = streak.data?.current_streak ?? 0;
+
   return (
     <ScreenDark>
       <ScrollView
@@ -86,7 +106,7 @@ export function JuniorHome() {
             <Text className="text-2xl font-bold text-muted-foreground dark:text-dark-subtitle">DUYO</Text>
             <View className="bg-neon-purple rounded-md px-6 py-2">
               <Text className="text-lg font-medium text-dark-bg-to">
-                Level {MOCK_LEVEL}
+                Level {level}
               </Text>
             </View>
           </View>
@@ -97,9 +117,14 @@ export function JuniorHome() {
             DUYO'ning holati
           </Text>
           <View className="flex-row flex-wrap gap-x-4 gap-y-4">
-            {MOCK_STATS.map((stat) => (
-              <View key={stat.label} className="w-[45%]">
-                <StatRow {...stat} />
+            {STAT_CONFIG.map((stat) => (
+              <View key={stat.key} className="w-[45%]">
+                <StatRow
+                  emoji={stat.emoji}
+                  label={stat.label}
+                  color={stat.color}
+                  percent={tamagochi.data?.[stat.key] ?? 0}
+                />
               </View>
             ))}
           </View>
@@ -111,7 +136,7 @@ export function JuniorHome() {
               <Text className="text-5xl">🔥</Text>
               <View>
                 <Text className="text-3xl font-bold text-neon-orange">
-                  {MOCK_STREAK} kun!
+                  {currentStreak} kun!
                 </Text>
                 <Text className="text-sm text-neon-orange/80">
                   Seriya davom etmoqda!
@@ -188,7 +213,7 @@ export function JuniorHome() {
           <View className="flex-row items-center gap-3 mb-6">
             <Text className="text-3xl">🏆</Text>
             <Text className="text-2xl font-bold text-neon-cyan">
-              {MOCK_XP} XP
+              {balance} XP
             </Text>
           </View>
           <View className="h-6 bg-glow-blue/30 rounded-full overflow-hidden">
@@ -196,11 +221,13 @@ export function JuniorHome() {
               colors={['#2B7FFF', '#AD46FF']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={{ height: '100%', width: '90%' }}
+              style={{ height: '100%', width: `${xpProgress * 100}%` }}
             />
           </View>
           <Text className="text-center text-neon-cyan font-bold mt-4">
-            Keyingi darajaga {MOCK_XP_TO_NEXT} XP qoldi!
+            {isMaxLevel
+              ? 'Eng yuqori daraja! 🎉'
+              : `Keyingi darajaga ${ballsToNext} XP qoldi!`}
           </Text>
         </DarkCard>
 

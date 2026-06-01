@@ -6,25 +6,27 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useBalls, useStreak } from '@/hooks/use-gamification';
+import { useTamagochi } from '@/hooks/use-tamagochi';
+import type { TamagochiState } from '@/api/endpoints/tamagochi';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
 
 // Strict Figma fidelity — Figma node 9:21565 (ChildHome, Explorer age 11-13)
 // Background: linear-gradient(104deg, rgba(96,165,250,0.20), rgba(252,211,77,0.20))
 
-const MOCK_LEVEL_NAME = "Do'st";
-const MOCK_LEVEL = 2;
-const MOCK_XP = 450;
-const MOCK_XP_TO_NEXT_LEVEL = 50;
-const MOCK_XP_PROGRESS = 0.9; // 450/500
-const MOCK_STREAK = 5;
-
-const MOCK_STATS = [
-  { key: 'energy', emoji: '⚡', label: 'Energiya', percent: 85 },
-  { key: 'learn', emoji: '🧠', label: "O'rganish", percent: 70 },
-  { key: 'joy', emoji: '💖', label: 'Quvonch', percent: 90 },
-  { key: 'health', emoji: '⭐', label: "Sog'liq", percent: 95 },
-] as const;
+// Emoji/label are static config; the percentage comes from the live
+// tamagochi metric of the same key (Concept §4).
+const STAT_CONFIG: ReadonlyArray<{
+  key: keyof TamagochiState;
+  emoji: string;
+  label: string;
+}> = [
+  { key: 'energy', emoji: '⚡', label: 'Energiya' },
+  { key: 'learning', emoji: '🧠', label: "O'rganish" },
+  { key: 'joy', emoji: '💖', label: 'Quvonch' },
+  { key: 'health', emoji: '⭐', label: "Sog'liq" },
+];
 
 interface ChildActionCard {
   key: string;
@@ -73,6 +75,23 @@ export function ChildHome() {
   const childName = useChildStore((s) => s.child?.name ?? 'Foydalanuvchi');
   const isDark = useIsDark();
 
+  const balls = useBalls();
+  const streak = useStreak();
+  const tamagochi = useTamagochi();
+
+  const levelName = balls.data?.level_name ?? '—';
+  const level = balls.data?.level ?? 1;
+  const balance = balls.data?.balance ?? 0;
+  const nextThreshold = balls.data?.next_threshold ?? null;
+  const currentThreshold = balls.data?.current_threshold ?? 0;
+  const ballsToNext = balls.data?.balls_to_next ?? null;
+  const isMaxLevel = nextThreshold === null;
+  const xpProgress =
+    nextThreshold !== null && nextThreshold > currentThreshold
+      ? (balance - currentThreshold) / (nextThreshold - currentThreshold)
+      : 1;
+  const currentStreak = streak.data?.current_streak ?? 0;
+
   return (
     <View style={StyleSheet.absoluteFill}>
       <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
@@ -108,29 +127,32 @@ export function ChildHome() {
             </View>
 
             <View className="flex-row flex-wrap" style={{ gap: 16 }}>
-              {MOCK_STATS.map((stat) => (
-                <View
-                  key={stat.key}
-                  className="flex-row items-center gap-2"
-                  style={{ width: '47%' }}
-                >
-                  <Text className="text-xl">{stat.emoji}</Text>
-                  <View className="flex-1">
-                    <Text className="text-xs text-muted-foreground dark:text-dark-muted leading-4">
-                      {stat.label}
-                    </Text>
-                    <View
-                      className="bg-neon-blue/20 rounded-full overflow-hidden mt-1"
-                      style={{ height: 8 }}
-                    >
+              {STAT_CONFIG.map((stat) => {
+                const percent = tamagochi.data?.[stat.key] ?? 0;
+                return (
+                  <View
+                    key={stat.key}
+                    className="flex-row items-center gap-2"
+                    style={{ width: '47%' }}
+                  >
+                    <Text className="text-xl">{stat.emoji}</Text>
+                    <View className="flex-1">
+                      <Text className="text-xs text-muted-foreground dark:text-dark-muted leading-4">
+                        {stat.label}
+                      </Text>
                       <View
-                        className="bg-neon-blue h-full"
-                        style={{ width: `${stat.percent}%` }}
-                      />
+                        className="bg-neon-blue/20 rounded-full overflow-hidden mt-1"
+                        style={{ height: 8 }}
+                      >
+                        <View
+                          className="bg-neon-blue h-full"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
 
@@ -142,10 +164,10 @@ export function ChildHome() {
               <View className="flex-row items-center gap-2">
                 <Award size={20} color="#60A5FA" />
                 <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                  {MOCK_LEVEL_NAME} • Level {MOCK_LEVEL}
+                  {levelName} • Level {level}
                 </Text>
               </View>
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">{MOCK_XP} XP</Text>
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">{balance} XP</Text>
             </View>
             <View
               className="bg-neon-blue/20 rounded-full overflow-hidden"
@@ -153,11 +175,13 @@ export function ChildHome() {
             >
               <View
                 className="bg-neon-blue h-full"
-                style={{ width: `${MOCK_XP_PROGRESS * 100}%` }}
+                style={{ width: `${xpProgress * 100}%` }}
               />
             </View>
             <Text className="text-xs text-muted-foreground dark:text-dark-muted text-right mt-3">
-              {MOCK_XP_TO_NEXT_LEVEL} XP keyingi darajaga
+              {isMaxLevel
+                ? 'Eng yuqori daraja 🎉'
+                : `${ballsToNext} XP keyingi darajaga`}
             </Text>
           </View>
 
@@ -176,7 +200,7 @@ export function ChildHome() {
                   <Text className="text-3xl">🔥</Text>
                   <View>
                     <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
-                      {MOCK_STREAK} kunlik seriya!
+                      {currentStreak} kunlik seriya!
                     </Text>
                     <Text className="text-sm text-muted-foreground dark:text-dark-muted">
                       Davom eting!
