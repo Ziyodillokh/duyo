@@ -1,104 +1,724 @@
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Crown,
-  ShieldAlert,
-  FileCheck2,
-  LifeBuoy,
-  Wallet,
-  School,
-  UserCog,
-  Eye,
-  Check,
-  X,
+  ShieldCheck,
+  Users as UsersIcon,
+  ScrollText,
+  SlidersHorizontal,
+  Plus,
   Pencil,
+  KeyRound,
+  Power,
+  PowerOff,
+  AlertTriangle,
+  Loader2,
+  X,
   Server,
   Cpu,
   Database,
   ListChecks,
   Mic,
-  Filter,
-  Download,
-  ShieldCheck,
   Lock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/auth/AuthContext";
+import { ApiError } from "@/api/client";
+import {
+  adminApi,
+  ROLE_LABELS,
+  type AdminRole,
+  type AdminUserRow,
+  type CreateAdminBody,
+} from "@/api/admin";
 
 // ─────────────────────────────────────────────────────────────
-// MOCK ma'lumotlar — backend ulanmaguncha namuna.
+// Yordamchilar
 // ─────────────────────────────────────────────────────────────
 
-type PermLevel = "full" | "view" | "edit" | "none";
+const MIN_PASSWORD_LENGTH = 8;
 
-interface AdminRole {
-  key: string;
-  name: string;
-  desc: string;
-  icon: LucideIcon;
-  accent: string; // tailwind text color
-  badge: string; // tailwind pill classes
-  members: number;
-}
-
-const ROLES: AdminRole[] = [
-  { key: "super", name: "Super Admin", desc: "To'liq tizim kirishi va sozlamalar", icon: Crown, accent: "text-duyo-blue", badge: "bg-duyo-50 text-duyo-dark border border-duyo-100", members: 2 },
-  { key: "admin", name: "Admin", desc: "Operatsion boshqaruv", icon: UserCog, accent: "text-ink", badge: "bg-bg text-muted border border-line", members: 5 },
-  { key: "safety", name: "Safety Officer", desc: "Inqiroz va xavfsizlik nazorati", icon: ShieldAlert, accent: "text-urgent", badge: "bg-urgent-bg text-urgent border border-urgent-line", members: 6 },
-  { key: "content", name: "Content Manager", desc: "Kontent va o'quv materiallari", icon: FileCheck2, accent: "text-serious", badge: "bg-serious-bg text-serious border border-serious-line", members: 4 },
-  { key: "support", name: "Support Agent", desc: "Foydalanuvchi qo'llab-quvvatlash", icon: LifeBuoy, accent: "text-warn", badge: "bg-warn-bg text-warn border border-warn-line", members: 9 },
-  { key: "finance", name: "Finance Manager", desc: "To'lovlar va moliyaviy hisobot", icon: Wallet, accent: "text-safe", badge: "bg-safe-bg text-safe border border-safe-line", members: 2 },
-  { key: "school", name: "School Admin", desc: "Maktab va sinflarni boshqarish", icon: School, accent: "text-duyo-dark", badge: "bg-duyo-50 text-duyo-dark border border-duyo-100", members: 11 },
-  { key: "analyst", name: "Read-only Analyst", desc: "Faqat o'qish — tahlil va hisobot", icon: Eye, accent: "text-muted", badge: "bg-bg text-muted border border-line", members: 3 },
+const ALL_ROLES: AdminRole[] = [
+  "super_admin",
+  "admin",
+  "safety_officer",
+  "content_manager",
+  "support_agent",
+  "finance_manager",
+  "school_admin",
+  "analyst",
 ];
 
-interface PermissionRow {
-  module: string;
-  // role.key -> level
-  levels: Record<string, PermLevel>;
-}
-
-const f = "full" as const;
-const v = "view" as const;
-const e = "edit" as const;
-const n = "none" as const;
-
-const PERMISSIONS: PermissionRow[] = [
-  { module: "Xavfsizlik markazi", levels: { super: f, admin: v, safety: f, content: n, support: v, finance: n, school: n, analyst: v } },
-  { module: "Foydalanuvchilar", levels: { super: f, admin: e, safety: v, content: n, support: e, finance: v, school: e, analyst: v } },
-  { module: "AI suhbatlar", levels: { super: f, admin: v, safety: f, content: v, support: v, finance: n, school: n, analyst: v } },
-  { module: "Kontent / RAG", levels: { super: f, admin: e, safety: n, content: f, support: n, finance: n, school: v, analyst: v } },
-  { module: "Moderatsiya", levels: { super: f, admin: e, safety: e, content: e, support: v, finance: n, school: n, analyst: v } },
-  { module: "To'lovlar", levels: { super: f, admin: v, safety: n, content: n, support: v, finance: f, school: v, analyst: v } },
-  { module: "Maktablar", levels: { super: f, admin: e, safety: n, content: v, support: n, finance: v, school: f, analyst: v } },
-  { module: "Tizim sozlamalari", levels: { super: f, admin: n, safety: n, content: n, support: n, finance: n, school: n, analyst: n } },
-  { module: "Audit jurnali", levels: { super: f, admin: v, safety: v, content: n, support: n, finance: v, school: n, analyst: v } },
-];
-
-const PERM_META: Record<PermLevel, { icon: LucideIcon; cls: string; title: string }> = {
-  full: { icon: Check, cls: "text-duyo-blue", title: "To'liq" },
-  edit: { icon: Pencil, cls: "text-serious", title: "Tahrirlash" },
-  view: { icon: Eye, cls: "text-muted", title: "Ko'rish" },
-  none: { icon: X, cls: "text-line", title: "Ruxsat yo'q" },
+const ROLE_PILL: Record<AdminRole, string> = {
+  super_admin: "bg-duyo-50 text-duyo-dark border border-duyo-100",
+  admin: "bg-bg text-muted border border-line",
+  safety_officer: "bg-urgent-bg text-urgent border border-urgent-line",
+  content_manager: "bg-serious-bg text-serious border border-serious-line",
+  support_agent: "bg-warn-bg text-warn border border-warn-line",
+  finance_manager: "bg-safe-bg text-safe border border-safe-line",
+  school_admin: "bg-duyo-50 text-duyo-dark border border-duyo-100",
+  analyst: "bg-bg text-muted border border-line",
 };
 
-type RolloutStage = "1%" | "10%" | "50%" | "100%";
-const ROLLOUT_STAGES: RolloutStage[] = ["1%", "10%", "50%", "100%"];
-
-interface FeatureFlag {
-  key: string;
-  name: string;
-  desc: string;
-  enabled: boolean;
-  rollout: RolloutStage;
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.detail;
+  if (error instanceof Error) return error.message;
+  return "Kutilmagan xatolik";
 }
 
-const INITIAL_FLAGS: FeatureFlag[] = [
-  { key: "voice-beta", name: "Voice Chat (Beta)", desc: "Ovozli muloqot — STT/TTS pipeline", enabled: true, rollout: "10%" },
-  { key: "crisis-v2", name: "Crisis Detection v2", desc: "Yangilangan xavf aniqlash modeli", enabled: false, rollout: "1%" },
-  { key: "parent-digest", name: "Ota-ona haftalik digest", desc: "Avtomatik haftalik elektron xat", enabled: true, rollout: "100%" },
-  { key: "rag-textbook", name: "Darslik RAG qidiruvi", desc: "6-sinf darslik kontekstli javoblar", enabled: true, rollout: "50%" },
-];
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("uz-UZ", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatDateTime(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("uz-UZ", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Kichik UI bo'laklar
+// ─────────────────────────────────────────────────────────────
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="mb-4 text-base font-semibold text-ink">{children}</h2>;
+}
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-muted">
+      <Loader2 size={18} className="animate-spin text-duyo-blue" />
+      Yuklanmoqda…
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-urgent">
+      <AlertTriangle size={18} />
+      {message}
+    </div>
+  );
+}
+
+function EmptyState({ colSpan, label }: { colSpan: number; label: string }) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-4 py-10 text-center text-sm text-muted">
+        {label}
+      </td>
+    </tr>
+  );
+}
+
+function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <div className="mb-5 flex items-start gap-3 rounded-2xl border border-urgent-line bg-urgent-bg p-4">
+      <AlertTriangle size={18} className="mt-0.5 shrink-0 text-urgent" />
+      <div className="flex-1 text-sm text-urgent">{message}</div>
+      <button
+        type="button"
+        aria-label="Yopish"
+        onClick={onDismiss}
+        className="text-urgent hover:opacity-70"
+      >
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+
+function RolePill({ role }: { role: AdminRole }) {
+  return <span className={cn("pill", ROLE_PILL[role])}>{ROLE_LABELS[role]}</span>;
+}
+
+function ActivePill({ active }: { active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "pill",
+        active
+          ? "bg-safe-bg text-safe border border-safe-line"
+          : "bg-urgent-bg text-urgent border border-urgent-line",
+      )}
+    >
+      {active ? "Faol" : "O'chirilgan"}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB 1 — Adminlar
+// ─────────────────────────────────────────────────────────────
+
+interface AdminsTabProps {
+  canManage: boolean;
+}
+
+function AdminsTab({ canManage }: AdminsTabProps) {
+  const queryClient = useQueryClient();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminUserRow | null>(null);
+  const [resetting, setResetting] = useState<AdminUserRow | null>(null);
+
+  const adminsQuery = useQuery({
+    queryKey: ["admin", "admins"],
+    queryFn: () => adminApi.listAdmins(),
+  });
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
+
+  const createMutation = useMutation({
+    mutationFn: (body: CreateAdminBody) => adminApi.createAdmin(body),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => {
+      invalidate();
+      setCreateOpen(false);
+    },
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Parameters<typeof adminApi.updateAdmin>[1] }) =>
+      adminApi.updateAdmin(id, body),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => {
+      invalidate();
+      setEditing(null);
+    },
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string }) =>
+      adminApi.resetAdminPassword(id, password),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => setResetting(null),
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const handleToggleActive = (row: AdminUserRow) => {
+    if (row.is_active) {
+      const ok = window.confirm(
+        `"${row.email}" hisobini o'chirib qo'yasizmi? U tizimga kira olmaydi.`,
+      );
+      if (!ok) return;
+    }
+    updateMutation.mutate({ id: row.id, body: { is_active: !row.is_active } });
+  };
+
+  const rows = adminsQuery.data ?? [];
+  const pendingId =
+    updateMutation.isPending && updateMutation.variables ? updateMutation.variables.id : null;
+
+  return (
+    <div className="p-1">
+      {errorMsg && <ErrorBanner message={errorMsg} onDismiss={() => setErrorMsg(null)} />}
+
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="text-sm text-muted">
+          Admin hisoblari va rollari (RBAC).{" "}
+          {!canManage && (
+            <span className="text-warn">Boshqarish faqat Super Admin uchun — faqat ko'rish.</span>
+          )}
+        </div>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => {
+              setErrorMsg(null);
+              setCreateOpen(true);
+            }}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-duyo-blue px-3.5 py-2 text-sm font-semibold text-white hover:bg-duyo-dark"
+          >
+            <Plus size={16} /> Yangi admin
+          </button>
+        )}
+      </div>
+
+      <div className="card overflow-hidden">
+        {adminsQuery.isLoading ? (
+          <LoadingState />
+        ) : adminsQuery.isError ? (
+          <ErrorState message={getErrorMessage(adminsQuery.error)} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
+                  <th className="px-5 py-3">Email</th>
+                  <th className="px-3 py-3">Ism</th>
+                  <th className="px-3 py-3">Rol</th>
+                  <th className="px-3 py-3">Holat</th>
+                  <th className="px-3 py-3">Oxirgi kirish</th>
+                  <th className="px-3 py-3">Yaratilgan</th>
+                  {canManage && <th className="px-3 py-3 text-right">Amallar</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <EmptyState colSpan={canManage ? 7 : 6} label="Ma'lumot yo'q" />
+                ) : (
+                  rows.map((row) => {
+                    const busy = pendingId === row.id;
+                    return (
+                      <tr
+                        key={row.id}
+                        className="border-b border-line/70 last:border-0 hover:bg-bg/60"
+                      >
+                        <td className="px-5 py-3 font-medium text-ink">{row.email}</td>
+                        <td className="px-3 py-3 text-muted">{row.full_name || "—"}</td>
+                        <td className="px-3 py-3">
+                          <RolePill role={row.role} />
+                        </td>
+                        <td className="px-3 py-3">
+                          <ActivePill active={row.is_active} />
+                        </td>
+                        <td className="px-3 py-3 text-xs text-muted">
+                          {row.last_login_at ? formatDateTime(row.last_login_at) : "hech qachon"}
+                        </td>
+                        <td className="px-3 py-3 text-xs text-muted">
+                          {formatDate(row.created_at)}
+                        </td>
+                        {canManage && (
+                          <td className="px-3 py-3">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                aria-label="Rolni o'zgartirish"
+                                title="Rolni o'zgartirish"
+                                onClick={() => {
+                                  setErrorMsg(null);
+                                  setEditing(row);
+                                }}
+                                className="rounded-lg border border-line p-1.5 text-muted transition-colors hover:border-duyo-blue hover:bg-duyo-50 hover:text-duyo-dark"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Parolni tiklash"
+                                title="Parolni tiklash"
+                                onClick={() => {
+                                  setErrorMsg(null);
+                                  setResetting(row);
+                                }}
+                                className="rounded-lg border border-line p-1.5 text-muted transition-colors hover:border-duyo-blue hover:bg-duyo-50 hover:text-duyo-dark"
+                              >
+                                <KeyRound size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                aria-label={row.is_active ? "O'chirish" : "Faollashtirish"}
+                                title={row.is_active ? "O'chirish" : "Faollashtirish"}
+                                onClick={() => handleToggleActive(row)}
+                                className={cn(
+                                  "rounded-lg border p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                                  row.is_active
+                                    ? "border-line text-muted hover:border-urgent-line hover:bg-urgent-bg hover:text-urgent"
+                                    : "border-line text-muted hover:border-safe-line hover:bg-safe-bg hover:text-safe",
+                                )}
+                              >
+                                {busy ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : row.is_active ? (
+                                  <PowerOff size={14} />
+                                ) : (
+                                  <Power size={14} />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {createOpen && (
+        <CreateAdminModal
+          busy={createMutation.isPending}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={(body) => createMutation.mutate(body)}
+        />
+      )}
+
+      {editing && (
+        <EditRoleModal
+          admin={editing}
+          busy={updateMutation.isPending}
+          onClose={() => setEditing(null)}
+          onSubmit={(role) => updateMutation.mutate({ id: editing.id, body: { role } })}
+        />
+      )}
+
+      {resetting && (
+        <ResetPasswordModal
+          admin={resetting}
+          busy={resetMutation.isPending}
+          onClose={() => setResetting(null)}
+          onSubmit={(password) => resetMutation.mutate({ id: resetting.id, password })}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Modallar
+// ─────────────────────────────────────────────────────────────
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-card">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-ink">{title}</h3>
+          <button
+            type="button"
+            aria-label="Yopish"
+            onClick={onClose}
+            className="text-muted hover:text-ink"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const inputCls =
+  "mt-1.5 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-duyo-blue focus:outline-none";
+const labelCls = "block text-sm font-medium text-ink";
+const primaryBtn =
+  "flex items-center justify-center gap-1.5 rounded-xl bg-duyo-blue px-4 py-2 text-sm font-semibold text-white hover:bg-duyo-dark disabled:cursor-not-allowed disabled:opacity-50";
+const ghostBtn =
+  "rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-bg";
+
+function CreateAdminModal({
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (body: CreateAdminBody) => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<AdminRole>("support_agent");
+  const [password, setPassword] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const handleSubmit = (ev: React.FormEvent) => {
+    ev.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setLocalError("Email majburiy.");
+      return;
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setLocalError(`Parol kamida ${MIN_PASSWORD_LENGTH} belgidan iborat bo'lishi kerak.`);
+      return;
+    }
+    setLocalError(null);
+    onSubmit({
+      email: trimmedEmail,
+      full_name: fullName.trim() || undefined,
+      role,
+      password,
+    });
+  };
+
+  return (
+    <ModalShell title="Yangi admin qo'shish" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className={labelCls} htmlFor="new-admin-email">
+            Email
+          </label>
+          <input
+            id="new-admin-email"
+            type="email"
+            value={email}
+            onChange={(ev) => setEmail(ev.target.value)}
+            className={inputCls}
+            placeholder="admin@duyo.uz"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="new-admin-name">
+            To'liq ism (ixtiyoriy)
+          </label>
+          <input
+            id="new-admin-name"
+            type="text"
+            value={fullName}
+            onChange={(ev) => setFullName(ev.target.value)}
+            className={inputCls}
+            placeholder="Ism Familiya"
+          />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="new-admin-role">
+            Rol
+          </label>
+          <select
+            id="new-admin-role"
+            value={role}
+            onChange={(ev) => setRole(ev.target.value as AdminRole)}
+            className={inputCls}
+          >
+            {ALL_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="new-admin-password">
+            Parol
+          </label>
+          <input
+            id="new-admin-password"
+            type="password"
+            value={password}
+            onChange={(ev) => setPassword(ev.target.value)}
+            className={inputCls}
+            placeholder="••••••••"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Kamida {MIN_PASSWORD_LENGTH} belgi.
+          </p>
+        </div>
+
+        {localError && <p className="text-sm text-urgent">{localError}</p>}
+
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button type="button" onClick={onClose} className={ghostBtn}>
+            Bekor qilish
+          </button>
+          <button type="submit" disabled={busy} className={primaryBtn}>
+            {busy && <Loader2 size={15} className="animate-spin" />} Qo'shish
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function EditRoleModal({
+  admin,
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  admin: AdminUserRow;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (role: AdminRole) => void;
+}) {
+  const [role, setRole] = useState<AdminRole>(admin.role);
+
+  const handleSubmit = (ev: React.FormEvent) => {
+    ev.preventDefault();
+    onSubmit(role);
+  };
+
+  return (
+    <ModalShell title="Rolni o'zgartirish" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <p className="text-sm text-muted">{admin.email}</p>
+        <div>
+          <label className={labelCls} htmlFor="edit-admin-role">
+            Rol
+          </label>
+          <select
+            id="edit-admin-role"
+            value={role}
+            onChange={(ev) => setRole(ev.target.value as AdminRole)}
+            className={inputCls}
+          >
+            {ALL_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button type="button" onClick={onClose} className={ghostBtn}>
+            Bekor qilish
+          </button>
+          <button type="submit" disabled={busy || role === admin.role} className={primaryBtn}>
+            {busy && <Loader2 size={15} className="animate-spin" />} Saqlash
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function ResetPasswordModal({
+  admin,
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  admin: AdminUserRow;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (password: string) => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const handleSubmit = (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setLocalError(`Parol kamida ${MIN_PASSWORD_LENGTH} belgidan iborat bo'lishi kerak.`);
+      return;
+    }
+    setLocalError(null);
+    onSubmit(password);
+  };
+
+  return (
+    <ModalShell title="Parolni tiklash" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <p className="text-sm text-muted">{admin.email}</p>
+        <div>
+          <label className={labelCls} htmlFor="reset-admin-password">
+            Yangi parol
+          </label>
+          <input
+            id="reset-admin-password"
+            type="password"
+            value={password}
+            onChange={(ev) => setPassword(ev.target.value)}
+            className={inputCls}
+            placeholder="••••••••"
+            autoFocus
+          />
+          <p className="mt-1 text-xs text-muted">
+            Kamida {MIN_PASSWORD_LENGTH} belgi.
+          </p>
+        </div>
+
+        {localError && <p className="text-sm text-urgent">{localError}</p>}
+
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button type="button" onClick={onClose} className={ghostBtn}>
+            Bekor qilish
+          </button>
+          <button type="submit" disabled={busy} className={primaryBtn}>
+            {busy && <Loader2 size={15} className="animate-spin" />} Tiklash
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB 2 — Audit jurnali
+// ─────────────────────────────────────────────────────────────
+
+function AuditTab() {
+  const auditQuery = useQuery({
+    queryKey: ["admin", "audit"],
+    queryFn: () => adminApi.auditLog(100),
+  });
+
+  const rows = auditQuery.data ?? [];
+
+  return (
+    <div className="p-1">
+      <div className="mb-4 text-sm text-muted">
+        So'nggi 100 ta admin amali — eng yangisi yuqorida.
+      </div>
+      <div className="card overflow-hidden">
+        {auditQuery.isLoading ? (
+          <LoadingState />
+        ) : auditQuery.isError ? (
+          <ErrorState message={getErrorMessage(auditQuery.error)} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
+                  <th className="px-5 py-3">Vaqt</th>
+                  <th className="px-3 py-3">Admin</th>
+                  <th className="px-3 py-3">Amal</th>
+                  <th className="px-3 py-3">Modul</th>
+                  <th className="px-3 py-3">Nishon</th>
+                  <th className="px-3 py-3">IP manzil</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <EmptyState colSpan={6} label="Ma'lumot yo'q" />
+                ) : (
+                  rows.map((row) => (
+                    <tr key={row.id} className="border-b border-line/70 last:border-0">
+                      <td className="px-5 py-3 text-xs text-muted">
+                        {formatDateTime(row.created_at)}
+                      </td>
+                      <td className="px-3 py-3 text-ink">{row.admin_email}</td>
+                      <td className="px-3 py-3">
+                        <code className="rounded bg-bg px-1.5 py-0.5 text-xs text-ink">
+                          {row.action}
+                        </code>
+                      </td>
+                      <td className="px-3 py-3 text-muted">{row.module}</td>
+                      <td className="px-3 py-3 text-muted">{row.target ?? "—"}</td>
+                      <td className="px-3 py-3 font-mono text-xs text-muted">{row.ip ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB 3 — Sozlamalar (MOCK — backend yo'q, namuna sifatida)
+// ─────────────────────────────────────────────────────────────
 
 type ServiceState = "healthy" | "degraded" | "down";
 
@@ -124,226 +744,20 @@ const SERVICES: ServiceHealth[] = [
   { name: "STT / TTS Worker", icon: Mic, state: "down", latency: "javob yo'q", uptime: "97.40%" },
 ];
 
-interface AuditEntry {
-  id: string;
-  admin: string;
-  email: string;
-  role: string;
-  action: string;
-  module: string;
-  ip: string;
-  when: string;
-  result: "ok" | "fail";
-}
-
-const AUDIT: AuditEntry[] = [
-  { id: "a1", admin: "Bahtiyor Jalilov", email: "bahtiyor@duyo.uz", role: "Super Admin", action: "UPDATE_USER_ROLE", module: "Foydalanuvchilar", ip: "176.41.46.92", when: "2 daq oldin", result: "ok" },
-  { id: "a2", admin: "Aziz Sobirov", email: "aziz@duyo.uz", role: "Admin", action: "DELETE_LOG_HISTORY", module: "Audit jurnali", ip: "37.110.214.7", when: "18 daq oldin", result: "fail" },
-  { id: "a3", admin: "Nilufar Tosheva", email: "nilufar@duyo.uz", role: "Finance Manager", action: "EXPORT_FINANCE_REPORT", module: "To'lovlar", ip: "84.54.78.211", when: "1 soat oldin", result: "ok" },
-  { id: "a4", admin: "Zilola Karimova", email: "zilola@duyo.uz", role: "Safety Officer", action: "RESOLVE_CRISIS_EVENT", module: "Xavfsizlik markazi", ip: "213.230.74.10", when: "2 soat oldin", result: "ok" },
-  { id: "a5", admin: "Sardor Aliyev", email: "sardor@duyo.uz", role: "Content Manager", action: "PUBLISH_CONTENT", module: "Kontent / RAG", ip: "195.158.16.33", when: "4 soat oldin", result: "ok" },
-];
-
-const AUDIT_RESULT_META: Record<AuditEntry["result"], { label: string; cls: string }> = {
-  ok: { label: "Muvaffaqiyat", cls: "bg-safe-bg text-safe border border-safe-line" },
-  fail: { label: "Rad etildi", cls: "bg-urgent-bg text-urgent border border-urgent-line" },
-};
-
-// ─────────────────────────────────────────────────────────────
-// Sub-komponentlar
-// ─────────────────────────────────────────────────────────────
-
-interface ToggleProps {
-  on: boolean;
-  onChange: (next: boolean) => void;
-  label?: string;
-}
-
-function Toggle({ on, onChange, label }: ToggleProps) {
+function SettingsTab() {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={() => onChange(!on)}
-      className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-        on ? "bg-duyo-blue" : "bg-line",
-      )}
-    >
-      <span
-        className={cn(
-          "inline-block h-5 w-5 transform rounded-full bg-surface shadow-card transition-transform",
-          on ? "translate-x-5" : "translate-x-0.5",
-        )}
-      />
-    </button>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-4 text-base font-semibold text-ink">{children}</h2>;
-}
-
-// ─────────────────────────────────────────────────────────────
-// Asosiy sahifa
-// ─────────────────────────────────────────────────────────────
-
-export function SystemSettings() {
-  const [flags, setFlags] = useState<FeatureFlag[]>(INITIAL_FLAGS);
-  const [twoFactor, setTwoFactor] = useState(true);
-  const [ipAllowlist, setIpAllowlist] = useState(true);
-  const [maskNames, setMaskNames] = useState(true);
-  const [exportApprovals, setExportApprovals] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState("30");
-
-  const toggleFlag = (key: string) =>
-    setFlags((prev) => prev.map((fl) => (fl.key === key ? { ...fl, enabled: !fl.enabled } : fl)));
-
-  const setRollout = (key: string, rollout: RolloutStage) =>
-    setFlags((prev) => prev.map((fl) => (fl.key === key ? { ...fl, rollout } : fl)));
-
-  return (
-    <div>
-      <PageHeader
-        title="Tizim sozlamalari"
-        subtitle="Rollar, ruxsatlar, feature flag'lar va xavfsizlik"
-        actions={
-          <span className="pill bg-serious-bg text-serious border border-serious-line">
-            <span className="h-1.5 w-1.5 rounded-full bg-serious" /> Production muhiti
-          </span>
-        }
-      />
-
-      {/* ── Admin rollari ── */}
-      <section className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <SectionTitle>Admin rollari</SectionTitle>
-          <button className="rounded-xl bg-duyo-blue px-3.5 py-2 text-sm font-medium text-white hover:bg-duyo-dark">
-            + Yangi rol qo'shish
-          </button>
+    <div className="p-1">
+      <div className="mb-5 flex items-start gap-3 rounded-2xl border border-line bg-bg p-4">
+        <Lock size={18} className="mt-0.5 shrink-0 text-muted" />
+        <div className="text-sm text-muted">
+          <span className="font-semibold text-ink">Namuna ma'lumotlar.</span> Xizmatlar holati va
+          xavfsizlik sozlamalari uchun backend hali ulanmagan — quyidagilar faqat ko'rgazma uchun.
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {ROLES.map((r) => {
-            const Icon = r.icon;
-            return (
-              <div key={r.key} className="card p-4">
-                <div className="flex items-start justify-between">
-                  <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl bg-bg", r.accent)}>
-                    <Icon size={18} />
-                  </span>
-                  <span className={cn("pill", r.badge)}>{r.members} a'zo</span>
-                </div>
-                <div className="mt-3 text-sm font-semibold text-ink">{r.name}</div>
-                <p className="mt-1 text-xs leading-relaxed text-muted">{r.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      </div>
 
-      {/* ── Ruxsatnomalar matritsasi ── */}
-      <section className="mb-8">
-        <SectionTitle>Ruxsatnomalar matritsasi</SectionTitle>
-        <div className="card overflow-hidden">
-          <div className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-3 text-xs text-muted">
-            {(Object.keys(PERM_META) as PermLevel[]).map((lvl) => {
-              const m = PERM_META[lvl];
-              const Icon = m.icon;
-              return (
-                <span key={lvl} className="inline-flex items-center gap-1.5">
-                  <Icon size={14} className={m.cls} /> {m.title}
-                </span>
-              );
-            })}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-                  <th className="sticky left-0 bg-surface px-5 py-3">Modul</th>
-                  {ROLES.map((r) => (
-                    <th key={r.key} className="px-3 py-3 text-center font-medium">
-                      {r.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {PERMISSIONS.map((row, idx) => (
-                  <tr key={row.module} className={cn("border-b border-line/70 last:border-0", idx % 2 === 1 && "bg-bg/50")}>
-                    <td className="sticky left-0 bg-inherit px-5 py-3 font-medium text-ink">{row.module}</td>
-                    {ROLES.map((r) => {
-                      const lvl = row.levels[r.key];
-                      const m = PERM_META[lvl];
-                      const Icon = m.icon;
-                      return (
-                        <td key={r.key} className="px-3 py-3 text-center" title={`${r.name}: ${m.title}`}>
-                          <Icon size={16} className={cn("inline", m.cls)} />
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Feature flags + Xizmatlar holati ── */}
-      <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Feature flags */}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SectionTitle>Feature Flag'lar</SectionTitle>
-          <div className="space-y-3">
-            {flags.map((fl) => (
-              <div key={fl.key} className="card p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold text-ink">{fl.name}</div>
-                    <p className="mt-0.5 text-xs text-muted">{fl.desc}</p>
-                  </div>
-                  <Toggle on={fl.enabled} onChange={() => toggleFlag(fl.key)} label={fl.name} />
-                </div>
-
-                {/* Bosqichma-bosqich rollout */}
-                <div className="mt-4 flex items-center gap-3">
-                  <span className="text-xs font-medium text-muted">Bosqichli rollout</span>
-                  <div className="flex overflow-hidden rounded-lg border border-line">
-                    {ROLLOUT_STAGES.map((stage) => {
-                      const active = fl.rollout === stage;
-                      return (
-                        <button
-                          key={stage}
-                          disabled={!fl.enabled}
-                          onClick={() => setRollout(fl.key, stage)}
-                          className={cn(
-                            "px-3 py-1.5 text-xs font-medium transition-colors",
-                            active
-                              ? "bg-duyo-blue text-white"
-                              : "bg-surface text-muted hover:bg-bg",
-                            !fl.enabled && "cursor-not-allowed opacity-40",
-                          )}
-                        >
-                          {stage}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <span className="ml-auto text-xs text-muted">
-                    {fl.enabled ? `Faol — ${fl.rollout} foydalanuvchi` : "O'chirilgan"}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Xizmatlar holati */}
-        <div>
-          <SectionTitle>Xizmatlar holati</SectionTitle>
+          <SectionTitle>Xizmatlar holati (namuna)</SectionTitle>
           <div className="card divide-y divide-line">
             {SERVICES.map((s) => {
               const Icon = s.icon;
@@ -363,142 +777,11 @@ export function SystemSettings() {
                 </div>
               );
             })}
-            <button className="flex w-full items-center justify-center gap-2 px-4 py-3 text-xs font-medium text-duyo-dark hover:bg-duyo-50">
-              <Server size={14} /> Batafsil monitoring
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Audit jurnali ── */}
-      <section className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <SectionTitle>Audit jurnali</SectionTitle>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-bg">
-              <Filter size={13} /> Filtr
-            </button>
-            <button className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-bg">
-              <Download size={13} /> Eksport
-            </button>
-          </div>
-        </div>
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-                  <th className="px-5 py-3">Admin</th>
-                  <th className="px-3 py-3">Amal</th>
-                  <th className="px-3 py-3">Modul</th>
-                  <th className="px-3 py-3">IP manzil</th>
-                  <th className="px-3 py-3">Vaqt</th>
-                  <th className="px-3 py-3">Natija</th>
-                </tr>
-              </thead>
-              <tbody>
-                {AUDIT.map((row) => {
-                  const rm = AUDIT_RESULT_META[row.result];
-                  return (
-                    <tr key={row.id} className="border-b border-line/70 last:border-0">
-                      <td className="px-5 py-3">
-                        <div className="text-sm font-medium text-ink">{row.admin}</div>
-                        <div className="text-xs text-muted">
-                          {row.email} · {row.role}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <code className="rounded bg-bg px-1.5 py-0.5 text-xs text-ink">{row.action}</code>
-                      </td>
-                      <td className="px-3 py-3 text-muted">{row.module}</td>
-                      <td className="px-3 py-3 font-mono text-xs text-muted">{row.ip}</td>
-                      <td className="px-3 py-3 text-xs text-muted">{row.when}</td>
-                      <td className="px-3 py-3">
-                        <span className={cn("pill", rm.cls)}>{rm.label}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <button className="w-full border-t border-line py-3 text-center text-xs font-medium text-duyo-dark hover:bg-duyo-50">
-            Barcha yozuvlarni ko'rish
-          </button>
-        </div>
-      </section>
-
-      {/* ── Xavfsizlik sozlamalari ── */}
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <SectionTitle>Xavfsizlik sozlamalari</SectionTitle>
-          <div className="card p-5">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-1.5 text-sm font-medium text-ink">
-                    <Lock size={14} className="text-muted" /> 2FA Majburiy
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted">Barcha admin hisoblar uchun</p>
-                </div>
-                <Toggle on={twoFactor} onChange={setTwoFactor} label="2FA Majburiy" />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-ink">Sessiya muddati</label>
-                <select
-                  value={sessionTimeout}
-                  onChange={(ev) => setSessionTimeout(ev.target.value)}
-                  className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-duyo-blue focus:outline-none"
-                >
-                  <option value="15">15 daqiqa</option>
-                  <option value="30">30 daqiqa</option>
-                  <option value="60">1 soat</option>
-                  <option value="480">8 soat</option>
-                </select>
-              </div>
-
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-ink">IP Allowlist (Admin)</div>
-                  <p className="mt-0.5 text-xs text-muted">Faqat ishonchli tarmoqlardan kirish</p>
-                </div>
-                <Toggle on={ipAllowlist} onChange={setIpAllowlist} label="IP Allowlist" />
-              </div>
-
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-ink">Bola ismlarini niqoblash</div>
-                  <p className="mt-0.5 text-xs text-muted">Admin panelida PII himoyasi</p>
-                </div>
-                <Toggle on={maskNames} onChange={setMaskNames} label="Bola ismlarini niqoblash" />
-              </div>
-
-              <div className="flex items-start justify-between gap-4 sm:col-span-2">
-                <div>
-                  <div className="text-sm font-medium text-ink">Eksport tasdiqlash</div>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Ma'lumot eksporti uchun ikkinchi admin tasdiqlashini talab qilish
-                  </p>
-                </div>
-                <Toggle on={exportApprovals} onChange={setExportApprovals} label="Eksport tasdiqlash" />
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-end gap-3 border-t border-line pt-5">
-              <button className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-bg">
-                Bekor qilish
-              </button>
-              <button className="rounded-xl bg-duyo-blue px-4 py-2 text-sm font-medium text-white hover:bg-duyo-dark">
-                O'zgarishlarni saqlash
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Xavfsizlik bo'yicha maslahatlar */}
         <div>
-          <SectionTitle>Xavfsizlik holati</SectionTitle>
+          <SectionTitle>Xavfsizlik holati (namuna)</SectionTitle>
           <div className="card flex h-[calc(100%-2.5rem)] flex-col gap-4 bg-ink p-5 text-white">
             <ShieldCheck size={28} className="text-safe" />
             <div className="text-sm font-semibold">Xavfsizlik bo'yicha maslahatlar</div>
@@ -519,6 +802,75 @@ export function SystemSettings() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Asosiy sahifa
+// ─────────────────────────────────────────────────────────────
+
+type TabKey = "admins" | "audit" | "settings";
+
+interface TabDef {
+  key: TabKey;
+  label: string;
+  icon: LucideIcon;
+}
+
+const TABS: TabDef[] = [
+  { key: "admins", label: "Adminlar", icon: UsersIcon },
+  { key: "audit", label: "Audit jurnali", icon: ScrollText },
+  { key: "settings", label: "Sozlamalar", icon: SlidersHorizontal },
+];
+
+export function SystemSettings() {
+  const { admin } = useAuth();
+  const [tab, setTab] = useState<TabKey>("admins");
+
+  const canManageAdmins = admin?.role === "super_admin";
+
+  return (
+    <div>
+      <PageHeader
+        title="Tizim sozlamalari"
+        subtitle="Admin hisoblari (RBAC), audit jurnali va tizim sozlamalari"
+        actions={
+          <span className="pill bg-serious-bg text-serious border border-serious-line">
+            <span className="h-1.5 w-1.5 rounded-full bg-serious" /> Production muhiti
+          </span>
+        }
+      />
+
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-center gap-1 border-b border-line px-3 pt-2">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium",
+                  active
+                    ? "border-duyo-blue text-duyo-dark"
+                    : "border-transparent text-muted hover:text-ink",
+                )}
+              >
+                <Icon size={15} /> {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="p-4">
+          {tab === "admins" && <AdminsTab canManage={canManageAdmins} />}
+          {tab === "audit" && <AuditTab />}
+          {tab === "settings" && <SettingsTab />}
+        </div>
+      </div>
     </div>
   );
 }

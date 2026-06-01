@@ -8,55 +8,20 @@ import {
   ScrollText,
   MessageSquare,
   Snowflake,
-  Trophy,
-  Flame,
-  MessageCircle,
-  Mic,
   Lock,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { adminApi, type AdminChildRow, type AdminParentRow } from "@/api/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MOCK — backend (User/Family) ulanmaguncha namuna ma'lumotlar.
+// Bola/ota-ona ro'yxati REAL — backenddan (adminApi.usersChildren / usersParents).
+// Support cases hali backendsiz — pastdagi SUPPORT_CASES namuna sifatida qoldirilgan.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AccountStatus = "active" | "suspended" | "deleted";
 type AgeSegment = "junior" | "explorer" | "companion";
-type Language = "uz" | "ru" | "en";
-type Tier = "free" | "premium";
-
-interface Child {
-  id: string;
-  name: string;
-  age: number;
-  segment: AgeSegment;
-  language: Language;
-  tier: Tier;
-  status: AccountStatus;
-  risk: "green" | "yellow" | "orange";
-  activity: string;
-  guardian: string;
-  guardianRelation: string;
-  level: number;
-  streak: number;
-  aiMessages: number;
-  voiceUsage: string;
-  interests: string[];
-  topics: string;
-}
-
-interface Parent {
-  id: string;
-  name: string;
-  relation: string;
-  language: Language;
-  tier: Tier;
-  status: AccountStatus;
-  children: string[];
-  lastActive: string;
-}
 
 const SEGMENT_LABELS: Record<AgeSegment, string> = {
   junior: "Junior",
@@ -70,151 +35,57 @@ const SEGMENT_STYLES: Record<AgeSegment, string> = {
   companion: "bg-serious-bg text-serious border border-serious-line",
 };
 
-const STATUS_META: Record<AccountStatus, { label: string; cls: string }> = {
-  active: { label: "Faol", cls: "bg-safe-bg text-safe border border-safe-line" },
-  suspended: { label: "Muzlatilgan", cls: "bg-warn-bg text-warn border border-warn-line" },
-  deleted: { label: "O'chirilgan", cls: "bg-urgent-bg text-urgent border border-urgent-line" },
-};
+const SEGMENT_FALLBACK_STYLE = "bg-bg text-muted border border-line";
 
-const RISK_PILL: Record<Child["risk"], { label: string; cls: string; dot: string }> = {
+function segmentLabel(segment: string): string {
+  return SEGMENT_LABELS[segment as AgeSegment] ?? segment;
+}
+
+function segmentStyle(segment: string): string {
+  return SEGMENT_STYLES[segment as AgeSegment] ?? SEGMENT_FALLBACK_STYLE;
+}
+
+const LANG_LABELS: Record<string, string> = { uz: "O'ZBEK", ru: "РУССКИЙ", en: "ENGLISH" };
+
+function langLabel(language: string): string {
+  return LANG_LABELS[language] ?? language.toUpperCase();
+}
+
+// Tier istalgan satr bo'lishi mumkin (free/standart/premium/...) — chiroyli ko'rsatamiz.
+function tierLabel(tier: string): string {
+  if (!tier) return "—";
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+// Risk pill — backend GREEN/YELLOW/ORANGE/RED yoki null qaytaradi.
+interface RiskPill {
+  label: string;
+  cls: string;
+  dot: string;
+}
+
+const RISK_PILL: Record<string, RiskPill> = {
   green: { label: "LOW", cls: "bg-safe-bg text-safe border border-safe-line", dot: "bg-safe" },
   yellow: { label: "YELLOW", cls: "bg-warn-bg text-warn border border-warn-line", dot: "bg-warn" },
   orange: { label: "ORANGE", cls: "bg-serious-bg text-serious border border-serious-line", dot: "bg-serious" },
+  red: { label: "RED", cls: "bg-urgent-bg text-urgent border border-urgent-line", dot: "bg-urgent" },
 };
 
-const LANG_LABELS: Record<Language, string> = { uz: "O'ZBEK", ru: "РУССКИЙ", en: "ENGLISH" };
-const TIER_LABELS: Record<Tier, string> = { free: "Free", premium: "Premium" };
+function riskPill(risk: string | null): RiskPill {
+  if (!risk) return RISK_PILL.green;
+  return RISK_PILL[risk.toLowerCase()] ?? RISK_PILL.green;
+}
 
-const CHILDREN: Child[] = [
-  {
-    id: "48291",
-    name: "Azizbek",
-    age: 9,
-    segment: "explorer",
-    language: "uz",
-    tier: "premium",
-    status: "active",
-    risk: "green",
-    activity: "5 daq oldin",
-    guardian: "Nilufar Karimova",
-    guardianRelation: "Ona",
-    level: 14,
-    streak: 12,
-    aiMessages: 42,
-    voiceUsage: "18m",
-    interests: ["Kosmos", "Matematika", "Lego"],
-    topics: "Maktab, Do'stlar, O'yinlar (oxirgi 24s)",
-  },
-  {
-    id: "48295",
-    name: "Madina",
-    age: 7,
-    segment: "junior",
-    language: "uz",
-    tier: "free",
-    status: "active",
-    risk: "orange",
-    activity: "Offlayn",
-    guardian: "Nilufar Karimova",
-    guardianRelation: "Ona",
-    level: 6,
-    streak: 3,
-    aiMessages: 11,
-    voiceUsage: "5m",
-    interests: ["Hayvonlar", "Rasm chizish"],
-    topics: "Hayvonlar, Ertaklar (oxirgi 24s)",
-  },
-  {
-    id: "48301",
-    name: "Sardor",
-    age: 11,
-    segment: "companion",
-    language: "ru",
-    tier: "premium",
-    status: "active",
-    risk: "yellow",
-    activity: "Faol",
-    guardian: "Olim Toshev",
-    guardianRelation: "Ota",
-    level: 22,
-    streak: 28,
-    aiMessages: 67,
-    voiceUsage: "34m",
-    interests: ["Futbol", "Robototexnika"],
-    topics: "Sport, Maktab (oxirgi 24s)",
-  },
-  {
-    id: "48310",
-    name: "Laylo",
-    age: 8,
-    segment: "explorer",
-    language: "uz",
-    tier: "premium",
-    status: "suspended",
-    risk: "green",
-    activity: "2 kun oldin",
-    guardian: "Nilufar Karimova",
-    guardianRelation: "Ona",
-    level: 9,
-    streak: 0,
-    aiMessages: 24,
-    voiceUsage: "9m",
-    interests: ["Musiqa", "Tabiat"],
-    topics: "Musiqa, Tabiat (oxirgi 24s)",
-  },
-  {
-    id: "48322",
-    name: "Umar",
-    age: 13,
-    segment: "companion",
-    language: "en",
-    tier: "free",
-    status: "active",
-    risk: "green",
-    activity: "1 soat oldin",
-    guardian: "Olim Toshev",
-    guardianRelation: "Ota",
-    level: 31,
-    streak: 41,
-    aiMessages: 89,
-    voiceUsage: "52m",
-    interests: ["Astronomiya", "Dasturlash"],
-    topics: "Texnologiya, Kosmos (oxirgi 24s)",
-  },
-];
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("ru-RU");
+}
 
-const PARENTS: Parent[] = [
-  {
-    id: "P-1042",
-    name: "Nilufar Karimova",
-    relation: "Ona",
-    language: "uz",
-    tier: "premium",
-    status: "active",
-    children: ["Azizbek", "Madina", "Laylo"],
-    lastActive: "10 daq oldin",
-  },
-  {
-    id: "P-1058",
-    name: "Olim Toshev",
-    relation: "Ota",
-    language: "ru",
-    tier: "premium",
-    status: "active",
-    children: ["Sardor", "Umar"],
-    lastActive: "1 soat oldin",
-  },
-  {
-    id: "P-1071",
-    name: "Dilnoza Rahimova",
-    relation: "Ona",
-    language: "uz",
-    tier: "free",
-    status: "suspended",
-    children: ["—"],
-    lastActive: "3 kun oldin",
-  },
-];
+function shortId(id: string): string {
+  return id.length > 8 ? id.slice(0, 8) : id;
+}
 
 const TABS = [
   { key: "children", label: "Bolalar" },
@@ -232,16 +103,25 @@ export function Users() {
   const [tab, setTab] = useState<TabKey>("children");
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState<AgeSegment | "all">("all");
-  const [selected, setSelected] = useState<Child | null>(CHILDREN[0]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const filteredChildren = CHILDREN.filter((c) => {
+  const childrenQuery = useQuery({
+    queryKey: ["admin", "users", "children"],
+    queryFn: () => adminApi.usersChildren(),
+  });
+
+  const children: AdminChildRow[] = childrenQuery.data ?? [];
+
+  const filteredChildren = children.filter((c) => {
     const matchesQuery =
       query.trim() === "" ||
       c.name.toLowerCase().includes(query.toLowerCase()) ||
       c.id.includes(query.trim());
-    const matchesSegment = segment === "all" || c.segment === segment;
+    const matchesSegment = segment === "all" || c.age_segment === segment;
     return matchesQuery && matchesSegment;
   });
+
+  const selected = children.find((c) => c.id === selectedId) ?? null;
 
   return (
     <div>
@@ -287,8 +167,10 @@ export function Users() {
               onQuery={setQuery}
               segment={segment}
               onSegment={setSegment}
-              selectedId={selected?.id ?? null}
-              onSelect={setSelected}
+              selectedId={selectedId}
+              onSelect={(c) => setSelectedId(c.id)}
+              isLoading={childrenQuery.isLoading}
+              isError={childrenQuery.isError}
             />
           )}
           {tab === "parents" && <ParentsTab />}
@@ -298,7 +180,7 @@ export function Users() {
         </div>
 
         {/* Right detail panel */}
-        <ChildDetail child={selected} onClose={() => setSelected(null)} />
+        <ChildDetail child={selected} onClose={() => setSelectedId(null)} />
       </div>
 
       {/* Privacy rule — kritik */}
@@ -318,16 +200,28 @@ export function Users() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ChildrenTabProps {
-  rows: Child[];
+  rows: AdminChildRow[];
   query: string;
   onQuery: (v: string) => void;
   segment: AgeSegment | "all";
   onSegment: (v: AgeSegment | "all") => void;
   selectedId: string | null;
-  onSelect: (c: Child) => void;
+  onSelect: (c: AdminChildRow) => void;
+  isLoading: boolean;
+  isError: boolean;
 }
 
-function ChildrenTab({ rows, query, onQuery, segment, onSegment, selectedId, onSelect }: ChildrenTabProps) {
+function ChildrenTab({
+  rows,
+  query,
+  onQuery,
+  segment,
+  onSegment,
+  selectedId,
+  onSelect,
+  isLoading,
+  isError,
+}: ChildrenTabProps) {
   return (
     <div className="card overflow-hidden">
       {/* Filters */}
@@ -366,71 +260,87 @@ function ChildrenTab({ rows, query, onQuery, segment, onSegment, selectedId, onS
               <th className="px-3 py-3">Til</th>
               <th className="px-3 py-3">Obuna</th>
               <th className="px-3 py-3">Risk</th>
-              <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">Faollik</th>
+              <th className="px-3 py-3">Vasiy</th>
+              <th className="px-3 py-3">Qo'shilgan</th>
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {isLoading && (
               <tr>
                 <td colSpan={9} className="px-5 py-8 text-center text-sm text-muted">
-                  Mos foydalanuvchi topilmadi.
+                  Yuklanmoqda…
                 </td>
               </tr>
             )}
-            {rows.map((c) => {
-              const risk = RISK_PILL[c.risk];
-              const active = c.id === selectedId;
-              return (
-                <tr
-                  key={c.id}
-                  onClick={() => onSelect(c)}
-                  className={cn(
-                    "cursor-pointer border-b border-line/70 last:border-0 hover:bg-bg",
-                    active && "bg-duyo-50/60",
-                  )}
-                >
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-100 text-xs font-semibold text-duyo-dark">
-                        {c.name.charAt(0)}
-                      </span>
-                      <div>
-                        <div className="font-medium text-ink">{c.name}</div>
-                        <div className="text-xs text-muted">ID: {c.id}</div>
+            {isError && !isLoading && (
+              <tr>
+                <td colSpan={9} className="px-5 py-8 text-center text-sm text-urgent">
+                  Ma'lumotni yuklab bo'lmadi.
+                </td>
+              </tr>
+            )}
+            {!isLoading && !isError && rows.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-5 py-8 text-center text-sm text-muted">
+                  Ma'lumot yo'q
+                </td>
+              </tr>
+            )}
+            {!isLoading &&
+              !isError &&
+              rows.map((c) => {
+                const risk = riskPill(c.risk);
+                const active = c.id === selectedId;
+                return (
+                  <tr
+                    key={c.id}
+                    onClick={() => onSelect(c)}
+                    className={cn(
+                      "cursor-pointer border-b border-line/70 last:border-0 hover:bg-bg",
+                      active && "bg-duyo-50/60",
+                    )}
+                  >
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-100 text-xs font-semibold text-duyo-dark">
+                          {c.name.charAt(0)}
+                        </span>
+                        <div>
+                          <div className="font-medium text-ink">{c.name}</div>
+                          <div className="text-xs text-muted">ID: {shortId(c.id)}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-muted">{c.age}</td>
-                  <td className="px-3 py-3">
-                    <span className={cn("pill", SEGMENT_STYLES[c.segment])}>{SEGMENT_LABELS[c.segment]}</span>
-                  </td>
-                  <td className="px-3 py-3 text-xs font-medium text-muted">{LANG_LABELS[c.language]}</td>
-                  <td className="px-3 py-3 text-muted">{TIER_LABELS[c.tier]}</td>
-                  <td className="px-3 py-3">
-                    <span className={cn("pill", risk.cls)}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full", risk.dot)} /> {risk.label}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className={cn("pill", STATUS_META[c.status].cls)}>{STATUS_META[c.status].label}</span>
-                  </td>
-                  <td className="px-3 py-3 text-xs text-muted">{c.activity}</td>
-                  <td className="px-3 py-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(c);
-                      }}
-                      className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:border-duyo-blue hover:bg-duyo-50"
-                    >
-                      <Eye size={13} /> Ko'rish
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+                    </td>
+                    <td className="px-3 py-3 text-muted">{c.age}</td>
+                    <td className="px-3 py-3">
+                      <span className={cn("pill", segmentStyle(c.age_segment))}>{segmentLabel(c.age_segment)}</span>
+                    </td>
+                    <td className="px-3 py-3 text-xs font-medium text-muted">{langLabel(c.language)}</td>
+                    <td className="px-3 py-3">
+                      <span className="pill bg-bg text-muted border border-line">{tierLabel(c.tier)}</span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={cn("pill", risk.cls)}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full", risk.dot)} /> {risk.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-muted">{c.parent_phone ?? "—"}</td>
+                    <td className="px-3 py-3 text-xs text-muted">{formatDate(c.created_at)}</td>
+                    <td className="px-3 py-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(c);
+                        }}
+                        className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:border-duyo-blue hover:bg-duyo-50"
+                      >
+                        <Eye size={13} /> Ko'rish
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>
@@ -441,51 +351,79 @@ function ChildrenTab({ rows, query, onQuery, segment, onSegment, selectedId, onS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ParentsTab() {
+  const parentsQuery = useQuery({
+    queryKey: ["admin", "users", "parents"],
+    queryFn: () => adminApi.usersParents(),
+  });
+
+  const parents: AdminParentRow[] = parentsQuery.data ?? [];
+
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-              <th className="px-5 py-3">Ota-ona</th>
-              <th className="px-3 py-3">Aloqa</th>
-              <th className="px-3 py-3">Til</th>
+              <th className="px-5 py-3">Telefon</th>
+              <th className="px-3 py-3">Bolalar soni</th>
               <th className="px-3 py-3">Obuna</th>
-              <th className="px-3 py-3">Bog'langan bolalar</th>
-              <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">Faollik</th>
+              <th className="px-3 py-3">Oxirgi kirish</th>
+              <th className="px-3 py-3">Qo'shilgan</th>
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
           <tbody>
-            {PARENTS.map((p) => (
-              <tr key={p.id} className="border-b border-line/70 last:border-0 hover:bg-bg">
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-100 text-xs font-semibold text-duyo-dark">
-                      {p.name.charAt(0)}
-                    </span>
-                    <div>
-                      <div className="font-medium text-ink">{p.name}</div>
-                      <div className="text-xs text-muted">ID: {p.id}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-3 py-3 text-muted">{p.relation}</td>
-                <td className="px-3 py-3 text-xs font-medium text-muted">{LANG_LABELS[p.language]}</td>
-                <td className="px-3 py-3 text-muted">{TIER_LABELS[p.tier]}</td>
-                <td className="px-3 py-3 text-ink">{p.children.join(", ")}</td>
-                <td className="px-3 py-3">
-                  <span className={cn("pill", STATUS_META[p.status].cls)}>{STATUS_META[p.status].label}</span>
-                </td>
-                <td className="px-3 py-3 text-xs text-muted">{p.lastActive}</td>
-                <td className="px-3 py-3">
-                  <button className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:border-duyo-blue hover:bg-duyo-50">
-                    <Eye size={13} /> Ko'rish
-                  </button>
+            {parentsQuery.isLoading && (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted">
+                  Yuklanmoqda…
                 </td>
               </tr>
-            ))}
+            )}
+            {parentsQuery.isError && !parentsQuery.isLoading && (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-sm text-urgent">
+                  Ma'lumotni yuklab bo'lmadi.
+                </td>
+              </tr>
+            )}
+            {!parentsQuery.isLoading && !parentsQuery.isError && parents.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted">
+                  Ma'lumot yo'q
+                </td>
+              </tr>
+            )}
+            {!parentsQuery.isLoading &&
+              !parentsQuery.isError &&
+              parents.map((p) => (
+                <tr key={p.id} className="border-b border-line/70 last:border-0 hover:bg-bg">
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-100 text-xs font-semibold text-duyo-dark">
+                        {p.phone.charAt(0)}
+                      </span>
+                      <div>
+                        <div className="font-medium text-ink">{p.phone}</div>
+                        <div className="text-xs text-muted">ID: {shortId(p.id)}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-muted">{p.children_count}</td>
+                  <td className="px-3 py-3">
+                    <span className="pill bg-bg text-muted border border-line">{tierLabel(p.tier)}</span>
+                  </td>
+                  <td className="px-3 py-3 text-xs text-muted">
+                    {p.last_login_at ? formatDate(p.last_login_at) : "hech qachon"}
+                  </td>
+                  <td className="px-3 py-3 text-xs text-muted">{formatDate(p.created_at)}</td>
+                  <td className="px-3 py-3">
+                    <button className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:border-duyo-blue hover:bg-duyo-50">
+                      <Eye size={13} /> Ko'rish
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -543,6 +481,10 @@ const SUPPORT_CASES = [
 function SupportCases() {
   return (
     <div className="card overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+        <h2 className="text-sm font-semibold text-ink">Support cases</h2>
+        <span className="pill bg-bg text-muted border border-line">namuna (backend hali yo'q)</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -626,19 +568,7 @@ function BlockedAccounts() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function StatBox({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-line bg-bg p-3">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 flex items-center gap-1.5 text-base font-bold text-ink">
-        {icon}
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ChildDetail({ child, onClose }: { child: Child | null; onClose: () => void }) {
+function ChildDetail({ child, onClose }: { child: AdminChildRow | null; onClose: () => void }) {
   if (!child) {
     return (
       <div className="card flex h-fit items-center justify-center p-8 text-center text-sm text-muted">
@@ -646,6 +576,8 @@ function ChildDetail({ child, onClose }: { child: Child | null; onClose: () => v
       </div>
     );
   }
+
+  const risk = riskPill(child.risk);
 
   return (
     <aside className="card h-fit overflow-hidden">
@@ -664,18 +596,26 @@ function ChildDetail({ child, onClose }: { child: Child | null; onClose: () => v
         <h2 className="mt-3 text-lg font-bold text-ink">{child.name}</h2>
         <div className="mt-2 flex flex-wrap justify-center gap-1.5">
           <span className="pill bg-surface text-duyo-dark border border-duyo-100">{child.age} yosh</span>
-          <span className={cn("pill", SEGMENT_STYLES[child.segment])}>{SEGMENT_LABELS[child.segment]}</span>
-          <span className="pill bg-surface text-muted border border-line">{LANG_LABELS[child.language]}</span>
+          <span className={cn("pill", segmentStyle(child.age_segment))}>{segmentLabel(child.age_segment)}</span>
+          <span className="pill bg-surface text-muted border border-line">{langLabel(child.language)}</span>
         </div>
       </div>
 
       <div className="space-y-5 p-5">
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <StatBox label="DUYO Level" value={String(child.level)} icon={<Trophy size={14} className="text-duyo-blue" />} />
-          <StatBox label="Streak" value={`${child.streak} kun`} icon={<Flame size={14} className="text-serious" />} />
-          <StatBox label="AI Messages" value={String(child.aiMessages)} icon={<MessageCircle size={14} className="text-muted" />} />
-          <StatBox label="Voice usage" value={child.voiceUsage} icon={<Mic size={14} className="text-muted" />} />
+        {/* Account meta */}
+        <div className="space-y-2 rounded-xl border border-line bg-bg p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted">ID</span>
+            <span className="font-medium text-ink">{shortId(child.id)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted">Obuna</span>
+            <span className="font-medium text-ink">{tierLabel(child.tier)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted">Qo'shilgan</span>
+            <span className="font-medium text-ink">{formatDate(child.created_at)}</span>
+          </div>
         </div>
 
         {/* Linked guardian */}
@@ -684,25 +624,23 @@ function ChildDetail({ child, onClose }: { child: Child | null; onClose: () => v
           <div className="flex items-center justify-between rounded-xl border border-line bg-bg p-3">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-duyo-100 text-xs font-semibold text-duyo-dark">
-                {child.guardian.charAt(0)}
+                {child.parent_phone ? child.parent_phone.charAt(0) : "—"}
               </span>
               <div>
-                <div className="text-sm font-medium text-ink">{child.guardian}</div>
-                <div className="text-xs text-muted">{child.guardianRelation}</div>
+                <div className="text-sm font-medium text-ink">{child.parent_phone ?? "—"}</div>
+                <div className="text-xs text-muted">Ota-ona</div>
               </div>
             </div>
             <Link2 size={16} className="text-duyo-blue" />
           </div>
         </div>
 
-        {/* Interests */}
+        {/* Risk */}
         <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Qiziqishlari</div>
-          <div className="flex flex-wrap gap-1.5">
-            {child.interests.map((i) => (
-              <span key={i} className="pill bg-bg text-ink border border-line">{i}</span>
-            ))}
-          </div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Risk darajasi</div>
+          <span className={cn("pill", risk.cls)}>
+            <span className={cn("h-1.5 w-1.5 rounded-full", risk.dot)} /> {risk.label}
+          </span>
         </div>
 
         {/* Safety status */}
@@ -720,7 +658,7 @@ function ChildDetail({ child, onClose }: { child: Child | null; onClose: () => v
           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-duyo-dark">
             <Lock size={13} /> Suhbat xulosasi (maxfiylik-xavfsiz)
           </div>
-          <p className="text-sm text-duyo-dark">Muloqot mavzulari: {child.topics}</p>
+          <p className="text-sm text-duyo-dark">Muloqot mavzulari: —</p>
           <p className="mt-1 text-[11px] text-muted">
             Faqat AI yaratgan xulosa ko'rsatiladi — xom suhbat matni admin uchun ko'rinmaydi.
           </p>

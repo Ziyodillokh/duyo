@@ -11,18 +11,19 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from duyo.api.deps import get_db
 from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_roles
-from duyo.core.admin_security import create_admin_token, verify_password
+from duyo.core.admin_security import create_admin_token, hash_password, verify_password
 from duyo.models.admin import AdminRole, AdminUser, AuditLog
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message
+from duyo.models.subscription import Subscription
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
 
@@ -196,6 +197,9 @@ class ChildRow(BaseModel):
     age: int
     age_segment: str
     language: str
+    parent_phone: str | None
+    tier: str
+    risk: str | None  # latest crisis level (GREEN/YELLOW/ORANGE/RED) or null
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -205,6 +209,7 @@ class ParentRow(BaseModel):
     id: UUID
     phone: str
     children_count: int
+    tier: str
     last_login_at: datetime | None
     created_at: datetime
 
@@ -218,19 +223,41 @@ async def list_children(
     db: AsyncSession = Depends(get_db),
     _: AdminUser = Depends(_require_support),
 ) -> list[ChildRow]:
-    rows = (
-        await db.scalars(
-            select(ChildProfile).order_by(ChildProfile.created_at.desc()).limit(min(limit, 500))
-        )
-    ).all()
+    # Latest crisis level per child (window → rn==1), and the parent's tier —
+    # both as subqueries so the list stays a single query (no N+1).
+    crisis_rn = (
+        select(
+            CrisisEvent.child_id.label("cid"),
+            CrisisEvent.level.label("level"),
+            func.row_number()
+            .over(partition_by=CrisisEvent.child_id, order_by=CrisisEvent.created_at.desc())
+            .label("rn"),
+        ).subquery()
+    )
+    latest_crisis = (
+        select(crisis_rn.c.cid, crisis_rn.c.level).where(crisis_rn.c.rn == 1).subquery()
+    )
+    sub_tier = select(Subscription.user_id, Subscription.tier).subquery()
+
+    stmt = (
+        select(ChildProfile, User.phone, sub_tier.c.tier, latest_crisis.c.level)
+        .join(User, ChildProfile.parent_id == User.id)
+        .outerjoin(sub_tier, sub_tier.c.user_id == ChildProfile.parent_id)
+        .outerjoin(latest_crisis, latest_crisis.c.cid == ChildProfile.id)
+        .order_by(ChildProfile.created_at.desc())
+        .limit(min(limit, 500))
+    )
     return [
         ChildRow(
             id=c.id, name=c.name, age=c.age,
             age_segment=c.age_segment.value if hasattr(c.age_segment, "value") else str(c.age_segment),
             language=c.language.value if hasattr(c.language, "value") else str(c.language),
+            parent_phone=phone,
+            tier=tier or "free",
+            risk=(level.value if hasattr(level, "value") else level) if level is not None else None,
             created_at=c.created_at,
         )
-        for c in rows
+        for c, phone, tier, level in (await db.execute(stmt)).all()
     ]
 
 
@@ -245,18 +272,20 @@ async def list_parents(
         .group_by(ChildProfile.parent_id)
         .subquery()
     )
+    sub_tier = select(Subscription.user_id, Subscription.tier).subquery()
     stmt = (
-        select(User, func.coalesce(child_count.c.n, 0))
+        select(User, func.coalesce(child_count.c.n, 0), sub_tier.c.tier)
         .outerjoin(child_count, child_count.c.parent_id == User.id)
+        .outerjoin(sub_tier, sub_tier.c.user_id == User.id)
         .order_by(User.created_at.desc())
         .limit(min(limit, 500))
     )
     return [
         ParentRow(
-            id=u.id, phone=u.phone, children_count=n,
+            id=u.id, phone=u.phone, children_count=n, tier=tier or "free",
             last_login_at=u.last_login_at, created_at=u.created_at,
         )
-        for u, n in (await db.execute(stmt)).all()
+        for u, n, tier in (await db.execute(stmt)).all()
     ]
 
 
@@ -295,3 +324,153 @@ async def admins_summary(
     for role, n in (await db.execute(stmt)).all():
         counts[role.value if hasattr(role, "value") else str(role)] = n
     return counts
+
+
+# ---- Admin user management (RBAC) ----
+# List is visible to ADMIN+; all mutations are SUPER_ADMIN-only.
+_require_admin_mgmt = require_roles(AdminRole.ADMIN)
+_require_super = require_roles()  # no extra roles → only SUPER_ADMIN passes
+_MIN_PASSWORD = 8
+
+
+class AdminUserRow(BaseModel):
+    id: UUID
+    email: str
+    full_name: str
+    role: AdminRole
+    is_active: bool
+    last_login_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CreateAdminRequest(BaseModel):
+    email: str
+    full_name: str = ""
+    role: AdminRole
+    password: str = Field(min_length=_MIN_PASSWORD)
+
+
+class UpdateAdminRequest(BaseModel):
+    full_name: str | None = None
+    role: AdminRole | None = None
+    is_active: bool | None = None
+
+
+class ResetPasswordRequest(BaseModel):
+    password: str = Field(min_length=_MIN_PASSWORD)
+
+
+async def _get_admin_or_404(db: AsyncSession, admin_id: UUID) -> AdminUser:
+    admin = await db.scalar(select(AdminUser).where(AdminUser.id == admin_id))
+    if admin is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Admin topilmadi")
+    return admin
+
+
+async def _active_super_admin_count(db: AsyncSession) -> int:
+    return (
+        await db.scalar(
+            select(func.count())
+            .select_from(AdminUser)
+            .where(AdminUser.role == AdminRole.SUPER_ADMIN, AdminUser.is_active.is_(True))
+        )
+        or 0
+    )
+
+
+@router.get("/admins", response_model=list[AdminUserRow])
+async def list_admins(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_admin_mgmt),
+) -> list[AdminUserRow]:
+    rows = (
+        await db.scalars(select(AdminUser).order_by(AdminUser.created_at.desc()).limit(500))
+    ).all()
+    return [AdminUserRow.model_validate(r) for r in rows]
+
+
+@router.post("/admins", response_model=AdminUserRow, status_code=status.HTTP_201_CREATED)
+async def create_admin(
+    payload: CreateAdminRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: AdminUser = Depends(_require_super),
+) -> AdminUserRow:
+    email = payload.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Email noto'g'ri")
+    if await db.scalar(select(AdminUser).where(AdminUser.email == email)):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Bu email allaqachon mavjud")
+
+    admin = AdminUser(
+        email=email,
+        password_hash=hash_password(payload.password),
+        full_name=payload.full_name.strip(),
+        role=payload.role,
+        is_active=True,
+    )
+    db.add(admin)
+    await db.flush()
+    await record_audit(
+        db, current, action="create", module="admins",
+        target=email, meta={"role": payload.role.value}, request=request,
+    )
+    return AdminUserRow.model_validate(admin)
+
+
+@router.patch("/admins/{admin_id}", response_model=AdminUserRow)
+async def update_admin(
+    admin_id: UUID,
+    payload: UpdateAdminRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: AdminUser = Depends(_require_super),
+) -> AdminUserRow:
+    target = await _get_admin_or_404(db, admin_id)
+
+    demoting = payload.role is not None and payload.role != target.role and target.role == AdminRole.SUPER_ADMIN
+    deactivating = payload.is_active is False and target.is_active
+
+    # Self-lockout guard: a super admin can't strip their own access.
+    if target.id == current.id:
+        if payload.role is not None and payload.role != AdminRole.SUPER_ADMIN:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="O'z rolingizni pasaytira olmaysiz")
+        if payload.is_active is False:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="O'zingizni o'chira olmaysiz")
+
+    # Never remove the last active super admin.
+    if (demoting or deactivating) and await _active_super_admin_count(db) <= 1:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Oxirgi super adminni o'zgartirib bo'lmaydi")
+
+    if payload.full_name is not None:
+        target.full_name = payload.full_name.strip()
+    if payload.role is not None:
+        target.role = payload.role
+    if payload.is_active is not None:
+        target.is_active = payload.is_active
+    await db.flush()
+    await record_audit(
+        db, current, action="update", module="admins",
+        target=target.email, meta=payload.model_dump(exclude_none=True), request=request,
+    )
+    return AdminUserRow.model_validate(target)
+
+
+@router.post("/admins/{admin_id}/reset-password")
+async def reset_admin_password(
+    admin_id: UUID,
+    payload: ResetPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: AdminUser = Depends(_require_super),
+) -> dict[str, bool]:
+    target = await _get_admin_or_404(db, admin_id)
+    target.password_hash = hash_password(payload.password)
+    await db.flush()
+    await record_audit(
+        db, current, action="reset_password", module="admins",
+        target=target.email, request=request,
+    )
+    return {"ok": True}

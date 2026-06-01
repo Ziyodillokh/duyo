@@ -104,6 +104,60 @@ export interface AnalyticsOverview {
   messages_per_day: { day: string; count: number }[];
 }
 
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  full_name: string;
+  role: AdminRole;
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface CreateAdminBody {
+  email: string;
+  full_name?: string;
+  role: AdminRole;
+  password: string;
+}
+
+export interface UpdateAdminBody {
+  full_name?: string;
+  role?: AdminRole;
+  is_active?: boolean;
+}
+
+export interface AuditRow {
+  id: string;
+  admin_email: string;
+  action: string;
+  module: string;
+  target: string | null;
+  ip: string | null;
+  created_at: string;
+}
+
+export interface AdminChildRow {
+  id: string;
+  name: string;
+  age: number;
+  age_segment: string;
+  language: string;
+  parent_phone: string | null;
+  tier: string;
+  risk: string | null;
+  created_at: string;
+}
+
+export interface AdminParentRow {
+  id: string;
+  phone: string;
+  children_count: number;
+  tier: string;
+  last_login_at: string | null;
+  created_at: string;
+}
+
 export type ContentType = "poem" | "story" | "lesson" | "audio";
 export type ContentReviewStatus = "draft" | "pending" | "approved" | "rejected";
 export type ContentLicenseStatus = "unknown" | "pending" | "approved" | "rejected";
@@ -166,6 +220,17 @@ export const adminApi = {
   ragDocuments: () => api.get<RagDocument[]>("/admin/rag/documents"),
   ragStats: () => api.get<Record<string, number>>("/admin/rag/stats"),
   gamificationOverview: () => api.get<GamificationOverview>("/admin/gamification/overview"),
+  usersChildren: (limit = 100) =>
+    api.get<AdminChildRow[]>(`/admin/users/children?limit=${limit}`),
+  usersParents: (limit = 100) =>
+    api.get<AdminParentRow[]>(`/admin/users/parents?limit=${limit}`),
+  auditLog: (limit = 100) => api.get<AuditRow[]>(`/admin/audit?limit=${limit}`),
+  listAdmins: () => api.get<AdminUserRow[]>("/admin/admins"),
+  createAdmin: (body: CreateAdminBody) => api.post<AdminUserRow>("/admin/admins", body),
+  updateAdmin: (id: string, body: UpdateAdminBody) =>
+    api.patch<AdminUserRow>(`/admin/admins/${id}`, body),
+  resetAdminPassword: (id: string, password: string) =>
+    api.post<{ ok: boolean }>(`/admin/admins/${id}/reset-password`, { password }),
   parentReports: () => api.get<ReportRow[]>("/admin/parents/reports"),
   parentSummary: () => api.get<Record<string, number>>("/admin/parents/summary"),
   subscriptions: () => api.get<SubscriptionRow[]>("/admin/monetization/subscriptions"),
