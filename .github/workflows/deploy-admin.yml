@@ -1,0 +1,71 @@
+name: Deploy admin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "duyo-admin/**"
+      - ".github/workflows/deploy-admin.yml"
+  workflow_dispatch:  # manual trigger button
+
+concurrency:
+  group: deploy-admin-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build + deploy admin panel
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: duyo-admin
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: duyo-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # nginx (duyo-nginx) serves admin.duyo.uz from a durable bind mount
+      # /opt/duyo/admin -> /usr/share/nginx/admin:ro, so deploying is just an
+      # rsync of the built dist into that host dir. No container restart needed.
+      - name: Rsync dist → /opt/duyo/admin
+        run: |
+          rsync -avz --delete --no-perms \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/admin/
+
+      - name: Smoke test (admin.duyo.uz served, with retry)
+        run: |
+          set -e
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 https://admin.duyo.uz/ || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "  ✓ admin.duyo.uz ready (attempt $i)"
+              exit 0
+            fi
+            echo "  … admin attempt $i got $code, retrying in 5s"
+            sleep 5
+          done
+          echo "  ✗ admin.duyo.uz not serving 200"
+          exit 1
