@@ -10,6 +10,8 @@ itself (Payme: Basic key; Click: MD5 signature). They always return HTTP 200 wit
 the provider's own status code in the body.
 """
 
+from json import JSONDecodeError
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,7 +59,12 @@ async def payme_webhook(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Payme Merchant API JSON-RPC endpoint."""
-    body = await request.json()
+    try:
+        body = await request.json()
+    except (JSONDecodeError, UnicodeDecodeError):
+        return payme.error_response(None, payme.ERR_PARSE, "Parse error")
+    if not isinstance(body, dict):
+        return payme.error_response(None, payme.ERR_PARSE, "Parse error")
     if not payme.check_auth(authorization, settings.payme_key):
         return payme.error_response(body.get("id"), payme.ERR_AUTH, "Insufficient privileges")
     return await payme.handle(db, body)

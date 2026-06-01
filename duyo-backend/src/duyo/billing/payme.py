@@ -23,6 +23,7 @@ from duyo.core.config import Settings
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
 
 # Payme error codes.
+ERR_PARSE = -32700
 ERR_AUTH = -32504
 ERR_METHOD = -32601
 ERR_AMOUNT = -31001
