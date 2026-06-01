@@ -3,6 +3,7 @@
 from duyo.models.admin import AdminRole, AdminUser, AuditLog
 from duyo.models.base import Base
 from duyo.models.child import AgeSegment, ChildProfile, Language
+from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.gamification import (
@@ -25,11 +26,15 @@ __all__ = [
     "BallsTransaction",
     "Base",
     "ChildProfile",
+    "ContentItem",
+    "ContentType",
     "Conversation",
     "CrisisEvent",
     "CrisisLevel",
     "InventoryItem",
     "Language",
+    "LicenseStatus",
+    "ReviewStatus",
     "Message",
     "MessageRole",
     "Streak",

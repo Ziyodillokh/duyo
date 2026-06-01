@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Eye,
   Pencil,
   Trash2,
-  Star,
   AlertTriangle,
   Check,
   X,
@@ -16,40 +16,24 @@ import {
   GraduationCap,
   Headphones,
   Flag,
+  Loader2,
+  ThumbsUp,
+  CheckCircle2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
+import { adminApi, type ContentRow } from "@/api/admin";
+import { ApiError } from "@/api/client";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Domain types — backend (Content) ulanmaguncha MOCK ma'lumotlar ishlatiladi.
+   Domain types — backend (Content) ga ulangan. Faqat sifat charts/audio-player
+   va litsenziya hujjat yuklash UI MOCK bo'lib qoladi (backend yo'q).
    ──────────────────────────────────────────────────────────────────────── */
 
-type ContentType = "poem" | "story" | "lesson" | "audio";
-type AgeSegment = "4-6" | "7-9" | "10-12";
-type Language = "uz" | "ru" | "en";
-type AudioStatus = "generated" | "processing" | "missing";
-type ApprovalStatus = "approved" | "pending" | "rejected";
-type PublishStatus = "published" | "unpublished";
-
-interface ContentItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  type: ContentType;
-  age: AgeSegment;
-  language: Language;
-  audio: AudioStatus;
-  license: ApprovalStatus;
-  review: ApprovalStatus;
-  publish: PublishStatus;
-  rating: number | null;
-  reads: string;
-  completions: number;
-  likes: number;
-  reports: number;
-  engagement: number; // 0..1 — completion / open nisbati
-}
+type ContentType = ContentRow["type"];
+type ReviewStatus = ContentRow["review_status"];
+type LicenseStatus = ContentRow["license_status"];
 
 interface ContentTab {
   key: ContentType;
@@ -59,19 +43,21 @@ interface ContentTab {
 
 /* ── Status pill ko'rinishlari (design tokenlar bilan) ───────────────────── */
 
-const APPROVAL_PILL: Record<ApprovalStatus, { label: string; cls: string }> = {
+const REVIEW_PILL: Record<ReviewStatus, { label: string; cls: string }> = {
   approved: { label: "Tasdiqlangan", cls: "bg-safe-bg text-safe border border-safe-line" },
   pending: { label: "Kutilmoqda", cls: "bg-warn-bg text-warn border border-warn-line" },
   rejected: { label: "Rad etilgan", cls: "bg-urgent-bg text-urgent border border-urgent-line" },
+  draft: { label: "Qoralama", cls: "bg-bg text-muted border border-line" },
 };
 
-const AUDIO_PILL: Record<AudioStatus, { label: string; cls: string }> = {
-  generated: { label: "Tayyor", cls: "bg-safe-bg text-safe border border-safe-line" },
-  processing: { label: "Ishlanmoqda", cls: "bg-warn-bg text-warn border border-warn-line" },
-  missing: { label: "Yo'q", cls: "bg-bg text-muted border border-line" },
+const LICENSE_PILL: Record<LicenseStatus, { label: string; cls: string }> = {
+  approved: { label: "Tasdiqlangan", cls: "bg-safe-bg text-safe border border-safe-line" },
+  pending: { label: "Kutilmoqda", cls: "bg-warn-bg text-warn border border-warn-line" },
+  rejected: { label: "Rad etilgan", cls: "bg-urgent-bg text-urgent border border-urgent-line" },
+  unknown: { label: "Noma'lum", cls: "bg-bg text-muted border border-line" },
 };
 
-const PUBLISH_PILL: Record<PublishStatus, { label: string; cls: string }> = {
+const PUBLISH_PILL: Record<"published" | "unpublished", { label: string; cls: string }> = {
   published: { label: "Nashr etilgan", cls: "bg-duyo-50 text-duyo-dark border border-duyo-100" },
   unpublished: { label: "Nashr etilmagan", cls: "bg-bg text-muted border border-line" },
 };
@@ -83,8 +69,6 @@ const TYPE_LABEL: Record<ContentType, string> = {
   audio: "Audio",
 };
 
-const LANGUAGE_LABEL: Record<Language, string> = { uz: "O'z", ru: "Ru", en: "En" };
-
 const CONTENT_TABS: ContentTab[] = [
   { key: "poem", label: "She'rlar", icon: ScrollText },
   { key: "story", label: "Ertaklar", icon: BookOpen },
@@ -92,55 +76,33 @@ const CONTENT_TABS: ContentTab[] = [
   { key: "audio", label: "Audio", icon: Headphones },
 ];
 
-/* ── MOCK kontent — namuna kutubxona ─────────────────────────────────────── */
-
-const CONTENT: ContentItem[] = [
-  { id: "c-2041", title: "Zukko Alisher", subtitle: "Adabiyot", type: "story", age: "7-9", language: "uz", audio: "generated", license: "approved", review: "approved", publish: "published", rating: 4.8, reads: "1.2k", completions: 1184, likes: 320, reports: 0, engagement: 0.91 },
-  { id: "c-2039", title: "Oltin baliqcha", subtitle: "Ma'naviyat", type: "story", age: "10-12", language: "uz", audio: "missing", license: "pending", review: "pending", publish: "unpublished", rating: null, reads: "—", completions: 0, likes: 0, reports: 0, engagement: 0 },
-  { id: "c-2036", title: "Bahor keldi", subtitle: "Tabiat", type: "poem", age: "4-6", language: "uz", audio: "generated", license: "approved", review: "approved", publish: "published", rating: 4.6, reads: "880", completions: 742, likes: 198, reports: 1, engagement: 0.84 },
-  { id: "c-2034", title: "Vatan haqida", subtitle: "Vatanparvarlik", type: "poem", age: "7-9", language: "uz", audio: "processing", license: "approved", review: "pending", publish: "unpublished", rating: null, reads: "—", completions: 0, likes: 0, reports: 0, engagement: 0 },
-  { id: "c-2031", title: "Sonlar bilan tanishuv", subtitle: "Matematika 1-bosqich", type: "lesson", age: "4-6", language: "uz", audio: "generated", license: "approved", review: "approved", publish: "published", rating: 4.4, reads: "2.1k", completions: 1890, likes: 410, reports: 2, engagement: 0.78 },
-  { id: "c-2028", title: "Hayvonlar dunyosi", subtitle: "Tabiatshunoslik", type: "lesson", age: "7-9", language: "ru", audio: "generated", license: "approved", review: "approved", publish: "unpublished", rating: 4.2, reads: "640", completions: 510, likes: 130, reports: 4, engagement: 0.71 },
-  { id: "c-2025", title: "Kechki ertak — Uyqu vaqti", subtitle: "Audio to'plam", type: "audio", age: "4-6", language: "uz", audio: "generated", license: "rejected", review: "approved", publish: "unpublished", rating: null, reads: "—", completions: 0, likes: 0, reports: 0, engagement: 0 },
-  { id: "c-2022", title: "Dono tulki", subtitle: "Ertak audio", type: "audio", age: "7-9", language: "en", audio: "generated", license: "approved", review: "approved", publish: "published", rating: 4.9, reads: "3.0k", completions: 2780, likes: 690, reports: 0, engagement: 0.93 },
-];
-
-/* ── Sifat metrikalari (header kartalar) ─────────────────────────────────── */
-
-interface MetricCard {
-  label: string;
-  value: string;
-  hint?: string;
-  alert?: boolean;
-  icon?: LucideIcon;
-}
-
-const METRICS: MetricCard[] = [
-  { label: "Tugallanish darajasi", value: "84%", hint: "O'rtacha engagement" },
-  { label: "Yoqtirishlar", value: "12.5k", hint: "Jami like" },
-  { label: "Shikoyatlar", value: "2", hint: "Ko'rib chiqish kerak", alert: true, icon: Flag },
-  { label: "O'rtacha reyting", value: "4.7", hint: "Bolalar bahosi" },
-  { label: "Faol kontent", value: "142", hint: "Nashr etilgan" },
-];
-
-const PAGE_SIZE = 10;
-const TOTAL_ITEMS = 142;
-const REVIEW_QUEUE_COUNT = 12;
-
 /* ──────────────────────────────────────────────────────────────────────────
    KRITIK QOIDA: kontent FAQAT license=approved VA review=approved bo'lsa
-   nashr etiladi. Quyidagi yagona funksiya UI bo'ylab shu darvozani majburlaydi.
+   nashr etiladi. Bu darvoza backendda majburlanadi (publish 400 qaytaradi);
+   UI ham shu shartni oldindan tekshiradi.
    ──────────────────────────────────────────────────────────────────────── */
 
-function canPublish(item: ContentItem): boolean {
-  return item.license === "approved" && item.review === "approved";
+function canPublish(row: ContentRow): boolean {
+  return row.license_status === "approved" && row.review_status === "approved";
 }
 
-function publishBlockReason(item: ContentItem): string {
+function publishBlockReason(row: ContentRow): string {
   const reasons: string[] = [];
-  if (item.license !== "approved") reasons.push("litsenziya tasdiqlanmagan");
-  if (item.review !== "approved") reasons.push("tekshiruv tasdiqlanmagan");
+  if (row.license_status !== "approved") reasons.push("litsenziya tasdiqlanmagan");
+  if (row.review_status !== "approved") reasons.push("tekshiruv tasdiqlanmagan");
   return reasons.join(" va ");
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.detail;
+  if (error instanceof Error) return error.message;
+  return "Kutilmagan xatolik";
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("uz-UZ", { year: "numeric", month: "short", day: "numeric" });
 }
 
 /* ── Kichik UI yordamchilar ──────────────────────────────────────────────── */
@@ -155,29 +117,34 @@ function IconAction({
   tone = "neutral",
   disabled = false,
   title,
+  busy = false,
+  onClick,
 }: {
   icon: LucideIcon;
   label: string;
   tone?: "neutral" | "danger";
   disabled?: boolean;
   title?: string;
+  busy?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
-      disabled={disabled}
+      disabled={disabled || busy}
+      onClick={onClick}
       title={title ?? label}
       aria-label={label}
       className={cn(
         "rounded-lg border p-1.5 transition-colors",
-        disabled
+        disabled || busy
           ? "cursor-not-allowed border-line text-line"
           : tone === "danger"
             ? "border-line text-muted hover:border-urgent-line hover:bg-urgent-bg hover:text-urgent"
             : "border-line text-muted hover:border-duyo-blue hover:bg-duyo-50 hover:text-duyo-dark",
       )}
     >
-      <Icon size={14} />
+      {busy ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
     </button>
   );
 }
@@ -190,24 +157,66 @@ type ViewMode = ContentType | "review" | "licensing";
 
 export function ContentLibrary() {
   const [view, setView] = useState<ViewMode>("story");
-  const [page] = useState(1);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
+
+  const contentQuery = useQuery({
+    queryKey: ["content"],
+    queryFn: () => adminApi.contentList(),
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: ["content", "summary"],
+    queryFn: () => adminApi.contentSummary(),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof adminApi.contentUpdate>[1] }) =>
+      adminApi.contentUpdate(id, patch),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content"] });
+    },
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const all = contentQuery.data ?? [];
   const isContentView = view !== "review" && view !== "licensing";
 
   const rows = useMemo(
-    () => (isContentView ? CONTENT.filter((c) => c.type === view) : []),
-    [view, isContentView],
+    () => (isContentView ? all.filter((c) => c.type === view) : []),
+    [all, view, isContentView],
   );
 
   const reviewItems = useMemo(
-    () => CONTENT.filter((c) => c.review === "pending" || c.review === "rejected"),
-    [],
+    () => all.filter((c) => c.review_status === "pending" || c.review_status === "draft"),
+    [all],
   );
 
   const licenseItems = useMemo(
-    () => CONTENT.filter((c) => c.license !== "approved"),
-    [],
+    () => all.filter((c) => c.license_status !== "approved"),
+    [all],
   );
+
+  const reviewQueueCount = reviewItems.length;
+  const summary = summaryQuery.data;
+
+  const handlers = {
+    onPublish: (row: ContentRow) =>
+      updateMutation.mutate({ id: row.id, patch: { published: true } }),
+    onUnpublish: (row: ContentRow) =>
+      updateMutation.mutate({ id: row.id, patch: { published: false } }),
+    onApproveReview: (row: ContentRow) =>
+      updateMutation.mutate({ id: row.id, patch: { review_status: "approved" } }),
+    onRejectReview: (row: ContentRow) =>
+      updateMutation.mutate({ id: row.id, patch: { review_status: "rejected" } }),
+    onApproveLicense: (row: ContentRow) =>
+      updateMutation.mutate({ id: row.id, patch: { license_status: "approved" } }),
+  };
+
+  const pendingId =
+    updateMutation.isPending && updateMutation.variables ? updateMutation.variables.id : null;
 
   return (
     <div>
@@ -224,6 +233,22 @@ export function ContentLibrary() {
         }
       />
 
+      {/* Mutatsiya xatosi — masalan nashr darvozasi 400 */}
+      {errorMsg && (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-urgent-line bg-urgent-bg p-4">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-urgent" />
+          <div className="flex-1 text-sm text-urgent">{errorMsg}</div>
+          <button
+            type="button"
+            aria-label="Yopish"
+            onClick={() => setErrorMsg(null)}
+            className="text-urgent hover:opacity-70"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* KRITIK darvoza banneri — har doim ko'rinadi */}
       <div className="mb-5 flex items-start gap-3 rounded-2xl border border-urgent-line bg-urgent-bg p-4">
         <AlertTriangle size={18} className="mt-0.5 shrink-0 text-urgent" />
@@ -235,36 +260,8 @@ export function ContentLibrary() {
         </div>
       </div>
 
-      {/* Sifat metrikalari */}
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {METRICS.map((m) => {
-          const Icon = m.icon;
-          return (
-            <div
-              key={m.label}
-              className={cn(
-                "card p-4",
-                m.alert && "border-urgent-line bg-urgent-bg",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className={cn("text-xs font-medium", m.alert ? "text-urgent" : "text-muted")}>
-                  {m.label}
-                </span>
-                {Icon && <Icon size={14} className={m.alert ? "text-urgent" : "text-muted"} />}
-              </div>
-              <div className={cn("mt-2 text-2xl font-bold", m.alert ? "text-urgent" : "text-ink")}>
-                {m.value}
-              </div>
-              {m.hint && (
-                <div className={cn("mt-1 text-[11px]", m.alert ? "text-urgent/80" : "text-muted")}>
-                  {m.hint}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {/* Sifat metrikalari — backend summary + jamlangan engagement */}
+      <SummaryStrip rows={all} summary={summary} loading={summaryQuery.isLoading} />
 
       {/* Tabs */}
       <div className="card overflow-hidden">
@@ -299,9 +296,11 @@ export function ContentLibrary() {
             )}
           >
             Tekshiruv navbati
-            <span className="pill bg-warn-bg text-warn border border-warn-line">
-              {REVIEW_QUEUE_COUNT}
-            </span>
+            {reviewQueueCount > 0 && (
+              <span className="pill bg-warn-bg text-warn border border-warn-line">
+                {reviewQueueCount}
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -317,17 +316,134 @@ export function ContentLibrary() {
           </button>
         </div>
 
-        {isContentView && <ContentTable rows={rows} page={page} />}
-        {view === "review" && <ReviewQueue items={reviewItems} />}
-        {view === "licensing" && <LicensingTable items={licenseItems} />}
+        {contentQuery.isLoading ? (
+          <LoadingState />
+        ) : contentQuery.isError ? (
+          <ErrorState message={getErrorMessage(contentQuery.error)} />
+        ) : (
+          <>
+            {isContentView && (
+              <ContentTable rows={rows} pendingId={pendingId} handlers={handlers} />
+            )}
+            {view === "review" && (
+              <ReviewQueue items={reviewItems} pendingId={pendingId} handlers={handlers} />
+            )}
+            {view === "licensing" && (
+              <LicensingTable items={licenseItems} pendingId={pendingId} handlers={handlers} />
+            )}
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+/* ── Amallar tipi (drilling) ─────────────────────────────────────────────── */
+
+interface RowHandlers {
+  onPublish: (row: ContentRow) => void;
+  onUnpublish: (row: ContentRow) => void;
+  onApproveReview: (row: ContentRow) => void;
+  onRejectReview: (row: ContentRow) => void;
+  onApproveLicense: (row: ContentRow) => void;
+}
+
+/* ── Holat ko'rinishlari ─────────────────────────────────────────────────── */
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-muted">
+      <Loader2 size={18} className="animate-spin text-duyo-blue" />
+      Yuklanmoqda…
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-urgent">
+      <AlertTriangle size={18} />
+      {message}
+    </div>
+  );
+}
+
+/* ── Sifat metrikalari kartalari ─────────────────────────────────────────── */
+
+function SummaryStrip({
+  rows,
+  summary,
+  loading,
+}: {
+  rows: ContentRow[];
+  summary: { by_review: Record<string, number>; published: number } | undefined;
+  loading: boolean;
+}) {
+  const totals = useMemo(() => {
+    const completions = rows.reduce((s, r) => s + r.completions, 0);
+    const likes = rows.reduce((s, r) => s + r.likes, 0);
+    const reports = rows.reduce((s, r) => s + r.reports, 0);
+    const pending = summary?.by_review?.pending ?? 0;
+    return { completions, likes, reports, pending };
+  }, [rows, summary]);
+
+  const cards = [
+    { label: "Jami tugallanish", value: totals.completions.toLocaleString("uz-UZ"), hint: "Barcha kontent" },
+    { label: "Yoqtirishlar", value: totals.likes.toLocaleString("uz-UZ"), hint: "Jami like", icon: ThumbsUp },
+    {
+      label: "Shikoyatlar",
+      value: totals.reports.toLocaleString("uz-UZ"),
+      hint: "Ko'rib chiqish kerak",
+      alert: totals.reports > 0,
+      icon: Flag,
+    },
+    { label: "Tekshiruv navbati", value: String(totals.pending), hint: "Kutilmoqda", icon: FileCheck2 },
+    {
+      label: "Nashr etilgan",
+      value: summary ? String(summary.published) : "—",
+      hint: "Faol kontent",
+      icon: CheckCircle2,
+    },
+  ];
+
+  return (
+    <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {cards.map((m) => {
+        const Icon = m.icon;
+        return (
+          <div key={m.label} className={cn("card p-4", m.alert && "border-urgent-line bg-urgent-bg")}>
+            <div className="flex items-center justify-between">
+              <span className={cn("text-xs font-medium", m.alert ? "text-urgent" : "text-muted")}>
+                {m.label}
+              </span>
+              {Icon && <Icon size={14} className={m.alert ? "text-urgent" : "text-muted"} />}
+            </div>
+            <div className={cn("mt-2 text-2xl font-bold", m.alert ? "text-urgent" : "text-ink")}>
+              {loading ? "…" : m.value}
+            </div>
+            {m.hint && (
+              <div className={cn("mt-1 text-[11px]", m.alert ? "text-urgent/80" : "text-muted")}>
+                {m.hint}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 /* ── Kontent jadvali ─────────────────────────────────────────────────────── */
 
-function ContentTable({ rows, page }: { rows: ContentItem[]; page: number }) {
+function ContentTable({
+  rows,
+  pendingId,
+  handlers,
+}: {
+  rows: ContentRow[];
+  pendingId: string | null;
+  handlers: RowHandlers;
+}) {
   return (
     <>
       {/* Filtrlar */}
@@ -346,11 +462,11 @@ function ContentTable({ rows, page }: { rows: ContentItem[]; page: number }) {
               <th className="px-3 py-3">Tur</th>
               <th className="px-3 py-3">Yosh</th>
               <th className="px-3 py-3">Til</th>
-              <th className="px-3 py-3">Audio</th>
               <th className="px-3 py-3">Litsenziya</th>
               <th className="px-3 py-3">Tekshiruv</th>
               <th className="px-3 py-3">Nashr</th>
-              <th className="px-3 py-3">Reyting</th>
+              <th className="px-3 py-3">Statistika</th>
+              <th className="px-3 py-3">Yaratilgan</th>
               <th className="px-3 py-3 text-right">Amallar</th>
             </tr>
           </thead>
@@ -358,73 +474,92 @@ function ContentTable({ rows, page }: { rows: ContentItem[]; page: number }) {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={10} className="px-4 py-10 text-center text-sm text-muted">
-                  Bu turda kontent topilmadi.
+                  Kontent yo'q
                 </td>
               </tr>
             ) : (
-              rows.map((c) => <ContentRow key={c.id} item={c} />)
+              rows.map((c) => (
+                <ContentTableRow
+                  key={c.id}
+                  item={c}
+                  busy={pendingId === c.id}
+                  handlers={handlers}
+                />
+              ))
             )}
           </tbody>
         </table>
       </div>
-
-      <Pagination page={page} count={rows.length} />
     </>
   );
 }
 
-function ContentRow({ item }: { item: ContentItem }) {
+function ContentTableRow({
+  item,
+  busy,
+  handlers,
+}: {
+  item: ContentRow;
+  busy: boolean;
+  handlers: RowHandlers;
+}) {
   const publishable = canPublish(item);
-  const isPublished = item.publish === "published";
 
   return (
     <tr className="border-b border-line/70 last:border-0 hover:bg-bg/60">
       <td className="px-4 py-3">
         <div className="font-medium text-ink">{item.title}</div>
-        <div className="text-xs text-muted">{item.subtitle}</div>
+        <div className="text-xs text-muted">{item.author ?? "Muallif noma'lum"}</div>
       </td>
       <td className="px-3 py-3 text-muted">{TYPE_LABEL[item.type]}</td>
-      <td className="px-3 py-3 text-muted">{item.age}</td>
-      <td className="px-3 py-3 text-muted">{LANGUAGE_LABEL[item.language]}</td>
+      <td className="px-3 py-3 text-muted">{item.age_segment}</td>
+      <td className="px-3 py-3 uppercase text-muted">{item.language}</td>
       <td className="px-3 py-3">
-        <StatusPill {...AUDIO_PILL[item.audio]} />
+        <StatusPill {...LICENSE_PILL[item.license_status]} />
       </td>
       <td className="px-3 py-3">
-        <StatusPill {...APPROVAL_PILL[item.license]} />
+        <StatusPill {...REVIEW_PILL[item.review_status]} />
       </td>
       <td className="px-3 py-3">
-        <StatusPill {...APPROVAL_PILL[item.review]} />
+        <StatusPill {...PUBLISH_PILL[item.published ? "published" : "unpublished"]} />
       </td>
       <td className="px-3 py-3">
-        <StatusPill {...PUBLISH_PILL[item.publish]} />
+        <div className="flex items-center gap-3 text-xs text-muted">
+          <span title="Tugallanish">{item.completions.toLocaleString("uz-UZ")}</span>
+          <span className="flex items-center gap-0.5" title="Yoqtirish">
+            <ThumbsUp size={12} /> {item.likes}
+          </span>
+          <span
+            className={cn("flex items-center gap-0.5", item.reports > 0 && "text-urgent")}
+            title="Shikoyat"
+          >
+            <Flag size={12} /> {item.reports}
+          </span>
+        </div>
       </td>
-      <td className="px-3 py-3">
-        {item.rating !== null ? (
-          <div className="flex items-center gap-1 text-ink">
-            <Star size={13} className="fill-warn text-warn" />
-            <span className="font-medium">{item.rating.toFixed(1)}</span>
-            <span className="text-xs text-muted">({item.reads})</span>
-          </div>
-        ) : (
-          <span className="text-muted">—</span>
-        )}
-      </td>
+      <td className="px-3 py-3 text-xs text-muted">{formatDate(item.created_at)}</td>
       <td className="px-3 py-3">
         <div className="flex items-center justify-end gap-1.5">
           <IconAction icon={Eye} label="Ko'rib chiqish" />
           <IconAction icon={Pencil} label="Tahrirlash" />
-          {isPublished ? (
-            <IconAction icon={CloudOff} label="Nashrdan olish" tone="danger" />
+          {item.published ? (
+            <IconAction
+              icon={CloudOff}
+              label="Nashrdan olish"
+              tone="danger"
+              busy={busy}
+              onClick={() => handlers.onUnpublish(item)}
+            />
           ) : (
             <IconAction
               icon={Upload}
               label="Nashr etish"
               disabled={!publishable}
+              busy={busy}
               title={
-                publishable
-                  ? "Nashr etish"
-                  : `Nashr etib bo'lmaydi: ${publishBlockReason(item)}`
+                publishable ? "Nashr etish" : `Nashr etib bo'lmaydi: ${publishBlockReason(item)}`
               }
+              onClick={() => handlers.onPublish(item)}
             />
           )}
           <IconAction icon={Trash2} label="O'chirish" tone="danger" />
@@ -436,7 +571,15 @@ function ContentRow({ item }: { item: ContentItem }) {
 
 /* ── Tekshiruv navbati (approve / reject amallari bilan) ─────────────────── */
 
-function ReviewQueue({ items }: { items: ContentItem[] }) {
+function ReviewQueue({
+  items,
+  pendingId,
+  handlers,
+}: {
+  items: ContentRow[];
+  pendingId: string | null;
+  handlers: RowHandlers;
+}) {
   return (
     <>
       <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted">
@@ -455,38 +598,54 @@ function ReviewQueue({ items }: { items: ContentItem[] }) {
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => (
-              <tr key={c.id} className="border-b border-line/70 last:border-0 hover:bg-bg/60">
-                <td className="px-4 py-3">
-                  <div className="font-medium text-ink">{c.title}</div>
-                  <div className="text-xs text-muted">{c.subtitle}</div>
-                </td>
-                <td className="px-3 py-3 text-muted">{TYPE_LABEL[c.type]}</td>
-                <td className="px-3 py-3 text-muted">
-                  {c.age} / {LANGUAGE_LABEL[c.language]}
-                </td>
-                <td className="px-3 py-3">
-                  <StatusPill {...APPROVAL_PILL[c.review]} />
-                </td>
-                <td className="px-3 py-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      className="flex items-center gap-1 rounded-lg border border-safe-line bg-safe-bg px-2.5 py-1 text-xs font-medium text-safe hover:bg-safe/10"
-                    >
-                      <Check size={13} /> Tasdiqlash
-                    </button>
-                    <button
-                      type="button"
-                      className="flex items-center gap-1 rounded-lg border border-urgent-line bg-urgent-bg px-2.5 py-1 text-xs font-medium text-urgent hover:bg-urgent/10"
-                    >
-                      <X size={13} /> Rad etish
-                    </button>
-                    <IconAction icon={Eye} label="Ko'rib chiqish" />
-                  </div>
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted">
+                  Tekshiruv navbati bo'sh
                 </td>
               </tr>
-            ))}
+            ) : (
+              items.map((c) => {
+                const busy = pendingId === c.id;
+                return (
+                  <tr key={c.id} className="border-b border-line/70 last:border-0 hover:bg-bg/60">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-ink">{c.title}</div>
+                      <div className="text-xs text-muted">{c.author ?? "Muallif noma'lum"}</div>
+                    </td>
+                    <td className="px-3 py-3 text-muted">{TYPE_LABEL[c.type]}</td>
+                    <td className="px-3 py-3 text-muted">
+                      {c.age_segment} / {c.language.toUpperCase()}
+                    </td>
+                    <td className="px-3 py-3">
+                      <StatusPill {...REVIEW_PILL[c.review_status]} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handlers.onApproveReview(c)}
+                          className="flex items-center gap-1 rounded-lg border border-safe-line bg-safe-bg px-2.5 py-1 text-xs font-medium text-safe hover:bg-safe/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}{" "}
+                          Tasdiqlash
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handlers.onRejectReview(c)}
+                          className="flex items-center gap-1 rounded-lg border border-urgent-line bg-urgent-bg px-2.5 py-1 text-xs font-medium text-urgent hover:bg-urgent/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <X size={13} /> Rad etish
+                        </button>
+                        <IconAction icon={Eye} label="Ko'rib chiqish" />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
@@ -496,7 +655,15 @@ function ReviewQueue({ items }: { items: ContentItem[] }) {
 
 /* ── Litsenziya boshqaruvi ───────────────────────────────────────────────── */
 
-function LicensingTable({ items }: { items: ContentItem[] }) {
+function LicensingTable({
+  items,
+  pendingId,
+  handlers,
+}: {
+  items: ContentRow[];
+  pendingId: string | null;
+  handlers: RowHandlers;
+}) {
   return (
     <>
       <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted">
@@ -516,44 +683,56 @@ function LicensingTable({ items }: { items: ContentItem[] }) {
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => {
-              const ready = canPublish(c);
-              return (
-                <tr key={c.id} className="border-b border-line/70 last:border-0 hover:bg-bg/60">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-ink">{c.title}</div>
-                    <div className="text-xs text-muted">{c.subtitle}</div>
-                  </td>
-                  <td className="px-3 py-3 text-muted">{TYPE_LABEL[c.type]}</td>
-                  <td className="px-3 py-3">
-                    <StatusPill {...APPROVAL_PILL[c.license]} />
-                  </td>
-                  <td className="px-3 py-3">
-                    <StatusPill {...APPROVAL_PILL[c.review]} />
-                  </td>
-                  <td className="px-3 py-3">
-                    {ready ? (
-                      <span className="flex items-center gap-1 text-xs font-medium text-safe">
-                        <Check size={13} /> Tayyor
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted">{publishBlockReason(c)}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 rounded-lg border border-safe-line bg-safe-bg px-2.5 py-1 text-xs font-medium text-safe hover:bg-safe/10"
-                      >
-                        <Check size={13} /> Litsenziyani tasdiqlash
-                      </button>
-                      <IconAction icon={Eye} label="Hujjatni ko'rish" />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted">
+                  Litsenziya kutayotgan kontent yo'q
+                </td>
+              </tr>
+            ) : (
+              items.map((c) => {
+                const ready = canPublish(c);
+                const busy = pendingId === c.id;
+                return (
+                  <tr key={c.id} className="border-b border-line/70 last:border-0 hover:bg-bg/60">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-ink">{c.title}</div>
+                      <div className="text-xs text-muted">{c.author ?? "Muallif noma'lum"}</div>
+                    </td>
+                    <td className="px-3 py-3 text-muted">{TYPE_LABEL[c.type]}</td>
+                    <td className="px-3 py-3">
+                      <StatusPill {...LICENSE_PILL[c.license_status]} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <StatusPill {...REVIEW_PILL[c.review_status]} />
+                    </td>
+                    <td className="px-3 py-3">
+                      {ready ? (
+                        <span className="flex items-center gap-1 text-xs font-medium text-safe">
+                          <Check size={13} /> Tayyor
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted">{publishBlockReason(c)}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={busy || c.license_status === "approved"}
+                          onClick={() => handlers.onApproveLicense(c)}
+                          className="flex items-center gap-1 rounded-lg border border-safe-line bg-safe-bg px-2.5 py-1 text-xs font-medium text-safe hover:bg-safe/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}{" "}
+                          Litsenziyani tasdiqlash
+                        </button>
+                        <IconAction icon={Eye} label="Hujjatni ko'rish" />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
@@ -571,44 +750,5 @@ function FilterPill({ label }: { label: string }) {
     >
       {label}
     </button>
-  );
-}
-
-function Pagination({ page, count }: { page: number; count: number }) {
-  const from = count === 0 ? 0 : 1;
-  const to = Math.min(PAGE_SIZE, count);
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
-      <span className="text-xs text-muted">
-        Ko'rsatilmoqda {from}-{to} (jami {TOTAL_ITEMS} ta kontentdan)
-      </span>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled
-          className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-line"
-        >
-          Oldingi
-        </button>
-        <button
-          type="button"
-          className="rounded-lg border border-duyo-blue bg-duyo-blue px-3 py-1.5 text-sm font-medium text-white"
-        >
-          {page}
-        </button>
-        <button
-          type="button"
-          className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-muted hover:border-duyo-blue hover:bg-duyo-50"
-        >
-          {page + 1}
-        </button>
-        <button
-          type="button"
-          className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:border-duyo-blue hover:bg-duyo-50"
-        >
-          Keyingi
-        </button>
-      </div>
-    </div>
   );
 }

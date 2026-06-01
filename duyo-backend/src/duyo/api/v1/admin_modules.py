@@ -11,15 +11,16 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_db
-from duyo.api.v1.admin_deps import get_current_admin, require_roles
+from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_roles
 from duyo.models.admin import AdminRole, AdminUser
 from duyo.models.child import ChildProfile
+from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
 from duyo.models.gamification import Avatar, BallsTransaction, InventoryItem, Streak
 from duyo.models.message import Message, MessageRole
 from duyo.models.report import Report
@@ -31,6 +32,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 _require_finance = require_roles(AdminRole.FINANCE_MANAGER)
 _require_analyst = require_roles(AdminRole.ANALYST, AdminRole.ADMIN)
+_require_content = require_roles(AdminRole.CONTENT_MANAGER)
 
 
 # ---- Gamification ----
@@ -244,3 +246,113 @@ async def analytics_overview(
         "messages": messages,
         "messages_per_day": list(reversed(per_day)),
     }
+
+
+# ---- Content Library (Content Manager) ----
+class ContentRow(BaseModel):
+    id: UUID
+    type: str
+    title: str
+    age_segment: str
+    language: str
+    author: str | None
+    review_status: str
+    license_status: str
+    published: bool
+    completions: int
+    likes: int
+    reports: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ContentCreate(BaseModel):
+    type: ContentType
+    title: str
+    body: str | None = None
+    age_segment: str = "all"
+    language: str = "uz"
+    author: str | None = None
+
+
+class ContentPatch(BaseModel):
+    review_status: ReviewStatus | None = None
+    license_status: LicenseStatus | None = None
+    published: bool | None = None
+
+
+@router.get("/content", response_model=list[ContentRow])
+async def content_list(
+    type: ContentType | None = None,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_content),
+) -> list[ContentRow]:
+    stmt = select(ContentItem).order_by(ContentItem.created_at.desc()).limit(min(limit, 500))
+    if type is not None:
+        stmt = stmt.where(ContentItem.type == type)
+    rows = (await db.scalars(stmt)).all()
+    return [ContentRow.model_validate(r) for r in rows]
+
+
+@router.get("/content/summary")
+async def content_summary(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_content),
+) -> dict:
+    by_review = {
+        st: n
+        for st, n in (
+            await db.execute(select(ContentItem.review_status, func.count()).group_by(ContentItem.review_status))
+        ).all()
+    }
+    published = await db.scalar(select(func.count()).select_from(ContentItem).where(ContentItem.published.is_(True))) or 0
+    return {"by_review": {(k.value if hasattr(k, "value") else str(k)): v for k, v in by_review.items()}, "published": published}
+
+
+@router.post("/content", response_model=ContentRow, status_code=status.HTTP_201_CREATED)
+async def content_create(
+    payload: ContentCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_content),
+) -> ContentRow:
+    item = ContentItem(**payload.model_dump())
+    db.add(item)
+    await db.flush()
+    await record_audit(db, admin, action="create", module="content", target=str(item.id), request=request)
+    return ContentRow.model_validate(item)
+
+
+@router.patch("/content/{item_id}", response_model=ContentRow)
+async def content_update(
+    item_id: UUID,
+    payload: ContentPatch,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_content),
+) -> ContentRow:
+    item = await db.get(ContentItem, item_id)
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kontent topilmadi")
+    if payload.review_status is not None:
+        item.review_status = payload.review_status
+    if payload.license_status is not None:
+        item.license_status = payload.license_status
+    if payload.published is not None:
+        # Publish gate: license + review must both be APPROVED.
+        if payload.published and not (
+            item.review_status == ReviewStatus.APPROVED and item.license_status == LicenseStatus.APPROVED
+        ):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Nashr etib bo'lmaydi: litsenziya va tekshiruv tasdiqlangan bo'lishi shart",
+            )
+        item.published = payload.published
+    await record_audit(
+        db, admin, action="update", module="content", target=str(item_id),
+        meta=payload.model_dump(exclude_none=True, mode="json"), request=request,
+    )
+    await db.flush()
+    return ContentRow.model_validate(item)

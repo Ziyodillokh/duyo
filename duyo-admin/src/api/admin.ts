@@ -104,6 +104,32 @@ export interface AnalyticsOverview {
   messages_per_day: { day: string; count: number }[];
 }
 
+export type ContentType = "poem" | "story" | "lesson" | "audio";
+export type ContentReviewStatus = "draft" | "pending" | "approved" | "rejected";
+export type ContentLicenseStatus = "unknown" | "pending" | "approved" | "rejected";
+
+export interface ContentRow {
+  id: string;
+  type: ContentType;
+  title: string;
+  age_segment: string;
+  language: string;
+  author: string | null;
+  review_status: ContentReviewStatus;
+  license_status: ContentLicenseStatus;
+  published: boolean;
+  completions: number;
+  likes: number;
+  reports: number;
+  created_at: string;
+}
+
+export interface ContentPatch {
+  review_status?: ContentReviewStatus;
+  license_status?: ContentLicenseStatus;
+  published?: boolean;
+}
+
 export const adminApi = {
   login: (email: string, password: string) =>
     api.post<LoginResponse>("/admin/auth/login", { email, password }),
@@ -125,6 +151,12 @@ export const adminApi = {
   aiLogs: () => api.get<AiLogRow[]>("/admin/ai/logs"),
   aiSummary: () => api.get<AiSummary>("/admin/ai/summary"),
   analyticsOverview: () => api.get<AnalyticsOverview>("/admin/analytics/overview"),
+  contentList: (type?: ContentType) =>
+    api.get<ContentRow[]>(`/admin/content${type ? `?type=${type}` : ""}`),
+  contentSummary: () =>
+    api.get<{ by_review: Record<string, number>; published: number }>("/admin/content/summary"),
+  contentUpdate: (id: string, patch: ContentPatch) =>
+    api.patch<ContentRow>(`/admin/content/${id}`, patch),
 };
 
 export const ROLE_LABELS: Record<AdminRole, string> = {
