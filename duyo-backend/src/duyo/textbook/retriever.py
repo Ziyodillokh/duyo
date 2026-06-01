@@ -171,13 +171,16 @@ def build_rag_context(chunks_with_scores: list[tuple[TextbookChunk, float]]) -> 
     lines.append("[/DARSLIK KONTEKST]")
     lines.append("")
     lines.append(
-        "Quyidagi darslik matnidan FOYDALANIB javob ber. Javob boshida qaysi "
-        "sinf va fan darsligidan ekanini tabiiy ayt, masalan: "
-        "\"6-sinf Botanika darsligiga ko'ra, ...\". "
-        "MUHIM: hech qachon \"kontekst\", \"berilgan matn\" yoki boshqa fan "
-        "darsliklari nomlarini bolaga aytma. Agar bu matn savolga mos kelmasa, "
-        "matn yo'qdek, jimgina o'z bilimingdan to'g'ri javob ber va mos "
-        "kelmasligini umuman izohlama."
+        "Bolaning savoliga ANIQ va to'g'ridan-to'g'ri javob ber — savol aynan "
+        "nimani so'rasa, o'shanga qisqa va tushunarli javob qaytar. Yuqoridagi "
+        "darslik matni faqat tayanch manba: uni qayta hikoya qilma, "
+        "umumlashtirma yoki ko'chirib bermala; undan savolga kerakli aniq "
+        "ma'lumotni olib, o'z so'zing bilan javob ber. Javob boshida qaysi sinf "
+        "va fan darsligidan ekanini tabiiy ayt, masalan: \"6-sinf Botanika "
+        "darsligiga ko'ra, ...\". MUHIM: hech qachon \"kontekst\", \"berilgan "
+        "matn\" yoki boshqa fan darsliklari nomlarini bolaga aytma. Agar bu matn "
+        "savolga mos kelmasa, matn yo'qdek, jimgina o'z bilimingdan to'g'ri "
+        "javob ber va mos kelmasligini umuman izohlama."
     )
 
     return "\n".join(lines)
