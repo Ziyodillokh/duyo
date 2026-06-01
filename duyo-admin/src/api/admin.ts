@@ -130,6 +130,31 @@ export interface ContentPatch {
   published?: boolean;
 }
 
+export type CampaignChannel = "push" | "sms" | "email" | "in_app";
+export type CampaignStatus = "draft" | "scheduled" | "sent" | "canceled";
+
+export interface CampaignRow {
+  id: string;
+  channel: CampaignChannel;
+  title: string;
+  body: string;
+  audience: string;
+  status: CampaignStatus;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+}
+
+export interface CampaignCreate {
+  channel: CampaignChannel;
+  title: string;
+  body: string;
+  audience?: string;
+  scheduled_at?: string | null;
+}
+
 export const adminApi = {
   login: (email: string, password: string) =>
     api.post<LoginResponse>("/admin/auth/login", { email, password }),
@@ -157,6 +182,15 @@ export const adminApi = {
     api.get<{ by_review: Record<string, number>; published: number }>("/admin/content/summary"),
   contentUpdate: (id: string, patch: ContentPatch) =>
     api.patch<ContentRow>(`/admin/content/${id}`, patch),
+  campaigns: () => api.get<CampaignRow[]>("/admin/notifications/campaigns"),
+  campaignSummary: () =>
+    api.get<{ by_status: Record<string, number>; by_channel: Record<string, number> }>(
+      "/admin/notifications/summary",
+    ),
+  campaignCreate: (body: CampaignCreate) =>
+    api.post<CampaignRow>("/admin/notifications/campaigns", body),
+  campaignUpdate: (id: string, patch: { status?: CampaignStatus; scheduled_at?: string | null }) =>
+    api.patch<CampaignRow>(`/admin/notifications/campaigns/${id}`, patch),
 };
 
 export const ROLE_LABELS: Record<AdminRole, string> = {

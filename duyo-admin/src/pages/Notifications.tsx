@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Megaphone,
   Bell,
   MessageSquare,
   Mail,
+  Smartphone,
   LayoutTemplate,
   ScrollText,
   AlertTriangle,
@@ -11,7 +13,6 @@ import {
   Send,
   Rocket,
   Download,
-  RefreshCw,
   Lock,
   Pencil,
   Plus,
@@ -19,18 +20,29 @@ import {
   CheckCircle2,
   XCircle,
   Hourglass,
-  TrendingUp,
+  FileText,
+  Loader2,
+  X,
+  Ban,
+  CalendarClock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
+import {
+  adminApi,
+  type CampaignRow,
+  type CampaignChannel,
+  type CampaignStatus,
+  type CampaignCreate,
+} from "@/api/admin";
+import { ApiError } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
 type ChannelKey = "campaigns" | "push" | "sms" | "email" | "templates" | "logs";
-type DeliveryStatus = "sent" | "delivered" | "failed" | "queued";
 type TemplateKind = "red" | "orange" | "daily" | "payment";
 
 interface ChannelTab {
@@ -39,28 +51,12 @@ interface ChannelTab {
   icon: LucideIcon;
 }
 
-interface DeliveryRow {
-  id: string;
-  recipient: string;
-  channel: string;
-  template: string;
-  status: DeliveryStatus;
-  provider: string;
-  time: string;
-}
-
 interface NotificationTemplate {
   kind: TemplateKind;
   tag: string;
   title: string;
   body: string;
   superAdminOnly: boolean;
-}
-
-interface AudienceSegment {
-  value: string;
-  label: string;
-  size: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -76,7 +72,8 @@ const CHANNEL_TABS: ChannelTab[] = [
   { key: "logs", label: "Yetkazib berish jurnali", icon: ScrollText },
 ];
 
-const AUDIENCE_SEGMENTS: AudienceSegment[] = [
+/* MOCK — auditoriya o'lchami baholari (backend yo'q) */
+const AUDIENCE_SEGMENTS: { value: string; label: string; size: string }[] = [
   { value: "all-children", label: "Barcha bolalar", size: "1,284" },
   { value: "active-children", label: "Faol bolalar (7 kun)", size: "962" },
   { value: "all-parents", label: "Barcha ota-onalar", size: "874" },
@@ -88,40 +85,52 @@ const AGE_SEGMENTS = ["Barcha yoshlar", "6-9", "6-12", "10-13", "13-16"];
 
 const LANGUAGES = ["O'zbek", "Rus", "Ingliz"];
 
-const STATUS_STYLES: Record<
-  DeliveryStatus,
+/* Backend kanal ↔ UI yorlig'i */
+const CHANNEL_LABEL: Record<CampaignChannel, string> = {
+  push: "Push",
+  sms: "SMS",
+  email: "Email",
+  in_app: "In-App",
+};
+
+const CHANNEL_PILL: Record<CampaignChannel, { cls: string; icon: LucideIcon }> = {
+  push: { cls: "bg-duyo-50 text-duyo-dark border border-duyo-100", icon: Bell },
+  sms: { cls: "bg-warn-bg text-warn border border-warn-line", icon: MessageSquare },
+  email: { cls: "bg-safe-bg text-safe border border-safe-line", icon: Mail },
+  in_app: { cls: "bg-bg text-muted border border-line", icon: Smartphone },
+};
+
+const STATUS_PILL: Record<
+  CampaignStatus,
   { label: string; pill: string; dot: string; icon: LucideIcon }
 > = {
-  sent: {
-    label: "SENT",
-    pill: "bg-duyo-50 text-duyo-dark border border-duyo-100",
-    dot: "bg-duyo-blue",
-    icon: Send,
+  draft: {
+    label: "QORALAMA",
+    pill: "bg-bg text-muted border border-line",
+    dot: "bg-line",
+    icon: FileText,
   },
-  delivered: {
-    label: "DELIVERED",
-    pill: "bg-safe-bg text-safe border border-safe-line",
-    dot: "bg-safe",
-    icon: CheckCircle2,
-  },
-  failed: {
-    label: "FAILED",
-    pill: "bg-urgent-bg text-urgent border border-urgent-line",
-    dot: "bg-urgent",
-    icon: XCircle,
-  },
-  queued: {
-    label: "QUEUED",
+  scheduled: {
+    label: "REJALASHTIRILGAN",
     pill: "bg-warn-bg text-warn border border-warn-line",
     dot: "bg-warn",
     icon: Hourglass,
   },
+  sent: {
+    label: "YUBORILGAN",
+    pill: "bg-safe-bg text-safe border border-safe-line",
+    dot: "bg-safe",
+    icon: CheckCircle2,
+  },
+  canceled: {
+    label: "BEKOR QILINGAN",
+    pill: "bg-urgent-bg text-urgent border border-urgent-line",
+    dot: "bg-urgent",
+    icon: XCircle,
+  },
 };
 
-const TEMPLATE_STYLES: Record<
-  TemplateKind,
-  { accent: string; chip: string }
-> = {
+const TEMPLATE_STYLES: Record<TemplateKind, { accent: string; chip: string }> = {
   red: { accent: "border-l-urgent", chip: "bg-urgent-bg text-urgent border border-urgent-line" },
   orange: { accent: "border-l-serious", chip: "bg-serious-bg text-serious border border-serious-line" },
   daily: { accent: "border-l-safe", chip: "bg-safe-bg text-safe border border-safe-line" },
@@ -130,17 +139,8 @@ const TEMPLATE_STYLES: Record<
 
 /* ------------------------------------------------------------------ */
 /* MOCK data — backend (NotificationService) ulanmaguncha namuna.      */
+/* Shablon galereyasi + sokin vaqt qoidasi + oylik statistika.         */
 /* ------------------------------------------------------------------ */
-
-const DELIVERY_LOG: DeliveryRow[] = [
-  { id: "#DLV-50231", recipient: "u***_882@mail.com", channel: "Email", template: "Daily Report", status: "sent", provider: "SendGrid", time: "12:45:01" },
-  { id: "#DLV-50230", recipient: "+998 90 *** 12 34", channel: "SMS", template: "Payment Failed", status: "failed", provider: "Twilio", time: "12:44:30" },
-  { id: "#DLV-50229", recipient: "dev_app_id_99", channel: "Push", template: "Content Rec", status: "delivered", provider: "Firebase", time: "12:42:15" },
-  { id: "#DLV-50228", recipient: "a***_104@gmail.com", channel: "Email", template: "Subscription Renewal", status: "delivered", provider: "SendGrid", time: "12:40:58" },
-  { id: "#DLV-50227", recipient: "+998 93 *** 88 01", channel: "SMS", template: "Quiet Hours Reminder", status: "queued", provider: "Twilio", time: "12:39:22" },
-  { id: "#DLV-50226", recipient: "child_dev_2231", channel: "Push", template: "Daily Goal", status: "delivered", provider: "Firebase", time: "12:37:44" },
-  { id: "#DLV-50225", recipient: "+998 91 *** 45 67", channel: "SMS", template: "RED Alert", status: "failed", provider: "Twilio", time: "12:35:10" },
-];
 
 const TEMPLATES: NotificationTemplate[] = [
   {
@@ -173,18 +173,41 @@ const TEMPLATES: NotificationTemplate[] = [
   },
 ];
 
-const MONTHLY_STATS: { label: string; value: string; delta: string; positive: boolean }[] = [
-  { label: "Push yuborildi", value: "1.2M", delta: "+12%", positive: true },
-  { label: "Email ochildi", value: "38.4%", delta: "+3%", positive: true },
-  { label: "SMS yetkazildi", value: "97.1%", delta: "-1%", positive: false },
-  { label: "Yetkazilmadi", value: "2.4K", delta: "-8%", positive: true },
-];
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
 
-const CHANNEL_PREVIEW: Record<Exclude<ChannelKey, "campaigns" | "templates" | "logs">, { title: string; note: string }> = {
-  push: { title: "Push bildirishnomalar", note: "Firebase Cloud Messaging orqali mobil qurilmalarga." },
-  sms: { title: "SMS xabarlar", note: "Twilio orqali ota-ona raqamlariga (faqat muhim hodisalar)." },
-  email: { title: "Email xabarlar", note: "SendGrid orqali kunlik hisobotlar va to'lov bildirishnomalari." },
-};
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.detail;
+  if (error instanceof Error) return error.message;
+  return "Kutilmagan xatolik";
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("uz-UZ", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/* UI select qiymatini backend kanaliga o'giradi */
+function channelFromLabel(label: string): CampaignChannel {
+  switch (label) {
+    case "SMS":
+      return "sms";
+    case "Email":
+      return "email";
+    case "In-App":
+      return "in_app";
+    default:
+      return "push";
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
@@ -193,17 +216,88 @@ const CHANNEL_PREVIEW: Record<Exclude<ChannelKey, "campaigns" | "templates" | "l
 export function Notifications() {
   const [activeTab, setActiveTab] = useState<ChannelKey>("campaigns");
 
+  const queryClient = useQueryClient();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const campaignsQuery = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: () => adminApi.campaigns(),
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: ["campaigns", "summary"],
+    queryFn: () => adminApi.campaignSummary(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (body: CampaignCreate) => adminApi.campaignCreate(body),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+    },
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: { status?: CampaignStatus; scheduled_at?: string | null };
+    }) => adminApi.campaignUpdate(id, patch),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+    },
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const allCampaigns = campaignsQuery.data ?? [];
+  const summary = summaryQuery.data;
+  const failedTotal = (summary?.by_status?.canceled ?? 0) || 0;
+
+  const pendingId =
+    updateMutation.isPending && updateMutation.variables ? updateMutation.variables.id : null;
+
+  const rowHandlers: RowHandlers = {
+    onSend: (row) => updateMutation.mutate({ id: row.id, patch: { status: "sent" } }),
+    onCancel: (row) => updateMutation.mutate({ id: row.id, patch: { status: "canceled" } }),
+    onSchedule: (row) => updateMutation.mutate({ id: row.id, patch: { status: "scheduled" } }),
+  };
+
   return (
     <div>
       <PageHeader
         title="Bildirishnomalar"
         subtitle="Kampaniyalar, shablonlar va yetkazib berish monitoringi"
         actions={
-          <span className="pill bg-urgent-bg text-urgent border border-urgent-line">
-            <AlertTriangle size={13} /> 2 ta xato yetkazib berish
-          </span>
+          failedTotal > 0 ? (
+            <span className="pill bg-urgent-bg text-urgent border border-urgent-line">
+              <Ban size={13} /> {failedTotal} ta bekor qilingan
+            </span>
+          ) : undefined
         }
       />
+
+      {/* Mutatsiya xatosi */}
+      {errorMsg && (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-urgent-line bg-urgent-bg p-4">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-urgent" />
+          <div className="flex-1 text-sm text-urgent">{errorMsg}</div>
+          <button
+            type="button"
+            aria-label="Yopish"
+            onClick={() => setErrorMsg(null)}
+            className="text-urgent hover:opacity-70"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Summary KPI tiles — backend campaignSummary */}
+      <SummaryStrip summary={summary} loading={summaryQuery.isLoading} />
 
       {/* Channel tabs */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -232,44 +326,154 @@ export function Notifications() {
       {(activeTab === "campaigns" ||
         activeTab === "push" ||
         activeTab === "sms" ||
-        activeTab === "email") && <CampaignTab activeTab={activeTab} />}
+        activeTab === "email") && (
+        <CampaignTab
+          activeTab={activeTab}
+          campaigns={allCampaigns}
+          query={campaignsQuery}
+          summary={summary}
+          createMutation={createMutation}
+          handlers={rowHandlers}
+          pendingId={pendingId}
+        />
+      )}
 
       {activeTab === "templates" && <TemplatesTab />}
 
-      {activeTab === "logs" && <LogsTab />}
+      {activeTab === "logs" && (
+        <LogsTab
+          campaigns={allCampaigns}
+          query={campaignsQuery}
+          summary={summary}
+          handlers={rowHandlers}
+          pendingId={pendingId}
+        />
+      )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Campaign builder + delivery log + stats                             */
+/* Shared handler/query types                                          */
 /* ------------------------------------------------------------------ */
 
-function CampaignTab({ activeTab }: { activeTab: ChannelKey }) {
-  const channelNote =
-    activeTab !== "campaigns" ? CHANNEL_PREVIEW[activeTab as keyof typeof CHANNEL_PREVIEW] : null;
+interface RowHandlers {
+  onSend: (row: CampaignRow) => void;
+  onCancel: (row: CampaignRow) => void;
+  onSchedule: (row: CampaignRow) => void;
+}
+
+type CampaignsQuery = ReturnType<typeof useQuery<CampaignRow[]>>;
+type CreateMutation = ReturnType<
+  typeof useMutation<CampaignRow, unknown, CampaignCreate>
+>;
+type CampaignSummary = { by_status: Record<string, number>; by_channel: Record<string, number> };
+
+/* ------------------------------------------------------------------ */
+/* Summary KPI tiles                                                   */
+/* ------------------------------------------------------------------ */
+
+function SummaryStrip({
+  summary,
+  loading,
+}: {
+  summary: CampaignSummary | undefined;
+  loading: boolean;
+}) {
+  const cards = useMemo(() => {
+    const byStatus = summary?.by_status ?? {};
+    const byChannel = summary?.by_channel ?? {};
+    const total = Object.values(byStatus).reduce((s, n) => s + n, 0);
+    return [
+      { label: "Jami kampaniyalar", value: total, icon: Megaphone },
+      { label: "Yuborilgan", value: byStatus.sent ?? 0, icon: CheckCircle2, tone: "safe" as const },
+      {
+        label: "Rejalashtirilgan",
+        value: byStatus.scheduled ?? 0,
+        icon: Hourglass,
+        tone: "warn" as const,
+      },
+      { label: "Qoralama", value: byStatus.draft ?? 0, icon: FileText },
+      {
+        label: "Push / SMS / Email",
+        value: `${byChannel.push ?? 0} / ${byChannel.sms ?? 0} / ${byChannel.email ?? 0}`,
+        icon: Bell,
+      },
+    ];
+  }, [summary]);
+
+  return (
+    <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {cards.map((m) => {
+        const Icon = m.icon;
+        return (
+          <div key={m.label} className="card p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted">{m.label}</span>
+              <Icon size={14} className="text-muted" />
+            </div>
+            <div
+              className={cn(
+                "mt-2 text-2xl font-bold",
+                m.tone === "safe" ? "text-safe" : m.tone === "warn" ? "text-warn" : "text-ink",
+              )}
+            >
+              {loading ? "…" : m.value}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Campaign builder + delivery list + templates                       */
+/* ------------------------------------------------------------------ */
+
+function CampaignTab({
+  activeTab,
+  campaigns,
+  query,
+  summary,
+  createMutation,
+  handlers,
+  pendingId,
+}: {
+  activeTab: ChannelKey;
+  campaigns: CampaignRow[];
+  query: CampaignsQuery;
+  summary: CampaignSummary | undefined;
+  createMutation: CreateMutation;
+  handlers: RowHandlers;
+  pendingId: string | null;
+}) {
+  /* Kanal tab tanlangan bo'lsa jadvalni shu kanal bo'yicha filtrlash */
+  const channelFilter: CampaignChannel | null =
+    activeTab === "push" ? "push" : activeTab === "sms" ? "sms" : activeTab === "email" ? "email" : null;
+
+  const rows = useMemo(
+    () => (channelFilter ? campaigns.filter((c) => c.channel === channelFilter) : campaigns),
+    [campaigns, channelFilter],
+  );
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-      {/* Left + middle: builder & log */}
+      {/* Left + middle: builder & list */}
       <div className="space-y-6 xl:col-span-2">
-        {channelNote && (
-          <div className="card flex items-start gap-3 p-4">
-            <Bell size={18} className="mt-0.5 shrink-0 text-duyo-blue" />
-            <div className="text-sm text-muted">
-              <span className="font-semibold text-ink">{channelNote.title}.</span> {channelNote.note}
-            </div>
-          </div>
-        )}
-
-        <CampaignBuilder />
-        <DeliveryLogCard />
+        <CampaignBuilder createMutation={createMutation} defaultChannel={channelFilter} />
+        <CampaignListCard
+          rows={rows}
+          query={query}
+          handlers={handlers}
+          pendingId={pendingId}
+        />
       </div>
 
-      {/* Right: template gallery + stats */}
+      {/* Right: template gallery + channel breakdown */}
       <div className="space-y-6">
         <TemplateGallery />
-        <MonthlyStatsCard />
+        <ChannelBreakdownCard summary={summary} />
       </div>
     </div>
   );
@@ -286,9 +490,54 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 const INPUT_CLS =
   "w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted focus:border-duyo-blue focus:outline-none focus:ring-2 focus:ring-duyo-100";
 
-function CampaignBuilder() {
+const MAX_BODY = 240;
+
+function CampaignBuilder({
+  createMutation,
+  defaultChannel,
+}: {
+  createMutation: CreateMutation;
+  defaultChannel: CampaignChannel | null;
+}) {
   const [quietHours, setQuietHours] = useState(true);
-  const [channel, setChannel] = useState<string>("Push");
+  const [channel, setChannel] = useState<string>(
+    defaultChannel ? CHANNEL_LABEL[defaultChannel] : "Push",
+  );
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [audience, setAudience] = useState<string>(AUDIENCE_SEGMENTS[0].value);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+
+  const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !createMutation.isPending;
+
+  function resetForm() {
+    setTitle("");
+    setBody("");
+    setScheduleDate("");
+    setScheduleTime("09:00");
+    setAudience(AUDIENCE_SEGMENTS[0].value);
+  }
+
+  function buildScheduledAt(): string | null {
+    if (!scheduleDate) return null;
+    const local = new Date(`${scheduleDate}T${scheduleTime || "00:00"}`);
+    if (Number.isNaN(local.getTime())) return null;
+    return local.toISOString();
+  }
+
+  function handleSubmit() {
+    if (!canSubmit) return;
+    const scheduled_at = buildScheduledAt();
+    const payload: CampaignCreate = {
+      channel: channelFromLabel(channel),
+      title: title.trim(),
+      body: body.trim(),
+      audience,
+      ...(scheduled_at ? { scheduled_at } : {}),
+    };
+    createMutation.mutate(payload, { onSuccess: resetForm });
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -297,15 +546,10 @@ function CampaignBuilder() {
           <Megaphone size={16} className="text-duyo-blue" />
           <h2 className="text-sm font-semibold text-ink">Yangi kampaniya yaratish</h2>
         </div>
-        <span className="pill bg-bg text-muted border border-line">DRAFT ID: #9942</span>
+        <span className="pill bg-bg text-muted border border-line">DRAFT</span>
       </div>
 
       <div className="space-y-4 p-5">
-        <div>
-          <FieldLabel>Kampaniya nomi</FieldLabel>
-          <input className={INPUT_CLS} placeholder="Masalan: Yozgi tahrir kampaniyasi" />
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <FieldLabel>Kanal</FieldLabel>
@@ -317,8 +561,10 @@ function CampaignBuilder() {
               <option>Push</option>
               <option>SMS</option>
               <option>Email</option>
+              <option>In-App</option>
             </select>
           </div>
+          {/* MOCK — yosh segmenti backendga yuborilmaydi */}
           <div>
             <FieldLabel>Yosh segmenti</FieldLabel>
             <select className={INPUT_CLS} defaultValue="6-12">
@@ -327,6 +573,7 @@ function CampaignBuilder() {
               ))}
             </select>
           </div>
+          {/* MOCK — til backendga yuborilmaydi */}
           <div>
             <FieldLabel>Til</FieldLabel>
             <select className={INPUT_CLS} defaultValue="O'zbek">
@@ -337,31 +584,41 @@ function CampaignBuilder() {
           </div>
         </div>
 
-        {/* Audience segment selector */}
+        {/* Audience segment selector — tanlangan qiymat backendga `audience` */}
         <div>
           <FieldLabel>Auditoriya</FieldLabel>
           <div className="flex flex-wrap gap-2">
-            {AUDIENCE_SEGMENTS.map((seg, i) => (
-              <button
-                key={seg.value}
-                type="button"
-                className={cn(
-                  "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium",
-                  i === 0
-                    ? "border-duyo-blue bg-duyo-50 text-duyo-dark"
-                    : "border-line text-muted hover:bg-bg",
-                )}
-              >
-                {seg.label}
-                <span className="text-xs opacity-70">{seg.size}</span>
-              </button>
-            ))}
+            {AUDIENCE_SEGMENTS.map((seg) => {
+              const active = audience === seg.value;
+              return (
+                <button
+                  key={seg.value}
+                  type="button"
+                  onClick={() => setAudience(seg.value)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium",
+                    active
+                      ? "border-duyo-blue bg-duyo-50 text-duyo-dark"
+                      : "border-line text-muted hover:bg-bg",
+                  )}
+                >
+                  {seg.label}
+                  <span className="text-xs opacity-70">{seg.size}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div>
           <FieldLabel>Xabar sarlavhasi</FieldLabel>
-          <input className={INPUT_CLS} placeholder="Qisqa va aniq sarlavha" maxLength={64} />
+          <input
+            className={INPUT_CLS}
+            placeholder="Qisqa va aniq sarlavha"
+            maxLength={64}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </div>
 
         <div>
@@ -370,20 +627,36 @@ function CampaignBuilder() {
             rows={4}
             className={cn(INPUT_CLS, "resize-none")}
             placeholder="Foydalanuvchiga yuboriladigan asosiy matn..."
+            maxLength={MAX_BODY}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
           />
-          <p className="mt-1 text-xs text-muted">Maksimal 240 belgi. O'zgaruvchilar: {"{ism}, {yosh}"}</p>
+          <p className="mt-1 text-xs text-muted">
+            {body.length}/{MAX_BODY} belgi. O'zgaruvchilar: {"{ism}, {yosh}"}
+          </p>
         </div>
 
         {/* Schedule + quiet hours */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <FieldLabel>Rejalashtirish</FieldLabel>
+            <FieldLabel>Rejalashtirish (ixtiyoriy)</FieldLabel>
             <div className="flex items-center gap-2">
               <Clock size={16} className="shrink-0 text-muted" />
-              <input type="date" className={INPUT_CLS} />
-              <input type="time" defaultValue="09:00" className={INPUT_CLS} />
+              <input
+                type="date"
+                className={INPUT_CLS}
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+              />
+              <input
+                type="time"
+                className={INPUT_CLS}
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+              />
             </div>
           </div>
+          {/* MOCK — sokin vaqt qoidasi (backend yo'q) */}
           <div className="flex items-end">
             <button
               type="button"
@@ -423,14 +696,24 @@ function CampaignBuilder() {
 
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
-          <button className="flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-bg">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-bg"
+          >
             <Eye size={15} /> Preview
           </button>
-          <button className="flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-bg">
-            <Send size={15} /> Test yuborish
-          </button>
-          <button className="ml-auto flex items-center gap-1.5 rounded-xl bg-duyo-blue px-4 py-2 text-sm font-semibold text-white hover:bg-duyo-dark">
-            <Rocket size={15} /> Kampaniyani nashr etish
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+            className="ml-auto flex items-center gap-1.5 rounded-xl bg-duyo-blue px-4 py-2 text-sm font-semibold text-white hover:bg-duyo-dark disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {createMutation.isPending ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Rocket size={15} />
+            )}
+            Kampaniya yaratish
           </button>
         </div>
       </div>
@@ -438,7 +721,21 @@ function CampaignBuilder() {
   );
 }
 
-function DeliveryLogCard() {
+/* ------------------------------------------------------------------ */
+/* Campaign list / delivery log (real rows + mutations)               */
+/* ------------------------------------------------------------------ */
+
+function CampaignListCard({
+  rows,
+  query,
+  handlers,
+  pendingId,
+}: {
+  rows: CampaignRow[];
+  query: CampaignsQuery;
+  handlers: RowHandlers;
+  pendingId: string | null;
+}) {
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between border-b border-line px-5 py-3">
@@ -446,56 +743,163 @@ function DeliveryLogCard() {
           <ScrollText size={16} className="text-muted" />
           <h2 className="text-sm font-semibold text-ink">Yetkazib berish jurnali</h2>
         </div>
-        <button className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-bg">
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-bg"
+        >
           <Download size={13} /> Eksport qilish (CSV)
         </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-              <th className="px-5 py-3">Qabul qiluvchi</th>
-              <th className="px-3 py-3">Kanal</th>
-              <th className="px-3 py-3">Shablon</th>
-              <th className="px-3 py-3">Holat</th>
-              <th className="px-3 py-3">Provayder</th>
-              <th className="px-3 py-3">Vaqt</th>
-              <th className="px-3 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {DELIVERY_LOG.map((row) => {
-              const s = STATUS_STYLES[row.status];
-              return (
-                <tr key={row.id} className="border-b border-line/70 last:border-0">
-                  <td className="px-5 py-3 font-medium text-ink">{row.recipient}</td>
-                  <td className="px-3 py-3 text-muted">{row.channel}</td>
-                  <td className="px-3 py-3 text-ink">{row.template}</td>
-                  <td className="px-3 py-3">
-                    <span className={cn("pill", s.pill)}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} /> {s.label}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-muted">{row.provider}</td>
-                  <td className="px-3 py-3 text-xs text-muted">{row.time}</td>
-                  <td className="px-3 py-3">
-                    {row.status === "failed" ? (
-                      <button className="flex items-center gap-1 rounded-lg border border-urgent-line bg-urgent-bg px-2.5 py-1 text-xs font-medium text-urgent hover:bg-urgent-bg/70">
-                        <RefreshCw size={13} /> Qayta urinish
-                      </button>
-                    ) : (
-                      <span className="text-xs text-muted">—</span>
-                    )}
+
+      {query.isLoading ? (
+        <LoadingState />
+      ) : query.isError ? (
+        <ErrorState message={getErrorMessage(query.error)} />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
+                <th className="px-5 py-3">Kampaniya</th>
+                <th className="px-3 py-3">Kanal</th>
+                <th className="px-3 py-3">Auditoriya</th>
+                <th className="px-3 py-3">Holat</th>
+                <th className="px-3 py-3">Yuborildi / Xato</th>
+                <th className="px-3 py-3">Vaqt</th>
+                <th className="px-3 py-3 text-right">Amallar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">
+                    Kampaniyalar yo'q
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                rows.map((row) => (
+                  <CampaignRowItem
+                    key={row.id}
+                    row={row}
+                    busy={pendingId === row.id}
+                    handlers={handlers}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
+
+function CampaignRowItem({
+  row,
+  busy,
+  handlers,
+}: {
+  row: CampaignRow;
+  busy: boolean;
+  handlers: RowHandlers;
+}) {
+  const s = STATUS_PILL[row.status];
+  const ch = CHANNEL_PILL[row.channel];
+  const ChannelIcon = ch.icon;
+  const isTerminal = row.status === "sent" || row.status === "canceled";
+  const timeLabel = row.sent_at
+    ? `Yuborildi: ${formatDateTime(row.sent_at)}`
+    : row.scheduled_at
+      ? `Reja: ${formatDateTime(row.scheduled_at)}`
+      : `Yaratilgan: ${formatDateTime(row.created_at)}`;
+
+  return (
+    <tr className="border-b border-line/70 last:border-0 hover:bg-bg/60">
+      <td className="px-5 py-3">
+        <div className="font-medium text-ink">{row.title}</div>
+        <div className="line-clamp-1 text-xs text-muted">{row.body}</div>
+      </td>
+      <td className="px-3 py-3">
+        <span className={cn("pill", ch.cls)}>
+          <ChannelIcon size={12} /> {CHANNEL_LABEL[row.channel]}
+        </span>
+      </td>
+      <td className="px-3 py-3 text-muted">{row.audience || "—"}</td>
+      <td className="px-3 py-3">
+        <span className={cn("pill", s.pill)}>
+          <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} /> {s.label}
+        </span>
+      </td>
+      <td className="px-3 py-3 text-xs">
+        <span className="font-medium text-ink">{row.sent_count.toLocaleString("uz-UZ")}</span>
+        {row.failed_count > 0 && (
+          <span className="text-urgent"> / {row.failed_count.toLocaleString("uz-UZ")}</span>
+        )}
+      </td>
+      <td className="px-3 py-3 text-xs text-muted">{timeLabel}</td>
+      <td className="px-3 py-3">
+        <div className="flex items-center justify-end gap-1.5">
+          {isTerminal ? (
+            <span className="text-xs text-muted">—</span>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => handlers.onSend(row)}
+                className="flex items-center gap-1 rounded-lg border border-safe-line bg-safe-bg px-2.5 py-1 text-xs font-medium text-safe hover:bg-safe/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Yuborish
+              </button>
+              {row.status === "draft" && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => handlers.onSchedule(row)}
+                  className="flex items-center gap-1 rounded-lg border border-warn-line bg-warn-bg px-2.5 py-1 text-xs font-medium text-warn hover:bg-warn/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <CalendarClock size={13} /> Rejalashtirish
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => handlers.onCancel(row)}
+                className="flex items-center gap-1 rounded-lg border border-urgent-line bg-urgent-bg px-2.5 py-1 text-xs font-medium text-urgent hover:bg-urgent/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Ban size={13} /> Bekor qilish
+              </button>
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/* ── Holat ko'rinishlari ─────────────────────────────────────────── */
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-muted">
+      <Loader2 size={18} className="animate-spin text-duyo-blue" />
+      Yuklanmoqda…
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-urgent">
+      <AlertTriangle size={18} />
+      {message}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Template gallery (MOCK)                                             */
+/* ------------------------------------------------------------------ */
 
 function TemplateGallery() {
   return (
@@ -505,7 +909,10 @@ function TemplateGallery() {
           <LayoutTemplate size={16} className="text-muted" />
           <h2 className="text-sm font-semibold text-ink">Shablonlar galereyasi</h2>
         </div>
-        <button className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-bg">
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-bg"
+        >
           <Plus size={13} /> Yangi shablon
         </button>
       </div>
@@ -513,9 +920,7 @@ function TemplateGallery() {
       <div className="p-4">
         <div className="mb-3 flex items-start gap-2 rounded-xl border border-warn-line bg-warn-bg p-3 text-xs text-warn">
           <Lock size={14} className="mt-0.5 shrink-0" />
-          <span>
-            RED/ORANGE shablonlari faqat Super Admin tomonidan tahrirlanishi mumkin.
-          </span>
+          <span>RED/ORANGE shablonlari faqat Super Admin tomonidan tahrirlanishi mumkin.</span>
         </div>
 
         <div className="space-y-3">
@@ -552,28 +957,40 @@ function TemplateGallery() {
   );
 }
 
-function MonthlyStatsCard() {
+/* ------------------------------------------------------------------ */
+/* Channel breakdown — backend summary.by_channel                      */
+/* ------------------------------------------------------------------ */
+
+function ChannelBreakdownCard({ summary }: { summary: CampaignSummary | undefined }) {
+  const byChannel = summary?.by_channel ?? {};
+  const channels: CampaignChannel[] = ["push", "sms", "email", "in_app"];
+  const total = channels.reduce((s, c) => s + (byChannel[c] ?? 0), 0);
+
   return (
-    <div className="card overflow-hidden bg-ink text-white">
-      <div className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
-        <TrendingUp size={16} className="text-white/70" />
-        <h2 className="text-sm font-semibold">Oylik statistika</h2>
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+        <Bell size={16} className="text-muted" />
+        <h2 className="text-sm font-semibold text-ink">Kanal bo'yicha taqsimot</h2>
       </div>
-      <div className="grid grid-cols-2 gap-px bg-white/10">
-        {MONTHLY_STATS.map((s) => (
-          <div key={s.label} className="bg-ink p-4">
-            <div className="text-2xl font-bold">{s.value}</div>
-            <div className="mt-0.5 text-xs text-white/60">{s.label}</div>
-            <div
-              className={cn(
-                "mt-1 text-xs font-medium",
-                s.positive ? "text-safe" : "text-urgent",
-              )}
-            >
-              {s.delta} {s.positive ? "↑" : "↓"}
+      <div className="space-y-3 p-5">
+        {channels.map((c) => {
+          const count = byChannel[c] ?? 0;
+          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+          const Icon = CHANNEL_PILL[c].icon;
+          return (
+            <div key={c}>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1.5 text-ink">
+                  <Icon size={14} className="text-muted" /> {CHANNEL_LABEL[c]}
+                </span>
+                <span className="text-muted">{count}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-bg">
+                <div className="h-full rounded-full bg-duyo-blue" style={{ width: `${pct}%` }} />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -612,21 +1029,28 @@ function TemplatesTab() {
 /* Logs-only tab                                                       */
 /* ------------------------------------------------------------------ */
 
-function LogsTab() {
+function LogsTab({
+  campaigns,
+  query,
+  summary,
+  handlers,
+  pendingId,
+}: {
+  campaigns: CampaignRow[];
+  query: CampaignsQuery;
+  summary: CampaignSummary | undefined;
+  handlers: RowHandlers;
+  pendingId: string | null;
+}) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {MONTHLY_STATS.map((s) => (
-          <div key={s.label} className="card p-4">
-            <div className="text-xs font-medium text-muted">{s.label}</div>
-            <div className="mt-1 text-2xl font-bold text-ink">{s.value}</div>
-            <div className={cn("mt-1 text-xs font-medium", s.positive ? "text-safe" : "text-urgent")}>
-              {s.delta} {s.positive ? "↑" : "↓"}
-            </div>
-          </div>
-        ))}
-      </div>
-      <DeliveryLogCard />
+      <SummaryStrip summary={summary} loading={query.isLoading} />
+      <CampaignListCard
+        rows={campaigns}
+        query={query}
+        handlers={handlers}
+        pendingId={pendingId}
+      />
     </div>
   );
 }

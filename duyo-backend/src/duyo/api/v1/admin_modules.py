@@ -23,6 +23,7 @@ from duyo.models.child import ChildProfile
 from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
 from duyo.models.gamification import Avatar, BallsTransaction, InventoryItem, Streak
 from duyo.models.message import Message, MessageRole
+from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.report import Report
 from duyo.models.subscription import Subscription
 from duyo.models.tamagochi import TamagochiState
@@ -33,6 +34,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 _require_finance = require_roles(AdminRole.FINANCE_MANAGER)
 _require_analyst = require_roles(AdminRole.ANALYST, AdminRole.ADMIN)
 _require_content = require_roles(AdminRole.CONTENT_MANAGER)
+_require_admin = require_roles(AdminRole.ADMIN)
 
 
 # ---- Gamification ----
@@ -356,3 +358,99 @@ async def content_update(
     )
     await db.flush()
     return ContentRow.model_validate(item)
+
+
+# ---- Notifications / Campaigns (Admin) ----
+class CampaignRow(BaseModel):
+    id: UUID
+    channel: str
+    title: str
+    body: str
+    audience: str
+    status: str
+    scheduled_at: datetime | None
+    sent_at: datetime | None
+    sent_count: int
+    failed_count: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CampaignCreate(BaseModel):
+    channel: CampaignChannel
+    title: str
+    body: str
+    audience: str = "all"
+    scheduled_at: datetime | None = None
+
+
+class CampaignPatch(BaseModel):
+    status: CampaignStatus | None = None
+    scheduled_at: datetime | None = None
+
+
+@router.get("/notifications/campaigns", response_model=list[CampaignRow])
+async def campaigns_list(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_admin),
+) -> list[CampaignRow]:
+    rows = (await db.scalars(select(Campaign).order_by(Campaign.created_at.desc()).limit(min(limit, 500)))).all()
+    return [CampaignRow.model_validate(r) for r in rows]
+
+
+@router.get("/notifications/summary")
+async def campaigns_summary(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_admin),
+) -> dict:
+    by_status = {
+        (s.value if hasattr(s, "value") else str(s)): n
+        for s, n in (await db.execute(select(Campaign.status, func.count()).group_by(Campaign.status))).all()
+    }
+    by_channel = {
+        (c.value if hasattr(c, "value") else str(c)): n
+        for c, n in (await db.execute(select(Campaign.channel, func.count()).group_by(Campaign.channel))).all()
+    }
+    return {"by_status": by_status, "by_channel": by_channel}
+
+
+@router.post("/notifications/campaigns", response_model=CampaignRow, status_code=status.HTTP_201_CREATED)
+async def campaign_create(
+    payload: CampaignCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_admin),
+) -> CampaignRow:
+    item = Campaign(**payload.model_dump())
+    db.add(item)
+    await db.flush()
+    await record_audit(db, admin, action="create", module="notifications", target=str(item.id), request=request)
+    return CampaignRow.model_validate(item)
+
+
+@router.patch("/notifications/campaigns/{campaign_id}", response_model=CampaignRow)
+async def campaign_update(
+    campaign_id: UUID,
+    payload: CampaignPatch,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_admin),
+) -> CampaignRow:
+    item = await db.get(Campaign, campaign_id)
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Kampaniya topilmadi")
+    if payload.scheduled_at is not None:
+        item.scheduled_at = payload.scheduled_at
+    if payload.status is not None:
+        item.status = payload.status
+        # Mark sent timestamp when transitioning to SENT (actual delivery wired later).
+        if payload.status == CampaignStatus.SENT and item.sent_at is None:
+            item.sent_at = datetime.now(item.created_at.tzinfo)
+    await record_audit(
+        db, admin, action="update", module="notifications", target=str(campaign_id),
+        meta=payload.model_dump(exclude_none=True, mode="json"), request=request,
+    )
+    await db.flush()
+    return CampaignRow.model_validate(item)

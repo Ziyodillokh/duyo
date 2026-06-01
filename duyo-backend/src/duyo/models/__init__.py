@@ -13,12 +13,16 @@ from duyo.models.gamification import (
     Streak,
 )
 from duyo.models.message import Message, MessageRole
+from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.tamagochi import TamagochiState
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
 
 __all__ = [
     "AdminRole",
+    "Campaign",
+    "CampaignChannel",
+    "CampaignStatus",
     "AdminUser",
     "AgeSegment",
     "AuditLog",
