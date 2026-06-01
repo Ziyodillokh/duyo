@@ -158,13 +158,6 @@ const conversionTrend = [
   { d: "May", rate: 3.2 },
 ];
 
-const retentionCohorts = [
-  { cohort: "1-7 May", size: 1240, d1: 45, d3: 38, d7: 30, d14: 22, d30: 18 },
-  { cohort: "8-14 May", size: 1105, d1: 42, d3: 35, d7: 28, d14: 20, d30: null },
-  { cohort: "15-21 May", size: 1380, d1: 48, d3: 39, d7: 32, d14: null, d30: null },
-  { cohort: "22-28 May", size: 1190, d1: 44, d3: 37, d7: null, d14: null, d30: null },
-];
-
 // ---- Small presentational helpers ----
 
 interface Kpi {
@@ -304,11 +297,22 @@ function HBar({
   );
 }
 
-function retentionCell(v: number | null) {
-  if (v === null) return <span className="text-muted">—</span>;
-  // duyo-blue tinted heatmap: higher value = stronger blue
-  const alpha = Math.min(0.9, 0.15 + v / 100);
-  const dark = v >= 35;
+// Kogorta katakchasi — fraksiya (0..1) ni foiz heatmap sifatida ko'rsatadi.
+// Yuqori foiz = quyuqroq duyo-blue. Bo'sh/nol katakchalar muted ko'rinadi.
+function RetentionCell({ fraction }: { fraction: number | undefined }) {
+  if (fraction === undefined) {
+    return <span className="text-muted">—</span>;
+  }
+  const pct = Math.round(fraction * 100);
+  if (pct <= 0) {
+    return (
+      <span className="inline-block min-w-[44px] rounded-md bg-bg px-2 py-1 text-center text-xs font-medium text-muted">
+        0%
+      </span>
+    );
+  }
+  const alpha = Math.min(0.9, 0.15 + fraction);
+  const dark = fraction >= 0.35;
   return (
     <span
       className={cn(
@@ -317,7 +321,7 @@ function retentionCell(v: number | null) {
       )}
       style={{ backgroundColor: `rgba(37, 99, 235, ${alpha})` }}
     >
-      {v}%
+      {pct}%
     </span>
   );
 }
@@ -331,10 +335,37 @@ export function Analytics() {
     queryFn: () => adminApi.analyticsOverview(),
   });
 
+  const {
+    data: engagement,
+    isLoading: isEngagementLoading,
+    isError: isEngagementError,
+  } = useQuery({
+    queryKey: ["admin", "analytics", "engagement"],
+    queryFn: () => adminApi.analyticsEngagement(),
+  });
+
+  const {
+    data: retention,
+    isLoading: isRetentionLoading,
+    isError: isRetentionError,
+  } = useQuery({
+    queryKey: ["admin", "analytics", "retention"],
+    queryFn: () => adminApi.analyticsRetention(6),
+  });
+
   const kpiValue = (n: number | undefined) =>
     isOverviewLoading || n === undefined ? "…" : n.toLocaleString();
 
+  const engagementValue = (n: number | undefined) =>
+    isEngagementLoading || n === undefined ? "…" : n.toLocaleString();
+
+  const stickinessValue =
+    isEngagementLoading || engagement === undefined
+      ? "…"
+      : `${(engagement.stickiness * 100).toFixed(0)}%`;
+
   const messagesPerDay = overview?.messages_per_day ?? [];
+  const signupsPerDay = engagement?.signups_per_day ?? [];
 
   return (
     <div>
@@ -481,6 +512,51 @@ export function Analytics() {
               <Line type="monotone" dataKey="levelUp" name="Level up" stroke={SERIOUS} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* ---- Jonli jalblik ko'rsatkichlari (engagement) ---- */}
+      <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <KpiCard label="DAU (faol)" value={engagementValue(engagement?.dau)} live />
+        <KpiCard label="WAU (faol)" value={engagementValue(engagement?.wau)} live />
+        <KpiCard label="MAU (faol ota-onalar)" value={engagementValue(engagement?.mau)} live />
+        <KpiCard label="Stickiness (DAU/MAU)" value={stickinessValue} accent="safe" live />
+      </div>
+
+      <div className="mb-4">
+        <ChartCard title="Yangi ro'yxatdan o'tishlar (30 kun)" action={<LiveBadge />}>
+          {isEngagementLoading ? (
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted">
+              Yuklanmoqda…
+            </div>
+          ) : isEngagementError ? (
+            <div className="flex h-[220px] items-center justify-center text-sm text-urgent">
+              Ma'lumotni yuklab bo'lmadi
+            </div>
+          ) : signupsPerDay.length === 0 ? (
+            <div className="flex h-[220px] flex-col items-center justify-center gap-1 text-center">
+              <span className="text-sm font-medium text-ink">Ma'lumot yetarli emas</span>
+              <span className="text-xs text-muted">
+                Yangi ro'yxatdan o'tishlar paydo bo'lgach shu yerda ko'rinadi.
+              </span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={signupsPerDay} margin={{ left: -18, right: 6 }}>
+                <CartesianGrid vertical={false} stroke={LINE} />
+                <XAxis dataKey="day" {...axisProps} />
+                <YAxis {...axisProps} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#EFF6FF" }} />
+                <Bar
+                  dataKey="count"
+                  name="Ro'yxatdan o'tganlar"
+                  fill={BLUE}
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
       </div>
 
@@ -710,47 +786,56 @@ export function Analytics() {
 
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
-          <h3 className="text-sm font-semibold text-ink">Kohorta retention</h3>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-muted">
-              D1 <span className="font-semibold text-duyo-blue">42%</span>
-            </span>
-            <span className="text-muted">
-              D7 <span className="font-semibold text-duyo-blue">28%</span>
-            </span>
-            <span className="text-muted">
-              D30 <span className="font-semibold text-duyo-blue">15%</span>
+          <h3 className="text-sm font-semibold text-ink">Kogorta retention (haftalik)</h3>
+          <LiveBadge />
+        </div>
+
+        {isRetentionLoading ? (
+          <div className="flex h-[180px] items-center justify-center text-sm text-muted">
+            Yuklanmoqda…
+          </div>
+        ) : isRetentionError ? (
+          <div className="flex h-[180px] items-center justify-center text-sm text-urgent">
+            Ma'lumotni yuklab bo'lmadi
+          </div>
+        ) : !retention || retention.cohorts.length === 0 ? (
+          <div className="flex h-[180px] flex-col items-center justify-center gap-1 px-5 text-center">
+            <span className="text-sm font-medium text-ink">Ma'lumot yetarli emas</span>
+            <span className="text-xs text-muted">
+              Foydalanuvchilar faolligi to'planganidan so'ng kogortalar shu yerda
+              ko'rinadi.
             </span>
           </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-                <th className="px-5 py-3">Kohorta</th>
-                <th className="px-3 py-3">Soni</th>
-                <th className="px-3 py-3">D1</th>
-                <th className="px-3 py-3">D3</th>
-                <th className="px-3 py-3">D7</th>
-                <th className="px-3 py-3">D14</th>
-                <th className="px-3 py-3">D30</th>
-              </tr>
-            </thead>
-            <tbody>
-              {retentionCohorts.map((c) => (
-                <tr key={c.cohort} className="border-b border-line/70 last:border-0">
-                  <td className="px-5 py-3 font-medium text-ink">{c.cohort}</td>
-                  <td className="px-3 py-3 text-muted">{c.size.toLocaleString()}</td>
-                  <td className="px-3 py-3">{retentionCell(c.d1)}</td>
-                  <td className="px-3 py-3">{retentionCell(c.d3)}</td>
-                  <td className="px-3 py-3">{retentionCell(c.d7)}</td>
-                  <td className="px-3 py-3">{retentionCell(c.d14)}</td>
-                  <td className="px-3 py-3">{retentionCell(c.d30)}</td>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
+                  <th className="px-5 py-3">Kogorta</th>
+                  <th className="px-3 py-3">Hajmi</th>
+                  {Array.from({ length: retention.weeks + 1 }, (_, k) => (
+                    <th key={k} className="px-3 py-3">
+                      Hafta {k}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {retention.cohorts.map((c) => (
+                  <tr key={c.cohort} className="border-b border-line/70 last:border-0">
+                    <td className="px-5 py-3 font-medium text-ink">{c.cohort}</td>
+                    <td className="px-3 py-3 text-muted">{c.size.toLocaleString()}</td>
+                    {Array.from({ length: retention.weeks + 1 }, (_, k) => (
+                      <td key={k} className="px-3 py-3">
+                        <RetentionCell fraction={c.retention[k]} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <p className="mt-3 text-xs text-muted">

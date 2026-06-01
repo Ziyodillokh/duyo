@@ -107,6 +107,25 @@ export interface AnalyticsOverview {
   messages_per_day: { day: string; count: number }[];
 }
 
+export interface EngagementMetrics {
+  dau: number;
+  wau: number;
+  mau: number;
+  stickiness: number;
+  signups_per_day: { day: string; count: number }[];
+}
+
+export interface RetentionCohort {
+  cohort: string;
+  size: number;
+  retention: number[]; // index = weeks since signup, value = fraction active
+}
+
+export interface RetentionData {
+  weeks: number;
+  cohorts: RetentionCohort[];
+}
+
 export interface AdminUserRow {
   id: string;
   email: string;
@@ -265,6 +284,9 @@ export const adminApi = {
   aiLogs: () => api.get<AiLogRow[]>("/admin/ai/logs"),
   aiSummary: () => api.get<AiSummary>("/admin/ai/summary"),
   analyticsOverview: () => api.get<AnalyticsOverview>("/admin/analytics/overview"),
+  analyticsEngagement: () => api.get<EngagementMetrics>("/admin/analytics/engagement"),
+  analyticsRetention: (weeks = 6) =>
+    api.get<RetentionData>(`/admin/analytics/retention?weeks=${weeks}`),
   contentList: (type?: ContentType) =>
     api.get<ContentRow[]>(`/admin/content${type ? `?type=${type}` : ""}`),
   contentSummary: () =>

@@ -8,7 +8,7 @@ router file to keep admin.py focused; same /admin prefix. RBAC per spec
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -21,6 +21,7 @@ from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_role
 from duyo.models.admin import AdminRole, AdminUser
 from duyo.models.child import ChildProfile
 from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
+from duyo.models.conversation import Conversation
 from duyo.models.gamification import Avatar, BallsTransaction, InventoryItem, Streak
 from duyo.models.message import Message, MessageRole
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
@@ -304,6 +305,107 @@ async def analytics_overview(
         "messages": messages,
         "messages_per_day": list(reversed(per_day)),
     }
+
+
+# A parent counts as "active" in a window if any of their children sent a
+# CHILD message in it: messages → conversations → child_profiles.parent_id.
+def _active_parents_since(since: datetime):
+    return (
+        select(func.count(func.distinct(ChildProfile.parent_id)))
+        .select_from(Message)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .join(ChildProfile, Conversation.child_id == ChildProfile.id)
+        .where(Message.role == MessageRole.CHILD, Message.created_at >= since)
+    )
+
+
+@router.get("/analytics/engagement")
+async def analytics_engagement(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_analyst),
+) -> dict:
+    """Active parents (DAU/WAU/MAU), stickiness, and 30-day signup trend."""
+    now = datetime.now(UTC)
+    dau = await db.scalar(_active_parents_since(now - timedelta(days=1))) or 0
+    wau = await db.scalar(_active_parents_since(now - timedelta(days=7))) or 0
+    mau = await db.scalar(_active_parents_since(now - timedelta(days=30))) or 0
+    signups = [
+        {"day": str(day), "count": n}
+        for day, n in (
+            await db.execute(
+                select(func.date(User.created_at).label("day"), func.count())
+                .where(User.created_at >= now - timedelta(days=30))
+                .group_by(func.date(User.created_at))
+                .order_by(func.date(User.created_at))
+            )
+        ).all()
+    ]
+    return {
+        "dau": dau, "wau": wau, "mau": mau,
+        "stickiness": round(dau / mau, 3) if mau else 0.0,  # DAU/MAU
+        "signups_per_day": signups,
+    }
+
+
+def _build_cohort_matrix(
+    sizes: dict[str, int], buckets: list[tuple[str, int, int]], max_weeks: int,
+) -> list[dict]:
+    """Assemble weekly retention rows from cohort sizes and (cohort, week_offset,
+    active_users) buckets. retention[k] = active_in_week_k / cohort_size."""
+    rows = []
+    for cohort in sorted(sizes, reverse=True):
+        size = sizes[cohort]
+        active = {wk: n for c, wk, n in buckets if c == cohort}
+        retention = [
+            round(active.get(k, 0) / size, 3) if size else 0.0
+            for k in range(max_weeks + 1)
+        ]
+        rows.append({"cohort": cohort, "size": size, "retention": retention})
+    return rows
+
+
+@router.get("/analytics/retention")
+async def analytics_retention(
+    weeks: int = 6,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_analyst),
+) -> dict:
+    """Weekly signup cohorts x retention per week-since-signup (% active)."""
+    max_weeks = max(1, min(weeks, 12))
+    since = datetime.now(UTC) - timedelta(weeks=max_weeks + 1)
+
+    cohort_col = func.date_trunc("week", User.created_at)
+    sizes = {
+        str(c.date()): n
+        for c, n in (
+            await db.execute(
+                select(cohort_col.label("c"), func.count())
+                .where(User.created_at >= since)
+                .group_by(cohort_col)
+            )
+        ).all()
+    }
+
+    user_week = func.date_trunc("week", User.created_at)
+    msg_week = func.date_trunc("week", Message.created_at)
+    week_offset = func.floor(
+        func.extract("epoch", msg_week - user_week) / 604800  # seconds per week
+    )
+    buckets = [
+        (str(c.date()), int(wk), n)
+        for c, wk, n in (
+            await db.execute(
+                select(user_week.label("c"), week_offset.label("wk"), func.count(func.distinct(User.id)))
+                .select_from(Message)
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .join(ChildProfile, Conversation.child_id == ChildProfile.id)
+                .join(User, ChildProfile.parent_id == User.id)
+                .where(Message.role == MessageRole.CHILD, User.created_at >= since)
+                .group_by(user_week, week_offset)
+            )
+        ).all()
+    ]
+    return {"weeks": max_weeks, "cohorts": _build_cohort_matrix(sizes, buckets, max_weeks)}
 
 
 # ---- Content Library (Content Manager) ----
