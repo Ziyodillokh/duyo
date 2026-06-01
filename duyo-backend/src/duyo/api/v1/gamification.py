@@ -123,6 +123,7 @@ def _balance_response(balance: int) -> BallsBalance:
         balance=info.balance,
         level=info.level,
         level_name=info.name,
+        current_threshold=info.current_threshold,
         next_threshold=info.next_threshold,
         balls_to_next=info.balls_to_next,
     )

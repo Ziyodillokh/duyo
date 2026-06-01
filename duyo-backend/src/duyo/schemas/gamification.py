@@ -37,6 +37,7 @@ class BallsBalance(BaseModel):
     balance: int
     level: int
     level_name: str
+    current_threshold: int
     next_threshold: int | None
     balls_to_next: int | None
 
