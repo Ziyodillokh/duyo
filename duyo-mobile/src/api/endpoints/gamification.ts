@@ -20,9 +20,12 @@ export interface InventoryItemWire {
 export interface AvatarWire {
   body_shape: string;
   primary_color: string;
-  accent_color: string;
+  accent: string;
   face_style: string;
 }
+
+// All fields optional — a partial update only changes provided dimensions.
+export type AvatarUpdateInput = Partial<AvatarWire>;
 
 export interface StreakWire {
   current_streak: number;
@@ -65,6 +68,17 @@ export async function purchaseItem(
 
 export async function getAvatar(childId: string): Promise<AvatarWire> {
   const { data } = await apiClient.get<AvatarWire>(`${base(childId)}/avatar`);
+  return data;
+}
+
+export async function updateAvatar(
+  childId: string,
+  input: AvatarUpdateInput,
+): Promise<AvatarWire> {
+  const { data } = await apiClient.put<AvatarWire>(
+    `${base(childId)}/avatar`,
+    input,
+  );
   return data;
 }
 

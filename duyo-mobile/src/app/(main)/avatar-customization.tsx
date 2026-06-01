@@ -1,8 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, Coins } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -13,8 +14,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useAvatar, useUpdateAvatar } from '@/hooks/use-gamification';
 import { useIsDark } from '@/store/theme';
 
+// Each customizer tab maps 1:1 to a backend avatar field (body→body_shape,
+// color→primary_color, accent→accent, face→face_style) and the option keys
+// share the same vocabulary, so no translation is needed.
 type TabKey = 'body' | 'color' | 'accent' | 'face';
 
 interface AvatarOption {
@@ -71,6 +76,21 @@ export default function AvatarCustomizationScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>('body');
   const [config, setConfig] = useState<Record<TabKey, string>>({ ...DEFAULTS });
 
+  const avatar = useAvatar();
+  const updateAvatar = useUpdateAvatar();
+
+  // Seed the editor from the saved avatar once it loads.
+  useEffect(() => {
+    if (avatar.data) {
+      setConfig({
+        body: avatar.data.body_shape,
+        color: avatar.data.primary_color,
+        accent: avatar.data.accent,
+        face: avatar.data.face_style,
+      });
+    }
+  }, [avatar.data]);
+
   const setOption = (key: string, isOwned: boolean | undefined, price?: number) => {
     if (isOwned) {
       setConfig((prev) => ({ ...prev, [activeTab]: key }));
@@ -80,8 +100,22 @@ export default function AvatarCustomizationScreen() {
   };
 
   const handleSave = () => {
-    Alert.alert('Saqlandi', 'Avatar yangilandi!');
-    router.back();
+    updateAvatar.mutate(
+      {
+        body_shape: config.body,
+        primary_color: config.color,
+        accent: config.accent,
+        face_style: config.face,
+      },
+      {
+        onSuccess: () => {
+          Alert.alert('Saqlandi', 'Avatar yangilandi!');
+          router.back();
+        },
+        onError: () =>
+          Alert.alert('Xatolik', "Saqlab bo'lmadi. Qayta urinib ko'ring."),
+      },
+    );
   };
 
   return (
@@ -203,17 +237,23 @@ export default function AvatarCustomizationScreen() {
 
           <Pressable
             onPress={handleSave}
+            disabled={updateAvatar.isPending}
             accessibilityRole="button"
             accessibilityLabel="Saqlash"
+            accessibilityState={{ disabled: updateAvatar.isPending }}
             className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-            style={{ height: 56 }}
+            style={{ height: 56, opacity: updateAvatar.isPending ? 0.6 : 1 }}
           >
-            <Text
-              className="text-base font-medium"
-              style={{ color: '#0A1628' }}
-            >
-              Saqlash
-            </Text>
+            {updateAvatar.isPending ? (
+              <ActivityIndicator color="#0A1628" />
+            ) : (
+              <Text
+                className="text-base font-medium"
+                style={{ color: '#0A1628' }}
+              >
+                Saqlash
+              </Text>
+            )}
           </Pressable>
         </ScrollView>
       </SafeAreaView>
