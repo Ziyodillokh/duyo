@@ -147,6 +147,8 @@ async def chat_with_web_search(
         "nimani so'rasa, o'shanga qisqa va tushunarli javob qaytar; topilgan "
         "sahifalarni umumlashtirma yoki qayta hikoya qilma, balki ulardan "
         "savolga kerakli aniq ma'lumotni olib o'z so'zing bilan javob ber. "
+        "Agar savol yil yoki sana so'rasa (masalan tarixiy voqea), ANIQ "
+        "yil/sanani ayt — mavhum yoki taxminiy javob berma. "
         "Bu javob darslikdan EMAS — 'darsligiga ko'ra' kabi iboralarni "
         "ishlatma. Avvalgi suhbatdagi darslik javoblaridan nusxa olma."
     )
