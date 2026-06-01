@@ -2,7 +2,16 @@ import { Routes, Route } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Dashboard } from "@/pages/Dashboard";
 import { SafetyCenter } from "@/pages/SafetyCenter";
-import { Placeholder } from "@/pages/Placeholder";
+import { Users } from "@/pages/Users";
+import { AiManagement } from "@/pages/AiManagement";
+import { RagKnowledge } from "@/pages/RagKnowledge";
+import { ContentLibrary } from "@/pages/ContentLibrary";
+import { Gamification } from "@/pages/Gamification";
+import { ParentMonitoring } from "@/pages/ParentMonitoring";
+import { Monetization } from "@/pages/Monetization";
+import { Notifications } from "@/pages/Notifications";
+import { Analytics } from "@/pages/Analytics";
+import { SystemSettings } from "@/pages/SystemSettings";
 
 export default function App() {
   return (
@@ -10,16 +19,16 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/safety" element={<SafetyCenter />} />
-        <Route path="/users" element={<Placeholder navKey="users" phase="Faza 1" />} />
-        <Route path="/ai" element={<Placeholder navKey="ai" phase="Faza 2" />} />
-        <Route path="/rag" element={<Placeholder navKey="rag" phase="Faza 1" />} />
-        <Route path="/content" element={<Placeholder navKey="content" phase="Faza 2" />} />
-        <Route path="/gamification" element={<Placeholder navKey="gamification" phase="Faza 3" />} />
-        <Route path="/parents" element={<Placeholder navKey="parents" phase="Faza 2" />} />
-        <Route path="/monetization" element={<Placeholder navKey="monetization" phase="Faza 3" />} />
-        <Route path="/notifications" element={<Placeholder navKey="notifications" phase="Faza 3" />} />
-        <Route path="/analytics" element={<Placeholder navKey="analytics" phase="Faza 3" />} />
-        <Route path="/settings" element={<Placeholder navKey="settings" phase="Faza 0/3" />} />
+        <Route path="/users" element={<Users />} />
+        <Route path="/ai" element={<AiManagement />} />
+        <Route path="/rag" element={<RagKnowledge />} />
+        <Route path="/content" element={<ContentLibrary />} />
+        <Route path="/gamification" element={<Gamification />} />
+        <Route path="/parents" element={<ParentMonitoring />} />
+        <Route path="/monetization" element={<Monetization />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/settings" element={<SystemSettings />} />
       </Route>
     </Routes>
   );
