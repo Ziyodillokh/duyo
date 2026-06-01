@@ -7,6 +7,7 @@ import {
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useIsDark } from '@/store/theme';
 
@@ -38,13 +39,15 @@ const LIGHT_INACTIVE = '#64748B';
 
 export function BottomNav({ active, onSelect }: BottomNavProps) {
   const isDark = useIsDark();
+  const insets = useSafeAreaInsets();
   const bgClass = isDark
     ? 'bg-card dark:bg-dark-surface border-t border-neon-blue/20'
     : 'bg-white border-t border-primary/10';
   const activeColor = isDark ? DARK_ACTIVE : LIGHT_ACTIVE;
   const inactiveColor = isDark ? DARK_INACTIVE : LIGHT_INACTIVE;
   return (
-    <View className={`${bgClass} flex-row h-16`}>
+    // paddingBottom lifts the bar above Android's gesture/nav bar (safe-area inset).
+    <View className={`${bgClass} flex-row`} style={{ paddingBottom: insets.bottom }}>
       {TABS.map((tab) => {
         const isActive = tab.key === active;
         const color = isActive ? activeColor : inactiveColor;
@@ -55,7 +58,7 @@ export function BottomNav({ active, onSelect }: BottomNavProps) {
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={tab.label}
-            className="flex-1 items-center justify-center gap-1"
+            className="h-16 flex-1 items-center justify-center gap-1"
           >
             <tab.Icon size={24} color={color} />
             <Text
