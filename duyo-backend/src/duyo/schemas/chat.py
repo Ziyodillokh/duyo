@@ -20,6 +20,14 @@ class ChatSource(BaseModel):
     refs: list[SourceRef] = []
 
 
+class ChatImage(BaseModel):
+    url: str                 # display URL (safe to load directly)
+    title: str
+    source_url: str          # tap-through page for attribution / context
+    creator: str | None = None
+    license: str | None = None
+
+
 class QuickReply(BaseModel):
     label: str
     action: Literal["web_search", "dismiss"]
@@ -72,3 +80,4 @@ class ChatResponse(BaseModel):
     latency_ms: int
     source: ChatSource | None = None
     quick_replies: list[QuickReply] = []
+    images: list[ChatImage] = []

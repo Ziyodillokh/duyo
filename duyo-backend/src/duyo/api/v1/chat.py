@@ -21,6 +21,7 @@ from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
 from duyo.schemas.chat import (
+    ChatImage,
     ChatRequest,
     ChatResponse,
     ChatSource,
@@ -33,6 +34,7 @@ from duyo.schemas.chat import (
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini import chat as gemini_chat
 from duyo.services.gemini import chat_with_web_search
+from duyo.services.images import search_images
 from duyo.services.sms import get_sms_provider
 from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
 
@@ -312,6 +314,7 @@ async def chat_turn(
     #   (c) RAG miss           → answer from Google Search grounding
     source: ChatSource | None = None
     quick_replies: list[QuickReply] = []
+    images: list[ChatImage] = []
 
     if payload.action == "web_search":
         # "Ha" follow-up: search the web for the ORIGINAL question (action_query).
@@ -323,6 +326,14 @@ async def chat_turn(
             child_message=query, age_segment=child.age_segment,
         )
         source = _web_source(reply.sources)
+        # Attach a few illustrative, family-safe images for the same question.
+        images = [
+            ChatImage(
+                url=img.url, title=img.title, source_url=img.source_url,
+                creator=img.creator, license=img.license,
+            )
+            for img in await search_images(query, limit=3)
+        ]
     else:
         rag = await retrieve_for_chat(db, payload.message)
         if rag is not None:
@@ -366,6 +377,7 @@ async def chat_turn(
         latency_ms=reply.latency_ms,
         source=source,
         quick_replies=quick_replies,
+        images=images,
     )
 
 

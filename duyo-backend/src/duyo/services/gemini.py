@@ -143,9 +143,12 @@ async def chat_with_web_search(
     web_instruction = (
         f"{SYSTEM_PROMPTS[age_segment]}\n\n"
         "MUHIM: bu savolga javob berish uchun Google Search bilan internetdan "
-        "qidir va topilgan ma'lumotga asoslanib javob ber. Bu javob darslikdan "
-        "EMAS — 'darsligiga ko'ra' kabi iboralarni ishlatma. Avvalgi suhbatdagi "
-        "darslik javoblaridan nusxa olma."
+        "qidir. Savolga ANIQ va to'g'ridan-to'g'ri javob ber — savol aynan "
+        "nimani so'rasa, o'shanga qisqa va tushunarli javob qaytar; topilgan "
+        "sahifalarni umumlashtirma yoki qayta hikoya qilma, balki ulardan "
+        "savolga kerakli aniq ma'lumotni olib o'z so'zing bilan javob ber. "
+        "Bu javob darslikdan EMAS — 'darsligiga ko'ra' kabi iboralarni "
+        "ishlatma. Avvalgi suhbatdagi darslik javoblaridan nusxa olma."
     )
 
     start = time.perf_counter()
