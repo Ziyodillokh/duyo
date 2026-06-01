@@ -19,7 +19,7 @@ from sqlalchemy.sql import func
 from duyo.api.deps import get_db
 from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_roles
 from duyo.core.admin_security import create_admin_token, verify_password
-from duyo.models.admin import AdminRole, AdminUser
+from duyo.models.admin import AdminRole, AdminUser, AuditLog
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message
@@ -187,3 +187,111 @@ async def rag_stats(
     subjects = await db.scalar(select(func.count(func.distinct(TextbookChunk.subject)))) or 0
     grades = await db.scalar(select(func.count(func.distinct(TextbookChunk.grade)))) or 0
     return {"chunks": chunks, "embedded": embedded, "subjects": subjects, "grades": grades}
+
+
+# ---- Users & Families (Support Agent / Admin) ----
+class ChildRow(BaseModel):
+    id: UUID
+    name: str
+    age: int
+    age_segment: str
+    language: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ParentRow(BaseModel):
+    id: UUID
+    phone: str
+    children_count: int
+    last_login_at: datetime | None
+    created_at: datetime
+
+
+_require_support = require_roles(AdminRole.SUPPORT_AGENT, AdminRole.ADMIN)
+
+
+@router.get("/users/children", response_model=list[ChildRow])
+async def list_children(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_support),
+) -> list[ChildRow]:
+    rows = (
+        await db.scalars(
+            select(ChildProfile).order_by(ChildProfile.created_at.desc()).limit(min(limit, 500))
+        )
+    ).all()
+    return [
+        ChildRow(
+            id=c.id, name=c.name, age=c.age,
+            age_segment=c.age_segment.value if hasattr(c.age_segment, "value") else str(c.age_segment),
+            language=c.language.value if hasattr(c.language, "value") else str(c.language),
+            created_at=c.created_at,
+        )
+        for c in rows
+    ]
+
+
+@router.get("/users/parents", response_model=list[ParentRow])
+async def list_parents(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_support),
+) -> list[ParentRow]:
+    child_count = (
+        select(ChildProfile.parent_id, func.count().label("n"))
+        .group_by(ChildProfile.parent_id)
+        .subquery()
+    )
+    stmt = (
+        select(User, func.coalesce(child_count.c.n, 0))
+        .outerjoin(child_count, child_count.c.parent_id == User.id)
+        .order_by(User.created_at.desc())
+        .limit(min(limit, 500))
+    )
+    return [
+        ParentRow(
+            id=u.id, phone=u.phone, children_count=n,
+            last_login_at=u.last_login_at, created_at=u.created_at,
+        )
+        for u, n in (await db.execute(stmt)).all()
+    ]
+
+
+# ---- System: audit log + admins (Super Admin) ----
+class AuditRow(BaseModel):
+    id: UUID
+    admin_email: str
+    action: str
+    module: str
+    target: str | None
+    ip: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/audit", response_model=list[AuditRow])
+async def list_audit(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),  # any authenticated admin
+) -> list[AuditRow]:
+    rows = (
+        await db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(min(limit, 500)))
+    ).all()
+    return [AuditRow.model_validate(r) for r in rows]
+
+
+@router.get("/admins/summary")
+async def admins_summary(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+) -> dict[str, int]:
+    stmt = select(AdminUser.role, func.count()).group_by(AdminUser.role)
+    counts = {role.value: 0 for role in AdminRole}
+    for role, n in (await db.execute(stmt)).all():
+        counts[role.value if hasattr(role, "value") else str(role)] = n
+    return counts
