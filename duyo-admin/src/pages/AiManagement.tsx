@@ -24,10 +24,31 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { adminApi } from "@/api/admin";
+import type { AiLogRow, AiSummary } from "@/api/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 
-// MOCK — barcha qiymatlar backend (AI orchestration) ulanmaguncha namuna.
+// AI jurnallari va yuqori KPI strip → real backend (adminApi.aiLogs / aiSummary).
+// Skriptli javoblar, prompt shablonlari, model router, xavfsizlik filtrlari va
+// cache trend hozircha MOCK (konfiguratsiya, backend yo'q).
+
+// Taxminiy LLM narxi — backend price maydoni yo'qligi sababli rejasiy baho.
+// $ / 1M token (kirish + chiqish birlashtirilgan o'rtacha).
+const COST_PER_MILLION_TOKENS = 0.3;
+const SLOW_LATENCY_MS = 1500;
+
+function estimateCostUsd(tokens: number): number {
+  return (tokens / 1_000_000) * COST_PER_MILLION_TOKENS;
+}
+
+function formatCompact(n: number): string {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(n);
+}
 
 type TabKey =
   | "scripted"
@@ -55,12 +76,67 @@ interface Kpi {
   icon: LucideIcon;
 }
 
-const KPIS: Kpi[] = [
-  { label: "O'rtacha kechikish", value: "1.2s", hint: "-13% o'tgan haftaga", hintTone: "safe", icon: Gauge },
-  { label: "Tokenlar sarfi (bugun)", value: "4.2M", hint: "Bugungi seans 6,140", hintTone: "muted", icon: Coins },
-  { label: "Jami xarajat (bugun)", value: "$142.50", hint: "STT/TTS + LLM", hintTone: "muted", icon: DollarSign },
-  { label: "Fallback darajasi", value: "0.8%", hint: "Pro modelga o'tish", hintTone: "warn", icon: GitBranch },
-];
+const LOADING_DASH = "…";
+
+// Real `aiSummary()` dan KPI strip quriladi. summary undefined bo'lsa loading.
+function buildKpis(summary: AiSummary | undefined): Kpi[] {
+  const totalTokens =
+    summary === undefined ? 0 : summary.tokens_in + summary.tokens_out;
+
+  const latencyValue =
+    summary === undefined
+      ? LOADING_DASH
+      : `${(summary.avg_latency_ms / 1000).toFixed(1)}s`;
+
+  const tokensValue =
+    summary === undefined ? LOADING_DASH : formatCompact(totalTokens);
+
+  const costValue =
+    summary === undefined
+      ? LOADING_DASH
+      : `$${estimateCostUsd(totalTokens).toFixed(2)}`;
+
+  const messagesValue =
+    summary === undefined
+      ? LOADING_DASH
+      : new Intl.NumberFormat("en-US").format(summary.messages);
+
+  const latencyTone: Kpi["hintTone"] =
+    summary !== undefined && summary.avg_latency_ms > SLOW_LATENCY_MS
+      ? "warn"
+      : "safe";
+
+  return [
+    {
+      label: "O'rtacha kechikish",
+      value: latencyValue,
+      hint: "Barcha inferens chaqiruvlari",
+      hintTone: latencyTone,
+      icon: Gauge,
+    },
+    {
+      label: "Tokenlar sarfi",
+      value: tokensValue,
+      hint: "Kirish + chiqish jami",
+      hintTone: "muted",
+      icon: Coins,
+    },
+    {
+      label: "Taxminiy xarajat",
+      value: costValue,
+      hint: `Taxmin · $${COST_PER_MILLION_TOKENS}/1M token`,
+      hintTone: "muted",
+      icon: DollarSign,
+    },
+    {
+      label: "Xabarlar soni",
+      value: messagesValue,
+      hint: "Jami inferens",
+      hintTone: "muted",
+      icon: GitBranch,
+    },
+  ];
+}
 
 const HINT_TONE: Record<Kpi["hintTone"], string> = {
   safe: "text-safe",
@@ -161,26 +237,6 @@ const TIER_LIMITS: TierLimit[] = [
   { tier: "Family", limit: "Cheklanmagan", cls: "bg-safe-bg text-safe border border-safe-line" },
 ];
 
-// ── AI jurnallari ───────────────────────────────────────────────────────
-interface AiLog {
-  id: string;
-  promptVersion: string;
-  latency: number;
-  tokens: number;
-  cost: number;
-  fallback: string | null;
-  safety: "pass" | "filtered";
-  time: string;
-}
-
-const LOGS: AiLog[] = [
-  { id: "req_9f21", promptVersion: "Junior v2.1.0", latency: 940, tokens: 612, cost: 0.0021, fallback: null, safety: "pass", time: "09:58:12" },
-  { id: "req_9f1d", promptVersion: "Explorer v1.8.0", latency: 1280, tokens: 845, cost: 0.0039, fallback: "Pro (timeout)", safety: "pass", time: "09:57:41" },
-  { id: "req_9f0a", promptVersion: "Crisis v3.0.0", latency: 1610, tokens: 1102, cost: 0.0061, fallback: null, safety: "filtered", time: "09:56:03" },
-  { id: "req_9ef4", promptVersion: "Junior v2.1.0", latency: 870, tokens: 540, cost: 0.0018, fallback: null, safety: "pass", time: "09:55:22" },
-  { id: "req_9ee1", promptVersion: "RAG v1.2.0", latency: 2040, tokens: 1880, cost: 0.0094, fallback: "Pro (low conf.)", safety: "pass", time: "09:54:10" },
-];
-
 // ── Xavfsizlik filtrlari ────────────────────────────────────────────────
 interface SafetyFilter {
   key: string;
@@ -212,6 +268,13 @@ export function AiManagement() {
   const [filters, setFilters] = useState<SafetyFilter[]>(INITIAL_FILTERS);
   const [query, setQuery] = useState("");
 
+  const { data: summary } = useQuery({
+    queryKey: ["ai-summary"],
+    queryFn: () => adminApi.aiSummary(),
+  });
+
+  const kpis = buildKpis(summary);
+
   const toggleFilter = (key: string) => {
     setFilters((prev) =>
       prev.map((f) => (f.key === key ? { ...f, enabled: !f.enabled } : f)),
@@ -236,7 +299,7 @@ export function AiManagement() {
 
       {/* KPI strip */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {KPIS.map((k) => {
+        {kpis.map((k) => {
           const Icon = k.icon;
           return (
             <div key={k.label} className="card p-4">
@@ -281,7 +344,7 @@ export function AiManagement() {
       )}
       {tab === "prompts" && <PromptTemplates />}
       {tab === "router" && <ModelRouter />}
-      {tab === "logs" && <AiLogs />}
+      {tab === "logs" && <AiLogs byModel={summary?.by_model} />}
       {tab === "filters" && <SafetyFilters filters={filters} onToggle={toggleFilter} />}
       {tab === "cache" && <CacheAndCost />}
     </div>
@@ -518,17 +581,55 @@ function ModelRouter() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// AI jurnallari
+// AI jurnallari — real backend (adminApi.aiLogs)
 // ════════════════════════════════════════════════════════════════════════
-function AiLogs() {
+function shortId(id: string): string {
+  return id.length > 8 ? `${id.slice(0, 8)}` : id;
+}
+
+function formatLogTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function AiLogs({ byModel }: { byModel?: Record<string, number> }) {
+  const { data: logs, isPending, isError } = useQuery({
+    queryKey: ["ai-logs"],
+    queryFn: () => adminApi.aiLogs(),
+  });
+
+  const modelEntries = byModel ? Object.entries(byModel) : [];
+
   return (
     <section>
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-ink">AI jurnallari</h2>
         <p className="mt-1 text-sm text-muted">
-          So'nggi inferens chaqiruvlari — kechikish, token va xarajat tafsilotlari.
+          So'nggi inferens chaqiruvlari — model, kechikish va token tafsilotlari.
         </p>
       </div>
+
+      {modelEntries.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {modelEntries.map(([model, count]) => (
+            <span
+              key={model}
+              className="pill bg-bg text-muted border border-line"
+            >
+              <Cpu size={12} className="text-duyo-blue" /> {model}
+              <span className="font-medium text-ink">
+                {new Intl.NumberFormat("en-US").format(count)}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -536,53 +637,67 @@ function AiLogs() {
             <thead>
               <tr className="border-b border-line text-left text-xs uppercase text-muted">
                 <th className="px-3 py-3">So'rov</th>
-                <th className="px-3 py-3">Prompt versiyasi</th>
+                <th className="px-3 py-3">Model</th>
                 <th className="px-3 py-3">Kechikish</th>
-                <th className="px-3 py-3">Tokenlar</th>
-                <th className="px-3 py-3">Xarajat</th>
-                <th className="px-3 py-3">Fallback sababi</th>
-                <th className="px-3 py-3">Xavfsizlik filtri</th>
+                <th className="px-3 py-3">Tokenlar (kirish)</th>
+                <th className="px-3 py-3">Tokenlar (chiqish)</th>
                 <th className="px-3 py-3">Vaqt</th>
               </tr>
             </thead>
             <tbody>
-              {LOGS.map((l) => (
-                <tr key={l.id} className="border-b border-line/70 last:border-0">
-                  <td className="px-3 py-3 font-mono text-xs text-ink">{l.id}</td>
-                  <td className="px-3 py-3 text-muted">{l.promptVersion}</td>
-                  <td
-                    className={cn(
-                      "px-3 py-3 font-medium",
-                      l.latency > 1500 ? "text-serious" : "text-ink",
-                    )}
-                  >
-                    {l.latency}ms
+              {isPending && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted">
+                    {LOADING_DASH} Yuklanmoqda
                   </td>
-                  <td className="px-3 py-3 text-muted">{l.tokens.toLocaleString()}</td>
-                  <td className="px-3 py-3 text-ink">${l.cost.toFixed(4)}</td>
-                  <td className="px-3 py-3">
-                    {l.fallback ? (
-                      <span className="pill bg-serious-bg text-serious border border-serious-line">
-                        {l.fallback}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3">
-                    {l.safety === "pass" ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-safe">
-                        <ShieldCheck size={13} /> Pass
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-urgent">
-                        <AlertTriangle size={13} /> Filtrlandi
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-xs text-muted">{l.time}</td>
                 </tr>
-              ))}
+              )}
+              {isError && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-3 py-8 text-center text-sm text-serious"
+                  >
+                    Jurnallarni yuklab bo'lmadi.
+                  </td>
+                </tr>
+              )}
+              {!isPending && !isError && logs && logs.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted">
+                    Hozircha jurnal yozuvlari yo'q.
+                  </td>
+                </tr>
+              )}
+              {!isPending &&
+                !isError &&
+                logs?.map((l: AiLogRow) => (
+                  <tr key={l.id} className="border-b border-line/70 last:border-0">
+                    <td className="px-3 py-3 font-mono text-xs text-ink">
+                      {shortId(l.id)}
+                    </td>
+                    <td className="px-3 py-3 text-muted">{l.model ?? "—"}</td>
+                    <td
+                      className={cn(
+                        "px-3 py-3 font-medium",
+                        l.latency_ms !== null && l.latency_ms > SLOW_LATENCY_MS
+                          ? "text-serious"
+                          : "text-ink",
+                      )}
+                    >
+                      {l.latency_ms !== null ? `${l.latency_ms}ms` : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-muted">
+                      {l.tokens_in !== null ? l.tokens_in.toLocaleString() : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-muted">
+                      {l.tokens_out !== null ? l.tokens_out.toLocaleString() : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-xs text-muted">
+                      {formatLogTime(l.created_at)}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

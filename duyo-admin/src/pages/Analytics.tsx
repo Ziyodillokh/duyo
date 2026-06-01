@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   SlidersHorizontal,
@@ -30,6 +31,7 @@ import {
   Legend,
 } from "recharts";
 import { PageHeader } from "@/components/PageHeader";
+import { adminApi } from "@/api/admin";
 import { cn } from "@/lib/utils";
 
 // MOCK — backend analytics ulanmaguncha namuna ko'rsatkichlar.
@@ -55,16 +57,6 @@ const CATEGORIES = [
 type Category = (typeof CATEGORIES)[number];
 
 // ---- Mock time-series ----
-const sessionTrend = [
-  { d: "Du", min: 11.2 },
-  { d: "Se", min: 12.6 },
-  { d: "Ch", min: 12.1 },
-  { d: "Pa", min: 14.8 },
-  { d: "Ju", min: 13.9 },
-  { d: "Sha", min: 16.4 },
-  { d: "Yak", min: 15.1 },
-];
-
 const dauMau = [
   { d: "1-hafta", dau: 9800, mau: 71000 },
   { d: "2-hafta", dau: 10600, mau: 75400 },
@@ -180,6 +172,7 @@ interface Kpi {
   value: string;
   delta?: number;
   accent?: "blue" | "safe" | "urgent";
+  live?: boolean;
 }
 
 function deltaTone(delta: number): { cls: string; Icon: LucideIcon } {
@@ -188,7 +181,7 @@ function deltaTone(delta: number): { cls: string; Icon: LucideIcon } {
     : { cls: "text-urgent", Icon: TrendingDown };
 }
 
-function KpiCard({ label, value, delta, accent = "blue" }: Kpi) {
+function KpiCard({ label, value, delta, accent = "blue", live = false }: Kpi) {
   const valueCls =
     accent === "urgent"
       ? "text-urgent"
@@ -197,8 +190,11 @@ function KpiCard({ label, value, delta, accent = "blue" }: Kpi) {
         : "text-duyo-blue";
   return (
     <div className="card p-4">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted">
-        {label}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
+          {label}
+        </span>
+        {live && <LiveBadge />}
       </div>
       <div className="mt-2 flex items-baseline gap-2">
         <span className={cn("text-2xl font-bold", valueCls)}>{value}</span>
@@ -217,6 +213,21 @@ function DeltaBadge({ delta }: { delta: number }) {
       {delta}%
     </span>
   );
+}
+
+// Real backenddan ulangan kartalar/grafiklar uchun "Jonli" belgisi.
+// Mock ma'lumotlar uchun "namuna" belgisi.
+function LiveBadge() {
+  return (
+    <span className="pill flex items-center gap-1 bg-safe/10 text-safe">
+      <span className="h-1.5 w-1.5 rounded-full bg-safe" />
+      Jonli
+    </span>
+  );
+}
+
+function MockBadge() {
+  return <span className="pill bg-bg text-muted">namuna</span>;
 }
 
 function SectionTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
@@ -315,11 +326,21 @@ export function Analytics() {
   const [category, setCategory] = useState<Category>("Mahsulot");
   const [range, setRange] = useState("Oxirgi 30 kun");
 
+  const { data: overview, isLoading: isOverviewLoading } = useQuery({
+    queryKey: ["analytics-overview"],
+    queryFn: () => adminApi.analyticsOverview(),
+  });
+
+  const kpiValue = (n: number | undefined) =>
+    isOverviewLoading || n === undefined ? "…" : n.toLocaleString();
+
+  const messagesPerDay = overview?.messages_per_day ?? [];
+
   return (
     <div>
       <PageHeader
         title="Tahlil"
-        subtitle="Mahsulot, AI, xavfsizlik va daromad bo'yicha ko'rsatkichlar (namuna ma'lumot)"
+        subtitle="Mahsulot, AI, xavfsizlik va daromad bo'yicha ko'rsatkichlar (qisman jonli)"
         actions={
           <button className="flex items-center gap-2 rounded-xl bg-duyo-blue px-4 py-2 text-sm font-medium text-white hover:bg-duyo-dark">
             <Download size={16} /> Eksport
@@ -373,30 +394,51 @@ export function Analytics() {
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <KpiCard label="DAU" value="12,402" delta={4.2} />
         <KpiCard label="MAU" value="84,910" delta={12.8} />
-        <KpiCard label="Yangi foydalanuvchilar" value="3,120" delta={-2.1} />
-        <KpiCard label="Faol bolalar" value="8,204" delta={6.5} />
-        <KpiCard label="Faol ota-onalar" value="4,198" delta={1.8} />
+        <KpiCard label="Xabarlar (jami)" value={kpiValue(overview?.messages)} live />
+        <KpiCard label="Bolalar" value={kpiValue(overview?.children)} live />
+        <KpiCard label="Ota-onalar" value={kpiValue(overview?.parents)} live />
       </div>
 
       <div className="mb-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartCard
-          title="Sessiya davomiyligi (daqiqa)"
-          action={
-            <span className="pill bg-duyo-50 text-duyo-dark">Haftalik</span>
-          }
+          title="Xabarlar (kunlar bo'yicha)"
+          action={<LiveBadge />}
         >
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={sessionTrend} margin={{ left: -18, right: 6 }}>
-              <CartesianGrid vertical={false} stroke={LINE} />
-              <XAxis dataKey="d" {...axisProps} />
-              <YAxis {...axisProps} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#EFF6FF" }} />
-              <Bar dataKey="min" name="Daqiqa" fill={BLUE} radius={[6, 6, 0, 0]} maxBarSize={42} />
-            </BarChart>
-          </ResponsiveContainer>
+          {isOverviewLoading ? (
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted">
+              Yuklanmoqda…
+            </div>
+          ) : messagesPerDay.length === 0 ? (
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted">
+              Ma'lumot yo'q
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={messagesPerDay} margin={{ left: -8, right: 6 }}>
+                <defs>
+                  <linearGradient id="gMsgs" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={BLUE} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={BLUE} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke={LINE} />
+                <XAxis dataKey="day" {...axisProps} />
+                <YAxis {...axisProps} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  name="Xabarlar"
+                  stroke={BLUE}
+                  fill="url(#gMsgs)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
 
-        <ChartCard title="DAU / MAU o'sishi">
+        <ChartCard title="DAU / MAU o'sishi" action={<MockBadge />}>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={dauMau} margin={{ left: -8, right: 6 }}>
               <defs>
@@ -712,8 +754,10 @@ export function Analytics() {
       </div>
 
       <p className="mt-3 text-xs text-muted">
-        Eslatma: barcha ko'rsatkichlar namuna (mock) ma'lumot — backend analytics
-        ulanmaguncha real vaqtli emas.
+        Eslatma: "Jonli" belgisi qo'yilgan ko'rsatkichlar (bolalar, ota-onalar,
+        xabarlar va kunlik xabarlar grafigi) real backend ma'lumotlaridan olinadi.
+        Qolgan "namuna" ko'rsatkichlar agregatsiya backendi tayyor bo'lguncha mock
+        bo'lib qoladi.
       </p>
     </div>
   );

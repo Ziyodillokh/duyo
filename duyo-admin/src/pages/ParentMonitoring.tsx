@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ShieldCheck,
   FileDown,
@@ -14,10 +15,10 @@ import {
   Mail,
   Link2,
   Lock,
-  Eye,
   RefreshCw,
   FileText,
   MoreVertical,
+  Loader2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -31,6 +32,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
+import { adminApi, type ReportRow } from "@/api/admin";
 
 /**
  * Ota-ona monitoringi — 10-kunlik hisobot dashboardi.
@@ -57,14 +59,59 @@ const KPI_TONE: Record<KpiTone, { icon: string; value: string }> = {
   muted: { icon: "text-muted", value: "text-ink" },
 };
 
-const KPIS: Kpi[] = [
-  { label: "Generatsiya qilingan", value: "1,198", hint: "So'nggi 10 kun", icon: FileBarChart2, tone: "blue" },
-  { label: "Yuborilgan hisobotlar", value: "1,142", hint: "96.6% muvaffaqiyat", icon: MailCheck, tone: "safe" },
-  { label: "Ochilgan hisobotlar", value: "854", hint: "74.8% ochildi", icon: MailOpen, tone: "muted" },
-  { label: "Muvaffaqiyatsiz SMSlar", value: "12", hint: "Qayta yuborish kerak", icon: AlertTriangle, tone: "urgent" },
-  { label: "O'rtacha javob vaqti", value: "42 min", hint: "Standart: 60 min", icon: Clock, tone: "muted" },
-  { label: "Xavfsizlik signallari", value: "8", hint: "Arxivlanmagan: 2", icon: Bell, tone: "warn" },
-];
+// Generatsiya / LLM-OK kartalari real `parentSummary()` dan keladi.
+// Qolgan 4 karta (SMS, javob vaqti, signallar) — backend ulanmaguncha mock.
+interface ParentSummary {
+  reports_total?: number;
+  reports_llm_ok?: number;
+}
+
+function buildKpis(summary: ParentSummary | undefined, isLoading: boolean): Kpi[] {
+  const total = summary?.reports_total ?? 0;
+  const llmOk = summary?.reports_llm_ok ?? 0;
+  const llmRate = total > 0 ? Math.round((llmOk / total) * 100) : 0;
+  const loading = isLoading;
+  return [
+    {
+      label: "Generatsiya qilingan",
+      value: loading ? "…" : total.toLocaleString(),
+      hint: "Jami hisobotlar",
+      icon: FileBarChart2,
+      tone: "blue",
+    },
+    {
+      label: "LLM muvaffaqiyatli",
+      value: loading ? "…" : llmOk.toLocaleString(),
+      hint: loading ? undefined : `${llmRate}% muvaffaqiyat`,
+      icon: MailCheck,
+      tone: "safe",
+    },
+    { label: "Ochilgan hisobotlar", value: "854", hint: "74.8% ochildi", icon: MailOpen, tone: "muted" },
+    { label: "Muvaffaqiyatsiz SMSlar", value: "12", hint: "Qayta yuborish kerak", icon: AlertTriangle, tone: "urgent" },
+    { label: "O'rtacha javob vaqti", value: "42 min", hint: "Standart: 60 min", icon: Clock, tone: "muted" },
+    { label: "Xavfsizlik signallari", value: "8", hint: "Arxivlanmagan: 2", icon: Bell, tone: "warn" },
+  ];
+}
+
+function formatPeriod(start: string, end: string): string {
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleDateString("uz-UZ", { day: "numeric", month: "short" });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+function formatCreatedAt(iso: string): string {
+  return new Date(iso).toLocaleDateString("uz-UZ", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// child_id ni qisqartirib ko'rsatamiz — maxfiylik (faqat birinchi 8 belgi).
+function maskChildId(childId: string): string {
+  return childId.slice(0, 8);
+}
 
 // 10 kunlik hisobot trendi (generatsiya / yuborilgan / ochilgan).
 const TREND: { day: string; gen: number; sent: number; opened: number }[] = [
@@ -80,37 +127,10 @@ const TREND: { day: string; gen: number; sent: number; opened: number }[] = [
   { day: "31-May", gen: 113, sent: 99, opened: 78 },
 ];
 
-type ReportStatus = "sent" | "opened" | "pending" | "failed";
-
-interface Report {
-  child: string;
-  initials: string;
-  age: number;
-  period: string;
-  status: ReportStatus;
-  opened: boolean;
-  risk: { label: string; tone: "safe" | "warn" | "serious" };
-}
-
-const REPORT_STATUS: Record<ReportStatus, { label: string; cls: string }> = {
-  sent: { label: "Yuborildi", cls: "text-safe" },
-  opened: { label: "Ochildi", cls: "text-duyo-blue" },
-  pending: { label: "Kutilmoqda", cls: "text-muted" },
-  failed: { label: "Xato", cls: "text-urgent" },
-};
-
-const REPORTS: Report[] = [
-  { child: "Azizbek A.", initials: "AA", age: 8, period: "10–20 May", status: "opened", opened: true, risk: { label: "Low Risk", tone: "safe" } },
-  { child: "Shahlo H.", initials: "SH", age: 11, period: "10–20 May", status: "pending", opened: false, risk: { label: "Analyzing", tone: "warn" } },
-  { child: "Jasur B.", initials: "JB", age: 9, period: "10–20 May", status: "sent", opened: false, risk: { label: "Med Risk", tone: "serious" } },
-  { child: "Malika R.", initials: "MR", age: 7, period: "10–20 May", status: "opened", opened: true, risk: { label: "Low Risk", tone: "safe" } },
-  { child: "Bobur T.", initials: "BT", age: 12, period: "10–20 May", status: "failed", opened: false, risk: { label: "Low Risk", tone: "safe" } },
-];
-
-const RISK_BADGE: Record<Report["risk"]["tone"], string> = {
-  safe: "bg-safe-bg text-safe border border-safe-line",
-  warn: "bg-warn-bg text-warn border border-warn-line",
-  serious: "bg-serious-bg text-serious border border-serious-line",
+// LLM holati uchun status pill stillari.
+const LLM_STATUS: Record<"ok" | "fail", { label: string; cls: string }> = {
+  ok: { label: "LLM OK", cls: "bg-safe-bg text-safe border border-safe-line" },
+  fail: { label: "LLM xato", cls: "bg-urgent-bg text-urgent border border-urgent-line" },
 };
 
 interface ParentAlert {
@@ -206,6 +226,18 @@ function ChannelDot({ on, label }: { on: boolean; label: string }) {
 export function ParentMonitoring() {
   const [lang, setLang] = useState<(typeof TEMPLATE_LANGS)[number]>("UZ");
 
+  const reportsQuery = useQuery({
+    queryKey: ["parent-reports"],
+    queryFn: () => adminApi.parentReports(),
+  });
+  const summaryQuery = useQuery({
+    queryKey: ["parent-summary"],
+    queryFn: () => adminApi.parentSummary(),
+  });
+
+  const reports: ReportRow[] = reportsQuery.data ?? [];
+  const kpis = buildKpis(summaryQuery.data, summaryQuery.isLoading);
+
   return (
     <div>
       <PageHeader
@@ -234,7 +266,7 @@ export function ParentMonitoring() {
 
       {/* KPI grid — 10-kunlik report ko'rsatkichlari */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {KPIS.map((k) => {
+        {kpis.map((k) => {
           const Icon = k.icon;
           const tone = KPI_TONE[k.tone];
           return (
@@ -280,7 +312,7 @@ export function ParentMonitoring() {
           <div className="flex items-center justify-between border-b border-line px-5 py-3">
             <div className="flex items-center gap-2">
               <FileText size={16} className="text-duyo-blue" />
-              <h2 className="text-sm font-semibold text-ink">10 kunlik hisobotlar</h2>
+              <h2 className="text-sm font-semibold text-ink">Generatsiya qilingan hisobotlar</h2>
             </div>
             <button className="text-xs font-medium text-duyo-blue hover:underline">Hammasini ko'rish</button>
           </div>
@@ -288,50 +320,54 @@ export function ParentMonitoring() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-                  <th className="px-5 py-3">Bola</th>
+                  <th className="px-5 py-3">Bola (ID)</th>
                   <th className="px-3 py-3">Davr</th>
                   <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3">Ochilgan</th>
-                  <th className="px-3 py-3">Xavf xulosasi</th>
+                  <th className="px-3 py-3">Yaratilgan</th>
                   <th className="px-3 py-3"></th>
                 </tr>
               </thead>
               <tbody>
-                {REPORTS.map((r) => {
-                  const st = REPORT_STATUS[r.status];
-                  return (
-                    <tr key={r.child} className="border-b border-line/70 last:border-0 hover:bg-bg">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-50 text-xs font-semibold text-duyo-dark">
-                            {r.initials}
-                          </span>
-                          <div>
-                            <div className="font-medium text-ink">{r.child}</div>
-                            <div className="text-xs text-muted">{r.age} yosh</div>
+                {reportsQuery.isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-muted">
+                      <Loader2 size={18} className="mx-auto animate-spin text-duyo-blue" />
+                    </td>
+                  </tr>
+                ) : reports.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted">
+                      Hisobotlar topilmadi
+                    </td>
+                  </tr>
+                ) : (
+                  reports.map((r) => {
+                    const st = r.llm_ok ? LLM_STATUS.ok : LLM_STATUS.fail;
+                    const shortId = maskChildId(r.child_id);
+                    return (
+                      <tr key={r.id} className="border-b border-line/70 last:border-0 hover:bg-bg">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-duyo-50 text-xs font-semibold text-duyo-dark">
+                              {shortId.slice(0, 2).toUpperCase()}
+                            </span>
+                            <div className="font-mono text-xs text-ink">{shortId}</div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-muted">{r.period}</td>
-                      <td className={cn("px-3 py-3 font-medium", st.cls)}>{st.label}</td>
-                      <td className="px-3 py-3">
-                        {r.opened ? (
-                          <Eye size={15} className="text-safe" />
-                        ) : (
-                          <span className="text-xs text-muted">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className={cn("pill", RISK_BADGE[r.risk.tone])}>{r.risk.label}</span>
-                      </td>
-                      <td className="px-3 py-3">
-                        <button className="rounded-lg p-1 text-muted hover:bg-bg hover:text-ink">
-                          <MoreVertical size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td className="px-3 py-3 text-muted">{formatPeriod(r.period_start, r.period_end)}</td>
+                        <td className="px-3 py-3">
+                          <span className={cn("pill", st.cls)}>{st.label}</span>
+                        </td>
+                        <td className="px-3 py-3 text-xs text-muted">{formatCreatedAt(r.created_at)}</td>
+                        <td className="px-3 py-3">
+                          <button className="rounded-lg p-1 text-muted hover:bg-bg hover:text-ink">
+                            <MoreVertical size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from duyo.api.v1.admin import router as admin_router
+from duyo.api.v1.admin_modules import router as admin_modules_router
 from duyo.api.v1.auth import router as auth_router
 from duyo.api.v1.chat import router as chat_router
 from duyo.api.v1.gamification import router as gamification_router
@@ -24,5 +25,6 @@ api_v1.include_router(tamagochi_router)
 api_v1.include_router(subscription_router)
 api_v1.include_router(report_router)
 api_v1.include_router(admin_router)
+api_v1.include_router(admin_modules_router)
 
 __all__ = ["api_v1"]

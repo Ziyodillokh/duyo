@@ -14,6 +14,7 @@ import {
   School,
   Briefcase,
   Baby,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -25,10 +26,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { adminApi, type SubscriptionRow } from "@/api/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 
-// MOCK — billing backend (Click/Payme) ulanmaguncha namuna ko'rsatkichlar.
+// MOCK — to'lov shlyuzlari (Click/Payme) ulanmaguncha namuna ko'rsatkichlar.
+// REAL — obunalar jadvali + tarif/status hisoblari backenddan keladi.
 
 // ---- Revenue KPI cards ----
 interface Kpi {
@@ -90,31 +94,69 @@ const FEATURE_MATRIX: FeatureRow[] = [
   { label: "Priority qo'llab-quvvatlash", free: false, standard: false, premium: true },
 ];
 
-// ---- Subscriptions ----
-interface Subscription {
-  id: string;
-  parent: string;
-  plan: string;
-  status: "active" | "trial" | "past_due" | "canceled";
-  startedAt: string;
-  renewsAt: string;
-  amount: string;
-}
-
-const SUBSCRIPTION_STATUS: Record<Subscription["status"], { label: string; cls: string }> = {
-  active: { label: "Faol", cls: "bg-safe-bg text-safe border border-safe-line" },
-  trial: { label: "Sinov", cls: "bg-duyo-50 text-duyo-dark border border-duyo-100" },
-  past_due: { label: "Muddati o'tgan", cls: "bg-warn-bg text-warn border border-warn-line" },
-  canceled: { label: "Bekor qilingan", cls: "bg-bg text-muted border border-line" },
+// ---- Subscriptions (REAL — backenddan) ----
+// Tier kalitlari mahsulot tariflariga mos: free=Tanish, standard=Do'st, premium=Hamroh.
+const TIER_LABELS: Record<string, string> = {
+  free: "Tanish",
+  standard: "Do'st",
+  premium: "Hamroh",
 };
 
-const SUBSCRIPTIONS: Subscription[] = [
-  { id: "#SUB-4821", parent: "Aziza Karimova", plan: "Hamroh Premium", status: "active", startedAt: "12.01.2026", renewsAt: "12.06.2026", amount: "89 000 so'm" },
-  { id: "#SUB-4799", parent: "Bobur Aliyev", plan: "Do'st Standard", status: "active", startedAt: "03.02.2026", renewsAt: "03.06.2026", amount: "49 000 so'm" },
-  { id: "#SUB-4760", parent: "Dilnoza Yusupova", plan: "Do'st Standard", status: "trial", startedAt: "28.05.2026", renewsAt: "11.06.2026", amount: "0 so'm" },
-  { id: "#SUB-4712", parent: "Eldor Tursunov", plan: "Hamroh Premium", status: "past_due", startedAt: "15.11.2025", renewsAt: "15.05.2026", amount: "89 000 so'm" },
-  { id: "#SUB-4688", parent: "Feruza Salimova", plan: "Do'st Standard", status: "canceled", startedAt: "20.10.2025", renewsAt: "—", amount: "—" },
-];
+const TIER_PILL: Record<string, string> = {
+  free: "bg-bg text-muted border border-line",
+  standard: "bg-duyo-50 text-duyo-dark border border-duyo-100",
+  premium: "bg-serious-bg text-serious border border-serious-line",
+};
+
+function tierLabel(tier: string): string {
+  return TIER_LABELS[tier] ?? tier;
+}
+
+function tierPill(tier: string): string {
+  return TIER_PILL[tier] ?? "bg-bg text-muted border border-line";
+}
+
+// Status pill — kutilgan backend qiymatlari uchun moslashtirilgan, boshqalar uchun fallback.
+const STATUS_LABELS: Record<string, string> = {
+  active: "Faol",
+  trial: "Sinov",
+  trialing: "Sinov",
+  past_due: "Muddati o'tgan",
+  canceled: "Bekor qilingan",
+  cancelled: "Bekor qilingan",
+  expired: "Muddati tugagan",
+  pending: "Kutilmoqda",
+};
+
+const STATUS_PILL: Record<string, string> = {
+  active: "bg-safe-bg text-safe border border-safe-line",
+  trial: "bg-duyo-50 text-duyo-dark border border-duyo-100",
+  trialing: "bg-duyo-50 text-duyo-dark border border-duyo-100",
+  past_due: "bg-warn-bg text-warn border border-warn-line",
+  canceled: "bg-bg text-muted border border-line",
+  cancelled: "bg-bg text-muted border border-line",
+  expired: "bg-bg text-muted border border-line",
+  pending: "bg-warn-bg text-warn border border-warn-line",
+};
+
+function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status;
+}
+
+function statusPill(status: string): string {
+  return STATUS_PILL[status] ?? "bg-bg text-muted border border-line";
+}
+
+function shortId(id: string): string {
+  return `#${id.slice(0, 8)}`;
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("ru-RU");
+}
 
 // ---- Payment transactions ----
 type ProviderKey = "Click" | "Payme" | "Uzcard" | "Humo" | "Visa/MC";
@@ -230,6 +272,23 @@ function MatrixCell({ value }: { value: string | boolean }) {
 }
 
 export function Monetization() {
+  const { data: subscriptions, isLoading: subsLoading } = useQuery({
+    queryKey: ["monetization-subscriptions"],
+    queryFn: () => adminApi.subscriptions(),
+  });
+
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ["monetization-summary"],
+    queryFn: () => adminApi.monetizationSummary(),
+  });
+
+  const tierCount = (tier: string): string =>
+    summaryLoading || !summary ? "…" : String(summary.by_tier[tier] ?? 0);
+  const statusCount = (status: string): string =>
+    summaryLoading || !summary ? "…" : String(summary.by_status[status] ?? 0);
+
+  const rows: SubscriptionRow[] = subscriptions ?? [];
+
   return (
     <div>
       <PageHeader
@@ -264,6 +323,30 @@ export function Monetization() {
             </div>
           );
         })}
+      </div>
+
+      {/* Obuna hisoblari (REAL — backenddan) */}
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          { key: "free", label: "Tanish (Free)" },
+          { key: "standard", label: "Do'st (Standard)" },
+          { key: "premium", label: "Hamroh (Premium)" },
+        ].map((t) => (
+          <div key={t.key} className="card p-4">
+            <div className="text-xs font-medium text-muted">{t.label}</div>
+            <div className="mt-2 text-2xl font-bold text-ink">{tierCount(t.key)}</div>
+          </div>
+        ))}
+        {[
+          { key: "active", label: "Faol obuna" },
+          { key: "trial", label: "Sinovda" },
+          { key: "canceled", label: "Bekor qilingan" },
+        ].map((s) => (
+          <div key={s.key} className="card p-4">
+            <div className="text-xs font-medium text-muted">{s.label}</div>
+            <div className="mt-2 text-2xl font-bold text-ink">{statusCount(s.key)}</div>
+          </div>
+        ))}
       </div>
 
       {/* Revenue trend + plan cards */}
@@ -385,43 +468,55 @@ export function Monetization() {
         </div>
       </div>
 
-      {/* Subscriptions table */}
+      {/* Subscriptions table (REAL — backenddan) */}
       <div className="card mb-6 overflow-hidden">
         <div className="flex items-center gap-2 border-b border-line px-5 py-3">
           <Users size={16} className="text-duyo-blue" />
           <h2 className="text-sm font-semibold text-ink">Obunalar</h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-                <th className="px-5 py-3">ID</th>
-                <th className="px-3 py-3">Ota-ona</th>
-                <th className="px-3 py-3">Tarif</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">Boshlangan</th>
-                <th className="px-3 py-3">Yangilanadi</th>
-                <th className="px-3 py-3">Summa</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SUBSCRIPTIONS.map((s) => {
-                const st = SUBSCRIPTION_STATUS[s.status];
-                return (
+        {subsLoading ? (
+          <div className="flex items-center justify-center gap-2 px-5 py-10 text-sm text-muted">
+            <Loader2 size={16} className="animate-spin" /> Yuklanmoqda...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
+                  <th className="px-5 py-3">ID</th>
+                  <th className="px-3 py-3">Foydalanuvchi</th>
+                  <th className="px-3 py-3">Tarif</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Provayder</th>
+                  <th className="px-3 py-3">Tugaydi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
                   <tr key={s.id} className="border-b border-line/70 last:border-0">
-                    <td className="px-5 py-3 font-medium text-ink">{s.id}</td>
-                    <td className="px-3 py-3 text-ink">{s.parent}</td>
-                    <td className="px-3 py-3 text-muted">{s.plan}</td>
-                    <td className="px-3 py-3"><span className={cn("pill", st.cls)}>{st.label}</span></td>
-                    <td className="px-3 py-3 text-muted">{s.startedAt}</td>
-                    <td className="px-3 py-3 text-muted">{s.renewsAt}</td>
-                    <td className="px-3 py-3 font-medium text-ink">{s.amount}</td>
+                    <td className="px-5 py-3 font-medium text-ink">{shortId(s.id)}</td>
+                    <td className="px-3 py-3 text-ink">{shortId(s.user_id)}</td>
+                    <td className="px-3 py-3">
+                      <span className={cn("pill", tierPill(s.tier))}>{tierLabel(s.tier)}</span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={cn("pill", statusPill(s.status))}>{statusLabel(s.status)}</span>
+                    </td>
+                    <td className="px-3 py-3 text-muted">{s.provider ?? "—"}</td>
+                    <td className="px-3 py-3 text-muted">{formatDate(s.expires_at)}</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted">
+                      Hozircha obunalar yo'q.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Payment transactions */}

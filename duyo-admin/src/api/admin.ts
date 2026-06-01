@@ -51,6 +51,59 @@ export interface RagDocument {
   embedded: number;
 }
 
+export interface GamificationOverview {
+  avatars: number;
+  inventory_items: number;
+  balls_issued: number;
+  longest_streak: number;
+  tamagochi_avg: { energy: number; joy: number; learning: number; health: number };
+  balls_by_reason: Record<string, number>;
+  inventory_by_category: Record<string, number>;
+}
+
+export interface ReportRow {
+  id: string;
+  child_id: string;
+  period_start: string;
+  period_end: string;
+  llm_ok: boolean;
+  created_at: string;
+}
+
+export interface SubscriptionRow {
+  id: string;
+  user_id: string;
+  tier: string;
+  status: string;
+  provider: string | null;
+  started_at: string | null;
+  expires_at: string | null;
+}
+
+export interface AiLogRow {
+  id: string;
+  model: string | null;
+  latency_ms: number | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  created_at: string;
+}
+
+export interface AiSummary {
+  messages: number;
+  avg_latency_ms: number;
+  tokens_in: number;
+  tokens_out: number;
+  by_model: Record<string, number>;
+}
+
+export interface AnalyticsOverview {
+  children: number;
+  parents: number;
+  messages: number;
+  messages_per_day: { day: string; count: number }[];
+}
+
 export const adminApi = {
   login: (email: string, password: string) =>
     api.post<LoginResponse>("/admin/auth/login", { email, password }),
@@ -61,6 +114,17 @@ export const adminApi = {
   dashboardSummary: () => api.get<DashboardSummary>("/admin/dashboard/summary"),
   ragDocuments: () => api.get<RagDocument[]>("/admin/rag/documents"),
   ragStats: () => api.get<Record<string, number>>("/admin/rag/stats"),
+  gamificationOverview: () => api.get<GamificationOverview>("/admin/gamification/overview"),
+  parentReports: () => api.get<ReportRow[]>("/admin/parents/reports"),
+  parentSummary: () => api.get<Record<string, number>>("/admin/parents/summary"),
+  subscriptions: () => api.get<SubscriptionRow[]>("/admin/monetization/subscriptions"),
+  monetizationSummary: () =>
+    api.get<{ by_tier: Record<string, number>; by_status: Record<string, number> }>(
+      "/admin/monetization/summary",
+    ),
+  aiLogs: () => api.get<AiLogRow[]>("/admin/ai/logs"),
+  aiSummary: () => api.get<AiSummary>("/admin/ai/summary"),
+  analyticsOverview: () => api.get<AnalyticsOverview>("/admin/analytics/overview"),
 };
 
 export const ROLE_LABELS: Record<AdminRole, string> = {

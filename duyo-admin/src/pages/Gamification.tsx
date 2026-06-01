@@ -24,6 +24,9 @@ import {
   Smile,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { adminApi } from "@/api/admin";
+import type { GamificationOverview } from "@/api/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 
@@ -200,6 +203,11 @@ export function Gamification() {
   const [selectedBody, setSelectedBody] = useState<string>("oddiy");
   const [search, setSearch] = useState<string>("");
 
+  const { data: overview } = useQuery({
+    queryKey: ["gamif-overview"],
+    queryFn: () => adminApi.gamificationOverview(),
+  });
+
   const filteredAccessories = ACCESSORIES.filter((a) =>
     a.name.toLowerCase().includes(search.trim().toLowerCase()),
   );
@@ -226,6 +234,9 @@ export function Gamification() {
           ko'rsatma.
         </div>
       </div>
+
+      {/* KPI overview — real backend ma'lumotlari */}
+      <OverviewStats data={overview} />
 
       {/* Tabs */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -262,6 +273,174 @@ export function Gamification() {
       {tab === "levels" && <LevelsPanel />}
       {tab === "streaks" && <StreaksPanel />}
       {tab === "tamagochi" && <TamagochiPanel />}
+    </div>
+  );
+}
+
+// ── Overview KPI stats (real backend) ────────────────────────────────────────
+
+interface KpiCard {
+  label: string;
+  value: string;
+  hint: string;
+  icon: LucideIcon;
+}
+
+function formatNumber(n: number | undefined): string {
+  if (n === undefined) return "…";
+  return n.toLocaleString("en-US");
+}
+
+function OverviewStats({ data }: { data: GamificationOverview | undefined }) {
+  const tamagochiAvg = data
+    ? Math.round(
+        (data.tamagochi_avg.energy +
+          data.tamagochi_avg.joy +
+          data.tamagochi_avg.learning +
+          data.tamagochi_avg.health) /
+          4,
+      )
+    : undefined;
+
+  const cards: KpiCard[] = [
+    {
+      label: "Faol avatarlar",
+      value: formatNumber(data?.avatars),
+      hint: "Yaratilgan DUYO avatarlari",
+      icon: Sparkles,
+    },
+    {
+      label: "Inventar buyumlari",
+      value: formatNumber(data?.inventory_items),
+      hint: "Egallangan aksessuarlar",
+      icon: Shirt,
+    },
+    {
+      label: "Berilgan ballar",
+      value: formatNumber(data?.balls_issued),
+      hint: "Jami tarqatilgan ball",
+      icon: Coins,
+    },
+    {
+      label: "Eng uzun streak",
+      value: data === undefined ? "…" : `${data.longest_streak} kun`,
+      hint: "Rekord ketma-ketlik",
+      icon: Flame,
+    },
+  ];
+
+  const tamagochiMetrics: { label: string; value: number | undefined; icon: LucideIcon; color: string }[] = [
+    { label: "Energy", value: data?.tamagochi_avg.energy, icon: Battery, color: "bg-serious" },
+    { label: "Joy", value: data?.tamagochi_avg.joy, icon: Smile, color: "bg-warn" },
+    { label: "Learning", value: data?.tamagochi_avg.learning, icon: Brain, color: "bg-duyo-blue" },
+    { label: "Health", value: data?.tamagochi_avg.health, icon: Heart, color: "bg-safe" },
+  ];
+
+  const ballsByReason = data ? Object.entries(data.balls_by_reason) : [];
+  const inventoryByCategory = data ? Object.entries(data.inventory_by_category) : [];
+
+  return (
+    <div className="mb-6 space-y-4">
+      {/* KPI tiles */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((c) => {
+          const Icon = c.icon;
+          return (
+            <div key={c.label} className="card flex items-center gap-4 p-4">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-duyo-50 text-duyo-blue">
+                <Icon size={20} />
+              </span>
+              <div>
+                <div className="text-xl font-bold text-ink">{c.value}</div>
+                <div className="text-sm font-medium text-ink">{c.label}</div>
+                <div className="text-[11px] text-muted">{c.hint}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tamagochi o'rtacha + balls-by-reason + inventory-by-category */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Tamagochi average */}
+        <div className="card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Heart size={15} className="text-safe" /> Tamagochi o'rtacha
+            </h3>
+            <span className="pill bg-bg text-muted">
+              {tamagochiAvg === undefined ? "…" : `${tamagochiAvg}%`}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {tamagochiMetrics.map((m) => {
+              const Icon = m.icon;
+              const pct = m.value === undefined ? 0 : Math.round(m.value);
+              return (
+                <div key={m.label}>
+                  <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
+                    <span className="flex items-center gap-1.5">
+                      <Icon size={13} className="text-muted" /> {m.label}
+                    </span>
+                    <span className="font-semibold text-ink">
+                      {m.value === undefined ? "…" : `${pct}%`}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-bg">
+                    <div className={cn("h-full rounded-full", m.color)} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Balls by reason */}
+        <div className="card p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+            <Coins size={15} className="text-duyo-blue" /> Ballar (sabab bo'yicha)
+          </h3>
+          {data === undefined ? (
+            <div className="text-sm text-muted">…</div>
+          ) : ballsByReason.length === 0 ? (
+            <div className="text-sm text-muted">Ma'lumot yo'q</div>
+          ) : (
+            <div className="space-y-2">
+              {ballsByReason.map(([reason, count]) => (
+                <div key={reason} className="flex items-center justify-between text-sm">
+                  <span className="text-muted">{reason}</span>
+                  <span className="pill bg-safe-bg text-safe border border-safe-line">
+                    {formatNumber(count)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Inventory by category */}
+        <div className="card p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+            <Shirt size={15} className="text-duyo-blue" /> Inventar (kategoriya bo'yicha)
+          </h3>
+          {data === undefined ? (
+            <div className="text-sm text-muted">…</div>
+          ) : inventoryByCategory.length === 0 ? (
+            <div className="text-sm text-muted">Ma'lumot yo'q</div>
+          ) : (
+            <div className="space-y-2">
+              {inventoryByCategory.map(([category, count]) => (
+                <div key={category} className="flex items-center justify-between text-sm">
+                  <span className="text-muted">{category}</span>
+                  <span className="pill bg-duyo-50 text-duyo-dark border border-duyo-100">
+                    {formatNumber(count)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
