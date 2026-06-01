@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   UploadCloud,
   Filter,
@@ -24,6 +25,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
+import { adminApi } from "@/api/admin";
 
 /**
  * RAG bilim bazasi — darslik hujjatlarini yuklash, parsing/embedding pipeline'ini
@@ -310,6 +312,31 @@ function PipelineStatus() {
 }
 
 function DocumentsTable() {
+  // Real backend (textbook_chunks, subject/grade bo'yicha guruhlangan). Yuklanmaguncha
+  // DOCUMENTS namuna ko'rsatiladi.
+  const { data } = useQuery({ queryKey: ["rag-documents"], queryFn: () => adminApi.ragDocuments() });
+  const docs: RagDocument[] =
+    data && data.length
+      ? data.map((d, i) => {
+          const subject = d.subject.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+          return {
+            id: `${d.subject}-${d.grade}-${i}`,
+            title: `${subject} ${d.grade ?? ""}-sinf`.trim(),
+            size: `${d.chunks} chunk`,
+            pages: 0,
+            subject,
+            grade: d.grade ?? 0,
+            language: (d.language ?? "—").toUpperCase(),
+            publisher: "—",
+            year: 0,
+            license: "approved" as LicenseStatus,
+            parse: "completed" as ParseStatus,
+            chunks: d.chunks,
+            approvedChunks: d.embedded,
+            quality: d.chunks ? Math.round((d.embedded / d.chunks) * 100) : 0,
+          };
+        })
+      : DOCUMENTS;
   return (
     <div className="card mb-6 overflow-hidden">
       <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-4">
@@ -340,7 +367,7 @@ function DocumentsTable() {
             </tr>
           </thead>
           <tbody>
-            {DOCUMENTS.map((doc) => {
+            {docs.map((doc) => {
               const lic = LICENSE_STYLES[doc.license];
               const parse = PARSE_STYLES[doc.parse];
               const qualityColor =
@@ -355,7 +382,7 @@ function DocumentsTable() {
                       <div>
                         <div className="font-semibold text-ink">{doc.title}</div>
                         <div className="mt-0.5 text-xs text-muted">
-                          {doc.size} • {doc.pages} bet
+                          {doc.size}{doc.pages ? ` • ${doc.pages} bet` : ""}
                         </div>
                       </div>
                     </div>
