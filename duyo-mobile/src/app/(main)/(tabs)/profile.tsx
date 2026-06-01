@@ -7,16 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import { ProgressBar } from '@/components/v2/dark/progress-bar';
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useBalls, useStreak } from '@/hooks/use-gamification';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
 
-// Static mock per Bosqich B beta (gamification backend = Faza 1)
-const MOCK_LEVEL_NAME = "Do'st";
-const MOCK_NEXT_LEVEL_NAME = "Sirdosh";
-const MOCK_XP = 450;
-const MOCK_XP_TO_NEXT = 50;
-const MOCK_XP_TOTAL_FOR_LEVEL = 500;
-const MOCK_STREAK = 5;
+// Level, XP and streak come from the gamification backend. The sections below
+// (achievements, weekly activity, recent rewards) have no backend yet and stay
+// static placeholders until those features land.
 const MOCK_ACHIEVEMENTS_COUNT = 6;
 const MOCK_AVG_MINUTES = 23;
 
@@ -45,6 +42,23 @@ export default function ProfileScreen() {
   const child = useChildStore((s) => s.child);
   const childName = child?.name ?? 'Foydalanuvchi';
   const childAge = child?.age;
+
+  const balls = useBalls();
+  const streak = useStreak();
+
+  const balance = balls.data?.balance ?? 0;
+  const level = balls.data?.level ?? 1;
+  const levelName = balls.data?.level_name ?? '—';
+  const currentThreshold = balls.data?.current_threshold ?? 0;
+  const nextThreshold = balls.data?.next_threshold ?? null;
+  const ballsToNext = balls.data?.balls_to_next ?? null;
+  const isMaxLevel = nextThreshold === null;
+  // Progress within the current level segment (floor → next threshold).
+  const levelProgress =
+    nextThreshold !== null && nextThreshold > currentThreshold
+      ? (balance - currentThreshold) / (nextThreshold - currentThreshold)
+      : 1;
+  const currentStreak = streak.data?.current_streak ?? 0;
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -82,7 +96,7 @@ export default function ProfileScreen() {
             )}
             <View className="bg-neon-purple rounded-md px-4 py-1.5 mt-3">
               <Text className="text-sm font-medium text-dark-bg-to">
-                ⭐ Level 2 · {MOCK_LEVEL_NAME}
+                ⭐ Level {level} · {levelName}
               </Text>
             </View>
           </DarkCard>
@@ -90,15 +104,19 @@ export default function ProfileScreen() {
           <DarkCard>
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                Keyingi daraja: {MOCK_NEXT_LEVEL_NAME}
+                {isMaxLevel ? 'Eng yuqori daraja' : 'Keyingi daraja'}
               </Text>
               <Text className="text-sm font-bold text-neon-cyan">
-                {MOCK_XP}/{MOCK_XP_TOTAL_FOR_LEVEL} XP
+                {isMaxLevel
+                  ? `${balance} XP`
+                  : `${balance}/${nextThreshold} XP`}
               </Text>
             </View>
-            <ProgressBar value={MOCK_XP / MOCK_XP_TOTAL_FOR_LEVEL} color="blue" />
+            <ProgressBar value={levelProgress} color="blue" />
             <Text className="text-xs text-muted-foreground dark:text-dark-muted text-right mt-2">
-              {MOCK_XP_TO_NEXT} XP keyingi darajaga
+              {isMaxLevel
+                ? "Barcha darajalar ochilgan 🎉"
+                : `${ballsToNext} XP keyingi darajaga`}
             </Text>
           </DarkCard>
 
@@ -106,14 +124,14 @@ export default function ProfileScreen() {
             <DarkCard className="flex-1 items-center">
               <Flame size={28} color="#FF8904" />
               <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {MOCK_STREAK}
+                {currentStreak}
               </Text>
               <Text className="text-xs text-muted-foreground dark:text-dark-muted">Kun seriya</Text>
             </DarkCard>
             <DarkCard className="flex-1 items-center">
               <Star size={28} color="#FDC700" />
               <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {MOCK_XP}
+                {balance}
               </Text>
               <Text className="text-xs text-muted-foreground dark:text-dark-muted">Jami XP</Text>
             </DarkCard>
@@ -152,7 +170,7 @@ export default function ProfileScreen() {
               ))}
             </View>
             <Text className="text-sm text-muted-foreground dark:text-dark-muted text-center">
-              {MOCK_STREAK} kunlik seriya davom etmoqda!
+              {currentStreak} kunlik seriya davom etmoqda!
             </Text>
           </DarkCard>
 

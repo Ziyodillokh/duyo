@@ -6,6 +6,7 @@ export interface BallsBalance {
   balance: number;
   level: number;
   level_name: string;
+  current_threshold: number;
   next_threshold: number | null;
   balls_to_next: number | null;
 }

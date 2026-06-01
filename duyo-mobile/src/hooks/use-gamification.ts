@@ -9,8 +9,10 @@ import {
   type BallsBalance,
   type InventoryItemWire,
   type PurchaseInput,
+  type StreakWire,
   getBalls,
   getInventory,
+  getStreak,
   purchaseItem,
 } from '@/api/endpoints/gamification';
 import { useChildStore } from '@/store/child';
@@ -25,6 +27,15 @@ export function useBalls(): UseQueryResult<BallsBalance> {
   return useQuery({
     queryKey: ['balls', childId],
     queryFn: () => getBalls(childId as string),
+    enabled: childId != null,
+  });
+}
+
+export function useStreak(): UseQueryResult<StreakWire> {
+  const childId = useChildId();
+  return useQuery({
+    queryKey: ['streak', childId],
+    queryFn: () => getStreak(childId as string),
     enabled: childId != null,
   });
 }
