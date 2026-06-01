@@ -1,14 +1,16 @@
 """Gamification request/response schemas — avatar, balls, inventory, streak."""
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-# Validation vocabularies (Concept §3.2). Kept permissive but bounded.
-_HEX = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
-BodyShape = Literal["spherical", "cubic", "vertical"]
-FaceStyle = Literal["friendly", "curious", "calm", "playful", "wise"]
+# Validation vocabularies (Concept §3.2) — named option keys shared 1:1 with
+# the mobile avatar customizer. Accent is a wearable accessory, not a colour.
+BodyShape = Literal["sphere", "cube", "vertical", "mini"]
+PrimaryColor = Literal["blue", "purple", "green", "red"]
+Accent = Literal["none", "star", "cap", "glasses"]
+FaceStyle = Literal["smile", "curious", "sunny", "wink"]
 
 
 # ── Avatar ───────────────────────────────────────────────────────────────────
@@ -16,7 +18,7 @@ FaceStyle = Literal["friendly", "curious", "calm", "playful", "wise"]
 class AvatarRead(BaseModel):
     body_shape: str
     primary_color: str
-    accent_color: str
+    accent: str
     face_style: str
 
     model_config = {"from_attributes": True}
@@ -26,8 +28,8 @@ class AvatarUpdate(BaseModel):
     """Partial update — only provided fields change."""
 
     body_shape: BodyShape | None = None
-    primary_color: Annotated[str, _HEX] | None = None
-    accent_color: Annotated[str, _HEX] | None = None
+    primary_color: PrimaryColor | None = None
+    accent: Accent | None = None
     face_style: FaceStyle | None = None
 
 

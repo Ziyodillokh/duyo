@@ -85,10 +85,30 @@ def test_update_avatar_unowned_404():
     db = _FakeSession(scalars_queue=[None])
     with pytest.raises(HTTPException) as exc:
         _run(gam.update_avatar(
-            child_id=uuid4(), payload=AvatarUpdate(primary_color="#112233"),
+            child_id=uuid4(), payload=AvatarUpdate(primary_color="purple"),
             current_user=user, db=db,
         ))
     assert exc.value.status_code == 404
+
+
+def test_update_avatar_applies_accessory_accent():
+    user = _User(uuid4())
+    child = _child()
+    avatar = Avatar(child_id=child.id)
+    db = _FakeSession(scalars_queue=[child, avatar])  # owned_child, existing avatar
+    result = _run(gam.update_avatar(
+        child_id=child.id,
+        payload=AvatarUpdate(accent="cap", body_shape="cube"),
+        current_user=user, db=db,
+    ))
+    assert result.accent == "cap"
+    assert result.body_shape == "cube"
+    assert db.flushed
+
+
+def test_avatar_update_rejects_unknown_accent():
+    with pytest.raises(ValueError):
+        AvatarUpdate(accent="hat")  # not in none/star/cap/glasses
 
 
 # ── Balls ────────────────────────────────────────────────────────────────────

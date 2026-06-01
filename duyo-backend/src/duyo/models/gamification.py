@@ -23,10 +23,12 @@ class Avatar(Base, UUIDPK, TimestampMixin):
     child_id: Mapped[UUID] = mapped_column(
         ForeignKey("child_profiles.id", ondelete="CASCADE"), nullable=False, index=True,
     )
-    body_shape: Mapped[str] = mapped_column(String(20), nullable=False, default="spherical")
-    primary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#4F8DFD")
-    accent_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#FFD166")
-    face_style: Mapped[str] = mapped_column(String(20), nullable=False, default="friendly")
+    # Stored as the app's named option keys (Concept §3.2). Accent is a
+    # wearable accessory (none/star/cap/glasses), not a colour.
+    body_shape: Mapped[str] = mapped_column(String(20), nullable=False, default="sphere")
+    primary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="blue")
+    accent: Mapped[str] = mapped_column(String(20), nullable=False, default="star")
+    face_style: Mapped[str] = mapped_column(String(20), nullable=False, default="smile")
 
 
 class BallsTransaction(Base, UUIDPK, TimestampMixin):
