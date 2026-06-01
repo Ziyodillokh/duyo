@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -56,6 +56,10 @@ class CrisisEvent(Base, UUIDPK, TimestampMixin):
         DateTime(timezone=True),
         nullable=True,
     )
+
+    # Admin triage: null reviewed_at = open; reviewed_by snapshots the admin email.
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     message: Mapped["Message | None"] = relationship(back_populates="crisis_events")  # noqa: F821
 

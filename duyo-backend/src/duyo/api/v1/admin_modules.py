@@ -24,6 +24,7 @@ from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewS
 from duyo.models.gamification import Avatar, BallsTransaction, InventoryItem, Streak
 from duyo.models.message import Message, MessageRole
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
+from duyo.models.payment import Payment, PaymentState
 from duyo.models.report import Report
 from duyo.models.subscription import Subscription
 from duyo.models.tamagochi import TamagochiState
@@ -155,6 +156,61 @@ async def monetization_summary(
         ).all()
     }
     return {"by_tier": by_tier, "by_status": by_status}
+
+
+class PaymentRow(BaseModel):
+    id: UUID
+    user_id: UUID
+    provider: str
+    tier: str
+    period: str
+    amount: int
+    state: str
+    provider_trans_id: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/monetization/payments", response_model=list[PaymentRow])
+async def payments_list(
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_finance),
+) -> list[PaymentRow]:
+    rows = (
+        await db.scalars(select(Payment).order_by(Payment.created_at.desc()).limit(min(limit, 500)))
+    ).all()
+    return [
+        PaymentRow(
+            id=p.id, user_id=p.user_id,
+            provider=p.provider.value if hasattr(p.provider, "value") else str(p.provider),
+            tier=p.tier, period=p.period, amount=p.amount,
+            state=p.state.value if hasattr(p.state, "value") else str(p.state),
+            provider_trans_id=p.provider_trans_id, created_at=p.created_at,
+        )
+        for p in rows
+    ]
+
+
+@router.get("/monetization/payments/summary")
+async def payments_summary(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_finance),
+) -> dict:
+    by_state = {
+        (st.value if hasattr(st, "value") else str(st)): n
+        for st, n in (await db.execute(select(Payment.state, func.count()).group_by(Payment.state))).all()
+    }
+    by_provider = {
+        (pr.value if hasattr(pr, "value") else str(pr)): n
+        for pr, n in (await db.execute(select(Payment.provider, func.count()).group_by(Payment.provider))).all()
+    }
+    # Realized revenue = sum of PAID payments (so'm).
+    revenue = await db.scalar(
+        select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.state == PaymentState.PAID)
+    ) or 0
+    return {"by_state": by_state, "by_provider": by_provider, "revenue": int(revenue)}
 
 
 # ---- AI logs ----

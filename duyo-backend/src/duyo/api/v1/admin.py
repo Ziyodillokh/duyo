@@ -61,6 +61,9 @@ class CrisisEventRow(BaseModel):
     layer: int
     matches: list[dict] | None
     parent_notified: bool
+    parent_notified_at: datetime | None
+    reviewed_at: datetime | None
+    reviewed_by: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -103,6 +106,52 @@ async def list_crisis_events(
         meta={"count": len(rows)}, request=request,
     )
     return [CrisisEventRow.model_validate(r) for r in rows]
+
+
+async def _get_crisis_or_404(db: AsyncSession, event_id: UUID) -> CrisisEvent:
+    event = await db.scalar(select(CrisisEvent).where(CrisisEvent.id == event_id))
+    if event is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Krizis hodisasi topilmadi")
+    return event
+
+
+@router.post("/safety/events/{event_id}/notify-parent", response_model=CrisisEventRow)
+async def notify_parent(
+    event_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> CrisisEventRow:
+    """Mark the parent as notified about this crisis (idempotent)."""
+    event = await _get_crisis_or_404(db, event_id)
+    if not event.parent_notified:
+        event.parent_notified = True
+        event.parent_notified_at = datetime.now(event.created_at.tzinfo)
+        await db.flush()
+        await record_audit(
+            db, admin, action="notify_parent", module="safety",
+            target=str(event_id), request=request,
+        )
+    return CrisisEventRow.model_validate(event)
+
+
+@router.post("/safety/events/{event_id}/review", response_model=CrisisEventRow)
+async def review_crisis(
+    event_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> CrisisEventRow:
+    """Mark this crisis as reviewed/handled by the current safety admin."""
+    event = await _get_crisis_or_404(db, event_id)
+    event.reviewed_at = datetime.now(event.created_at.tzinfo)
+    event.reviewed_by = admin.email
+    await db.flush()
+    await record_audit(
+        db, admin, action="review", module="safety",
+        target=str(event_id), request=request,
+    )
+    return CrisisEventRow.model_validate(event)
 
 
 # ---- Stats (any admin) ----

@@ -31,6 +31,9 @@ export interface CrisisEventRow {
   layer: number;
   matches: { keyword?: string; category?: string; language?: string }[] | null;
   parent_notified: boolean;
+  parent_notified_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   created_at: string;
 }
 
@@ -158,6 +161,18 @@ export interface AdminParentRow {
   created_at: string;
 }
 
+export interface PaymentRow {
+  id: string;
+  user_id: string;
+  provider: string;
+  tier: string;
+  period: string;
+  amount: number;
+  state: string;
+  provider_trans_id: string | null;
+  created_at: string;
+}
+
 export type ContentType = "poem" | "story" | "lesson" | "audio";
 export type ContentReviewStatus = "draft" | "pending" | "approved" | "rejected";
 export type ContentLicenseStatus = "unknown" | "pending" | "approved" | "rejected";
@@ -216,6 +231,15 @@ export const adminApi = {
   safetyEvents: (level?: CrisisLevel) =>
     api.get<CrisisEventRow[]>(`/admin/safety/events${level ? `?level=${level}` : ""}`),
   safetySummary: () => api.get<Record<string, number>>("/admin/safety/summary"),
+  safetyNotifyParent: (id: string) =>
+    api.post<CrisisEventRow>(`/admin/safety/events/${id}/notify-parent`, {}),
+  safetyReview: (id: string) =>
+    api.post<CrisisEventRow>(`/admin/safety/events/${id}/review`, {}),
+  payments: (limit = 100) => api.get<PaymentRow[]>(`/admin/monetization/payments?limit=${limit}`),
+  paymentsSummary: () =>
+    api.get<{ by_state: Record<string, number>; by_provider: Record<string, number>; revenue: number }>(
+      "/admin/monetization/payments/summary",
+    ),
   dashboardSummary: () => api.get<DashboardSummary>("/admin/dashboard/summary"),
   ragDocuments: () => api.get<RagDocument[]>("/admin/rag/documents"),
   ragStats: () => api.get<Record<string, number>>("/admin/rag/stats"),

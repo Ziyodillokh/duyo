@@ -26,8 +26,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { adminApi, type SubscriptionRow } from "@/api/admin";
+import { adminApi, type SubscriptionRow, type PaymentRow } from "@/api/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 
@@ -158,6 +159,60 @@ function formatDate(value: string | null): string {
   return d.toLocaleDateString("ru-RU");
 }
 
+// ---- Payments (REAL — backenddan) ----
+// So'm formatlash: 1250000 → "1 250 000 so'm" (NBSP guruh ajratuvchi).
+function formatSom(amount: number): string {
+  const grouped = Math.round(amount).toLocaleString("ru-RU").replace(/[ ,]/g, " ");
+  return `${grouped} so'm`;
+}
+
+const PAYMENT_PROVIDER_LABELS: Record<string, string> = {
+  click: "Click",
+  payme: "Payme",
+};
+
+const PAYMENT_PROVIDER_PILL: Record<string, string> = {
+  click: "bg-duyo-50 text-duyo-dark border border-duyo-100",
+  payme: "bg-serious-bg text-serious border border-serious-line",
+};
+
+function paymentProviderLabel(provider: string): string {
+  return PAYMENT_PROVIDER_LABELS[provider] ?? provider;
+}
+
+function paymentProviderPill(provider: string): string {
+  return PAYMENT_PROVIDER_PILL[provider] ?? "bg-bg text-muted border border-line";
+}
+
+const PAYMENT_STATE_LABELS: Record<string, string> = {
+  paid: "To'langan",
+  pending: "Kutilmoqda",
+  cancelled: "Bekor qilingan",
+};
+
+const PAYMENT_STATE_PILL: Record<string, string> = {
+  paid: "bg-safe-bg text-safe border border-safe-line",
+  pending: "bg-warn-bg text-warn border border-warn-line",
+  cancelled: "bg-urgent-bg text-urgent border border-urgent-line",
+};
+
+function paymentStateLabel(state: string): string {
+  return PAYMENT_STATE_LABELS[state] ?? state;
+}
+
+function paymentStatePill(state: string): string {
+  return PAYMENT_STATE_PILL[state] ?? "bg-bg text-muted border border-line";
+}
+
+const PAYMENT_PERIOD_LABELS: Record<string, string> = {
+  monthly: "oylik",
+  yearly: "yillik",
+};
+
+function paymentPeriodLabel(period: string): string {
+  return PAYMENT_PERIOD_LABELS[period] ?? period;
+}
+
 // ---- Payment transactions ----
 type ProviderKey = "Click" | "Payme" | "Uzcard" | "Humo" | "Visa/MC";
 type TxStatus = "success" | "pending" | "failed" | "refunded";
@@ -282,12 +337,41 @@ export function Monetization() {
     queryFn: () => adminApi.monetizationSummary(),
   });
 
+  const {
+    data: payments,
+    isLoading: paymentsLoading,
+    isError: paymentsError,
+  } = useQuery({
+    queryKey: ["admin", "payments"],
+    queryFn: () => adminApi.payments(),
+  });
+
+  const {
+    data: paymentsSummary,
+    isLoading: paymentsSummaryLoading,
+  } = useQuery({
+    queryKey: ["admin", "payments", "summary"],
+    queryFn: () => adminApi.paymentsSummary(),
+  });
+
+  const [tab, setTab] = useState<"subscriptions" | "payments">("subscriptions");
+
   const tierCount = (tier: string): string =>
     summaryLoading || !summary ? "…" : String(summary.by_tier[tier] ?? 0);
   const statusCount = (status: string): string =>
     summaryLoading || !summary ? "…" : String(summary.by_status[status] ?? 0);
 
+  const paymentStateCount = (state: string): string =>
+    paymentsSummaryLoading || !paymentsSummary ? "…" : String(paymentsSummary.by_state[state] ?? 0);
+  const paymentProviderCount = (provider: string): string =>
+    paymentsSummaryLoading || !paymentsSummary
+      ? "…"
+      : String(paymentsSummary.by_provider[provider] ?? 0);
+  const paymentRevenue: string =
+    paymentsSummaryLoading || !paymentsSummary ? "…" : formatSom(paymentsSummary.revenue);
+
   const rows: SubscriptionRow[] = subscriptions ?? [];
+  const paymentRows: PaymentRow[] = payments ?? [];
 
   return (
     <div>
@@ -468,53 +552,168 @@ export function Monetization() {
         </div>
       </div>
 
-      {/* Subscriptions table (REAL — backenddan) */}
+      {/* Obunalar / To'lovlar (REAL — backenddan) */}
       <div className="card mb-6 overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-line px-5 py-3">
-          <Users size={16} className="text-duyo-blue" />
-          <h2 className="text-sm font-semibold text-ink">Obunalar</h2>
+        <div className="flex flex-wrap items-center gap-1 border-b border-line px-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setTab("subscriptions")}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium",
+              tab === "subscriptions"
+                ? "border-duyo-blue text-duyo-dark"
+                : "border-transparent text-muted hover:text-ink",
+            )}
+          >
+            <Users size={15} /> Obunalar
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("payments")}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium",
+              tab === "payments"
+                ? "border-duyo-blue text-duyo-dark"
+                : "border-transparent text-muted hover:text-ink",
+            )}
+          >
+            <CreditCard size={15} /> To'lovlar
+          </button>
         </div>
-        {subsLoading ? (
-          <div className="flex items-center justify-center gap-2 px-5 py-10 text-sm text-muted">
-            <Loader2 size={16} className="animate-spin" /> Yuklanmoqda...
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
-                  <th className="px-5 py-3">ID</th>
-                  <th className="px-3 py-3">Foydalanuvchi</th>
-                  <th className="px-3 py-3">Tarif</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3">Provayder</th>
-                  <th className="px-3 py-3">Tugaydi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr key={s.id} className="border-b border-line/70 last:border-0">
-                    <td className="px-5 py-3 font-medium text-ink">{shortId(s.id)}</td>
-                    <td className="px-3 py-3 text-ink">{shortId(s.user_id)}</td>
-                    <td className="px-3 py-3">
-                      <span className={cn("pill", tierPill(s.tier))}>{tierLabel(s.tier)}</span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className={cn("pill", statusPill(s.status))}>{statusLabel(s.status)}</span>
-                    </td>
-                    <td className="px-3 py-3 text-muted">{s.provider ?? "—"}</td>
-                    <td className="px-3 py-3 text-muted">{formatDate(s.expires_at)}</td>
+
+        {tab === "subscriptions" &&
+          (subsLoading ? (
+            <div className="flex items-center justify-center gap-2 px-5 py-10 text-sm text-muted">
+              <Loader2 size={16} className="animate-spin" /> Yuklanmoqda…
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
+                    <th className="px-5 py-3">ID</th>
+                    <th className="px-3 py-3">Foydalanuvchi</th>
+                    <th className="px-3 py-3">Tarif</th>
+                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">Provayder</th>
+                    <th className="px-3 py-3">Tugaydi</th>
                   </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted">
-                      Hozircha obunalar yo'q.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map((s) => (
+                    <tr key={s.id} className="border-b border-line/70 last:border-0">
+                      <td className="px-5 py-3 font-medium text-ink">{shortId(s.id)}</td>
+                      <td className="px-3 py-3 text-ink">{shortId(s.user_id)}</td>
+                      <td className="px-3 py-3">
+                        <span className={cn("pill", tierPill(s.tier))}>{tierLabel(s.tier)}</span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={cn("pill", statusPill(s.status))}>{statusLabel(s.status)}</span>
+                      </td>
+                      <td className="px-3 py-3 text-muted">{s.provider ?? "—"}</td>
+                      <td className="px-3 py-3 text-muted">{formatDate(s.expires_at)}</td>
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted">
+                        Hozircha obunalar yo'q.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ))}
+
+        {tab === "payments" && (
+          <div>
+            {/* To'lov KPI strip */}
+            <div className="grid grid-cols-2 gap-4 border-b border-line p-5 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="card p-4">
+                <div className="text-xs font-medium text-muted">Daromad (jami)</div>
+                <div className="mt-2 text-xl font-bold text-ink">{paymentRevenue}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs font-medium text-muted">To'langan</div>
+                <div className="mt-2 text-2xl font-bold text-safe">{paymentStateCount("paid")}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs font-medium text-muted">Kutilmoqda</div>
+                <div className="mt-2 text-2xl font-bold text-warn">{paymentStateCount("pending")}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs font-medium text-muted">Bekor qilingan</div>
+                <div className="mt-2 text-2xl font-bold text-urgent">{paymentStateCount("cancelled")}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs font-medium text-muted">Click</div>
+                <div className="mt-2 text-2xl font-bold text-ink">{paymentProviderCount("click")}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs font-medium text-muted">Payme</div>
+                <div className="mt-2 text-2xl font-bold text-ink">{paymentProviderCount("payme")}</div>
+              </div>
+            </div>
+
+            {/* To'lovlar jadvali */}
+            {paymentsLoading ? (
+              <div className="flex items-center justify-center gap-2 px-5 py-10 text-sm text-muted">
+                <Loader2 size={16} className="animate-spin" /> Yuklanmoqda…
+              </div>
+            ) : paymentsError ? (
+              <div className="px-5 py-10 text-center text-sm text-urgent">
+                To'lovlarni yuklashda xatolik yuz berdi.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
+                      <th className="px-5 py-3">Sana</th>
+                      <th className="px-3 py-3">Provayder</th>
+                      <th className="px-3 py-3">Tarif</th>
+                      <th className="px-3 py-3">Davr</th>
+                      <th className="px-3 py-3">Summa</th>
+                      <th className="px-3 py-3">Holat</th>
+                      <th className="px-3 py-3">Tranzaksiya ID</th>
+                      <th className="px-3 py-3">Foydalanuvchi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentRows.map((p) => (
+                      <tr key={p.id} className="border-b border-line/70 last:border-0">
+                        <td className="px-5 py-3 text-muted">{formatDate(p.created_at)}</td>
+                        <td className="px-3 py-3">
+                          <span className={cn("pill", paymentProviderPill(p.provider))}>
+                            {paymentProviderLabel(p.provider)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={cn("pill", tierPill(p.tier))}>{tierLabel(p.tier)}</span>
+                        </td>
+                        <td className="px-3 py-3 text-muted">{paymentPeriodLabel(p.period)}</td>
+                        <td className="px-3 py-3 font-medium text-ink">{formatSom(p.amount)}</td>
+                        <td className="px-3 py-3">
+                          <span className={cn("pill", paymentStatePill(p.state))}>
+                            {paymentStateLabel(p.state)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-xs text-muted">{p.provider_trans_id ?? "—"}</td>
+                        <td className="px-3 py-3 text-ink">{shortId(p.user_id)}</td>
+                      </tr>
+                    ))}
+                    {paymentRows.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-5 py-8 text-center text-sm text-muted">
+                          To'lov yo'q.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

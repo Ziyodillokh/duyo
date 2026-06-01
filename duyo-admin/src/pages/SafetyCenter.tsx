@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ShieldAlert, AlertTriangle, Eye, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ShieldAlert, AlertTriangle, BellRing, CheckCircle2, Loader2, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { RISK_STYLES, type RiskLevel, cn } from "@/lib/utils";
 import { adminApi, type CrisisEventRow, type CrisisLevel } from "@/api/admin";
+import { ApiError } from "@/api/client";
 
 const TABS: { key: RiskLevel }[] = [{ key: "red" }, { key: "orange" }, { key: "yellow" }, { key: "green" }];
 
@@ -16,15 +17,60 @@ function timeAgo(iso: string): string {
   return `${Math.round(h / 24)} kun oldin`;
 }
 
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("uz-UZ", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.detail;
+  if (error instanceof Error) return error.message;
+  return "Kutilmagan xatolik";
+}
+
 export function SafetyCenter() {
   const [tab, setTab] = useState<RiskLevel | "all">("all");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["safety-events", tab],
     queryFn: () => adminApi.safetyEvents(tab === "all" ? undefined : (tab.toUpperCase() as CrisisLevel)),
   });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["safety-events"] });
+    queryClient.invalidateQueries({ queryKey: ["safety-summary"] });
+  };
+
+  const notifyMutation = useMutation({
+    mutationFn: (id: string) => adminApi.safetyNotifyParent(id),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => invalidate(),
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: (id: string) => adminApi.safetyReview(id),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => invalidate(),
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
   const rows: CrisisEventRow[] = data ?? [];
   const activeRed = rows.filter((r) => r.level === "RED").length;
+
+  const notifyingId = notifyMutation.isPending ? (notifyMutation.variables ?? null) : null;
+  const reviewingId = reviewMutation.isPending ? (reviewMutation.variables ?? null) : null;
 
   return (
     <div>
@@ -39,6 +85,22 @@ export function SafetyCenter() {
           ) : undefined
         }
       />
+
+      {/* Mutatsiya xatosi — backend (ApiError.detail) inline ko'rsatiladi */}
+      {errorMsg && (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-urgent-line bg-urgent-bg p-4">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-urgent" />
+          <div className="flex-1 text-sm text-urgent">{errorMsg}</div>
+          <button
+            type="button"
+            aria-label="Yopish"
+            onClick={() => setErrorMsg(null)}
+            className="text-urgent hover:opacity-70"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Abuse-protocol banner */}
       <div className="mb-5 flex items-start gap-3 rounded-2xl border border-urgent-line bg-urgent-bg p-4">
@@ -93,7 +155,7 @@ export function SafetyCenter() {
           </div>
         ) : isError ? (
           <div className="p-12 text-center text-sm text-urgent">
-            {(error as Error).message}
+            {getErrorMessage(error)}
           </div>
         ) : rows.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted">Hodisalar topilmadi.</div>
@@ -109,7 +171,7 @@ export function SafetyCenter() {
                   <th className="px-3 py-3">Til</th>
                   <th className="px-3 py-3">Ota-ona</th>
                   <th className="px-3 py-3">Vaqt</th>
-                  <th className="px-3 py-3"></th>
+                  <th className="px-3 py-3 text-right">Amallar</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,6 +179,9 @@ export function SafetyCenter() {
                   const level = e.level.toLowerCase() as RiskLevel;
                   const s = RISK_STYLES[level];
                   const match = e.matches?.[0];
+                  const notifying = notifyingId === e.id;
+                  const reviewing = reviewingId === e.id;
+                  const busy = notifying || reviewing;
                   return (
                     <tr key={e.id} className={cn("border-b border-line/70 last:border-0", s.row)}>
                       <td className="px-5 py-3 font-medium text-ink">#{e.id.slice(0, 8)}</td>
@@ -130,16 +195,64 @@ export function SafetyCenter() {
                       <td className="px-3 py-3 text-muted">{match?.language ?? "—"}</td>
                       <td className="px-3 py-3">
                         {e.parent_notified ? (
-                          <span className="text-xs text-safe">Yuborildi</span>
+                          <span
+                            className="pill bg-safe-bg text-safe border border-safe-line"
+                            title={formatDateTime(e.parent_notified_at)}
+                          >
+                            Xabar berilgan · {formatDateTime(e.parent_notified_at)}
+                          </span>
                         ) : (
                           <span className="text-xs text-urgent">Yuborilmagan</span>
                         )}
                       </td>
                       <td className="px-3 py-3 text-xs text-muted">{timeAgo(e.created_at)}</td>
                       <td className="px-3 py-3">
-                        <button className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:border-duyo-blue hover:bg-duyo-50">
-                          <Eye size={13} /> Ko'rish
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Ota-onaga xabar berish */}
+                          {e.parent_notified ? (
+                            <span className="flex items-center gap-1 text-xs font-medium text-safe">
+                              <CheckCircle2 size={13} /> Xabar berilgan
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => notifyMutation.mutate(e.id)}
+                              className="flex items-center gap-1 rounded-lg border border-duyo-100 bg-duyo-50 px-2.5 py-1 text-xs font-medium text-duyo-dark hover:bg-duyo-blue/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {notifying ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <BellRing size={13} />
+                              )}{" "}
+                              Ota-onaga xabar berish
+                            </button>
+                          )}
+
+                          {/* Ko'rib chiqildi */}
+                          {e.reviewed_at ? (
+                            <span
+                              className="text-xs text-muted"
+                              title={formatDateTime(e.reviewed_at)}
+                            >
+                              Ko'rildi · {e.reviewed_by ?? "—"} · {formatDateTime(e.reviewed_at)}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => reviewMutation.mutate(e.id)}
+                              className="flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:border-duyo-blue hover:bg-duyo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {reviewing ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <CheckCircle2 size={13} />
+                              )}{" "}
+                              Ko'rib chiqildi
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
