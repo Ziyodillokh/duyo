@@ -1,5 +1,6 @@
 """SQLAlchemy models package."""
 
+from duyo.models.admin import AdminRole, AdminUser, AuditLog
 from duyo.models.base import Base
 from duyo.models.child import AgeSegment, ChildProfile, Language
 from duyo.models.conversation import Conversation
@@ -16,7 +17,10 @@ from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
 
 __all__ = [
+    "AdminRole",
+    "AdminUser",
     "AgeSegment",
+    "AuditLog",
     "Avatar",
     "BallsTransaction",
     "Base",
