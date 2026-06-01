@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Plus, Sparkles } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -17,26 +18,24 @@ import {
   type InventoryCategory,
   type InventoryItem,
   INVENTORY_CATEGORIES,
-  isOwned,
   itemsByCategory,
-  MOCK_BALANCE,
 } from '@/mocks/inventory';
+import { useBalls, useInventory, usePurchaseItem } from '@/hooks/use-gamification';
+
+// The CATALOG (names/emojis/prices) is static product config; ownership and
+// balance come from the backend. An item is "owned" when its key is in the
+// inventory set returned by the API.
 
 interface InventoryCardProps {
   item: InventoryItem;
+  owned: boolean;
   onPress: () => void;
 }
 
-function InventoryCard({ item, onPress }: InventoryCardProps) {
+function InventoryCard({ item, owned, onPress }: InventoryCardProps) {
   const isDark = useIsDark();
-  const owned = isOwned(item);
   const premium = item.isPremium ?? false;
 
-  const cardClassName = owned
-    ? ''
-    : premium
-      ? ''
-      : 'bg-card dark:bg-dark-surface border-neon-blue/20';
   const cardStyle = owned
     ? {
         backgroundColor: 'rgba(52, 211, 153, 0.10)',
@@ -56,7 +55,7 @@ function InventoryCard({ item, onPress }: InventoryCardProps) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={item.name}
-      className={`rounded-xl active:opacity-80 ${cardClassName}`}
+      className="rounded-xl active:opacity-80"
       style={[{ flex: 1 }, cardStyle]}
     >
       <View style={{ padding: 16 }}>
@@ -125,24 +124,53 @@ export default function InventoryScreen() {
   const isDark = useIsDark();
   const [selectedCategory, setSelectedCategory] =
     useState<InventoryCategory | null>(null);
+
+  const ballsQuery = useBalls();
+  const inventoryQuery = useInventory();
+  const purchase = usePurchaseItem();
+
+  const balance = ballsQuery.data?.balance ?? 0;
+  const ownedKeys = useMemo(
+    () => new Set((inventoryQuery.data ?? []).map((i) => i.item_key)),
+    [inventoryQuery.data],
+  );
+
   const items = useMemo(
     () => itemsByCategory(selectedCategory),
     [selectedCategory],
   );
 
   const handleItemPress = (item: InventoryItem) => {
-    if (isOwned(item)) {
+    if (ownedKeys.has(item.id)) {
       Alert.alert(item.name, "Bu narsa siznikida. Avatar'ga qo'shilsinmi?");
-    } else {
-      const canAfford = MOCK_BALANCE >= (item.price ?? 0);
-      Alert.alert(
-        item.name,
-        canAfford
-          ? `${item.price} XP sotib olamiz?`
-          : `${item.price} XP kerak. Balans yetishmaydi.`,
-      );
+      return;
     }
+    const cost = item.price ?? 0;
+    if (balance < cost) {
+      Alert.alert(item.name, `${cost} XP kerak. Balans yetishmaydi.`);
+      return;
+    }
+    Alert.alert(item.name, `${cost} XP sotib olamiz?`, [
+      { text: 'Bekor', style: 'cancel' },
+      {
+        text: 'Sotib olish',
+        onPress: () => {
+          purchase.mutate(
+            { item_key: item.id, category: item.category, cost },
+            {
+              onError: () =>
+                Alert.alert(
+                  'Xatolik',
+                  "Sotib olishda muammo. Qayta urinib ko'ring.",
+                ),
+            },
+          );
+        },
+      },
+    ]);
   };
+
+  const loading = ballsQuery.isLoading || inventoryQuery.isLoading;
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -163,9 +191,7 @@ export default function InventoryScreen() {
             Inventar
           </Text>
 
-          <View
-            className="rounded-xl border border-neon-blue/20 overflow-hidden"
-          >
+          <View className="rounded-xl border border-neon-blue/20 overflow-hidden">
             <LinearGradient
               colors={['rgba(70, 25, 1, 0.50)', 'rgba(67, 32, 4, 0.50)']}
               start={{ x: 0, y: 0.5 }}
@@ -177,14 +203,18 @@ export default function InventoryScreen() {
                   <Text style={{ fontSize: 28 }}>⭐</Text>
                   <View>
                     <Text className="text-sm text-muted-foreground dark:text-dark-muted">Balansim</Text>
-                    <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
-                      {MOCK_BALANCE}
-                    </Text>
+                    {ballsQuery.isLoading ? (
+                      <ActivityIndicator color={isDark ? '#E0E7FF' : '#102033'} />
+                    ) : (
+                      <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
+                        {balance}
+                      </Text>
+                    )}
                   </View>
                 </View>
                 <Pressable
                   onPress={() =>
-                    Alert.alert('Tez orada', "Ball olish Faza 1'da qo'shiladi")
+                    Alert.alert('Tez orada', "Ball suhbat orqali to'planadi")
                   }
                   accessibilityRole="button"
                   accessibilityLabel="Ball olish"
@@ -208,10 +238,7 @@ export default function InventoryScreen() {
             style={{ height: 36 }}
           >
             <Sparkles size={16} color="#0A1628" />
-            <Text
-              className="text-sm font-medium"
-              style={{ color: '#0A1628' }}
-            >
+            <Text className="text-sm font-medium" style={{ color: '#0A1628' }}>
               Avatar sozlash
             </Text>
           </Pressable>
@@ -259,18 +286,25 @@ export default function InventoryScreen() {
             })}
           </View>
 
-          <View className="flex-row flex-wrap" style={{ gap: 12 }}>
-            {items.map((item) => (
-              <View key={item.id} style={{ width: '47.5%' }}>
-                <InventoryCard
-                  item={item}
-                  onPress={() => handleItemPress(item)}
-                />
-              </View>
-            ))}
-          </View>
+          {loading ? (
+            <View className="items-center" style={{ padding: 32 }}>
+              <ActivityIndicator color={isDark ? '#60A5FA' : '#102033'} />
+            </View>
+          ) : (
+            <View className="flex-row flex-wrap" style={{ gap: 12 }}>
+              {items.map((item) => (
+                <View key={item.id} style={{ width: '47.5%' }}>
+                  <InventoryCard
+                    item={item}
+                    owned={ownedKeys.has(item.id)}
+                    onPress={() => handleItemPress(item)}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
 
-          {items.length === 0 && (
+          {!loading && items.length === 0 && (
             <View
               className="rounded-xl border border-neon-blue/20 items-center"
               style={{ padding: 32 }}
