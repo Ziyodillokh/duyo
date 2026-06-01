@@ -20,12 +20,17 @@ from duyo.api.deps import get_db
 from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_roles
 from duyo.core.admin_security import create_admin_token, verify_password
 from duyo.models.admin import AdminRole, AdminUser
+from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
+from duyo.models.message import Message
+from duyo.models.textbook_chunk import TextbookChunk
+from duyo.models.user import User
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Module-level dependency singletons (B008: no factory calls in arg defaults).
 _require_safety = require_roles(AdminRole.SAFETY_OFFICER)
+_require_content = require_roles(AdminRole.CONTENT_MANAGER)
 
 
 # ---- Schemas ----
@@ -110,3 +115,75 @@ async def safety_summary(
     for level, n in (await db.execute(stmt)).all():
         counts[level.value if hasattr(level, "value") else str(level)] = n
     return counts
+
+
+# ---- Dashboard (any admin) ----
+class DashboardSummary(BaseModel):
+    children: int
+    parents: int
+    messages_total: int
+    textbook_chunks: int
+    textbook_subjects: int
+    crisis: dict[str, int]
+
+
+@router.get("/dashboard/summary", response_model=DashboardSummary)
+async def dashboard_summary(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+) -> DashboardSummary:
+    children = await db.scalar(select(func.count()).select_from(ChildProfile)) or 0
+    parents = await db.scalar(select(func.count()).select_from(User)) or 0
+    messages = await db.scalar(select(func.count()).select_from(Message)) or 0
+    chunks = await db.scalar(select(func.count()).select_from(TextbookChunk)) or 0
+    subjects = await db.scalar(select(func.count(func.distinct(TextbookChunk.subject)))) or 0
+    crisis = {level.value: 0 for level in CrisisLevel}
+    for level, n in (await db.execute(select(CrisisEvent.level, func.count()).group_by(CrisisEvent.level))).all():
+        crisis[level.value if hasattr(level, "value") else str(level)] = n
+    return DashboardSummary(
+        children=children, parents=parents, messages_total=messages,
+        textbook_chunks=chunks, textbook_subjects=subjects, crisis=crisis,
+    )
+
+
+# ---- RAG knowledge base (Content Manager) ----
+class RagDocument(BaseModel):
+    subject: str
+    grade: int | None
+    language: str | None
+    chunks: int
+    embedded: int
+
+
+@router.get("/rag/documents", response_model=list[RagDocument])
+async def rag_documents(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_content),
+) -> list[RagDocument]:
+    stmt = (
+        select(
+            TextbookChunk.subject,
+            TextbookChunk.grade,
+            TextbookChunk.language,
+            func.count().label("chunks"),
+            func.count(TextbookChunk.embedding).label("embedded"),
+        )
+        .group_by(TextbookChunk.subject, TextbookChunk.grade, TextbookChunk.language)
+        .order_by(TextbookChunk.grade, TextbookChunk.subject)
+    )
+    return [
+        RagDocument(subject=r.subject, grade=r.grade, language=r.language, chunks=r.chunks, embedded=r.embedded)
+        for r in (await db.execute(stmt)).all()
+    ]
+
+
+@router.get("/rag/stats")
+async def rag_stats(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(_require_content),
+) -> dict[str, int]:
+    chunks = await db.scalar(select(func.count()).select_from(TextbookChunk)) or 0
+    embedded = await db.scalar(select(func.count(TextbookChunk.embedding))) or 0
+    subjects = await db.scalar(select(func.count(func.distinct(TextbookChunk.subject)))) or 0
+    grades = await db.scalar(select(func.count(func.distinct(TextbookChunk.grade)))) or 0
+    return {"chunks": chunks, "embedded": embedded, "subjects": subjects, "grades": grades}

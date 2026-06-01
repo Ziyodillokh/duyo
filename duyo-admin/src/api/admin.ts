@@ -34,6 +34,23 @@ export interface CrisisEventRow {
   created_at: string;
 }
 
+export interface DashboardSummary {
+  children: number;
+  parents: number;
+  messages_total: number;
+  textbook_chunks: number;
+  textbook_subjects: number;
+  crisis: Record<string, number>;
+}
+
+export interface RagDocument {
+  subject: string;
+  grade: number | null;
+  language: string | null;
+  chunks: number;
+  embedded: number;
+}
+
 export const adminApi = {
   login: (email: string, password: string) =>
     api.post<LoginResponse>("/admin/auth/login", { email, password }),
@@ -41,6 +58,9 @@ export const adminApi = {
   safetyEvents: (level?: CrisisLevel) =>
     api.get<CrisisEventRow[]>(`/admin/safety/events${level ? `?level=${level}` : ""}`),
   safetySummary: () => api.get<Record<string, number>>("/admin/safety/summary"),
+  dashboardSummary: () => api.get<DashboardSummary>("/admin/dashboard/summary"),
+  ragDocuments: () => api.get<RagDocument[]>("/admin/rag/documents"),
+  ragStats: () => api.get<Record<string, number>>("/admin/rag/stats"),
 };
 
 export const ROLE_LABELS: Record<AdminRole, string> = {
