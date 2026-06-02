@@ -29,6 +29,8 @@ const TYPE_TO_CATEGORY: Record<ContentType, LibraryCategory> = {
   story: 'stories',
   lesson: 'lessons',
   audio: 'lessons',
+  language: 'language',
+  dtm: 'dtm',
 };
 
 function categoryEmoji(category: LibraryCategory): string {

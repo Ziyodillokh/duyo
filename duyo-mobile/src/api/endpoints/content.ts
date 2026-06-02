@@ -1,6 +1,12 @@
 import { apiClient } from '@/api/client';
 
-export type ContentType = 'poem' | 'story' | 'lesson' | 'audio';
+export type ContentType =
+  | 'poem'
+  | 'story'
+  | 'lesson'
+  | 'audio'
+  | 'language'
+  | 'dtm';
 
 export interface ContentListItem {
   id: string;
