@@ -177,7 +177,10 @@ export default function LibraryItemScreen() {
                 Mazmun
               </Text>
             </View>
-            <Text className="text-base text-foreground dark:text-dark-text leading-7">
+            <Text
+              className="text-foreground dark:text-dark-text"
+              style={{ fontSize: 22, lineHeight: 32 }}
+            >
               {body}
             </Text>
           </View>
