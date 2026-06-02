@@ -23,7 +23,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
-import { adminApi, type ContentRow } from "@/api/admin";
+import { adminApi, type ContentRow, type ContentCreate } from "@/api/admin";
 import { ApiError } from "@/api/client";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -68,6 +68,19 @@ const TYPE_LABEL: Record<ContentType, string> = {
   lesson: "Dars",
   audio: "Audio",
 };
+
+const AGE_SEGMENT_OPTIONS: { value: string; label: string }[] = [
+  { value: "all", label: "Barchasi" },
+  { value: "junior", label: "Junior" },
+  { value: "explorer", label: "Explorer" },
+  { value: "companion", label: "Companion" },
+];
+
+const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
+  { value: "uz", label: "O'zbek" },
+  { value: "ru", label: "Ruscha" },
+  { value: "en", label: "Inglizcha" },
+];
 
 const CONTENT_TABS: ContentTab[] = [
   { key: "poem", label: "She'rlar", icon: ScrollText },
@@ -159,7 +172,25 @@ export function ContentLibrary() {
   const [view, setView] = useState<ViewMode>("story");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Yangi kontent yaratish modali
+  const [showCreate, setShowCreate] = useState(false);
+  const [createType, setCreateType] = useState<ContentType>("story");
+  const [createTitle, setCreateTitle] = useState("");
+  const [createBody, setCreateBody] = useState("");
+  const [createAgeSegment, setCreateAgeSegment] = useState("all");
+  const [createLanguage, setCreateLanguage] = useState("uz");
+  const [createAuthor, setCreateAuthor] = useState("");
+
   const queryClient = useQueryClient();
+
+  const resetCreateForm = () => {
+    setCreateType("story");
+    setCreateTitle("");
+    setCreateBody("");
+    setCreateAgeSegment("all");
+    setCreateLanguage("uz");
+    setCreateAuthor("");
+  };
 
   const contentQuery = useQuery({
     queryKey: ["content"],
@@ -180,6 +211,28 @@ export function ContentLibrary() {
     },
     onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
   });
+
+  const createMutation = useMutation({
+    mutationFn: (body: ContentCreate) => adminApi.contentCreate(body),
+    onMutate: () => setErrorMsg(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content"] });
+      setShowCreate(false);
+      resetCreateForm();
+    },
+    onError: (err: unknown) => setErrorMsg(getErrorMessage(err)),
+  });
+
+  const handleCreateSubmit = () => {
+    createMutation.mutate({
+      type: createType,
+      title: createTitle,
+      body: createBody || undefined,
+      age_segment: createAgeSegment,
+      language: createLanguage,
+      author: createAuthor || undefined,
+    });
+  };
 
   const all = contentQuery.data ?? [];
   const isContentView = view !== "review" && view !== "licensing";
@@ -226,6 +279,7 @@ export function ContentLibrary() {
         actions={
           <button
             type="button"
+            onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 rounded-xl bg-duyo-blue px-3.5 py-2 text-sm font-semibold text-white hover:bg-duyo-dark"
           >
             <Plus size={16} /> Yangi qo'shish
@@ -333,6 +387,200 @@ export function ContentLibrary() {
             )}
           </>
         )}
+      </div>
+
+      {showCreate && (
+        <CreateContentModal
+          type={createType}
+          title={createTitle}
+          body={createBody}
+          ageSegment={createAgeSegment}
+          language={createLanguage}
+          author={createAuthor}
+          submitting={createMutation.isPending}
+          onTypeChange={setCreateType}
+          onTitleChange={setCreateTitle}
+          onBodyChange={setCreateBody}
+          onAgeSegmentChange={setCreateAgeSegment}
+          onLanguageChange={setCreateLanguage}
+          onAuthorChange={setCreateAuthor}
+          onClose={() => setShowCreate(false)}
+          onSubmit={handleCreateSubmit}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Yangi kontent yaratish modali ───────────────────────────────────────── */
+
+interface CreateContentModalProps {
+  type: ContentType;
+  title: string;
+  body: string;
+  ageSegment: string;
+  language: string;
+  author: string;
+  submitting: boolean;
+  onTypeChange: (value: ContentType) => void;
+  onTitleChange: (value: string) => void;
+  onBodyChange: (value: string) => void;
+  onAgeSegmentChange: (value: string) => void;
+  onLanguageChange: (value: string) => void;
+  onAuthorChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}
+
+function CreateContentModal({
+  type,
+  title,
+  body,
+  ageSegment,
+  language,
+  author,
+  submitting,
+  onTypeChange,
+  onTitleChange,
+  onBodyChange,
+  onAgeSegmentChange,
+  onLanguageChange,
+  onAuthorChange,
+  onClose,
+  onSubmit,
+}: CreateContentModalProps) {
+  const canSubmit = !submitting && title.trim().length > 0;
+  const inputCls =
+    "w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink focus:border-duyo-blue focus:outline-none";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
+        <div className="mb-4 flex items-start justify-between">
+          <h2 className="text-lg font-bold text-ink">Yangi kontent qo'shish</h2>
+          <button
+            type="button"
+            aria-label="Yopish"
+            onClick={onClose}
+            className="rounded-lg border border-line p-1.5 text-muted hover:border-duyo-blue hover:bg-duyo-50 hover:text-duyo-dark"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted">Tur</label>
+            <select
+              value={type}
+              onChange={(e) => onTypeChange(e.target.value as ContentType)}
+              className={inputCls}
+            >
+              {(Object.keys(TYPE_LABEL) as ContentType[]).map((t) => (
+                <option key={t} value={t}>
+                  {TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted">
+              Sarlavha <span className="text-urgent">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder="Masalan: Bahor keldi"
+              className={inputCls}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted">Matn</label>
+            <textarea
+              value={body}
+              onChange={(e) => onBodyChange(e.target.value)}
+              rows={5}
+              placeholder="She'r yoki ertak matni…"
+              className={cn(inputCls, "resize-y")}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">Yosh segmenti</label>
+              <select
+                value={ageSegment}
+                onChange={(e) => onAgeSegmentChange(e.target.value)}
+                className={inputCls}
+              >
+                {AGE_SEGMENT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">Til</label>
+              <select
+                value={language}
+                onChange={(e) => onLanguageChange(e.target.value)}
+                className={inputCls}
+              >
+                {LANGUAGE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted">Muallif</label>
+            <input
+              type="text"
+              value={author}
+              onChange={(e) => onAuthorChange(e.target.value)}
+              placeholder="Ixtiyoriy"
+              className={inputCls}
+            />
+          </div>
+
+          <p className="rounded-xl bg-bg p-3 text-xs text-muted">
+            Yangi kontent <span className="font-medium">qoralama</span> sifatida yaratiladi. Nashr
+            qilish uchun avval tekshiruv va litsenziyani tasdiqlab, keyin "Nashr qilish" tugmasini
+            bosing.
+          </p>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-muted hover:border-duyo-blue hover:bg-duyo-50 hover:text-duyo-dark"
+            >
+              Bekor qilish
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="flex items-center gap-1.5 rounded-xl bg-duyo-blue px-3.5 py-2 text-sm font-semibold text-white hover:bg-duyo-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting && <Loader2 size={14} className="animate-spin" />}
+              Yaratish
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

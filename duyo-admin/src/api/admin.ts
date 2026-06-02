@@ -218,6 +218,15 @@ export interface ContentPatch {
   published?: boolean;
 }
 
+export interface ContentCreate {
+  type: ContentType;
+  title: string;
+  body?: string;
+  age_segment?: string;
+  language?: string;
+  author?: string;
+}
+
 export type CampaignChannel = "push" | "sms" | "email" | "in_app";
 export type CampaignStatus = "draft" | "scheduled" | "sent" | "canceled";
 
@@ -291,6 +300,7 @@ export const adminApi = {
     api.get<ContentRow[]>(`/admin/content${type ? `?type=${type}` : ""}`),
   contentSummary: () =>
     api.get<{ by_review: Record<string, number>; published: number }>("/admin/content/summary"),
+  contentCreate: (body: ContentCreate) => api.post<ContentRow>("/admin/content", body),
   contentUpdate: (id: string, patch: ContentPatch) =>
     api.patch<ContentRow>(`/admin/content/${id}`, patch),
   campaigns: () => api.get<CampaignRow[]>("/admin/notifications/campaigns"),
