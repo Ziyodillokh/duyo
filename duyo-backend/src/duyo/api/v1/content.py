@@ -10,11 +10,13 @@ Only public-safe fields are exposed (no review/license/report internals).
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
+from duyo.core import storage
 from duyo.models.content import ContentItem, ContentType
 from duyo.models.user import User
 
@@ -31,6 +33,7 @@ class ContentListItem(BaseModel):
     language: str
     author: str | None
     audio_url: str | None
+    image_url: str | None
     likes: int
 
     model_config = {"from_attributes": True}
@@ -38,6 +41,25 @@ class ContentListItem(BaseModel):
 
 class ContentDetail(ContentListItem):
     body: str | None
+    pdf_url: str | None
+
+
+@router.get("/media/{key}")
+async def serve_media(key: str):
+    """Stream an uploaded media object (image/pdf/audio). Public — published
+    content media is non-sensitive and loaded directly by the app."""
+    try:
+        stream, content_type, size = storage.get_object(key)
+    except storage.S3Error as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Fayl topilmadi") from exc
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "application/octet-stream",
+        headers={
+            "Content-Length": str(size),
+            "Cache-Control": "public, max-age=86400",
+        },
+    )
 
 
 @router.get("", response_model=list[ContentListItem])

@@ -53,10 +53,36 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Multipart upload — do NOT set Content-Type so the browser adds the boundary.
+async function upload<T>(path: string, file: File): Promise<T> {
+  const token = getToken();
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE}${path}`, { method: "POST", body: form, headers });
+  if (res.status === 401) {
+    clearToken();
+    throw new ApiError(401, "Sessiya tugadi — qayta kiring");
+  }
+  if (!res.ok) {
+    let detail = `Xatolik (${res.status})`;
+    try {
+      detail = (await res.json()).detail ?? detail;
+    } catch {
+      /* non-json */
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return (await res.json()) as T;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
+  upload,
 };

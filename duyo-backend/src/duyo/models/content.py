@@ -20,6 +20,8 @@ class ContentType(str, Enum):
     AUDIO = "audio"
     LANGUAGE = "language"  # Til
     DTM = "dtm"            # DTM / IELTS test
+    PDF = "pdf"            # PDF hujjat asosiy kontent
+    PHOTO = "photo"        # fotomaterial asosiy kontent
 
 
 class ReviewStatus(str, Enum):
@@ -49,6 +51,8 @@ class ContentItem(Base, UUIDPK, TimestampMixin):
     age_segment: Mapped[str] = mapped_column(String(20), nullable=False, default="all")  # junior/explorer/companion/all
     language: Mapped[str] = mapped_column(String(5), nullable=False, default="uz")
     audio_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)  # cover / fotomaterial
+    pdf_url: Mapped[str | None] = mapped_column(String(500), nullable=True)     # hujjat / asosiy PDF
     author: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     review_status: Mapped[ReviewStatus] = mapped_column(

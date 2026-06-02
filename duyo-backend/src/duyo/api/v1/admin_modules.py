@@ -11,13 +11,14 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_db
 from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_roles
+from duyo.core import storage
 from duyo.models.admin import AdminRole, AdminUser
 from duyo.models.child import ChildProfile
 from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
@@ -416,6 +417,9 @@ class ContentRow(BaseModel):
     age_segment: str
     language: str
     author: str | None
+    audio_url: str | None
+    image_url: str | None
+    pdf_url: str | None
     review_status: str
     license_status: str
     published: bool
@@ -435,6 +439,8 @@ class ContentCreate(BaseModel):
     language: str = "uz"
     author: str | None = None
     audio_url: str | None = None
+    image_url: str | None = None
+    pdf_url: str | None = None
 
 
 class ContentPatch(BaseModel):
@@ -484,6 +490,31 @@ async def content_create(
     await db.flush()
     await record_audit(db, admin, action="create", module="content", target=str(item.id), request=request)
     return ContentRow.model_validate(item)
+
+
+class UploadResult(BaseModel):
+    url: str
+    key: str
+
+
+@router.post("/content/upload", response_model=UploadResult)
+async def content_upload(
+    file: UploadFile = File(...),
+    _: AdminUser = Depends(_require_content),
+) -> UploadResult:
+    """Upload a media file (image/pdf/audio) → object storage → served URL.
+
+    Returns the absolute URL to drop into a content item's image_url/pdf_url/
+    audio_url field. Type + size are validated in storage.upload.
+    """
+    data = await file.read()
+    try:
+        key = storage.upload(data, file.content_type or "application/octet-stream")
+    except storage.UploadError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Faylni saqlab bo'lmadi") from exc
+    return UploadResult(url=storage.media_url(key), key=key)
 
 
 @router.patch("/content/{item_id}", response_model=ContentRow)

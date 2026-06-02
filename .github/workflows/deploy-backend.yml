@@ -127,9 +127,12 @@ jobs:
                 cp /opt/duyo/.env /tmp/duyo-api-deploy.env
               fi
 
+              # Second env-file adds infra vars (MinIO/object storage, public base
+              # URL) without overriding the dumped core env — additive only.
               docker run -d --name duyo-api --restart unless-stopped \
                 --network duyo_internal --network-alias api \
                 --env-file /tmp/duyo-api-deploy.env \
+                --env-file /opt/duyo/api-extra.env \
                 duyo-api:latest
               rm -f /tmp/duyo-api-deploy.env
 

@@ -18,6 +18,8 @@ import {
   Languages,
   Trophy,
   Flag,
+  FileText,
+  Image as ImageIcon,
   Loader2,
   ThumbsUp,
   CheckCircle2,
@@ -36,6 +38,7 @@ import { ApiError } from "@/api/client";
 type ContentType = ContentRow["type"];
 type ReviewStatus = ContentRow["review_status"];
 type LicenseStatus = ContentRow["license_status"];
+type UploadField = "image" | "pdf" | "audio";
 
 interface ContentTab {
   key: ContentType;
@@ -71,6 +74,8 @@ const TYPE_LABEL: Record<ContentType, string> = {
   audio: "Audio",
   language: "Til",
   dtm: "DTM / IELTS",
+  pdf: "PDF",
+  photo: "Foto",
 };
 
 const AGE_SEGMENT_OPTIONS: { value: string; label: string }[] = [
@@ -93,6 +98,8 @@ const CONTENT_TABS: ContentTab[] = [
   { key: "language", label: "Til", icon: Languages },
   { key: "dtm", label: "DTM / IELTS", icon: Trophy },
   { key: "audio", label: "Audio", icon: Headphones },
+  { key: "pdf", label: "PDF", icon: FileText },
+  { key: "photo", label: "Foto", icon: ImageIcon },
 ];
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -187,6 +194,9 @@ export function ContentLibrary() {
   const [createLanguage, setCreateLanguage] = useState("uz");
   const [createAuthor, setCreateAuthor] = useState("");
   const [createAudioUrl, setCreateAudioUrl] = useState("");
+  const [createImageUrl, setCreateImageUrl] = useState("");
+  const [createPdfUrl, setCreatePdfUrl] = useState("");
+  const [uploadingField, setUploadingField] = useState<UploadField | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -198,6 +208,22 @@ export function ContentLibrary() {
     setCreateLanguage("uz");
     setCreateAuthor("");
     setCreateAudioUrl("");
+    setCreateImageUrl("");
+    setCreatePdfUrl("");
+    setUploadingField(null);
+  };
+
+  const uploadField = async (file: File, set: (url: string) => void, field: UploadField) => {
+    try {
+      setUploadingField(field);
+      setErrorMsg(null);
+      const { url } = await adminApi.contentUpload(file);
+      set(url);
+    } catch (err: unknown) {
+      setErrorMsg(getErrorMessage(err));
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   const contentQuery = useQuery({
@@ -240,6 +266,8 @@ export function ContentLibrary() {
       language: createLanguage,
       author: createAuthor || undefined,
       audio_url: createAudioUrl || undefined,
+      image_url: createImageUrl || undefined,
+      pdf_url: createPdfUrl || undefined,
     });
   };
 
@@ -406,7 +434,10 @@ export function ContentLibrary() {
           ageSegment={createAgeSegment}
           language={createLanguage}
           author={createAuthor}
+          imageUrl={createImageUrl}
+          pdfUrl={createPdfUrl}
           audioUrl={createAudioUrl}
+          uploadingField={uploadingField}
           submitting={createMutation.isPending}
           onTypeChange={setCreateType}
           onTitleChange={setCreateTitle}
@@ -414,7 +445,9 @@ export function ContentLibrary() {
           onAgeSegmentChange={setCreateAgeSegment}
           onLanguageChange={setCreateLanguage}
           onAuthorChange={setCreateAuthor}
-          onAudioUrlChange={setCreateAudioUrl}
+          onUploadImage={(file) => uploadField(file, setCreateImageUrl, "image")}
+          onUploadPdf={(file) => uploadField(file, setCreatePdfUrl, "pdf")}
+          onUploadAudio={(file) => uploadField(file, setCreateAudioUrl, "audio")}
           onClose={() => setShowCreate(false)}
           onSubmit={handleCreateSubmit}
         />
@@ -432,7 +465,10 @@ interface CreateContentModalProps {
   ageSegment: string;
   language: string;
   author: string;
+  imageUrl: string;
+  pdfUrl: string;
   audioUrl: string;
+  uploadingField: UploadField | null;
   submitting: boolean;
   onTypeChange: (value: ContentType) => void;
   onTitleChange: (value: string) => void;
@@ -440,7 +476,9 @@ interface CreateContentModalProps {
   onAgeSegmentChange: (value: string) => void;
   onLanguageChange: (value: string) => void;
   onAuthorChange: (value: string) => void;
-  onAudioUrlChange: (value: string) => void;
+  onUploadImage: (file: File) => void;
+  onUploadPdf: (file: File) => void;
+  onUploadAudio: (file: File) => void;
   onClose: () => void;
   onSubmit: () => void;
 }
@@ -452,7 +490,10 @@ function CreateContentModal({
   ageSegment,
   language,
   author,
+  imageUrl,
+  pdfUrl,
   audioUrl,
+  uploadingField,
   submitting,
   onTypeChange,
   onTitleChange,
@@ -460,13 +501,17 @@ function CreateContentModal({
   onAgeSegmentChange,
   onLanguageChange,
   onAuthorChange,
-  onAudioUrlChange,
+  onUploadImage,
+  onUploadPdf,
+  onUploadAudio,
   onClose,
   onSubmit,
 }: CreateContentModalProps) {
-  const canSubmit = !submitting && title.trim().length > 0;
+  const canSubmit = !submitting && uploadingField === null && title.trim().length > 0;
   const inputCls =
     "w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink focus:border-duyo-blue focus:outline-none";
+  const fileInputCls =
+    "w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-duyo-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-duyo-dark focus:border-duyo-blue focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -530,17 +575,93 @@ function CreateContentModal({
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted">
-              Audio havolasi (URL)
-            </label>
-            <input
-              type="url"
-              value={audioUrl}
-              onChange={(e) => onAudioUrlChange(e.target.value)}
-              placeholder="Ixtiyoriy — audio kontent uchun"
-              className={inputCls}
-            />
+          {/* Fayl yuklash — muqova rasm, PDF, audio. Har qanday tur uchun
+              ixtiyoriy (masalan she'rga muqova + audio qiroat biriktirsa bo'ladi). */}
+          <div className="space-y-4 rounded-xl border border-line bg-bg p-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">Muqova rasm</label>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploadingField !== null}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onUploadImage(file);
+                }}
+                className={fileInputCls}
+              />
+              {uploadingField === "image" && (
+                <span className="mt-1.5 flex items-center gap-1 text-xs text-muted">
+                  <Loader2 size={12} className="animate-spin" /> Yuklanmoqda…
+                </span>
+              )}
+              {imageUrl && uploadingField !== "image" && (
+                <img
+                  src={imageUrl}
+                  alt="Muqova"
+                  className="mt-2 h-20 w-20 rounded-lg border border-line object-cover"
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">PDF hujjat</label>
+              <input
+                type="file"
+                accept="application/pdf"
+                disabled={uploadingField !== null}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onUploadPdf(file);
+                }}
+                className={fileInputCls}
+              />
+              {uploadingField === "pdf" && (
+                <span className="mt-1.5 flex items-center gap-1 text-xs text-muted">
+                  <Loader2 size={12} className="animate-spin" /> Yuklanmoqda…
+                </span>
+              )}
+              {pdfUrl && uploadingField !== "pdf" && (
+                <span className="mt-1.5 flex items-center gap-1 text-xs font-medium text-safe">
+                  <Check size={12} /> PDF biriktirildi ✓
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted">Audio</label>
+              <input
+                type="file"
+                accept="audio/*"
+                disabled={uploadingField !== null}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onUploadAudio(file);
+                }}
+                className={fileInputCls}
+              />
+              {uploadingField === "audio" && (
+                <span className="mt-1.5 flex items-center gap-1 text-xs text-muted">
+                  <Loader2 size={12} className="animate-spin" /> Yuklanmoqda…
+                </span>
+              )}
+              {audioUrl && uploadingField !== "audio" && (
+                <span className="mt-1.5 flex items-center gap-1 text-xs font-medium text-safe">
+                  <Check size={12} /> Audio biriktirildi ✓
+                </span>
+              )}
+            </div>
+
+            {type === "pdf" && (
+              <p className="text-[11px] text-muted">
+                "PDF" turi uchun PDF hujjat biriktiring.
+              </p>
+            )}
+            {type === "photo" && (
+              <p className="text-[11px] text-muted">
+                "Foto" turi uchun muqova rasm biriktiring.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -85,6 +85,16 @@ class Settings(BaseSettings):
     # Deep link the gateway returns the user to after payment (optional).
     payment_return_url: str = ""
 
+    # Object storage (MinIO/S3) for uploaded media — content cover images, PDFs, audio.
+    # Local dev points at the standalone minio on :9100; prod uses the duyo-minio alias.
+    minio_endpoint: str = "localhost:9100"
+    minio_access_key: str = "duyo"
+    minio_secret_key: str = "duyo_dev_password"
+    minio_secure: bool = False  # True for https endpoints
+    minio_bucket: str = "media"
+    # Absolute base the app uses to fetch served media (GET /v1/content/media/{key}).
+    public_base_url: str = "http://localhost:8000"
+
 
 @lru_cache
 def get_settings() -> Settings:

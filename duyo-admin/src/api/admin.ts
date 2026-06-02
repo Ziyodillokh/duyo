@@ -192,7 +192,15 @@ export interface PaymentRow {
   created_at: string;
 }
 
-export type ContentType = "poem" | "story" | "lesson" | "audio" | "language" | "dtm";
+export type ContentType =
+  | "poem"
+  | "story"
+  | "lesson"
+  | "audio"
+  | "language"
+  | "dtm"
+  | "pdf"
+  | "photo";
 export type ContentReviewStatus = "draft" | "pending" | "approved" | "rejected";
 export type ContentLicenseStatus = "unknown" | "pending" | "approved" | "rejected";
 
@@ -203,6 +211,9 @@ export interface ContentRow {
   age_segment: string;
   language: string;
   author: string | null;
+  audio_url: string | null;
+  image_url: string | null;
+  pdf_url: string | null;
   review_status: ContentReviewStatus;
   license_status: ContentLicenseStatus;
   published: boolean;
@@ -226,6 +237,13 @@ export interface ContentCreate {
   language?: string;
   author?: string;
   audio_url?: string;
+  image_url?: string;
+  pdf_url?: string;
+}
+
+export interface UploadResult {
+  url: string;
+  key: string;
 }
 
 export type CampaignChannel = "push" | "sms" | "email" | "in_app";
@@ -302,6 +320,7 @@ export const adminApi = {
   contentSummary: () =>
     api.get<{ by_review: Record<string, number>; published: number }>("/admin/content/summary"),
   contentCreate: (body: ContentCreate) => api.post<ContentRow>("/admin/content", body),
+  contentUpload: (file: File) => api.upload<UploadResult>("/admin/content/upload", file),
   contentUpdate: (id: string, patch: ContentPatch) =>
     api.patch<ContentRow>(`/admin/content/${id}`, patch),
   campaigns: () => api.get<CampaignRow[]>("/admin/notifications/campaigns"),
