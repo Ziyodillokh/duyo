@@ -16,8 +16,10 @@ from duyo.models.base import UUIDPK, Base, TimestampMixin
 class ContentType(str, Enum):
     POEM = "poem"
     STORY = "story"
-    LESSON = "lesson"
+    LESSON = "lesson"      # Darslar / darslik
     AUDIO = "audio"
+    LANGUAGE = "language"  # Til
+    DTM = "dtm"            # DTM / IELTS test
 
 
 class ReviewStatus(str, Enum):

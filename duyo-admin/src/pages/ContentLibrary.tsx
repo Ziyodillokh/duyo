@@ -15,6 +15,8 @@ import {
   BookOpen,
   GraduationCap,
   Headphones,
+  Languages,
+  Trophy,
   Flag,
   Loader2,
   ThumbsUp,
@@ -65,8 +67,10 @@ const PUBLISH_PILL: Record<"published" | "unpublished", { label: string; cls: st
 const TYPE_LABEL: Record<ContentType, string> = {
   poem: "She'r",
   story: "Ertak",
-  lesson: "Dars",
+  lesson: "Dars / Darslik",
   audio: "Audio",
+  language: "Til",
+  dtm: "DTM / IELTS",
 };
 
 const AGE_SEGMENT_OPTIONS: { value: string; label: string }[] = [
@@ -86,6 +90,8 @@ const CONTENT_TABS: ContentTab[] = [
   { key: "poem", label: "She'rlar", icon: ScrollText },
   { key: "story", label: "Ertaklar", icon: BookOpen },
   { key: "lesson", label: "Darslar", icon: GraduationCap },
+  { key: "language", label: "Til", icon: Languages },
+  { key: "dtm", label: "DTM / IELTS", icon: Trophy },
   { key: "audio", label: "Audio", icon: Headphones },
 ];
 
@@ -180,6 +186,7 @@ export function ContentLibrary() {
   const [createAgeSegment, setCreateAgeSegment] = useState("all");
   const [createLanguage, setCreateLanguage] = useState("uz");
   const [createAuthor, setCreateAuthor] = useState("");
+  const [createAudioUrl, setCreateAudioUrl] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -190,6 +197,7 @@ export function ContentLibrary() {
     setCreateAgeSegment("all");
     setCreateLanguage("uz");
     setCreateAuthor("");
+    setCreateAudioUrl("");
   };
 
   const contentQuery = useQuery({
@@ -231,6 +239,7 @@ export function ContentLibrary() {
       age_segment: createAgeSegment,
       language: createLanguage,
       author: createAuthor || undefined,
+      audio_url: createAudioUrl || undefined,
     });
   };
 
@@ -397,6 +406,7 @@ export function ContentLibrary() {
           ageSegment={createAgeSegment}
           language={createLanguage}
           author={createAuthor}
+          audioUrl={createAudioUrl}
           submitting={createMutation.isPending}
           onTypeChange={setCreateType}
           onTitleChange={setCreateTitle}
@@ -404,6 +414,7 @@ export function ContentLibrary() {
           onAgeSegmentChange={setCreateAgeSegment}
           onLanguageChange={setCreateLanguage}
           onAuthorChange={setCreateAuthor}
+          onAudioUrlChange={setCreateAudioUrl}
           onClose={() => setShowCreate(false)}
           onSubmit={handleCreateSubmit}
         />
@@ -421,6 +432,7 @@ interface CreateContentModalProps {
   ageSegment: string;
   language: string;
   author: string;
+  audioUrl: string;
   submitting: boolean;
   onTypeChange: (value: ContentType) => void;
   onTitleChange: (value: string) => void;
@@ -428,6 +440,7 @@ interface CreateContentModalProps {
   onAgeSegmentChange: (value: string) => void;
   onLanguageChange: (value: string) => void;
   onAuthorChange: (value: string) => void;
+  onAudioUrlChange: (value: string) => void;
   onClose: () => void;
   onSubmit: () => void;
 }
@@ -439,6 +452,7 @@ function CreateContentModal({
   ageSegment,
   language,
   author,
+  audioUrl,
   submitting,
   onTypeChange,
   onTitleChange,
@@ -446,6 +460,7 @@ function CreateContentModal({
   onAgeSegmentChange,
   onLanguageChange,
   onAuthorChange,
+  onAudioUrlChange,
   onClose,
   onSubmit,
 }: CreateContentModalProps) {
@@ -512,6 +527,19 @@ function CreateContentModal({
               rows={5}
               placeholder="She'r yoki ertak matni…"
               className={cn(inputCls, "resize-y")}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted">
+              Audio havolasi (URL)
+            </label>
+            <input
+              type="url"
+              value={audioUrl}
+              onChange={(e) => onAudioUrlChange(e.target.value)}
+              placeholder="Ixtiyoriy — audio kontent uchun"
+              className={inputCls}
             />
           </div>
 

@@ -192,7 +192,7 @@ export interface PaymentRow {
   created_at: string;
 }
 
-export type ContentType = "poem" | "story" | "lesson" | "audio";
+export type ContentType = "poem" | "story" | "lesson" | "audio" | "language" | "dtm";
 export type ContentReviewStatus = "draft" | "pending" | "approved" | "rejected";
 export type ContentLicenseStatus = "unknown" | "pending" | "approved" | "rejected";
 
@@ -225,6 +225,7 @@ export interface ContentCreate {
   age_segment?: string;
   language?: string;
   author?: string;
+  audio_url?: string;
 }
 
 export type CampaignChannel = "push" | "sms" | "email" | "in_app";

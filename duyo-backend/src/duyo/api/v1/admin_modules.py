@@ -434,6 +434,7 @@ class ContentCreate(BaseModel):
     age_segment: str = "all"
     language: str = "uz"
     author: str | None = None
+    audio_url: str | None = None
 
 
 class ContentPatch(BaseModel):
