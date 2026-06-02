@@ -1,5 +1,6 @@
 import { useIsDark } from '@/store/theme';
 import { useQuery } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Search } from 'lucide-react-native';
@@ -31,6 +32,8 @@ const TYPE_TO_CATEGORY: Record<ContentType, LibraryCategory> = {
   audio: 'lessons',
   language: 'language',
   dtm: 'dtm',
+  pdf: 'documents',
+  photo: 'photos',
 };
 
 function categoryEmoji(category: LibraryCategory): string {
@@ -54,16 +57,25 @@ function LibraryCard({ item, onPress }: LibraryCardProps) {
       style={{ padding: 16 }}
     >
       <View className="flex-row items-start gap-3">
-        <View
-          className="rounded-md items-center justify-center"
-          style={{
-            width: 56,
-            height: 56,
-            backgroundColor: 'rgba(96, 165, 250, 0.10)',
-          }}
-        >
-          <Text className="text-3xl">{categoryEmoji(category)}</Text>
-        </View>
+        {item.image_url ? (
+          <Image
+            source={{ uri: item.image_url }}
+            style={{ width: 56, height: 56, borderRadius: 6 }}
+            contentFit="cover"
+            accessibilityLabel={item.title}
+          />
+        ) : (
+          <View
+            className="rounded-md items-center justify-center"
+            style={{
+              width: 56,
+              height: 56,
+              backgroundColor: 'rgba(96, 165, 250, 0.10)',
+            }}
+          >
+            <Text className="text-3xl">{categoryEmoji(category)}</Text>
+          </View>
+        )}
         <View className="flex-1 gap-1">
           <Text
             className="text-base font-medium text-foreground dark:text-dark-text"

@@ -1,11 +1,26 @@
 import { useIsDark } from '@/store/theme';
 import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, BookOpen, Heart, Music, Share2 } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  BookOpen,
+  FileText,
+  Heart,
+  Music,
+  Share2,
+} from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getContent } from '@/api/endpoints/content';
@@ -88,7 +103,16 @@ export default function LibraryItemScreen() {
   }
 
   const author = item.author ?? '';
-  const body = item.body ?? 'Kontent tez orada qo\'shiladi.';
+  const isPhoto = item.type === 'photo';
+  const isPdf = item.type === 'pdf';
+  const hasBody = (item.body ?? '').trim() !== '';
+  const body = hasBody ? item.body : 'Kontent tez orada qo\'shiladi.';
+
+  const openPdf = () => {
+    if (item.pdf_url) {
+      void Linking.openURL(item.pdf_url);
+    }
+  };
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -144,11 +168,24 @@ export default function LibraryItemScreen() {
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
           showsVerticalScrollIndicator={false}
         >
+          {item.image_url && (
+            <Image
+              source={{ uri: item.image_url }}
+              style={{
+                width: '100%',
+                height: isPhoto ? 360 : 200,
+                borderRadius: 16,
+              }}
+              contentFit="cover"
+              accessibilityLabel={item.title}
+            />
+          )}
+
           <View
             className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
             style={{ padding: 32 }}
           >
-            <Text className="text-7xl mb-3">📖</Text>
+            {!item.image_url && <Text className="text-7xl mb-3">📖</Text>}
             <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text text-center tracking-tight">
               {item.title}
             </Text>
@@ -167,23 +204,43 @@ export default function LibraryItemScreen() {
             )}
           </View>
 
-          <View
-            className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
-            style={{ padding: 20 }}
-          >
-            <View className="flex-row items-center gap-2 mb-4">
-              <BookOpen size={18} color="#60A5FA" />
-              <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                Mazmun
+          {item.pdf_url && (
+            <Pressable
+              onPress={openPdf}
+              accessibilityRole="button"
+              accessibilityLabel="PDF hujjatni ochish"
+              className="flex-row items-center justify-center gap-2 rounded-md bg-neon-blue active:opacity-80"
+              style={{ height: 56 }}
+            >
+              <FileText size={18} color="#0A1628" />
+              <Text
+                className="text-base font-medium"
+                style={{ color: '#0A1628' }}
+              >
+                PDF hujjatni ochish
+              </Text>
+            </Pressable>
+          )}
+
+          {!(isPdf && !hasBody) && (
+            <View
+              className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
+              style={{ padding: 20 }}
+            >
+              <View className="flex-row items-center gap-2 mb-4">
+                <BookOpen size={18} color="#60A5FA" />
+                <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                  Mazmun
+                </Text>
+              </View>
+              <Text
+                className="text-foreground dark:text-dark-text"
+                style={{ fontSize: 22, lineHeight: 32 }}
+              >
+                {body}
               </Text>
             </View>
-            <Text
-              className="text-foreground dark:text-dark-text"
-              style={{ fontSize: 22, lineHeight: 32 }}
-            >
-              {body}
-            </Text>
-          </View>
+          )}
 
           <Pressable
             onPress={() => router.push('/(main)/(tabs)/chat')}

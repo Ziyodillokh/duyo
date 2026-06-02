@@ -6,7 +6,9 @@ export type ContentType =
   | 'lesson'
   | 'audio'
   | 'language'
-  | 'dtm';
+  | 'dtm'
+  | 'pdf'
+  | 'photo';
 
 export interface ContentListItem {
   id: string;
@@ -16,11 +18,13 @@ export interface ContentListItem {
   language: string;
   author: string | null;
   audio_url: string | null;
+  image_url: string | null;
   likes: number;
 }
 
 export interface ContentDetail extends ContentListItem {
   body: string | null;
+  pdf_url: string | null;
 }
 
 export interface ListContentParams {

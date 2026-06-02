@@ -6,7 +6,9 @@ export type LibraryCategory =
   | 'stories'
   | 'lessons'
   | 'language'
-  | 'dtm';
+  | 'dtm'
+  | 'documents'
+  | 'photos';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -34,6 +36,8 @@ export const CATEGORIES: ReadonlyArray<CategoryMeta> = [
   { key: 'lessons', label: 'Darslar', emoji: '🎓', color: '#60A5FA' },
   { key: 'language', label: 'Til', emoji: '🌍', color: '#05DF72' },
   { key: 'dtm', label: 'DTM/IELTS', emoji: '🎯', color: '#FF8904' },
+  { key: 'documents', label: 'Hujjatlar', emoji: '📄', color: '#A78BFA' },
+  { key: 'photos', label: 'Rasmlar', emoji: '🖼️', color: '#22D3EE' },
 ];
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
