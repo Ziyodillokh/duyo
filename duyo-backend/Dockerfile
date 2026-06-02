@@ -23,7 +23,7 @@ RUN pip install --upgrade pip && \
         fastapi 'uvicorn[standard]' pydantic pydantic-settings \
         sqlalchemy alembic asyncpg pgvector redis httpx \
         'python-jose[cryptography]' google-genai \
-        phonenumbers python-multipart structlog greenlet
+        phonenumbers python-multipart structlog greenlet minio
 
 
 FROM python:3.12-slim AS runtime
