@@ -23,9 +23,11 @@ send Authorization headers. WS close codes follow RFC 6455: 1008 for
 auth/authz failures, 1011 for unexpected server errors.
 
 Persistence + parent SMS dispatch happen on `turn_complete`. Crisis
-Layer 1 runs in real time on the incremental STT stream — RED hits are
-forwarded to the client as they happen. Layer 2 is deferred to a
-follow-up commit; this commit ships Layer 1 only.
+Layer 1 runs in real time on the incremental STT stream — ORANGE/RED hits
+are forwarded to the client as they happen. Layer 2 (Gemini classifier)
+runs once on the full child transcript at turn end and can escalate the
+level (never downgrade); an escalation is forwarded as a layer-2 crisis
+event before `turn_complete`.
 """
 
 from __future__ import annotations
@@ -53,6 +55,7 @@ from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
 from duyo.prompts import SYSTEM_PROMPTS
 from duyo.services import sms as sms_module
+from duyo.services.crisis_l2 import classify
 from duyo.services.gemini_live import GeminiVoiceSession
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -251,10 +254,13 @@ async def voice_ws(
         await db.rollback()
         return
 
-    # 3. Persist messages + crisis events, then dispatch parent SMS.
+    # 3. Crisis Layer 2 (Gemini) on the full child transcript — can ESCALATE the
+    #    Layer 1 stream result (never downgrade). Then persist + dispatch SMS.
     child_text = crisis.text
-    final_level = crisis.result.level
+    l1_level = crisis.result.level
     final_matches = crisis.result.matches
+    l2 = await classify(child_text, l1_level) if child_text.strip() else None
+    final_level = l2.level if l2 is not None else l1_level
 
     child_msg = Message(
         conversation_id=conv.id,
@@ -270,7 +276,7 @@ async def voice_ws(
         crisis_row = CrisisEvent(
             message_id=child_msg.id,
             child_id=child.id,
-            level=final_level,
+            level=l1_level,
             layer=1,
             matches=[
                 {"keyword": m.keyword, "category": m.category.value, "language": m.language.value}
@@ -278,6 +284,22 @@ async def voice_ws(
             ],
         )
         db.add(crisis_row)
+    if l2 is not None and l2.confidence > 0:
+        ce2 = CrisisEvent(
+            message_id=child_msg.id,
+            child_id=child.id,
+            level=l2.level,
+            layer=2,
+            matches=[{
+                "confidence": l2.confidence,
+                "reasoning": l2.reasoning,
+                "latency_ms": l2.latency_ms,
+            }],
+        )
+        db.add(ce2)
+        # Ensure parent-notify marking has a row even if L1 found nothing.
+        if crisis_row is None:
+            crisis_row = ce2
 
     assistant_msg = Message(
         conversation_id=conv.id,
@@ -304,6 +326,15 @@ async def voice_ws(
         # by the voice turn itself.
         await _send_parent_sms(
             parent_phone=user.phone, child_name=child.name, level=final_level
+        )
+
+    # If Layer 2 escalated beyond what was streamed to the client, surface it now.
+    if (
+        final_level in (CrisisLevel.ORANGE, CrisisLevel.RED)
+        and final_level not in crisis_flagged_to_client
+    ):
+        await websocket.send_json(
+            {"type": "crisis", "level": final_level.value, "layer": 2}
         )
 
     await websocket.send_json(

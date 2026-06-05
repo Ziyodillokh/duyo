@@ -29,6 +29,23 @@ from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
 from duyo.services.gemini_live import LiveEvent
 
+
+@pytest.fixture(autouse=True)
+def _mock_layer2(monkeypatch):
+    """Stub crisis Layer 2 so voice tests never hit Gemini and stay deterministic.
+
+    Returns the Layer 1 level with zero confidence — no escalation, no extra
+    crisis event. Individual tests can override for escalation scenarios.
+    """
+    from duyo.api.v1 import voice as voice_module
+    from duyo.services.crisis_l2 import Layer2Result
+
+    async def _fake(_text, l1_level):
+        return Layer2Result(level=l1_level, confidence=0.0, reasoning="", latency_ms=1)
+
+    monkeypatch.setattr(voice_module, "classify", _fake)
+
+
 # ---------------------------------------------------------------------------
 # Fakes
 # ---------------------------------------------------------------------------
