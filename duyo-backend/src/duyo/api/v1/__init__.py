@@ -7,6 +7,7 @@ from duyo.api.v1.admin_modules import router as admin_modules_router
 from duyo.api.v1.auth import router as auth_router
 from duyo.api.v1.chat import router as chat_router
 from duyo.api.v1.content import router as content_router
+from duyo.api.v1.dtm import router as dtm_router
 from duyo.api.v1.gamification import router as gamification_router
 from duyo.api.v1.health import router as health_router
 from duyo.api.v1.payments import router as payments_router
@@ -21,6 +22,7 @@ api_v1.include_router(health_router)
 api_v1.include_router(auth_router)
 api_v1.include_router(chat_router)
 api_v1.include_router(content_router)
+api_v1.include_router(dtm_router)
 api_v1.include_router(voice_router)
 api_v1.include_router(textbook_router)
 api_v1.include_router(gamification_router)

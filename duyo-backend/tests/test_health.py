@@ -25,6 +25,7 @@ def test_all_v1_routers_are_mounted():
     paths = {route.path for route in app.routes}
     expected_prefixes = (
         "/v1/chat",
+        "/v1/dtm",
         "/v1/gamification",
         "/v1/tamagochi",
         "/v1/subscriptions",
