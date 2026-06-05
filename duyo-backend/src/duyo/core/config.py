@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     otp_ttl_seconds: int = 300  # 5 minutes
     otp_max_attempts: int = 5
     otp_rate_limit_per_phone_per_hour: int = 10
+    # Test phones that bypass SMS — comma-separated "phone:code" pairs. These
+    # numbers always accept their fixed code (no SMS needed) for QA/testing.
+    # Set to "" to disable. REMOVE/empty before public launch.
+    otp_test_numbers: str = "+998900000000:000000"
     eskiz_email: str = ""
     eskiz_password: str = ""
     eskiz_from: str = "DUYO"

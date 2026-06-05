@@ -45,11 +45,28 @@ class OTPInvalid(Exception):
     """Raised when verify fails (wrong code, expired, no attempts left)."""
 
 
+def _test_numbers() -> dict[str, str]:
+    """Parse OTP_TEST_NUMBERS ("phone:code,phone:code") into a {phone: code} map."""
+    raw = get_settings().otp_test_numbers or ""
+    out: dict[str, str] = {}
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if ":" in pair:
+            phone, code = pair.split(":", 1)
+            if phone.strip() and code.strip():
+                out[phone.strip()] = code.strip()
+    return out
+
+
 async def issue(phone: str) -> str:
     """Generate, store, and return a new OTP for `phone`.
 
     Caller is responsible for sending the code via SMS.
     """
+    # Test phones bypass SMS entirely — return the fixed code (verify accepts it).
+    if phone in _test_numbers():
+        return _test_numbers()[phone]
+
     settings = get_settings()
     redis = get_redis()
 
@@ -68,6 +85,11 @@ async def issue(phone: str) -> str:
 
 async def verify(phone: str, code: str) -> bool:
     """Return True if `code` matches the active OTP. Consumes the OTP on success."""
+    # Test phones accept their fixed code directly (no Redis / SMS).
+    test_numbers = _test_numbers()
+    if phone in test_numbers:
+        return secrets.compare_digest(test_numbers[phone], code)
+
     settings = get_settings()
     redis = get_redis()
 
