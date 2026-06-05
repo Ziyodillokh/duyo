@@ -87,3 +87,10 @@ class StreakRead(BaseModel):
     last_active_date: date | None
 
     model_config = {"from_attributes": True}
+
+
+class AchievementRead(BaseModel):
+    key: str
+    name: str
+    emoji: str
+    earned: bool

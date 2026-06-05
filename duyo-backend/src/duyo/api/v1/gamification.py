@@ -13,17 +13,21 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
+from duyo.gamification.achievements import compute_achievements
 from duyo.gamification.levels import level_info
 from duyo.gamification.streaks import next_streak
 from duyo.models.child import ChildProfile
+from duyo.models.conversation import Conversation
 from duyo.models.gamification import (
     Avatar,
     BallsTransaction,
     InventoryItem,
     Streak,
 )
+from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
 from duyo.schemas.gamification import (
+    AchievementRead,
     AvatarRead,
     AvatarUpdate,
     BallsAward,
@@ -294,3 +298,32 @@ async def streak_checkin(
     streak.longest_streak = max(streak.longest_streak, streak.current_streak)
     await db.flush()
     return streak
+
+
+@router.get("/{child_id}/achievements", response_model=list[AchievementRead])
+async def get_achievements(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[AchievementRead]:
+    """Badge catalogue with earned/not, computed from current stats (no table)."""
+    await _owned_child(child_id, current_user, db)
+    balance = await _balance(child_id, db)
+    streak = await _get_or_create_streak(child_id, db)
+    msg_count = await db.scalar(
+        select(func.count(Message.id))
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Conversation.child_id == child_id,
+            Message.role == MessageRole.CHILD,
+        )
+    ) or 0
+    achievements = compute_achievements(
+        level=level_info(balance).level,
+        longest_streak=streak.longest_streak,
+        message_count=int(msg_count),
+    )
+    return [
+        AchievementRead(key=a.key, name=a.name, emoji=a.emoji, earned=a.earned)
+        for a in achievements
+    ]
