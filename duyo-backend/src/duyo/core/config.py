@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     # Test phones that bypass SMS — comma-separated "phone:code" pairs. These
     # numbers always accept their fixed code (no SMS needed) for QA/testing.
     # Set to "" to disable. REMOVE/empty before public launch.
-    otp_test_numbers: str = "+998900000000:000000"
+    otp_test_numbers: str = "+998900000000:0000"
     eskiz_email: str = ""
     eskiz_password: str = ""
     eskiz_from: str = "DUYO"

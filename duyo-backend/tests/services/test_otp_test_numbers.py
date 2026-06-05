@@ -9,15 +9,15 @@ from duyo.services import otp
 @pytest.fixture(autouse=True)
 def _force_test_numbers(monkeypatch):
     # Pin the setting so the test is independent of suite ordering / cache state.
-    monkeypatch.setattr(get_settings(), "otp_test_numbers", "+998900000000:000000")
+    monkeypatch.setattr(get_settings(), "otp_test_numbers", "+998900000000:0000")
 
 
 async def test_issue_returns_fixed_code_for_test_number():
-    assert await otp.issue("+998900000000") == "000000"
+    assert await otp.issue("+998900000000") == "0000"
 
 
 async def test_verify_accepts_fixed_code():
-    assert await otp.verify("+998900000000", "000000") is True
+    assert await otp.verify("+998900000000", "0000") is True
 
 
 async def test_verify_rejects_wrong_code():
