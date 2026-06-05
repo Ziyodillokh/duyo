@@ -81,3 +81,19 @@ class ChatResponse(BaseModel):
     source: ChatSource | None = None
     quick_replies: list[QuickReply] = []
     images: list[ChatImage] = []
+
+
+class LessonHelpRequest(BaseModel):
+    child_id: UUID
+    subject: str = Field(min_length=1, max_length=40)
+    question: str = Field(min_length=3, max_length=2000)
+
+
+class LessonStep(BaseModel):
+    title: str
+    detail: str
+
+
+class LessonHelpResponse(BaseModel):
+    steps: list[LessonStep]
+    answer: str

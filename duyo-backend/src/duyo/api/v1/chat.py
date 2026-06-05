@@ -28,12 +28,15 @@ from duyo.schemas.chat import (
     ChildCreate,
     ChildRead,
     ChildUpdate,
+    LessonHelpRequest,
+    LessonHelpResponse,
+    LessonStep,
     QuickReply,
     SourceRef,
 )
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini import chat as gemini_chat
-from duyo.services.gemini import chat_with_web_search
+from duyo.services.gemini import chat_with_web_search, solve_lesson
 from duyo.services.images import search_images
 from duyo.services.sms import get_sms_provider
 from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
@@ -405,3 +408,26 @@ def _web_source(sources) -> ChatSource:
 
 def _append_offer(reply):
     return _dc_replace(reply, text=reply.text + _WEB_OFFER)
+
+
+@router.post("/lesson-help", response_model=LessonHelpResponse)
+async def lesson_help(
+    payload: LessonHelpRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> LessonHelpResponse:
+    """AI tutor: step-by-step solution for a child's homework question.
+
+    Age-aware (uses the child's segment), Uzbek, child-safe. Stateless —
+    nothing is persisted. Fails safe: always returns at least one step.
+    """
+    child = await _get_owned_child(payload.child_id, current_user, db)
+    result = await solve_lesson(
+        question=payload.question,
+        subject=payload.subject,
+        age_segment=child.age_segment,
+    )
+    return LessonHelpResponse(
+        steps=[LessonStep(title=s["title"], detail=s["detail"]) for s in result["steps"]],
+        answer=result["answer"],
+    )

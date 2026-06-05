@@ -8,6 +8,7 @@ order and Gemini will treat the whole conversation as one session.
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -18,7 +19,7 @@ from google.genai import types
 
 from duyo.core.config import get_settings
 from duyo.models.child import AgeSegment
-from duyo.prompts import SYSTEM_PROMPTS
+from duyo.prompts import LESSON_HELP_PROMPT, SYSTEM_PROMPTS
 
 HistoryRole = Literal["user", "model"]
 
@@ -197,3 +198,55 @@ def _extract_web_sources(resp) -> tuple[WebSource, ...]:
     seen: set[str] = set()
     deduped = [s for s in out if not (s.url in seen or seen.add(s.url))]
     return tuple(deduped)
+
+
+async def solve_lesson(
+    *,
+    question: str,
+    subject: str,
+    age_segment: AgeSegment,
+) -> dict:
+    """Step-by-step tutor answer for a homework question (lesson-help).
+
+    Returns {"steps": [{"title","detail"}], "answer": str}. Fails safe: on any
+    error returns a single gentle step so the screen always renders something.
+    """
+    settings = get_settings()
+    client = get_client()
+    model = settings.gemini_model_primary
+    payload = (
+        f"Fan: {subject}\nSavol: {question}\n\n"
+        "Yuqoridagi qoidalar bo'yicha bosqichma-bosqich yech va JSON qaytar."
+    )
+    try:
+        resp = await client.aio.models.generate_content(
+            model=model,
+            contents=payload,
+            config=types.GenerateContentConfig(
+                system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{LESSON_HELP_PROMPT}",
+                max_output_tokens=900,
+                temperature=0.3,
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=settings.gemini_thinking_budget_flash
+                ),
+                response_mime_type="application/json",
+            ),
+        )
+        data = json.loads((resp.text or "").strip())
+        steps = [
+            {"title": str(s.get("title", ""))[:80], "detail": str(s.get("detail", ""))[:600]}
+            for s in (data.get("steps") or [])
+            if s.get("detail")
+        ][:6]
+        answer = str(data.get("answer", ""))[:400]
+        if not steps:
+            raise ValueError("no steps")
+        return {"steps": steps, "answer": answer}
+    except Exception:  # never break the lesson screen
+        return {
+            "steps": [{
+                "title": "Qayta urinib ko'r",
+                "detail": "Savolni biroz aniqroq yozib yuborsang, qadam-baqadam tushuntiraman.",
+            }],
+            "answer": "",
+        }
