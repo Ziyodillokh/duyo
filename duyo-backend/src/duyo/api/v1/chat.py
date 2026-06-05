@@ -39,14 +39,16 @@ from duyo.schemas.chat import (
     TranslateResponse,
 )
 from duyo.services.crisis_l2 import classify
-from duyo.services.gemini import chat as gemini_chat
 from duyo.services.gemini import (
+    GeminiReply,
     chat_with_web_search,
     solve_lesson,
     suggest_hint,
     translate_text,
 )
+from duyo.services.gemini import chat as gemini_chat
 from duyo.services.images import search_images
+from duyo.services.scripted import match_scripted
 from duyo.services.sms import get_sms_provider
 from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
 
@@ -328,7 +330,21 @@ async def chat_turn(
     quick_replies: list[QuickReply] = []
     images: list[ChatImage] = []
 
-    if payload.action == "web_search":
+    # (0) Scripted intent — instant canned reply for common greetings/thanks,
+    #     skipping the LLM entirely (cost saving). Only for GREEN, non-web-search
+    #     turns; real questions fall through to RAG/LLM.
+    scripted_text = (
+        match_scripted(payload.message, child.language.value)
+        if payload.action != "web_search" and final_level == CrisisLevel.GREEN
+        else None
+    )
+
+    if scripted_text is not None:
+        reply = GeminiReply(
+            text=scripted_text, model="scripted", latency_ms=0,
+            tokens_in=0, tokens_out=0,
+        )
+    elif payload.action == "web_search":
         # "Ha" follow-up: search the web for the ORIGINAL question (action_query).
         # Pass NO history on purpose — the history ends with the literal "Ha",
         # which makes the model reply socially ("shall we talk about apples?")
