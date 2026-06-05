@@ -18,12 +18,14 @@ from duyo.models.textbook_chunk import TextbookChunk
 from duyo.services.gemini import get_client
 
 _MAX_COUNT = 10
-_SAMPLE_CHUNKS = 8
+_SAMPLE_CHUNKS = 14
 
 _PROMPT = (
-    "Quyidagi darslik parchalariga ASOSLANIB, {count} ta DTM uslubidagi test "
+    "Quyidagi darslik parchalari MAVZUSIGA oid {count} ta DTM uslubidagi test "
     "savoli tuz. Har savol: aniq, bitta to'g'ri javobli, 4 ta variant.\n"
-    "FAQAT shu JSON formatda javob ber:\n"
+    "Agar parchalar formula yoki qisqa bo'lsa, o'sha mavzu bo'yicha O'ZING "
+    "to'liq, yechiladigan savollar tuz (masalan hisob-kitob, ta'rif).\n"
+    "FAQAT shu JSON formatda javob ber (correct_index — butun son):\n"
     '{{"questions": [{{"text": "savol", "choices": ["A","B","C","D"], '
     '"correct_index": 0, "explanation": "qisqa izoh"}}]}}\n\n'
     "Darslik parchalari:\n{content}"
@@ -67,8 +69,11 @@ async def generate_questions(
     out: list[dict] = []
     for q in (data.get("questions") or [])[:count]:
         choices = [str(c)[:200] for c in (q.get("choices") or [])]
-        ci = q.get("correct_index")
-        if len(choices) < 2 or not isinstance(ci, int) or not (0 <= ci < len(choices)):
+        try:
+            ci = int(q.get("correct_index"))  # Gemini sometimes returns a string
+        except (TypeError, ValueError):
+            continue
+        if len(choices) < 2 or not (0 <= ci < len(choices)):
             continue
         out.append({
             "text": str(q.get("text", ""))[:500],
