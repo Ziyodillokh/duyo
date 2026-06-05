@@ -97,3 +97,21 @@ class LessonStep(BaseModel):
 class LessonHelpResponse(BaseModel):
     steps: list[LessonStep]
     answer: str
+
+
+class TranslateRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    target_lang: Literal["uz", "ru", "en"] = "uz"
+
+
+class TranslateResponse(BaseModel):
+    translated: str
+
+
+class HintRequest(BaseModel):
+    child_id: UUID
+    context: str = Field(default="", max_length=2000)
+
+
+class HintResponse(BaseModel):
+    hint: str
