@@ -5,6 +5,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   Text,
   View,
 } from 'react-native';
@@ -53,10 +54,20 @@ export default function PhoneScreen() {
   return (
     <ScreenGradient>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <View className="flex-1 px-6 items-center justify-center">
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingVertical: 24,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View className="w-full max-w-[345px] items-center">
             <MascotImage size={160} glow="soft" />
 
@@ -106,7 +117,7 @@ export default function PhoneScreen() {
               </Card>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </ScreenGradient>
   );

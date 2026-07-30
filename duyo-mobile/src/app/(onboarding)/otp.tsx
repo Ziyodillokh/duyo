@@ -2,7 +2,15 @@ import { useMutation } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 
 import { sendOtp, verifyOtp } from '@/api/endpoints/auth';
 import { Card } from '@/components/v2/card';
@@ -73,8 +81,22 @@ export default function OtpScreen() {
 
   return (
     <ScreenGradient>
-      <View className="flex-1 px-6 items-center justify-center">
-        <View className="w-full max-w-[345px] items-center">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingVertical: 24,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="w-full max-w-[345px] items-center">
           <MascotImage size={160} glow="soft" />
 
           <View className="w-full mt-12">
@@ -133,8 +155,9 @@ export default function OtpScreen() {
               </Pressable>
             </Card>
           </View>
-        </View>
-      </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenGradient>
   );
 }
