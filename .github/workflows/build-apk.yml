@@ -1,19 +1,25 @@
 name: Build Android APK
 
 # Qo'lda ishga tushiriladi: GitHub → Actions → "Build Android APK" → Run workflow.
-# APK Expo bulutida (EAS) quriladi; tayyor fayl https://expo.dev/accounts/ziyodillokh
-# sahifasidan yuklab olinadi. Talab: EXPO_TOKEN secret
-# (https://expo.dev/settings/access-tokens dan olinadi).
+# APK GitHub'ning o'zida quriladi (Expo akkaunt KERAK EMAS). Tayyor fayl shu
+# run sahifasining pastidagi "Artifacts" bo'limidan yuklab olinadi (duyo-apk).
+# Talab: ANDROID_KEYSTORE_BASE64 secret — imzolash kaliti (base64). Har doim
+# shu kalit ishlatilgani uchun yangi APK eskisining ustiga o'rnatila oladi.
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: EAS cloud build (preview APK)
+    name: Gradle release APK
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: duyo-mobile
+    env:
+      # EXPO_PUBLIC_* qiymatlar build paytida JS ichiga muhrlanadi
+      EXPO_PUBLIC_API_BASE_URL: https://api.duyo.uz/v1
+      EXPO_PUBLIC_WS_BASE_URL: wss://api.duyo.uz/v1/chat/voice
+      CI: "true"
     steps:
       - uses: actions/checkout@v6
 
@@ -24,14 +30,34 @@ jobs:
           cache: npm
           cache-dependency-path: duyo-mobile/package-lock.json
 
-      - name: Setup EAS CLI
-        uses: expo/expo-github-action@v8
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          distribution: temurin
+          java-version: "17"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Start EAS build (queued in Expo cloud)
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+      - name: Generate native Android project (expo prebuild)
+        run: npx expo prebuild --platform android --no-install
+
+      # Expo shablonida release build debug-keystore bilan imzolanadi; o'sha
+      # faylni bizning doimiy kalitimiz bilan almashtiramiz (alias/parollar mos).
+      - name: Install signing keystore
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/debug.keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build release APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: duyo-apk
+          path: duyo-mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

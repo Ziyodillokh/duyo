@@ -2,6 +2,8 @@
 
 FastAPI + PostgreSQL + Redis backend for DUYO AI Companion.
 
+Deploy: GitHub Actions (`deploy-backend.yml`) — `main`'ga push avtomatik serverga chiqadi.
+
 ## Servislar (planned)
 
 | Service | Status | Tavsif |

@@ -1,4 +1,6 @@
-# React + TypeScript + Vite
+# DUYO Admin Panel (React + TypeScript + Vite)
+
+Deploy: GitHub Actions (`deploy-admin.yml`) — `main`'ga push avtomatik admin.duyo.uz'ga chiqadi.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
