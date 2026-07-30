@@ -1,16 +1,28 @@
 name: Build Android APK
 
-# Qo'lda ishga tushiriladi: GitHub → Actions → "Build Android APK" → Run workflow.
-# APK GitHub'ning o'zida quriladi (Expo akkaunt KERAK EMAS). Tayyor fayl shu
-# run sahifasining pastidagi "Artifacts" bo'limidan yuklab olinadi (duyo-apk).
-# Talab: ANDROID_KEYSTORE_BASE64 secret — imzolash kaliti (base64). Har doim
-# shu kalit ishlatilgani uchun yangi APK eskisining ustiga o'rnatila oladi.
+# Mobil kod main'ga push bo'lganda (yoki qo'lda Run workflow bosilganda) APK
+# GitHub'da quriladi va serverga chiqariladi:
+#   https://admin.duyo.uz/apk/duyo.apk        — APK fayl
+#   https://admin.duyo.uz/apk/version.json    — oxirgi versiya ma'lumoti
+# Ilova ichidagi UpdatePrompt shu version.json'ni o'qib, telefonda
+# "Yangi versiya chiqdi" oynasini ko'rsatadi.
+# versionCode = GitHub run raqami (har build avtomatik oshadi).
+# Talab: ANDROID_KEYSTORE_BASE64 + DEPLOY_* secrets.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "duyo-mobile/**"
+      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: Gradle release APK
+    name: Gradle release APK + publish
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,6 +51,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # versionCode har buildda avtomatik oshadi — ilova shu raqam orqali
+      # serverdagi versiya yangiroqligini biladi.
+      - name: Stamp versionCode (= run number)
+        run: |
+          jq --argjson vc ${{ github.run_number }} '.expo.android.versionCode = $vc' app.json > app.json.tmp
+          mv app.json.tmp app.json
+          jq '.expo.android.versionCode, .expo.version' app.json
+
       - name: Generate native Android project (expo prebuild)
         run: npx expo prebuild --platform android --no-install
 
@@ -61,3 +81,40 @@ jobs:
           name: duyo-apk
           path: duyo-mobile/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # Tartib muhim: avval APK, keyin version.json — foydalanuvchi hech qachon
+      # hali chiqmagan APK haqida xabar olmaydi.
+      - name: Publish APK + version.json to server
+        run: |
+          VERSION=$(jq -r '.expo.version' app.json)
+          NOTES=$(git log -1 --pretty=%s)
+          jq -n \
+            --argjson versionCode ${{ github.run_number }} \
+            --arg version "$VERSION" \
+            --arg url "https://admin.duyo.uz/apk/duyo.apk" \
+            --arg notes "$NOTES" \
+            '{android: {versionCode: $versionCode, version: $version, url: $url, notes: $notes}}' \
+            > version.json
+          cat version.json
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          $SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mkdir -p /opt/duyo/admin/apk'
+          rsync -avz --no-perms -e "$SSH" \
+            android/app/build/outputs/apk/release/app-release.apk \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/admin/apk/duyo.apk
+          rsync -avz --no-perms -e "$SSH" \
+            version.json \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/admin/apk/version.json
+
+      - name: Smoke test (version.json served)
+        run: |
+          sleep 2
+          curl -fsS --max-time 10 https://admin.duyo.uz/apk/version.json

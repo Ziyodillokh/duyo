@@ -48,9 +48,11 @@ jobs:
       # nginx (duyo-nginx) serves admin.duyo.uz from a durable bind mount
       # /opt/duyo/admin -> /usr/share/nginx/admin:ro, so deploying is just an
       # rsync of the built dist into that host dir. No container restart needed.
+      # --exclude='apk/' — build-apk.yml shu papkaga APK + version.json chiqaradi
+      # (ilova ichidagi yangilanish); --delete uni o'chirib yubormasligi kerak.
       - name: Rsync dist → /opt/duyo/admin
         run: |
-          rsync -avz --delete --no-perms \
+          rsync -avz --delete --no-perms --exclude='apk/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/admin/
