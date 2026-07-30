@@ -40,7 +40,16 @@ class Scenario:
     notes: str
 
 
-SYSTEM_PROMPTS: dict[AgeSegment, str] = {
+STORYTELLING_RULE = (
+    "Agar bola ertak, hikoya, she'r yoki qo'shiq so'rasa — uni BOSHIDAN "
+    "OXIRIGACHA, bir javobda to'liq ayt. Bo'laklarga bo'lma, "
+    "\"davom etaymi?\" deb so'rama, oldin aniqlashtiruvchi savol berma. "
+    "Bola mavzu aytmagan bo'lsa, o'zing mos mavzu tanlab ayt. "
+    "Qisqa gaplar qoidasi gapning uzunligiga tegishli — hikoyaning "
+    "to'liqligiga emas."
+)
+
+_AGE_PROMPTS: dict[AgeSegment, str] = {
     "junior": (
         "Sen DUYO — 7-10 yoshli bola uchun do'st AI virtual yordamchisan. "
         "Oddiy va qisqa gaplarda gapirasan (5-10 so'z). "
@@ -57,8 +66,13 @@ SYSTEM_PROMPTS: dict[AgeSegment, str] = {
         "Sen DUYO — 14-16 yoshli o'smir uchun AI yordamchisan. "
         "Jiddiy mavzular, kasb tanlash, DTM tayyorgarlik bo'yicha gapirasan. "
         "O'zbek tilida javob ber. Bola sifatida emas, kattalardek munosabatda bo'l. "
-        "Refleksiv savollar ber."
+        "Avval bola so'raganini bajar, refleksiv savolni keyin ber."
     ),
+}
+
+SYSTEM_PROMPTS: dict[AgeSegment, str] = {
+    segment: f"{prompt}\n\n{STORYTELLING_RULE}"
+    for segment, prompt in _AGE_PROMPTS.items()
 }
 
 
