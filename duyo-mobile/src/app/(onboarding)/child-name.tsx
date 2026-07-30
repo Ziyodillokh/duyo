@@ -1,12 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { Card } from '@/components/v2/card';
 import { FormInput } from '@/components/v2/form-input';
@@ -33,22 +28,19 @@ export default function ChildNameScreen() {
 
   return (
     <ScreenGradient>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
+      <KeyboardAwareScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingVertical: 24,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        bottomOffset={24}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: 24,
-            paddingVertical: 24,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="w-full max-w-[345px] items-center">
+        <View className="w-full max-w-[345px] items-center">
             <MascotImage size={176} glow="cosmic" />
 
             <View className="w-full mt-6">
@@ -94,9 +86,8 @@ export default function ChildNameScreen() {
                 saqlanadi
               </HelperText>
             </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </KeyboardAwareScrollView>
     </ScreenGradient>
   );
 }

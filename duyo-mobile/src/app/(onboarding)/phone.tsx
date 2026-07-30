@@ -1,14 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { sendOtp } from '@/api/endpoints/auth';
 import { Card } from '@/components/v2/card';
@@ -53,22 +47,19 @@ export default function PhoneScreen() {
 
   return (
     <ScreenGradient>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
+      <KeyboardAwareScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingVertical: 24,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        bottomOffset={24}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: 24,
-            paddingVertical: 24,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="w-full max-w-[345px] items-center">
+        <View className="w-full max-w-[345px] items-center">
             <MascotImage size={160} glow="soft" />
 
             <View className="w-full mt-12">
@@ -116,9 +107,8 @@ export default function PhoneScreen() {
                 </View>
               </Card>
             </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </KeyboardAwareScrollView>
     </ScreenGradient>
   );
 }
