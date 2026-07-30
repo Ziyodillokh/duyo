@@ -162,7 +162,7 @@ function formatDate(value: string | null): string {
 // ---- Payments (REAL — backenddan) ----
 // So'm formatlash: 1250000 → "1 250 000 so'm" (NBSP guruh ajratuvchi).
 function formatSom(amount: number): string {
-  const grouped = Math.round(amount).toLocaleString("ru-RU").replace(/[ ,]/g, " ");
+  const grouped = Math.round(amount).toLocaleString("ru-RU").replace(/[\u00A0,]/g, " ");
   return `${grouped} so'm`;
 }
 

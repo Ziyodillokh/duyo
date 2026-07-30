@@ -1,0 +1,37 @@
+name: Build Android APK
+
+# Qo'lda ishga tushiriladi: GitHub → Actions → "Build Android APK" → Run workflow.
+# APK Expo bulutida (EAS) quriladi; tayyor fayl https://expo.dev/accounts/ziyodillokh
+# sahifasidan yuklab olinadi. Talab: EXPO_TOKEN secret
+# (https://expo.dev/settings/access-tokens dan olinadi).
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: EAS cloud build (preview APK)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: duyo-mobile
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: duyo-mobile/package-lock.json
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start EAS build (queued in Expo cloud)
+        run: eas build --platform android --profile preview --non-interactive --no-wait

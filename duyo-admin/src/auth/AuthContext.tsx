@@ -19,14 +19,12 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  // No token → nothing to resolve, start settled; token → loading until me() resolves.
+  const [loading, setLoading] = useState(() => Boolean(getToken()));
 
   // On mount: if a token exists, resolve the current admin (validates it too).
   useEffect(() => {
-    if (!getToken()) {
-      setLoading(false);
-      return;
-    }
+    if (!getToken()) return;
     adminApi
       .me()
       .then(setAdmin)
