@@ -10,8 +10,6 @@ import {
 import { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DTM_SUBJECTS, type DTMSubject } from '@/mocks/dtm';
@@ -88,10 +87,7 @@ export default function LessonHelpScreen() {
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">Dars yordami</Text>
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="flex-1"
-        >
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
           {stage === 'input' && (
             <ScrollView
               contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 48 }}

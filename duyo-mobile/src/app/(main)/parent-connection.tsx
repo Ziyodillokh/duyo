@@ -3,14 +3,13 @@ import { ArrowLeft, Check, QrCode, Send } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { Card } from '@/components/v2/card';
 import { CountryChip } from '@/components/v2/country-chip';
@@ -43,10 +42,7 @@ export default function ParentConnectionScreen() {
 
   return (
     <ScreenGradient>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: 24,

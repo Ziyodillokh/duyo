@@ -7,8 +7,6 @@ import { ArrowLeft, CheckCircle2, CreditCard } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type PaymentMethod = 'click' | 'payme' | 'card';
@@ -164,10 +163,7 @@ export default function PaymentScreen() {
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">To'lov</Text>
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="flex-1"
-        >
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
           <ScrollView
             contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 48 }}
           >

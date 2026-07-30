@@ -2,16 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Mic, Send } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendChatMessage, type QuickReply } from '@/api/endpoints/chat';
@@ -197,7 +189,7 @@ export default function ChatScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="translate-with-padding"
         className="flex-1 bg-card dark:bg-dark-surface"
       >
         <FlatList
