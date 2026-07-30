@@ -206,7 +206,7 @@ class TestHybridRouting:
         with patch("duyo.textbook.docling_parser._docling_parse") as md, \
              patch("duyo.textbook.docling_parser._tesseract_parse", side_effect=fake_tess) as mt:
             md.return_value = [RawChunk(text="E" * 200)]
-            result = await parse(pdf, strategy="docling")
+            await parse(pdf, strategy="docling")
         mt.assert_not_called()
         md.assert_called_once()
 
@@ -222,7 +222,7 @@ class TestHybridRouting:
         with patch("duyo.textbook.docling_parser._docling_parse") as md, \
              patch("duyo.textbook.docling_parser._tesseract_parse", side_effect=fake_tess) as mt:
             md.return_value = [RawChunk(text="G" * 200)]
-            result = await parse(docx, strategy="tesseract")
+            await parse(docx, strategy="tesseract")
         mt.assert_not_called()
         md.assert_called_once()
 

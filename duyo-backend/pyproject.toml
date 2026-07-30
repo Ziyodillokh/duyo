@@ -64,7 +64,10 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "ARG", "RUF"]
-ignore = ["E501"]
+# UP042 wants `enum.StrEnum` instead of `(str, Enum)`. Deliberately kept:
+# StrEnum changes `str(Member)` from "Class.MEMBER" to the value, which would
+# silently alter AI prompts, SMS text, and stored enum strings across the app.
+ignore = ["E501", "UP042"]
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's Depends/Query/Body/File/Header are factory calls used as parameter
@@ -86,6 +89,15 @@ extend-immutable-calls = [
 # are false positives there.
 "src/duyo/textbook/*" = ["RUF001"]
 "tests/textbook/*" = ["RUF001"]
+# Crisis detection matches Uzbek Cyrillic/Latin and Russian keywords verbatim;
+# "fixing" the ambiguous characters would break detection of real messages.
+"src/duyo/crisis/*" = ["RUF001"]
+"tests/test_crisis_detector.py" = ["RUF001"]
+# Test-suite idioms, not defects: patched stubs must keep the signature of the
+# function they replace (ARG001), pytest.raises(Exception) guards code paths
+# that intentionally raise bare exceptions (B017), and nested `with patch(...)`
+# blocks stay readable one-per-line (SIM117).
+"tests/*" = ["ARG001", "B017", "SIM117", "RUF015"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
