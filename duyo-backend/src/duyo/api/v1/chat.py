@@ -19,6 +19,7 @@ from duyo.crisis.semantic import classify as classify_l3
 from duyo.models.child import AgeSegment, ChildProfile
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
+from duyo.models.feedback import FeedbackRating, MessageFeedback
 from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
 from duyo.psychology.retriever import retrieve_for_chat as retrieve_psych_for_chat
@@ -30,6 +31,8 @@ from duyo.schemas.chat import (
     ChildCreate,
     ChildRead,
     ChildUpdate,
+    FeedbackRequest,
+    FeedbackResponse,
     HintRequest,
     HintResponse,
     LessonHelpRequest,
@@ -528,3 +531,57 @@ async def hint(
     child = await _get_owned_child(payload.child_id, current_user, db)
     text = await suggest_hint(context=payload.context, age_segment=child.age_segment)
     return HintResponse(hint=text)
+
+
+@router.post("/messages/{message_id}/feedback", response_model=FeedbackResponse)
+async def rate_message(
+    message_id: UUID,
+    payload: FeedbackRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> FeedbackResponse:
+    """Record the child's 👍/👎 on a DUYO reply.
+
+    Ratings are a HUMAN-REVIEWED dataset (see models/feedback.py) — storing one
+    never changes model behaviour on its own. Re-rating the same message
+    overwrites the previous vote rather than stacking rows.
+    """
+    child = await _get_owned_child(payload.child_id, current_user, db)
+
+    # The message must be an assistant turn inside one of THIS child's
+    # conversations — otherwise a parent could rate another family's reply.
+    message = await db.scalar(
+        select(Message)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Message.id == message_id,
+            Message.role == MessageRole.ASSISTANT,
+            Conversation.child_id == child.id,
+        )
+    )
+    if message is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Message not found")
+
+    rating = FeedbackRating(payload.rating)
+    existing = await db.scalar(
+        select(MessageFeedback).where(
+            MessageFeedback.message_id == message_id,
+            MessageFeedback.child_id == child.id,
+        )
+    )
+    if existing is None:
+        db.add(MessageFeedback(
+            message_id=message_id,
+            child_id=child.id,
+            rating=rating,
+            reason=payload.reason,
+        ))
+    else:
+        existing.rating = rating
+        existing.reason = payload.reason
+        # A changed vote re-opens the item for triage.
+        existing.reviewed_at = None
+        existing.reviewed_by = None
+    await db.flush()
+
+    return FeedbackResponse(message_id=message_id, rating=rating.value)

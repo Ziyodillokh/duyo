@@ -10,6 +10,7 @@ import {
   Lightbulb,
   MessageCircle,
   Sparkles,
+  TrendingUp,
 } from 'lucide-react-native';
 import {
   ActivityIndicator,
@@ -21,10 +22,63 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { type TrendPoint } from '@/api/endpoints/reports';
 import { MascotImage } from '@/components/v2/mascot-image';
-import { useReport } from '@/hooks/use-report';
+import { useReport, useTrends } from '@/hooks/use-report';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
+
+const SERIES_COLOR = '#60A5FA'; // single series → one hue, no legend needed
+
+/**
+ * Active days per reporting period. One series, so the title carries identity
+ * and only the newest bar is labelled — a number on every bar would be noise.
+ */
+function ActiveDaysTrend({
+  points,
+  isDark,
+}: {
+  points: TrendPoint[];
+  isDark: boolean;
+}) {
+  const latest = points[points.length - 1];
+  // window_days isn't in the series; 10 is the report window (Concept §11.2).
+  const scaleMax = Math.max(10, ...points.map((p) => p.active_days));
+  const trackColor = isDark ? '#1E3A5F' : '#E7EEF9';
+
+  return (
+    <View
+      accessibilityLabel={`Faol kunlar dinamikasi, ${points.length} davr, oxirgisi ${latest.active_days} kun`}
+    >
+      <View className="flex-row items-end" style={{ height: 56, gap: 2 }}>
+        {points.map((p, i) => {
+          const isLatest = i === points.length - 1;
+          const ratio = scaleMax > 0 ? p.active_days / scaleMax : 0;
+          return (
+            <View key={p.period_end} className="flex-1 justify-end" style={{ height: '100%' }}>
+              <View
+                style={{
+                  height: `${Math.max(ratio * 100, 3)}%`,
+                  borderTopLeftRadius: 4,
+                  borderTopRightRadius: 4,
+                  backgroundColor: isLatest ? SERIES_COLOR : trackColor,
+                }}
+              />
+            </View>
+          );
+        })}
+      </View>
+      <View className="flex-row justify-between mt-2">
+        <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+          eski
+        </Text>
+        <Text className="text-xs font-medium" style={{ color: SERIES_COLOR }}>
+          {latest.active_days} faol kun
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 export default function ParentDashboardScreen() {
   const isDark = useIsDark();
@@ -33,7 +87,9 @@ export default function ParentDashboardScreen() {
   const childAge = child?.age;
 
   const report = useReport();
+  const trends = useTrends();
   const sections = report.data?.sections;
+  const trendPoints = trends.data?.points ?? [];
   const cardBg = isDark ? '#132340' : '#FFFFFF';
 
   return (
@@ -322,6 +378,26 @@ export default function ParentDashboardScreen() {
                     </Text>
                   </View>
                 )}
+
+              {/* Trend over past reports. Needs at least two periods to mean
+                  anything — a single bar is not a trend. */}
+              {trendPoints.length >= 2 && (
+                <View
+                  className="rounded-xl border border-neon-blue/20"
+                  style={{ padding: 20, backgroundColor: cardBg }}
+                >
+                  <View className="flex-row items-center gap-2 mb-4">
+                    <TrendingUp size={18} color={SERIES_COLOR} />
+                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                      Dinamika
+                    </Text>
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted ml-auto">
+                      {trendPoints.length} ta davr
+                    </Text>
+                  </View>
+                  <ActiveDaysTrend points={trendPoints} isDark={isDark} />
+                </View>
+              )}
 
               {/* Guidance */}
               {sections.guidance && (

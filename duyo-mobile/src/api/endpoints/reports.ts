@@ -68,3 +68,29 @@ export async function getReport(
   });
   return data;
 }
+
+/** One past report reduced to plottable aggregates. */
+export interface TrendPoint {
+  period_end: string;
+  active_days: number;
+  total_messages: number;
+  concerning_count: number;
+  mood_trend: string;
+  vocabulary_level: string;
+}
+
+export interface TrendsRead {
+  child_id: string;
+  points: TrendPoint[]; // oldest → newest
+}
+
+export async function getTrends(
+  childId: string,
+  limit = 12,
+): Promise<TrendsRead> {
+  const { data } = await apiClient.get<TrendsRead>(
+    `/reports/${childId}/trends`,
+    { params: { limit } },
+  );
+  return data;
+}

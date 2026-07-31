@@ -6,6 +6,7 @@ from duyo.models.child import AgeSegment, ChildProfile, Language
 from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
+from duyo.models.feedback import FeedbackRating, MessageFeedback
 from duyo.models.gamification import (
     Avatar,
     BallsTransaction,
@@ -37,10 +38,12 @@ __all__ = [
     "Conversation",
     "CrisisEvent",
     "CrisisLevel",
+    "FeedbackRating",
     "InventoryItem",
     "Language",
     "LicenseStatus",
     "Message",
+    "MessageFeedback",
     "MessageRole",
     "Payment",
     "PaymentProvider",
