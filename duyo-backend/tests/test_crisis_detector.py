@@ -122,6 +122,86 @@ def test_abuse_victim_signals_trigger_orange(detector, text):
 
 
 # ---------------------------------------------------------------------------
+# Neglect — ORANGE (special: NO auto-parent alert, same rationale as abuse)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Uyda hech kim yo'q, meni yolg'iz tashlab ketishdi",
+        "Ovqat bermaydilar, kunlab ovqatlanmadim",
+        "No one is home, they left me alone for days",
+        "Дома никого нет, меня бросили одного",
+    ],
+)
+def test_neglect_signals_trigger_orange(detector, text):
+    result = detector.check(text)
+    assert result.level == CrisisLevel.ORANGE
+    assert CrisisCategory.NEGLECT in result.categories
+
+
+# ---------------------------------------------------------------------------
+# Bullying — ORANGE (normal auto-parent alert applies; parent is an ally here)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Meni maktabda masxara qilishadi",
+        "Meni hech kim bilan o'ynashmaydi",
+        "They bully me at school",
+        "Надо мной издеваются в школе",
+    ],
+)
+def test_bullying_signals_trigger_orange(detector, text):
+    result = detector.check(text)
+    assert result.level == CrisisLevel.ORANGE
+    assert CrisisCategory.BULLYING in result.categories
+
+
+# ---------------------------------------------------------------------------
+# Eating disorder — YELLOW (concerning, not immediate danger from L1 alone)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Ovqatlanishni to'xtatdim",
+        "Ovqatdan keyin qusaman",
+        "I make myself throw up",
+        "Не ем уже несколько дней",
+    ],
+)
+def test_eating_disorder_signals_trigger_yellow(detector, text):
+    result = detector.check(text)
+    assert result.level == CrisisLevel.YELLOW
+    assert CrisisCategory.EATING_DISORDER in result.categories
+
+
+# ---------------------------------------------------------------------------
+# Substance abuse — ORANGE
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Men aroq ichdim",
+        "Men giyohvand modda ishlatdim",
+        "I took drugs last night",
+        "Я употребляю наркотики",
+    ],
+)
+def test_substance_abuse_signals_trigger_orange(detector, text):
+    result = detector.check(text)
+    assert result.level == CrisisLevel.ORANGE
+    assert CrisisCategory.SUBSTANCE_ABUSE in result.categories
+
+
+# ---------------------------------------------------------------------------
 # Normalisation — curly quotes, mixed case, extra whitespace
 # ---------------------------------------------------------------------------
 

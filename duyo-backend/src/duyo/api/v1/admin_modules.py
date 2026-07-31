@@ -23,6 +23,7 @@ from duyo.models.admin import AdminRole, AdminUser
 from duyo.models.child import ChildProfile
 from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
 from duyo.models.conversation import Conversation
+from duyo.models.feedback import FeedbackRating, MessageFeedback
 from duyo.models.gamification import Avatar, BallsTransaction, InventoryItem, Streak
 from duyo.models.message import Message, MessageRole
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
@@ -81,6 +82,92 @@ async def gamification_overview(
         "balls_by_reason": by_reason,
         "inventory_by_category": by_category,
     }
+
+
+# ---- Reply feedback (human-gated learning dataset — see models/feedback.py) ----
+class FeedbackRow(BaseModel):
+    id: UUID
+    message_id: UUID
+    child_id: UUID
+    rating: str
+    reason: str | None
+    reviewed_at: datetime | None
+    reviewed_by: str | None
+    created_at: datetime
+    # DUYO's own reply — the thing being rated. The CHILD's message is
+    # deliberately NOT exposed: reply quality can be judged from the reply, and
+    # not shipping the child's words keeps this queue free of their private text.
+    reply: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/feedback", response_model=list[FeedbackRow])
+async def feedback_list(
+    unreviewed_only: bool = False,
+    rating: str | None = None,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+) -> list[FeedbackRow]:
+    """Rated replies, newest first — the review queue before any prompt change."""
+    stmt = select(MessageFeedback, Message.content).join(
+        Message, MessageFeedback.message_id == Message.id
+    )
+    if unreviewed_only:
+        stmt = stmt.where(MessageFeedback.reviewed_at.is_(None))
+    if rating in ("up", "down"):
+        stmt = stmt.where(MessageFeedback.rating == FeedbackRating(rating))
+    stmt = stmt.order_by(MessageFeedback.created_at.desc()).limit(min(limit, 500))
+
+    out: list[FeedbackRow] = []
+    for fb, reply in (await db.execute(stmt)).all():
+        row = FeedbackRow.model_validate(fb)
+        row.reply = reply
+        out.append(row)
+    return out
+
+
+@router.get("/feedback/summary")
+async def feedback_summary(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+) -> dict[str, int]:
+    total = await db.scalar(select(func.count()).select_from(MessageFeedback)) or 0
+    up = await db.scalar(
+        select(func.count()).select_from(MessageFeedback)
+        .where(MessageFeedback.rating == FeedbackRating.UP)
+    ) or 0
+    down = await db.scalar(
+        select(func.count()).select_from(MessageFeedback)
+        .where(MessageFeedback.rating == FeedbackRating.DOWN)
+    ) or 0
+    unreviewed = await db.scalar(
+        select(func.count()).select_from(MessageFeedback)
+        .where(MessageFeedback.reviewed_at.is_(None))
+    ) or 0
+    return {"total": total, "up": up, "down": down, "unreviewed": unreviewed}
+
+
+@router.post("/feedback/{feedback_id}/review", response_model=FeedbackRow)
+async def feedback_review(
+    feedback_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(get_current_admin),
+) -> FeedbackRow:
+    """Mark a rated reply as triaged (mirrors safety/events/{id}/review)."""
+    fb = await db.scalar(select(MessageFeedback).where(MessageFeedback.id == feedback_id))
+    if fb is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Feedback topilmadi")
+    fb.reviewed_at = datetime.now(UTC)
+    fb.reviewed_by = admin.email
+    await db.flush()
+    await record_audit(
+        db, admin, action="review", module="feedback",
+        target=str(feedback_id), request=request,
+    )
+    return FeedbackRow.model_validate(fb)
 
 
 # ---- Parent Monitoring (aggregate reports only — no raw chat) ----

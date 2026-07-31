@@ -1,6 +1,6 @@
 """OTP generation, storage (Redis), and verification.
 
-Per TZ §6.2 — 4-digit numeric code, 5 minute TTL, max 5 verify attempts,
+Per TZ §6.2 — 5-digit numeric code, 5 minute TTL, max 5 verify attempts,
 max 10 sends/phone/hour.
 """
 

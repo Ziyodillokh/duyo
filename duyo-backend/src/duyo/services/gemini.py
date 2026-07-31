@@ -67,6 +67,25 @@ def _build_contents(
     return contents
 
 
+def _assemble_system_instruction(
+    age_segment: AgeSegment,
+    *,
+    personalization_context: str | None = None,
+    rag_context: str | None = None,
+) -> str:
+    """Base age prompt + optional personalization block + optional RAG block.
+
+    Personalization comes first (sets tone/awareness), RAG last (most
+    specific, closest to the model's attention on generation).
+    """
+    parts = [SYSTEM_PROMPTS[age_segment]]
+    if personalization_context:
+        parts.append(personalization_context)
+    if rag_context:
+        parts.append(rag_context)
+    return "\n\n".join(parts)
+
+
 async def chat(
     *,
     child_message: str,
@@ -74,6 +93,7 @@ async def chat(
     history: list[tuple[HistoryRole, str]] | None = None,
     use_pro: bool = False,
     rag_context: str | None = None,
+    personalization_context: str | None = None,
 ) -> GeminiReply:
     """Multi-turn chat. `history` is the prior conversation in chronological order.
 
@@ -91,9 +111,8 @@ async def chat(
 
     contents = _build_contents(history, child_message)
 
-    base_prompt = SYSTEM_PROMPTS[age_segment]
-    system_instruction = (
-        f"{base_prompt}\n\n{rag_context}" if rag_context else base_prompt
+    system_instruction = _assemble_system_instruction(
+        age_segment, personalization_context=personalization_context, rag_context=rag_context,
     )
 
     start = time.perf_counter()
@@ -124,6 +143,7 @@ async def chat_with_web_search(
     child_message: str,
     age_segment: AgeSegment,
     history: list[tuple[HistoryRole, str]] | None = None,
+    personalization_context: str | None = None,
 ) -> GeminiReply:
     """Grounded reply backed by Google Search. Same child-safe system prompt as
     `chat()`; returns web sources in `GeminiReply.sources`."""
@@ -138,11 +158,15 @@ async def chat_with_web_search(
     )
     contents = _build_contents(history, child_message)
 
+    base_prompt = SYSTEM_PROMPTS[age_segment]
+    if personalization_context:
+        base_prompt = f"{base_prompt}\n\n{personalization_context}"
+
     # Force web grounding: tell the model to search the internet for THIS
     # question and answer from the web (not from prior textbook context in the
     # history — otherwise it copies "...darsligiga ko'ra" citations it shouldn't).
     web_instruction = (
-        f"{SYSTEM_PROMPTS[age_segment]}\n\n"
+        f"{base_prompt}\n\n"
         "MUHIM: bu savolga javob berish uchun Google Search bilan internetdan "
         "qidir. Savolga ANIQ va to'g'ridan-to'g'ri javob ber — savol aynan "
         "nimani so'rasa, o'shanga qisqa va tushunarli javob qaytar; topilgan "

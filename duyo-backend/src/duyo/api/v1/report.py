@@ -21,7 +21,7 @@ from duyo.api.deps import get_current_user, get_db
 from duyo.models.child import ChildProfile
 from duyo.models.report import Report
 from duyo.models.user import User
-from duyo.schemas.report import ReportRead
+from duyo.schemas.report import ReportRead, TrendPoint, TrendsRead
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -88,3 +88,46 @@ async def get_report(
     db.add(report)
     await db.flush()
     return _to_read(report, cached=False)
+
+
+@router.get("/{child_id}/trends", response_model=TrendsRead)
+async def get_trends(
+    child_id: UUID,
+    limit: int = Query(default=12, ge=2, le=52, description="How many past reports"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TrendsRead:
+    """Past reports reduced to a plottable series (oldest → newest).
+
+    Reads ALREADY-CACHED reports only — no generation, no LLM call, so opening
+    the trend view costs one query. Same §11.3 contract as the report itself:
+    every field here is an aggregate, never conversation text.
+    """
+    await _owned_child(child_id, current_user, db)
+
+    rows = (
+        await db.scalars(
+            select(Report)
+            .where(Report.child_id == child_id)
+            .order_by(Report.created_at.desc())
+            .limit(limit)
+        )
+    ).all()
+
+    points: list[TrendPoint] = []
+    for r in reversed(rows):  # chronological for plotting
+        sections = r.sections or {}
+        activity = sections.get("activity", {})
+        safety = sections.get("safety", {})
+        mood = sections.get("mood", {})
+        cognitive = sections.get("cognitive", {})
+        points.append(TrendPoint(
+            period_end=r.period_end,
+            active_days=int(activity.get("active_days", 0)),
+            total_messages=int(activity.get("total_messages", 0)),
+            concerning_count=int(safety.get("concerning_count", 0)),
+            mood_trend=str(mood.get("mood_trend", "")),
+            vocabulary_level=str(cognitive.get("vocabulary_level", "")),
+        ))
+
+    return TrendsRead(child_id=child_id, points=points)

@@ -29,12 +29,25 @@ export interface GuidanceSection {
   focus: string;
 }
 
+/**
+ * Developmental observation drawn from conversation style — deliberately NOT
+ * a clinical or psychometric score (no IQ number). Backend enforces this in
+ * the prompt itself; the UI must present it the same way.
+ */
+export interface CognitiveSection {
+  vocabulary_level: string;
+  curiosity_signals: string[];
+  note: string;
+}
+
 export interface ReportSections {
   activity: ActivitySection;
   mood: MoodSection;
   safety: SafetySection;
   // Older cached reports (pre-guidance) may not carry this section.
   guidance: GuidanceSection | null;
+  // Older cached reports (pre-cognitive) may not carry this section either.
+  cognitive?: CognitiveSection | null;
 }
 
 export interface ReportRead {
@@ -53,5 +66,31 @@ export async function getReport(
   const { data } = await apiClient.get<ReportRead>(`/reports/${childId}`, {
     params: refresh ? { refresh: true } : undefined,
   });
+  return data;
+}
+
+/** One past report reduced to plottable aggregates. */
+export interface TrendPoint {
+  period_end: string;
+  active_days: number;
+  total_messages: number;
+  concerning_count: number;
+  mood_trend: string;
+  vocabulary_level: string;
+}
+
+export interface TrendsRead {
+  child_id: string;
+  points: TrendPoint[]; // oldest → newest
+}
+
+export async function getTrends(
+  childId: string,
+  limit = 12,
+): Promise<TrendsRead> {
+  const { data } = await apiClient.get<TrendsRead>(
+    `/reports/${childId}/trends`,
+    { params: { limit } },
+  );
   return data;
 }

@@ -85,6 +85,34 @@ def test_mood_section_parses_llm_json(monkeypatch):
     assert section["highlight"] == "matematikaga qiziqdi"
 
 
+def test_mood_section_parses_cognitive_fields(monkeypatch):
+    class _Resp:
+        text = (
+            '{"mood_trend":"barqaror","mood_summary":"ok","topics":[],'
+            '"stress_signals":"","highlight":"",'
+            '"vocabulary_level":"o\'rta",'
+            '"curiosity_signals":["savol berish","chuqurlashtirish"],'
+            '"cognitive_note":"Bola ko\'proq savol berib, mavzuni chuqurlashtirmoqda."}'
+        )
+
+    class _Models:
+        async def generate_content(self, **_kw):
+            return _Resp()
+
+    class _Client:
+        aio = type("A", (), {"models": _Models()})()
+
+    monkeypatch.setattr(rpt, "get_client", lambda: _Client())
+    section, ok = _run(rpt._mood_section(["a", "b", "c"]))
+    assert ok is True
+    assert section["vocabulary_level"] == "o'rta"
+    assert section["curiosity_signals"] == ["savol berish", "chuqurlashtirish"]
+    assert "chuqurlashtirmoqda" in section["cognitive_note"]
+    # Never a clinical/IQ claim, even as a smoke check on the fixture itself.
+    for banned in ("IQ", "tashxis", "ball"):
+        assert banned not in section["cognitive_note"]
+
+
 def test_mood_section_truncates_overlong_fields(monkeypatch):
     long = "x" * 999
     class _Resp:
@@ -137,6 +165,43 @@ def test_build_report_assembles_sections(monkeypatch):
     s = data.sections["safety"]
     assert s["concerning_count"] == 2  # yellow
     assert s["had_red"] is False
+    assert data.sections["mood"]["mood_trend"] == "barqaror"
+
+
+def test_build_report_splits_cognitive_section(monkeypatch):
+    child_id = uuid4()
+    now = datetime(2026, 6, 1, tzinfo=UTC)
+
+    db = _FakeSession(
+        execute_queue=[
+            _Result([(12, 4)]),
+            _Result([(CrisisLevel.GREEN, 10), (CrisisLevel.YELLOW, 2)]),
+            _Result([("xabar1",), ("xabar2",), ("xabar3",)]),
+        ],
+        scalar_queue=[3],
+    )
+
+    async def _fake_mood(_messages):
+        return ({
+            "mood_trend": "barqaror", "mood_summary": "ok",
+            "topics": ["maktab"], "stress_signals": "", "highlight": "",
+            "vocabulary_level": "yuqori",
+            "curiosity_signals": ["chuqurlashtirish"],
+            "cognitive_note": "Rivojlanish kuzatuvi.",
+        }, True)
+    monkeypatch.setattr(rpt, "_mood_section", _fake_mood)
+
+    async def _fake_guidance(_age, _sections, **_kw):
+        return {"tips": ["maslahat"], "focus": "diqqat"}
+    monkeypatch.setattr(rpt, "build_guidance", _fake_guidance)
+
+    data = _run(rpt.build_report(db, child_id, now=now))
+
+    cog = data.sections["cognitive"]
+    assert cog["vocabulary_level"] == "yuqori"
+    assert cog["curiosity_signals"] == ["chuqurlashtirish"]
+    assert cog["note"] == "Rivojlanish kuzatuvi."
+    # mood section keeps its own fields too (backward compatible).
     assert data.sections["mood"]["mood_trend"] == "barqaror"
 
 

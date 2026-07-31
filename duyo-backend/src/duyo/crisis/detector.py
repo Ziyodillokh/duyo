@@ -46,6 +46,10 @@ _CATEGORY_LEVEL: dict[CrisisCategory, CrisisLevel] = {
     CrisisCategory.SELF_HARM: CrisisLevel.ORANGE,
     CrisisCategory.VIOLENCE: CrisisLevel.RED,
     CrisisCategory.ABUSE_VICTIM: CrisisLevel.ORANGE,
+    CrisisCategory.NEGLECT: CrisisLevel.ORANGE,
+    CrisisCategory.BULLYING: CrisisLevel.ORANGE,
+    CrisisCategory.EATING_DISORDER: CrisisLevel.YELLOW,
+    CrisisCategory.SUBSTANCE_ABUSE: CrisisLevel.ORANGE,
 }
 
 

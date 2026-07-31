@@ -25,6 +25,7 @@ from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisLevel
 from duyo.models.message import Message, MessageRole
 from duyo.prompts import PARENT_REPORT_PROMPT
+from duyo.psychology.retriever import retrieve_for_guidance
 from duyo.services.gemini import get_client
 
 log = logging.getLogger(__name__)
@@ -145,6 +146,9 @@ _EMPTY_MOOD = {
     "topics": [],
     "stress_signals": "",
     "highlight": "",
+    "vocabulary_level": "",
+    "curiosity_signals": [],
+    "cognitive_note": "",
 }
 
 
@@ -185,11 +189,41 @@ async def _mood_section(messages: list[str]) -> tuple[dict, bool]:
             "topics": [str(t)[:40] for t in (data.get("topics") or [])][:6],
             "stress_signals": str(data.get("stress_signals", ""))[:300],
             "highlight": str(data.get("highlight", ""))[:300],
+            "vocabulary_level": str(data.get("vocabulary_level", ""))[:20],
+            "curiosity_signals": [str(s)[:40] for s in (data.get("curiosity_signals") or [])][:4],
+            "cognitive_note": str(data.get("cognitive_note", ""))[:300],
         }
         return section, True
     except Exception:
         log.exception("Parent report mood pass failed; using metrics-only")
         return _EMPTY_MOOD, False
+
+
+# ---------------------------------------------------------------------------
+# Psychology RAG grounding for guidance (aggregate signals only — §11.3)
+# ---------------------------------------------------------------------------
+
+
+async def _guidance_rag_context(session: AsyncSession, mood: dict) -> str | None:
+    """Build a psychology-knowledge-base query from AGGREGATE mood signals only.
+
+    Never touches raw child messages — only the already-summarised
+    mood_trend/topics/stress_signals that `_mood_section` produced. Fails
+    safe (returns None) on any error so a RAG hiccup never breaks the report.
+    """
+    parts = [
+        str(mood.get("mood_trend") or ""),
+        ", ".join(mood.get("topics") or []),
+        str(mood.get("stress_signals") or ""),
+    ]
+    query = " ".join(p for p in parts if p).strip()
+    if not query:
+        return None
+    try:
+        return await retrieve_for_guidance(session, query)
+    except Exception:
+        log.exception("guidance_rag_context_failed")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -215,10 +249,22 @@ async def build_report(
         "activity": activity,
         "mood": mood,
         "safety": safety,
+        # Rivojlanish kuzatuvi — KLINIK/psixometrik baho EMAS (IQ ball emas).
+        # `mood`dagi bir xil Gemini chaqiruvidan ajratib olingan, qo'shimcha
+        # LLM chaqiruvi yo'q.
+        "cognitive": {
+            "vocabulary_level": mood.get("vocabulary_level", ""),
+            "curiosity_signals": mood.get("curiosity_signals", []),
+            "note": mood.get("cognitive_note", ""),
+        },
     }
+    # Ground the guidance in the psychology knowledge base (psychology/taxonomy.py)
+    # via the aggregate mood/topic/stress signals ONLY — never raw messages,
+    # preserving the same §11.3 privacy contract as the rest of this function.
+    rag_context = await _guidance_rag_context(session, mood)
+
     # Guidance (Concept §5) — actionable advice from the aggregate sections.
-    # No raw messages are passed, preserving the §11.3 privacy contract.
-    sections["guidance"] = await build_guidance(age, sections)
+    sections["guidance"] = await build_guidance(age, sections, rag_context=rag_context)
 
     return ReportData(
         period_start=start,

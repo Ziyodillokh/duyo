@@ -133,3 +133,97 @@ def test_report_no_prior_generates(monkeypatch):
     result = _run(rep.get_report(child_id=child.id, refresh=False, current_user=user, db=db))
     assert result.cached is False
     assert db.added
+
+
+def test_report_exposes_cognitive_section(monkeypatch):
+    """Regression: the response schema must not silently drop `cognitive`."""
+    user = _User(uuid4())
+    child = _child()
+    db = _FakeSession(scalar_queue=[child])
+    cognitive = {
+        "vocabulary_level": "o'rta",
+        "curiosity_signals": ["savol berish"],
+        "note": "Rivojlanish kuzatuvi.",
+    }
+
+    @dataclass
+    class _Data:
+        now: datetime
+        def __post_init__(self):
+            self.period_start = self.now - timedelta(days=10)
+            self.period_end = self.now
+            self.sections = {**_SECTIONS, "cognitive": cognitive}
+            self.llm_ok = True
+
+    async def _fake_build(*_a, **kw):
+        return _Data(kw["now"])
+    monkeypatch.setattr(rep, "build_report", _fake_build)
+
+    result = _run(rep.get_report(child_id=child.id, refresh=True, current_user=user, db=db))
+    assert result.sections.cognitive is not None
+    assert result.sections.cognitive.vocabulary_level == "o'rta"
+    assert result.sections.cognitive.note == "Rivojlanish kuzatuvi."
+
+
+# ── Trends (metrology — plottable series from cached reports) ────────────────
+
+@dataclass
+class _TrendsSession:
+    """scalar() serves _owned_child; scalars() serves the report history."""
+
+    scalar_queue: list = field(default_factory=list)
+    reports: list = field(default_factory=list)
+
+    async def scalar(self, *_a, **_kw):
+        return self.scalar_queue.pop(0)
+
+    async def scalars(self, *_a, **_kw):
+        rows = self.reports
+        return type("R", (), {"all": lambda _self: rows})()
+
+
+def test_trends_unowned_404():
+    user = _User(uuid4())
+    db = _TrendsSession(scalar_queue=[None])
+    with pytest.raises(HTTPException) as exc:
+        _run(rep.get_trends(child_id=uuid4(), limit=12, current_user=user, db=db))
+    assert exc.value.status_code == 404
+
+
+def test_trends_returns_oldest_first_with_aggregates():
+    user = _User(uuid4())
+    child = _child()
+    now = datetime.now(UTC)
+    # Query returns newest-first; the endpoint must reverse for plotting.
+    newer = _report(child.id, now)
+    older = _report(child.id, now - timedelta(days=10))
+    newer.sections = {**_SECTIONS, "cognitive": {"vocabulary_level": "yuqori",
+                                                 "curiosity_signals": [], "note": ""}}
+    db = _TrendsSession(scalar_queue=[child], reports=[newer, older])
+
+    out = _run(rep.get_trends(child_id=child.id, limit=12, current_user=user, db=db))
+
+    assert len(out.points) == 2
+    assert out.points[0].period_end < out.points[1].period_end  # chronological
+    assert out.points[1].vocabulary_level == "yuqori"
+    assert out.points[0].active_days == 3
+    assert out.points[0].mood_trend == "barqaror"
+
+
+def test_trends_tolerates_reports_without_cognitive():
+    """Older cached reports predate the cognitive pass — must not raise."""
+    user = _User(uuid4())
+    child = _child()
+    legacy = _report(child.id, datetime.now(UTC))  # _SECTIONS has no "cognitive"
+    db = _TrendsSession(scalar_queue=[child], reports=[legacy])
+
+    out = _run(rep.get_trends(child_id=child.id, limit=12, current_user=user, db=db))
+    assert out.points[0].vocabulary_level == ""
+
+
+def test_trends_empty_history_returns_no_points():
+    user = _User(uuid4())
+    child = _child()
+    db = _TrendsSession(scalar_queue=[child], reports=[])
+    out = _run(rep.get_trends(child_id=child.id, limit=12, current_user=user, db=db))
+    assert out.points == []

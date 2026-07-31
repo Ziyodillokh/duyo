@@ -34,6 +34,7 @@ def _build_payload(age: int, sections: dict, rag_context: str | None) -> str:
     mood = sections.get("mood", {})
     activity = sections.get("activity", {})
     safety = sections.get("safety", {})
+    cognitive = sections.get("cognitive", {})
 
     none_word = "yo'q"
     mood_trend = mood.get("mood_trend") or none_word
@@ -44,6 +45,7 @@ def _build_payload(age: int, sections: dict, rag_context: str | None) -> str:
     window = activity.get("window_days", 10)
     total_messages = activity.get("total_messages", 0)
     concerning = safety.get("concerning_count", 0)
+    cognitive_note = cognitive.get("note") or none_word
 
     lines = [
         f"Bola yoshi: {age}",
@@ -54,6 +56,7 @@ def _build_payload(age: int, sections: dict, rag_context: str | None) -> str:
         f"Faol kunlar: {active_days}/{window}",
         f"Xabarlar soni: {total_messages}",
         f"Tashvishli signallar soni: {concerning}",
+        f"Kognitiv rivojlanish kuzatuvi (klinik baho emas): {cognitive_note}",
     ]
     payload = "\n".join(lines)
     if rag_context:
