@@ -46,6 +46,10 @@ _CATEGORY_LEVEL: dict[CrisisCategory, CrisisLevel] = {
     CrisisCategory.SELF_HARM: CrisisLevel.ORANGE,
     CrisisCategory.VIOLENCE: CrisisLevel.RED,
     CrisisCategory.ABUSE_VICTIM: CrisisLevel.ORANGE,
+    CrisisCategory.NEGLECT: CrisisLevel.ORANGE,
+    CrisisCategory.BULLYING: CrisisLevel.ORANGE,
+    CrisisCategory.EATING_DISORDER: CrisisLevel.YELLOW,
+    CrisisCategory.SUBSTANCE_ABUSE: CrisisLevel.ORANGE,
 }
 
 
@@ -87,6 +91,16 @@ _FILLER_ADVERBS = re.compile(
 )
 
 
+# Every apostrophe-like glyph that can stand in for the `'` used in the keyword
+# lists. The two MODIFIER LETTER forms are the ones that matter most: U+02BB is
+# the OFFICIAL Uzbek Latin letter in `oʻ`/`gʻ` and U+02BC the tutuq belgisi in
+# `aʼzo`, so a standard Uzbek keyboard produces them — and NFKC does NOT fold
+# them to `'`. Before they were listed here, `oʻldirgim keladi` scored GREEN
+# while `o'ldirgim keladi` scored RED: a real message missing Layer 1 entirely.
+_APOSTROPHES = "’‘`ʻʼʹ´′＇"
+_APOSTROPHE_MAP = str.maketrans({ch: "'" for ch in _APOSTROPHES})
+
+
 def _normalize(text: str) -> str:
     """Lowercase, normalise apostrophes, strip filler adverbs, collapse whitespace.
 
@@ -97,10 +111,13 @@ def _normalize(text: str) -> str:
     common way children describe ongoing abuse.
     """
     text = text.lower().strip()
-    # Replace curly/typographic apostrophes with straight ones.
-    text = text.replace("’", "'").replace("‘", "'").replace("`", "'")
+    # Fold every apostrophe variant onto the straight `'` the keywords use.
+    text = text.translate(_APOSTROPHE_MAP)
     # NFKC normalise (combines accented chars), keep apostrophes intact.
     text = unicodedata.normalize("NFKC", text)
+    # NFKC can reintroduce a variant (e.g. U+FF07 folds to U+0027, but other
+    # compatibility forms exist) — fold once more so the invariant holds.
+    text = text.translate(_APOSTROPHE_MAP)
     # Strip filler adverbs and collapse whitespace.
     text = _FILLER_ADVERBS.sub(" ", text)
     text = re.sub(r"\s+", " ", text).strip()

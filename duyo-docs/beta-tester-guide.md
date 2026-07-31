@@ -30,7 +30,7 @@ Bola gapirayotgani xavfli signal bilan kelganda DUYO yumshoq tarzda yordam takli
 
 1. **Tilni tanlang** — O'zbek
 2. **Telefon raqamingiz** — +998XXXXXXXXX kiriting → "SMS yuborish"
-3. **6 raqamli kodni kiriting** (SMS'da keladi) → "Tasdiqlash"
+3. **5 raqamli kodni kiriting** (SMS'da keladi) → "Tasdiqlash"
 4. **Bolaning ismi + yoshi** — 7-16 oralig'ida → "Boshlash"
 5. **Yozma suhbat:** "Salom" deb yozing va javobni kuting
 6. **Ovozli suhbat:** o'ng yuqorida mikrofon ikoni → tugmani bosing → gapiring → to'xtating

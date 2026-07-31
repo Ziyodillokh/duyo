@@ -56,14 +56,14 @@ class Settings(BaseSettings):
     conversation_history_max_messages: int = 20
 
     # OTP / SMS (Eskiz.uz)
-    otp_length: int = 4
+    otp_length: int = 5
     otp_ttl_seconds: int = 300  # 5 minutes
     otp_max_attempts: int = 5
     otp_rate_limit_per_phone_per_hour: int = 10
     # Test phones that bypass SMS — comma-separated "phone:code" pairs. These
     # numbers always accept their fixed code (no SMS needed) for QA/testing.
     # Set to "" to disable. REMOVE/empty before public launch.
-    otp_test_numbers: str = "+998900000000:0000"
+    otp_test_numbers: str = "+998900000000:00000"
     eskiz_email: str = ""
     eskiz_password: str = ""
     eskiz_from: str = "DUYO"

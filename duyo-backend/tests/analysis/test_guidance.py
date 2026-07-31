@@ -66,3 +66,20 @@ def test_rag_context_is_injected():
     payload = g._build_payload(10, _SECTIONS, "Pedagogik tavsiya: ...")
     assert "[PEDAGOGIK MANBA]" in payload
     assert "Pedagogik tavsiya" in payload
+
+
+def test_payload_includes_cognitive_signal():
+    sections = {**_SECTIONS, "cognitive": {
+        "vocabulary_level": "yuqori",
+        "curiosity_signals": ["chuqurlashtirish"],
+        "note": "Bola savol berish orqali qiziqish ko'rsatmoqda.",
+    }}
+    payload = g._build_payload(10, sections, None)
+    assert "qiziqish ko'rsatmoqda" in payload
+
+
+def test_payload_cognitive_signal_defaults_when_absent():
+    """No 'cognitive' section (e.g. older cached report) must not raise."""
+    payload = g._build_payload(10, _SECTIONS, None)
+    assert "Kognitiv rivojlanish kuzatuvi" in payload
+    assert "yo'q" in payload

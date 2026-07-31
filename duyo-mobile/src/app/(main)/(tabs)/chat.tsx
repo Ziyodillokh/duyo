@@ -1,12 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Mic, Send } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { Mic, Send, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { sendChatMessage, type QuickReply } from '@/api/endpoints/chat';
+import {
+  rateMessage,
+  sendChatMessage,
+  type FeedbackRating,
+  type QuickReply,
+} from '@/api/endpoints/chat';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -51,6 +56,9 @@ export default function ChatScreen() {
   const appendMessage = useChatStore((s) => s.appendMessage);
 
   const [input, setInput] = useState('');
+  // messageId -> chosen rating. Local only: the vote is fire-and-forget, so a
+  // failed request just clears the highlight rather than blocking the chat.
+  const [ratings, setRatings] = useState<Record<string, FeedbackRating>>({});
 
   useEffect(() => {
     if (!child || !hydrated) return;
@@ -132,6 +140,22 @@ export default function ChatScreen() {
     });
     send.mutate({ text: reply.label, action: 'web_search', actionQuery: reply.query });
   };
+
+  const handleRate = useCallback(
+    (messageId: string, rating: FeedbackRating) => {
+      if (!child) return;
+      setRatings((prev) => ({ ...prev, [messageId]: rating }));
+      rateMessage(messageId, child.id, rating).catch(() => {
+        // Rating is optional feedback — drop the highlight, never interrupt.
+        setRatings((prev) => {
+          const next = { ...prev };
+          delete next[messageId];
+          return next;
+        });
+      });
+    },
+    [child],
+  );
 
   const showSuggestions =
     messages.length === 1 && messages[0]?.id === GREETING_ID;
@@ -224,6 +248,8 @@ export default function ChatScreen() {
               <MessageBubble
                 message={item.message}
                 onQuickReply={handleQuickReply}
+                rating={ratings[item.message.id]}
+                onRate={handleRate}
               />
             );
           }}
@@ -274,12 +300,23 @@ export default function ChatScreen() {
 interface MessageBubbleProps {
   message: ChatMessage;
   onQuickReply: (messageId: string, reply: QuickReply) => void;
+  rating?: FeedbackRating;
+  onRate: (messageId: string, rating: FeedbackRating) => void;
 }
 
-function MessageBubble({ message, onQuickReply }: MessageBubbleProps) {
+function MessageBubble({
+  message,
+  onQuickReply,
+  rating,
+  onRate,
+}: MessageBubbleProps) {
   const isChild = message.role === 'child';
   const source = message.source;
   const quickReplies = message.quickReplies;
+  // Only server-persisted DUYO replies can be rated — the seeded greeting and
+  // optimistic `local-` bubbles have no row to attach feedback to.
+  const canRate =
+    !isChild && message.id !== GREETING_ID && !message.id.startsWith('local-');
   return (
     <View className={`flex-row ${isChild ? 'justify-end' : 'justify-start'}`}>
       <View className="max-w-[80%]">
@@ -319,6 +356,34 @@ function MessageBubble({ message, onQuickReply }: MessageBubbleProps) {
                 <Text className="text-neon-blue font-semibold">{qr.label}</Text>
               </Pressable>
             ))}
+          </View>
+        )}
+        {canRate && (
+          <View className="flex-row gap-3 mt-1.5 ml-2">
+            <Pressable
+              onPress={() => onRate(message.id, 'up')}
+              accessibilityRole="button"
+              accessibilityLabel="Bu javob yoqdi"
+              accessibilityState={{ selected: rating === 'up' }}
+              hitSlop={8}
+            >
+              <ThumbsUp
+                size={16}
+                color={rating === 'up' ? '#05DF72' : '#94A3B8'}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => onRate(message.id, 'down')}
+              accessibilityRole="button"
+              accessibilityLabel="Bu javob yoqmadi"
+              accessibilityState={{ selected: rating === 'down' }}
+              hitSlop={8}
+            >
+              <ThumbsDown
+                size={16}
+                color={rating === 'down' ? '#FB64B6' : '#94A3B8'}
+              />
+            </Pressable>
           </View>
         )}
       </View>

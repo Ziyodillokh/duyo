@@ -137,3 +137,14 @@ class HintRequest(BaseModel):
 
 class HintResponse(BaseModel):
     hint: str
+
+
+class FeedbackRequest(BaseModel):
+    child_id: UUID
+    rating: Literal["up", "down"]
+    reason: str | None = Field(default=None, max_length=200)
+
+
+class FeedbackResponse(BaseModel):
+    message_id: UUID
+    rating: str

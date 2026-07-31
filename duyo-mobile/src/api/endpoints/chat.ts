@@ -72,3 +72,20 @@ export async function sendChatMessage(
     quick_replies: data.quick_replies ?? [],
   };
 }
+
+export type FeedbackRating = 'up' | 'down';
+
+/**
+ * Rate one DUYO reply. Ratings feed a human-reviewed dataset (admin panel) —
+ * they never change model behaviour on their own. Re-rating overwrites.
+ */
+export async function rateMessage(
+  messageId: string,
+  childId: string,
+  rating: FeedbackRating,
+): Promise<void> {
+  await apiClient.post(`/chat/messages/${messageId}/feedback`, {
+    child_id: childId,
+    rating,
+  });
+}
