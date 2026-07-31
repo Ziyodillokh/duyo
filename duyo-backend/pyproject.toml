@@ -91,8 +91,11 @@ extend-immutable-calls = [
 "tests/textbook/*" = ["RUF001"]
 # Crisis detection matches Uzbek Cyrillic/Latin and Russian keywords verbatim;
 # "fixing" the ambiguous characters would break detection of real messages.
-"src/duyo/crisis/*" = ["RUF001"]
-"tests/test_crisis_detector.py" = ["RUF001"]
+# RUF002/RUF003 too: the comments and docstrings there NAME the apostrophe
+# variants (ʻ U+02BB, ʼ U+02BC) the normaliser folds — spelling them out is the
+# whole point of the explanation.
+"src/duyo/crisis/*" = ["RUF001", "RUF002", "RUF003"]
+"tests/test_crisis_detector.py" = ["RUF001", "RUF002", "RUF003"]
 # Sample Russian-language lesson vocabulary — genuine Cyrillic content, not a
 # typo risk.
 "scripts/seed_language_content.py" = ["RUF001"]

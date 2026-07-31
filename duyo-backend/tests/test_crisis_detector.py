@@ -272,3 +272,48 @@ def test_result_is_immutable(detector):
     result = detector.check("Men o'zimni o'ldiraman")
     with pytest.raises(Exception):  # FrozenInstanceError or AttributeError
         result.level = CrisisLevel.GREEN  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Apostrophe variants (Uzbek orthography)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "apostrophe",
+    [
+        "'",       # U+0027 plain — what the keyword lists use
+        "\u02bb",  # U+02BB MODIFIER LETTER TURNED COMMA — official Uzbek oʻ/gʻ
+        "\u02bc",  # U+02BC MODIFIER LETTER APOSTROPHE — tutuq belgisi (aʼzo)
+        "\u2019",  # U+2019 right single quote — phone keyboards
+        "\u2018",  # U+2018 left single quote
+        "`",       # U+0060 backtick
+        "\u00b4",  # U+00B4 acute accent
+        "\u2032",  # U+2032 prime
+        "\uff07",  # U+FF07 fullwidth apostrophe
+    ],
+)
+def test_apostrophe_variants_all_detected(detector, apostrophe):
+    """A standard Uzbek keyboard emits U+02BB, not U+0027.
+
+    Regression: before _APOSTROPHES covered the MODIFIER LETTER forms,
+    `oʻldirgim keladi` scored GREEN while `o'ldirgim keladi` scored RED —
+    Layer 1 missed real messages typed the orthographically correct way.
+    """
+    result = detector.check(f"o{apostrophe}ldirgim keladi")
+    assert result.level == CrisisLevel.RED, (
+        f"Apostrophe U+{ord(apostrophe):04X} broke keyword matching"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "bugun maktabda ko\u02bbp o\u02bbqidim",
+        "do\u02bbstlarim bilan o\u02bbynadim",
+        "g\u02bballa haqida she\u02bbr o\u02bbqidim",
+    ],
+)
+def test_apostrophe_folding_does_not_cause_false_positives(detector, text):
+    """Folding apostrophes must not turn everyday Uzbek into a crisis hit."""
+    assert detector.check(text).level == CrisisLevel.GREEN
