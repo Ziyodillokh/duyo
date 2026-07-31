@@ -1,9 +1,9 @@
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import Animated, {
   Easing,
-  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -116,6 +116,47 @@ function ChalkLine({
   );
 }
 
+/**
+ * Fades (and optionally lifts) its children in after `delay`.
+ *
+ * Deliberately built from useSharedValue/useAnimatedStyle rather than
+ * Reanimated's `entering={FadeIn}` layout animations: the shared-value pattern
+ * is already proven on device by DuyoAvatar, whereas no screen in this app has
+ * ever mounted a layout animation.
+ */
+function FadeInView({
+  delay,
+  duration = 320,
+  rise = 0,
+  style,
+  children,
+  accessibilityLabel,
+}: {
+  delay: number;
+  duration?: number;
+  rise?: number;
+  style?: ViewStyle;
+  children: React.ReactNode;
+  accessibilityLabel?: string;
+}) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withDelay(delay, withTiming(1, { duration }));
+  }, [delay, duration, progress]);
+
+  const animated = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateY: (1 - progress.value) * rise }],
+  }));
+
+  return (
+    <Animated.View style={[style, animated]} accessibilityLabel={accessibilityLabel}>
+      {children}
+    </Animated.View>
+  );
+}
+
 /** The chalk stub at the write head — a soft pulsing nub, not a text caret. */
 function ChalkTip({ height }: { height: number }) {
   const pulse = useSharedValue(0.45);
@@ -185,8 +226,10 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
   const answerDelay = cursor;
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(420)}
+    <FadeInView
+      delay={0}
+      duration={420}
+      rise={14}
       style={{
         width: '100%',
         borderRadius: 18,
@@ -257,19 +300,21 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
             <View key={`${step.expr}-${i}`}>
               <ChalkLine text={step.expr} delay={stepDelays[i]} size={stepSize} />
               {!!step.note && (
-                <Animated.Text
-                  entering={FadeIn.delay(
-                    stepDelays[i] + writeDuration(step.expr),
-                  ).duration(300)}
-                  style={{
-                    fontSize: noteSize,
-                    color: CHALK_DIM,
-                    marginTop: 1,
-                    fontStyle: 'italic',
-                  }}
+                <FadeInView
+                  delay={stepDelays[i] + writeDuration(step.expr)}
+                  duration={300}
                 >
-                  {step.note}
-                </Animated.Text>
+                  <Text
+                    style={{
+                      fontSize: noteSize,
+                      color: CHALK_DIM,
+                      marginTop: 1,
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    {step.note}
+                  </Text>
+                </FadeInView>
               )}
             </View>
           ))}
@@ -277,15 +322,15 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
 
         {/* Answer — underscored in yellow chalk, the way a teacher would */}
         {!!answer && (
-          <Animated.View
-            entering={FadeIn.delay(answerDelay).duration(360)}
+          <FadeInView
+            delay={answerDelay}
+            duration={360}
             style={{
               marginTop: compact ? 12 : 16,
               alignSelf: 'flex-start',
               borderTopWidth: 2,
               borderTopColor: CHALK_YELLOW,
               paddingTop: 8,
-              opacity: 0.99,
             }}
           >
             <ChalkLine
@@ -295,7 +340,7 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
               color={CHALK_YELLOW}
               bold
             />
-          </Animated.View>
+          </FadeInView>
         )}
       </View>
 
@@ -309,6 +354,6 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
           backgroundColor: WOOD_DARK,
         }}
       />
-    </Animated.View>
+    </FadeInView>
   );
 }
