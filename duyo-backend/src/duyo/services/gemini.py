@@ -276,14 +276,20 @@ async def solve_on_board(*, question: str, age_segment: AgeSegment) -> dict:
         if not data.get("is_problem"):
             return dict(_NO_BOARD)
 
-        steps = [
-            {
-                "expr": str(s.get("expr", "")).strip()[:_BOARD_EXPR_MAX],
-                "note": str(s.get("note", "")).strip()[:_BOARD_NOTE_MAX],
-            }
-            for s in (data.get("steps") or [])
-            if str(s.get("expr", "")).strip()
-        ][:_BOARD_MAX_STEPS]
+        steps: list[dict[str, str]] = []
+        for s in data.get("steps") or []:
+            expr = str(s.get("expr", "")).strip()[:_BOARD_EXPR_MAX]
+            if not expr:
+                continue
+            # Chemistry answers in particular came back with the balanced
+            # equation repeated verbatim; the same line twice reads as a bug.
+            if steps and steps[-1]["expr"] == expr:
+                continue
+            steps.append(
+                {"expr": expr, "note": str(s.get("note", "")).strip()[:_BOARD_NOTE_MAX]}
+            )
+            if len(steps) == _BOARD_MAX_STEPS:
+                break
 
         problem = str(data.get("problem", "")).strip()[:_BOARD_PROBLEM_MAX]
         # A board with nothing written on it is worse than no board at all.

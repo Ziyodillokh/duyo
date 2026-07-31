@@ -33,40 +33,29 @@ const STATUS_TEXT: Record<Phase, string> = {
   error: 'Xatolik yuz berdi',
 };
 
-// Cheap local gate before spending a Gemini call on the board. A solvable
-// problem almost always carries a digit or one of these verbs; plain chat
-// ("salom", "charchadim") carries neither, so most turns cost nothing.
+// Local pre-filter before spending a Gemini call on the board.
+//
+// This used to be a keyword allow-list, which silently swallowed every problem
+// phrased outside it — chemistry ("suvning formulasi nima"), word problems with
+// no digits, and so on. It is now an exclude-list: only utterances that are
+// plainly small talk are dropped, and everything else goes to the backend,
+// which classifies authoritatively and answers is_problem=false for free.
+// The bias is deliberate: a missed board is a bug the child sees, an extra
+// call costs a fraction of a cent.
 // Speech-to-text emits several apostrophe glyphs for o'/g', so match any.
 const APOS = "['‘’ʻʼ]?";
-const MATH_HINTS = new RegExp(
-  [
-    '\\d',
-    'hisobla',
-    'yech',
-    'tenglama',
-    'necha',
-    'qancha',
-    `ko${APOS}payt`,
-    // \b keeps the imperative "bo'l" (divide) from matching the extremely
-    // common "bo'ladi"/"bo'lsa"; division questions carry digits anyway.
-    `bo${APOS}l\\b`,
-    `qo${APOS}sh`,
-    'ayir',
-    'formula',
-    'yuzi',
-    'perimetr',
-    'tezlik',
-    'foiz',
-    'ildiz',
-    'daraja',
-    'masala',
-    'misol',
-  ].join('|'),
+const PURE_SMALL_TALK = new RegExp(
+  `^(salom|assalomu?\\s*alaykum|qalaysan|rahmat|xayr|ha|yo${APOS}q|xo${APOS}p|` +
+    `yaxshi|zo${APOS}r|charchadim|zerikdim|uxlayman)[\\s.!?]*$`,
   'i',
 );
 
-function looksSolvable(text: string): boolean {
-  return text.trim().length >= 4 && MATH_HINTS.test(text);
+function worthAsking(text: string): boolean {
+  const t = text.trim();
+  // Too short to carry a problem statement.
+  if (t.length < 8) return false;
+  // The whole utterance is a greeting or an acknowledgement.
+  return !PURE_SMALL_TALK.test(t);
 }
 
 function avatarStateFor(
@@ -160,7 +149,7 @@ export default function VoiceScreen() {
 
       // Did the child just ask something worth working through on the board?
       const said = utteranceRef.current;
-      if (!child || !looksSolvable(said)) return;
+      if (!child || !worthAsking(said)) return;
       const seq = turnSeqRef.current;
       void solveOnBoard(child.id, said).then((solution) => {
         // Ignore a late answer if another turn has started since.
@@ -172,8 +161,15 @@ export default function VoiceScreen() {
       setPhase('error');
     },
     onClose: (code) => {
+      // 1000/1001/1005 are orderly closes — the server routinely hangs up
+      // right after a turn, sometimes before turn_complete lands, and showing
+      // "Aloqa uzildi (1000)" over a finished answer looked like a crash.
+      const orderly = code === 1000 || code === 1001 || code === 1005;
+      if (orderly) {
+        if (phaseRef.current !== 'error') setPhase('idle');
+        return;
+      }
       if (phaseRef.current === 'recording' || phaseRef.current === 'processing') {
-        // Server closed mid-turn — surface as error unless we already finished.
         setErrorMessage(`Aloqa uzildi (${code})`);
         setPhase('error');
       }

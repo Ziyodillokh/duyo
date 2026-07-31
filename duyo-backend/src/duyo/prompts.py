@@ -172,7 +172,11 @@ BOARD_PROMPT = (
     "- 2-5 bosqich. Har bosqich oldingisidan mantiqan kelib chiqsin.\n"
     "- `answer` — yakuniy javob, qisqa. Masalan: \"x = 4\"\n"
     "- Belgilar: × : + − = ( ) √ ² ³ ishlat. LaTeX YOZMA ($, \\frac, \\cdot yo'q).\n"
-    "- Kasrlarni \"3/4\" ko'rinishida yoz.\n\n"
+    "- Kasrlarni \"3/4\" ko'rinishida yoz.\n"
+    "- Kimyoda pastki indeks yoz: H₂O, CO₂, H₂SO₄ (H2O emas). Reaksiya uchun "
+    "→ ishlat, masalan: \"2H₂ + O₂ → 2H₂O\". Zaryad: Na⁺, Cl⁻.\n"
+    "- Kimyoviy reaksiyada bosqichlar: reaksiya tenglamasi, tenglashtirish, "
+    "kerak bo'lsa hisob-kitob.\n\n"
     "FAQAT shu JSON formatda javob ber:\n"
     "{\n"
     '  "is_problem": true,\n'

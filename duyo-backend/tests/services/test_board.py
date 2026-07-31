@@ -40,6 +40,27 @@ async def test_solves_and_caps_line_lengths(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_repeated_line_is_written_once(monkeypatch):
+    """Chemistry answers came back with the balanced equation twice in a row."""
+    monkeypatch.setattr(
+        gemini,
+        "get_client",
+        lambda: _client(
+            '{"is_problem": true, "title": "Reaksiya", "problem": "H₂ + O₂ → ?",'
+            ' "steps": [{"expr": "2H₂ + O₂ → 2H₂O", "note": "tenglashtiramiz"},'
+            ' {"expr": "2H₂ + O₂ → 2H₂O", "note": ""},'
+            ' {"expr": "Suv hosil bo\'ladi", "note": ""}],'
+            ' "answer": "H₂O"}'
+        ),
+    )
+    out = await gemini.solve_on_board(
+        question="vodorod va kislorod", age_segment=AgeSegment.EXPLORER
+    )
+    exprs = [s["expr"] for s in out["steps"]]
+    assert exprs == ["2H₂ + O₂ → 2H₂O", "Suv hosil bo'ladi"]
+
+
+@pytest.mark.asyncio
 async def test_plain_chat_shows_no_board(monkeypatch):
     monkeypatch.setattr(gemini, "get_client", lambda: _client('{"is_problem": false}'))
     out = await gemini.solve_on_board(
