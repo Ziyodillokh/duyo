@@ -21,6 +21,7 @@ import { SettingsSection } from '@/components/v2/dark/settings-section';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useLanguageStore } from '@/store/language';
+import { useMascotStore } from '@/store/mascot';
 import { useThemeStore } from '@/store/theme';
 import { useIsDark } from '@/store/theme';
 
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
   const language = useLanguageStore((s) => s.language);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const clearChild = useChildStore((s) => s.clearChild);
+  const resetMascot = useMascotStore((s) => s.setVariant);
   const themeMode = useThemeStore((s) => s.mode);
   const toggleTheme = useThemeStore((s) => s.toggle);
   const [notifications, setNotifications] = useState(true);
@@ -48,6 +50,8 @@ export default function SettingsScreen() {
         onPress: () => {
           clearAuth();
           clearChild();
+          // The next child picks their own body during onboarding.
+          resetMascot('duyo');
           router.replace('/(onboarding)/language');
         },
       },

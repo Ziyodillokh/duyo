@@ -10,7 +10,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-// 11 emotional states map onto 7 hand-drawn mascot PNGs (the missing
+import { useMascotVariant, type MascotVariant } from '@/store/mascot';
+
+// 12 emotional states map onto 8 hand-drawn mascot PNGs (the missing
 // shades fall back to a sibling that matches the same affect).
 export type DuyoState =
   | 'idle'
@@ -23,7 +25,8 @@ export type DuyoState =
   | 'reading'
   | 'celebrating'
   | 'encouraging'
-  | 'crisis-support';
+  | 'crisis-support'
+  | 'puzzled';
 
 export type DuyoSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -40,7 +43,18 @@ const SIZE_PX: Record<DuyoSize, number> = {
   xl: 256,
 };
 
-const ASSETS = {
+// Slots, not states: several states share one drawing.
+type Slot =
+  | 'idle'
+  | 'happy'
+  | 'sad'
+  | 'sleeping'
+  | 'thinking'
+  | 'excited'
+  | 'concerned'
+  | 'puzzled';
+
+const DUYO_ASSETS: Record<Slot, number> = {
   idle: require('@/assets/duyo/idle.png'),
   happy: require('@/assets/duyo/happy.png'),
   sad: require('@/assets/duyo/sad.png'),
@@ -48,28 +62,49 @@ const ASSETS = {
   thinking: require('@/assets/duyo/thinking.png'),
   excited: require('@/assets/duyo/excited.png'),
   concerned: require('@/assets/duyo/concerned.png'),
+  puzzled: require('@/assets/images/duyo-puzzled.png'),
 };
 
-function assetFor(state: DuyoState) {
+// The raccoon comes in three poses, so the quieter slots share the seated one
+// (the calmest of the three) and the upbeat ones share the arms-up cheer.
+const RACCOON_ASSETS: Record<Slot, number> = {
+  idle: require('@/assets/duyo/raccoon/idle.png'),
+  happy: require('@/assets/duyo/raccoon/excited.png'),
+  excited: require('@/assets/duyo/raccoon/excited.png'),
+  sad: require('@/assets/duyo/raccoon/thinking.png'),
+  sleeping: require('@/assets/duyo/raccoon/thinking.png'),
+  thinking: require('@/assets/duyo/raccoon/thinking.png'),
+  concerned: require('@/assets/duyo/raccoon/thinking.png'),
+  puzzled: require('@/assets/duyo/raccoon/thinking.png'),
+};
+
+const ASSETS: Record<MascotVariant, Record<Slot, number>> = {
+  duyo: DUYO_ASSETS,
+  raccoon: RACCOON_ASSETS,
+};
+
+function slotFor(state: DuyoState): Slot {
   switch (state) {
     case 'idle':
-      return ASSETS.idle;
+      return 'idle';
     case 'happy':
     case 'encouraging':
-      return ASSETS.happy;
+      return 'happy';
     case 'sad':
-      return ASSETS.sad;
+      return 'sad';
     case 'low-energy':
     case 'sleeping':
-      return ASSETS.sleeping;
+      return 'sleeping';
     case 'thinking':
     case 'reading':
-      return ASSETS.thinking;
+      return 'thinking';
     case 'talking':
     case 'celebrating':
-      return ASSETS.excited;
+      return 'excited';
     case 'crisis-support':
-      return ASSETS.concerned;
+      return 'concerned';
+    case 'puzzled':
+      return 'puzzled';
   }
 }
 
@@ -79,6 +114,7 @@ export function DuyoAvatar({
   style,
 }: DuyoAvatarProps) {
   const sizePx = SIZE_PX[size];
+  const variant = useMascotVariant();
 
   // Subtle "breathing" — always on, all states.
   const breath = useSharedValue(1);
@@ -140,10 +176,10 @@ export function DuyoAvatar({
     >
       <Animated.View style={animatedStyle}>
         <Image
-          source={assetFor(state)}
+          source={ASSETS[variant][slotFor(state)]}
           style={{ width: sizePx, height: sizePx }}
           contentFit="contain"
-          accessibilityLabel={`DUYO ${state}`}
+          accessibilityLabel={`${variant === 'raccoon' ? 'Yenot' : 'DUYO'} ${state}`}
         />
       </Animated.View>
 

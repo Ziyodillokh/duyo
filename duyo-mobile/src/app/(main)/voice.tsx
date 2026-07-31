@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import {
   ArrowLeft,
@@ -301,12 +300,7 @@ export default function VoiceScreen() {
             }}
           />
           {isError ? (
-            <Image
-              source={require('@/assets/images/duyo-puzzled.png')}
-              style={{ width: 256, height: 256 }}
-              contentFit="contain"
-              accessibilityLabel="DUYO hayron"
-            />
+            <DuyoAvatar size="xl" state="puzzled" />
           ) : (
             <DuyoAvatar size="xl" state={avatarStateFor(phase, crisisLevel)} />
           )}

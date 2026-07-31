@@ -1,19 +1,20 @@
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 
+import { useMascotVariant, type MascotVariant } from '@/store/mascot';
+
 // The two bodies the child picks between during onboarding.
-export const MASCOT_VARIANTS = {
+export const MASCOT_VARIANTS: Record<MascotVariant, number> = {
   duyo: require('../../../assets/duyo/v2/mascot-default.png'),
   raccoon: require('../../../assets/duyo/v2/mascot-raccoon.png'),
-} as const;
-
-export type MascotVariant = keyof typeof MASCOT_VARIANTS;
+};
 
 type MascotGlow = 'cosmic' | 'soft' | 'none';
 
 interface MascotImageProps {
   size?: number;
   glow?: MascotGlow;
+  /** Defaults to the body the child picked; pass explicitly only to preview one. */
   variant?: MascotVariant;
 }
 
@@ -36,15 +37,16 @@ const SOFT_GLOW = {
 export function MascotImage({
   size = 176,
   glow = 'cosmic',
-  variant = 'duyo',
+  variant,
 }: MascotImageProps) {
+  const picked = useMascotVariant();
   const shadowStyle =
     glow === 'cosmic' ? COSMIC_GLOW : glow === 'soft' ? SOFT_GLOW : undefined;
 
   return (
     <View style={{ width: size, height: size, ...shadowStyle }}>
       <Image
-        source={MASCOT_VARIANTS[variant]}
+        source={MASCOT_VARIANTS[variant ?? picked]}
         contentFit="contain"
         style={{ width: '100%', height: '100%' }}
         accessibilityIgnoresInvertColors

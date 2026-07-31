@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Card } from '@/components/v2/card';
-import { MascotImage, type MascotVariant } from '@/components/v2/mascot-image';
+import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
+import { useMascotStore, type MascotVariant } from '@/store/mascot';
 import { useOnboardingStore } from '@/store/onboarding';
 
 interface BodyOption {
@@ -33,12 +34,15 @@ export default function AvatarScreen() {
     (s) => s.setPendingAvatarConfig,
   );
   const persisted = useOnboardingStore((s) => s.pendingAvatarConfig);
+  const setVariant = useMascotStore((s) => s.setVariant);
   const [body, setBody] = useState<MascotVariant>(
     isVariant(persisted.body) ? persisted.body : DEFAULT_BODY,
   );
 
   const handleContinue = () => {
     setPendingAvatarConfig({ body });
+    // Every avatar in the app follows this from here on — chat, voice, home.
+    setVariant(body);
     router.push('/(onboarding)/first-conversation');
   };
 
