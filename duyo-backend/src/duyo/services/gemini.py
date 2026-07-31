@@ -9,6 +9,7 @@ order and Gemini will treat the whole conversation as one session.
 from __future__ import annotations
 
 import json
+import math
 import time
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -226,13 +227,96 @@ def _extract_web_sources(resp) -> tuple[WebSource, ...]:
 
 #: Hard caps mirroring BOARD_PROMPT. The model is asked for short lines, but a
 #: long `expr` would overflow the chalkboard, so truncation is enforced here too.
-_BOARD_EXPR_MAX = 32
-_BOARD_NOTE_MAX = 60
-_BOARD_MAX_STEPS = 5
+#: Board lines wrap to two lines on screen, so these are generous enough for a
+#: hard multi-step problem while still stopping a runaway model.
+_BOARD_EXPR_MAX = 40
+_BOARD_NOTE_MAX = 90
+_BOARD_MAX_STEPS = 8
 #: The problem is the board's headline and may wrap to two lines, so it gets
 #: more room than a step. Word problems ("V = 60 km/soat, t = 3 soat...") hit
 #: the step cap mid-token and left a dangling "S =" on the board.
-_BOARD_PROBLEM_MAX = 48
+_BOARD_PROBLEM_MAX = 64
+
+#: Figure limits. The client scales whatever it is given, so the only job here
+#: is to reject nonsense before it reaches a device: unknown shapes, non-finite
+#: coordinates, or a payload big enough to stall the render.
+_FIG_MAX_ITEMS = 12
+_FIG_MAX_POINTS = 80
+_FIG_LABEL_MAX = 24
+_FIG_TYPES = {"curve", "shape", "circle", "arrow", "label"}
+#: Beyond this a coordinate is certainly a model error, not a real diagram.
+_FIG_COORD_LIMIT = 1e6
+
+
+def _clean_points(raw: object) -> list[list[float]]:
+    """Coerce a points array to finite [x, y] pairs, dropping anything else."""
+    if not isinstance(raw, list):
+        return []
+    out: list[list[float]] = []
+    for pair in raw[:_FIG_MAX_POINTS]:
+        if not isinstance(pair, list | tuple) or len(pair) != 2:
+            continue
+        try:
+            x, y = float(pair[0]), float(pair[1])
+        except (TypeError, ValueError):
+            continue
+        if not (math.isfinite(x) and math.isfinite(y)):
+            continue
+        if abs(x) > _FIG_COORD_LIMIT or abs(y) > _FIG_COORD_LIMIT:
+            continue
+        out.append([x, y])
+    return out
+
+
+def _clean_figure(raw: object) -> dict | None:
+    """Validate the optional diagram. Returns None on anything malformed — the
+    board still renders, just without a picture."""
+    if not isinstance(raw, dict):
+        return None
+
+    items: list[dict] = []
+    for item in (raw.get("items") or [])[:_FIG_MAX_ITEMS]:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type", "")).strip()
+        if kind not in _FIG_TYPES:
+            continue
+        label = str(item.get("label", "")).strip()[:_FIG_LABEL_MAX]
+
+        if kind == "circle":
+            try:
+                cx, cy, r = (
+                    float(item.get("cx", 0)),
+                    float(item.get("cy", 0)),
+                    float(item.get("r", 0)),
+                )
+            except (TypeError, ValueError):
+                continue
+            if not all(map(math.isfinite, (cx, cy, r))) or r <= 0:
+                continue
+            items.append({"type": kind, "cx": cx, "cy": cy, "r": r, "label": label,
+                          "points": []})
+            continue
+
+        points = _clean_points(item.get("points"))
+        # A curve needs a segment, an arrow needs exactly a start and an end,
+        # a label needs somewhere to sit.
+        if kind == "arrow" and len(points) != 2:
+            continue
+        if kind == "label" and len(points) != 1:
+            continue
+        if kind in {"curve", "shape"} and len(points) < 2:
+            continue
+        items.append({"type": kind, "points": points, "label": label,
+                      "cx": None, "cy": None, "r": None})
+
+    if not items:
+        return None
+    return {
+        "caption": str(raw.get("caption", "")).strip()[:60],
+        "axes": bool(raw.get("axes")),
+        "items": items,
+    }
 
 #: Returned whenever the utterance is not a solvable problem, or on any error —
 #: the board simply stays hidden, the conversation is never interrupted.
@@ -242,6 +326,7 @@ _NO_BOARD: dict = {
     "problem": "",
     "steps": [],
     "answer": "",
+    "figure": None,
 }
 
 
@@ -302,6 +387,7 @@ async def solve_on_board(*, question: str, age_segment: AgeSegment) -> dict:
             "problem": problem,
             "steps": steps,
             "answer": str(data.get("answer", "")).strip()[:_BOARD_EXPR_MAX],
+            "figure": _clean_figure(data.get("figure")),
         }
     except Exception:  # never interrupt the conversation over a board
         return dict(_NO_BOARD)

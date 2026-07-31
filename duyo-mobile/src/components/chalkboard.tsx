@@ -1,6 +1,6 @@
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import Animated, {
   Easing,
@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { BoardSolution } from '@/api/endpoints/board';
+import { BoardFigureView, hasDrawableFigure } from '@/components/board-figure';
 
 // Chalkboard palette — kept local: these are physical-object colours (slate,
 // wood, chalk), not app theme tokens, and should not shift with light/dark.
@@ -41,6 +42,8 @@ interface ChalkLineProps {
   size: number;
   color?: string;
   bold?: boolean;
+  /** Available width; a line wider than this wraps instead of being written. */
+  maxWidth?: number;
   /** Fires once this line has finished being written. */
   onDone?: () => void;
 }
@@ -51,6 +54,10 @@ interface ChalkLineProps {
  * The text is laid out once (invisible) to measure its width, then a clipping
  * wrapper is widened 0 → measured. That produces a true writing wipe; animating
  * opacity instead would just fade the whole line in at once.
+ *
+ * A line too wide for the slate cannot be written this way — clipping by width
+ * can only reveal the first visual line — so those fall back to a fade and are
+ * allowed to wrap onto two lines. Hard problems produce such lines routinely.
  */
 function ChalkLine({
   text,
@@ -58,11 +65,14 @@ function ChalkLine({
   size,
   color = CHALK,
   bold = false,
+  maxWidth = 0,
   onDone,
 }: ChalkLineProps) {
   const [width, setWidth] = useState(0);
   const progress = useSharedValue(0);
   const [writing, setWriting] = useState(false);
+
+  const overflows = maxWidth > 0 && width > maxWidth;
 
   useEffect(() => {
     if (width <= 0) return;
@@ -84,7 +94,11 @@ function ChalkLine({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, text, delay, progress]);
 
-  const clipStyle = useAnimatedStyle(() => ({ width: width * progress.value }));
+  const clipStyle = useAnimatedStyle(() =>
+    overflows
+      ? { opacity: progress.value, width: undefined }
+      : { width: width * progress.value },
+  );
 
   const textStyle = {
     fontSize: size,
@@ -105,13 +119,18 @@ function ChalkLine({
         {text}
       </Text>
 
-      <Animated.View style={[{ overflow: 'hidden' }, clipStyle]}>
-        <Text numberOfLines={1} style={textStyle}>
+      <Animated.View
+        style={[
+          overflows ? { flex: 1 } : { overflow: 'hidden' },
+          clipStyle,
+        ]}
+      >
+        <Text numberOfLines={overflows ? 2 : 1} style={textStyle}>
           {text}
         </Text>
       </Animated.View>
 
-      {writing && <ChalkTip height={size} />}
+      {writing && !overflows && <ChalkTip height={size} />}
     </View>
   );
 }
@@ -205,17 +224,28 @@ interface ChalkboardProps {
  * a finished wall of text.
  */
 export function Chalkboard({ solution, onClose, compact = false }: ChalkboardProps) {
-  const { title, problem, steps, answer } = solution;
+  const { title, problem, steps, answer, figure } = solution;
+
+  // Width of the writing area, measured once, so a line knows whether it fits.
+  const [slateWidth, setSlateWidth] = useState(0);
 
   const problemSize = compact ? 22 : 26;
   const stepSize = compact ? 18 : 21;
   const noteSize = compact ? 11 : 12;
   const answerSize = compact ? 22 : 26;
 
-  // Walk the lines once, accumulating each one's start time.
+  const drawFigure = hasDrawableFigure(figure);
+  const figureHeight = compact ? 168 : 196;
+
+  // Walk the lines once, accumulating each one's start time. The diagram is
+  // drawn right after the problem — a teacher sketches the setup before
+  // working through it, and the steps below then refer to it.
   let cursor = START_DELAY_MS;
   const problemDelay = cursor;
   cursor += writeDuration(problem) + LINE_GAP_MS;
+
+  const figureDelay = cursor;
+  if (drawFigure) cursor += 620;
 
   const stepDelays = steps.map((s) => {
     const at = cursor;
@@ -291,14 +321,46 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
           }}
         />
 
+        {/* Writing area — scrolls when a hard problem runs long. nestedScroll
+            lets it work inside the screen's own scroll container on Android. */}
+        <ScrollView
+          style={{ maxHeight: compact ? 400 : 520 }}
+          contentContainerStyle={{ paddingBottom: 2 }}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          onLayout={(e) => setSlateWidth(e.nativeEvent.layout.width)}
+        >
         {/* The problem */}
-        <ChalkLine text={problem} delay={problemDelay} size={problemSize} bold />
+        <ChalkLine
+          text={problem}
+          delay={problemDelay}
+          size={problemSize}
+          maxWidth={slateWidth}
+          bold
+        />
+
+        {/* Diagram — graph, geometry or force vectors */}
+        {drawFigure && slateWidth > 0 && (
+          <View style={{ marginTop: compact ? 10 : 14 }}>
+            <BoardFigureView
+              figure={figure!}
+              width={slateWidth}
+              height={figureHeight}
+              delay={figureDelay}
+            />
+          </View>
+        )}
 
         {/* Working */}
         <View style={{ marginTop: compact ? 8 : 12, gap: compact ? 6 : 9 }}>
           {steps.map((step, i) => (
             <View key={`${step.expr}-${i}`}>
-              <ChalkLine text={step.expr} delay={stepDelays[i]} size={stepSize} />
+              <ChalkLine
+                text={step.expr}
+                delay={stepDelays[i]}
+                size={stepSize}
+                maxWidth={slateWidth}
+              />
               {!!step.note && (
                 <FadeInView
                   delay={stepDelays[i] + writeDuration(step.expr)}
@@ -338,10 +400,12 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
               delay={answerDelay + 120}
               size={answerSize}
               color={CHALK_YELLOW}
+              maxWidth={slateWidth}
               bold
             />
           </FadeInView>
         )}
+        </ScrollView>
       </View>
 
       {/* Chalk tray */}

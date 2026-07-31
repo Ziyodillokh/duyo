@@ -5,11 +5,28 @@ export interface BoardStep {
   note: string; // small caption under it, may be empty
 }
 
+export interface BoardFigureItem {
+  type: 'curve' | 'shape' | 'circle' | 'arrow' | 'label';
+  points: [number, number][];
+  cx?: number | null;
+  cy?: number | null;
+  r?: number | null;
+  label: string;
+}
+
+/** Diagram primitives in the problem's own units — the view rescales them. */
+export interface BoardFigure {
+  caption: string;
+  axes: boolean;
+  items: BoardFigureItem[];
+}
+
 export interface BoardSolution {
   title: string;
   problem: string;
   steps: BoardStep[];
   answer: string;
+  figure: BoardFigure | null;
 }
 
 interface BoardWire extends BoardSolution {
@@ -33,11 +50,13 @@ export async function solveOnBoard(
       question,
     });
     if (!data.is_problem || !data.problem || !data.steps?.length) return null;
+    const figure = data.figure;
     return {
       title: data.title ?? '',
       problem: data.problem,
       steps: data.steps,
       answer: data.answer ?? '',
+      figure: figure?.items?.length ? figure : null,
     };
   } catch {
     return null;

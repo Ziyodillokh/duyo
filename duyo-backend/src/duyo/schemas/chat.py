@@ -111,6 +111,27 @@ class BoardStep(BaseModel):
     note: str   # small caption under it, may be empty
 
 
+class BoardFigureItem(BaseModel):
+    """One primitive of a board diagram, in the problem's own coordinates.
+
+    The client rescales everything to fit, so these are raw data values
+    (e.g. a triangle with sides 6 and 4), not pixels.
+    """
+
+    type: Literal["curve", "shape", "circle", "arrow", "label"]
+    points: list[list[float]] = []
+    cx: float | None = None
+    cy: float | None = None
+    r: float | None = None
+    label: str = ""
+
+
+class BoardFigure(BaseModel):
+    caption: str = ""
+    axes: bool = False
+    items: list[BoardFigureItem] = []
+
+
 class BoardResponse(BaseModel):
     """is_problem=False means "not a solvable problem" — show no board."""
 
@@ -119,6 +140,7 @@ class BoardResponse(BaseModel):
     problem: str = ""
     steps: list[BoardStep] = []
     answer: str = ""
+    figure: BoardFigure | None = None
 
 
 class TranslateRequest(BaseModel):

@@ -176,14 +176,40 @@ BOARD_PROMPT = (
     "- Kimyoda pastki indeks yoz: H₂O, CO₂, H₂SO₄ (H2O emas). Reaksiya uchun "
     "→ ishlat, masalan: \"2H₂ + O₂ → 2H₂O\". Zaryad: Na⁺, Cl⁻.\n"
     "- Kimyoviy reaksiyada bosqichlar: reaksiya tenglamasi, tenglashtirish, "
-    "kerak bo'lsa hisob-kitob.\n\n"
-    "FAQAT shu JSON formatda javob ber:\n"
+    "kerak bo'lsa hisob-kitob.\n"
+    "- Qiyin masalada 6-8 bosqichgacha yozsang bo'ladi — tushuntirishni "
+    "qisqartirib mazmunni yo'qotma.\n\n"
+    "CHIZMA (`figure`) — IXTIYORIY. Faqat chizma tushunishga HAQIQATAN "
+    "yordam berganda qo'sh; oddiy arifmetikaga kerak emas. Foydali holatlar: "
+    "funksiya grafigi, geometrik shakl, fizikadagi kuchlar/tezlik yo'nalishi.\n"
+    "`items` ichida quyidagilar bo'ladi (koordinatalar oddiy sonlar):\n"
+    '- {"type":"curve","points":[[x,y],...]} — grafik chizig\'i. Silliq '
+    "chiqishi uchun 15-40 nuqta ber.\n"
+    '- {"type":"shape","points":[[x,y],...]} — yopiq shakl (uchburchak, '
+    "to'rtburchak).\n"
+    '- {"type":"circle","cx":0,"cy":0,"r":5}\n'
+    '- {"type":"arrow","points":[[x1,y1],[x2,y2]],"label":"F = 10 N"} — vektor.\n'
+    '- {"type":"label","points":[[x,y]],"label":"A"} — nuqtani belgilash.\n'
+    '"axes": true — koordinata o\'qlari kerak bo\'lsa (grafiklarda ha, '
+    "geometrik shaklda odatda yo'q).\n"
+    "Miqyosni o'ylama — o'zim moslashtiraman. Faqat to'g'ri sonlar ber.\n\n"
+    "FAQAT shu JSON formatda javob ber (`figure` kerak bo'lmasa — null):\n"
     "{\n"
     '  "is_problem": true,\n'
     '  "title": "qisqa sarlavha (masalan: Tenglama)",\n'
     '  "problem": "2x + 5 = 13",\n'
     '  "steps": [{"expr": "2x = 13 − 5", "note": "5 ni o\'ng tomonga o\'tkazamiz"}],\n'
-    '  "answer": "x = 4"\n'
+    '  "answer": "x = 4",\n'
+    '  "figure": null\n'
+    "}\n\n"
+    "Chizmali misol (y = x² grafigi):\n"
+    "{\n"
+    '  "is_problem": true, "title": "Parabola", "problem": "y = x²",\n'
+    '  "steps": [{"expr": "x = -2 → y = 4", "note": ""}],\n'
+    '  "answer": "Parabola",\n'
+    '  "figure": {"caption": "y = x²", "axes": true,\n'
+    '    "items": [{"type": "curve",\n'
+    '      "points": [[-3,9],[-2,4],[-1,1],[0,0],[1,1],[2,4],[3,9]]}]}\n'
     "}"
 )
 

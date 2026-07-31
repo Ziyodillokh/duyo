@@ -24,6 +24,7 @@ from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
 from duyo.psychology.retriever import retrieve_for_chat as retrieve_psych_for_chat
 from duyo.schemas.chat import (
+    BoardFigure,
     BoardRequest,
     BoardResponse,
     BoardStep,
@@ -532,12 +533,14 @@ async def board(
         question=payload.question,
         age_segment=child.age_segment,
     )
+    fig = result.get("figure")
     return BoardResponse(
         is_problem=result["is_problem"],
         title=result["title"],
         problem=result["problem"],
         steps=[BoardStep(expr=s["expr"], note=s["note"]) for s in result["steps"]],
         answer=result["answer"],
+        figure=BoardFigure(**fig) if fig else None,
     )
 
 
