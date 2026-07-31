@@ -45,7 +45,8 @@ class CrisisEvent(Base, UUIDPK, TimestampMixin):
     )
 
     level: Mapped[CrisisLevel] = mapped_column(_crisis_level_enum, nullable=False)
-    # 1=keyword, 2=Gemini classifier, 3=BERT (future), 4=human review
+    # 1=keyword, 2=Gemini classifier, 3=semantic/embedding classifier
+    # (crisis/semantic.py — a trained model can replace it later), 4=human review
     layer: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # JSONB list of {keyword, category, language} from Layer 1, or {confidence, reasoning} from Layer 2.

@@ -4,6 +4,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  Brain,
   CheckCircle,
   Heart,
   Lightbulb,
@@ -260,6 +261,67 @@ export default function ParentDashboardScreen() {
                   </View>
                 )}
               </View>
+
+              {/* Cognitive development — an observation, never a clinical
+                  score. Copy stays deliberately non-diagnostic (no "IQ"). */}
+              {sections.cognitive &&
+                (sections.cognitive.note !== '' ||
+                  sections.cognitive.vocabulary_level !== '' ||
+                  sections.cognitive.curiosity_signals.length > 0) && (
+                  <View
+                    className="rounded-xl border border-neon-blue/20"
+                    style={{ padding: 20, backgroundColor: cardBg }}
+                  >
+                    <View className="flex-row items-center gap-2 mb-3">
+                      <Brain size={18} color="#60A5FA" />
+                      <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                        Rivojlanish
+                      </Text>
+                      {sections.cognitive.vocabulary_level !== '' && (
+                        <View
+                          className="rounded-full ml-auto"
+                          style={{
+                            backgroundColor: 'rgba(96,165,250,0.15)',
+                            paddingHorizontal: 10,
+                            paddingVertical: 3,
+                          }}
+                        >
+                          <Text className="text-xs font-medium text-neon-blue">
+                            lug'at: {sections.cognitive.vocabulary_level}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    {sections.cognitive.note !== '' && (
+                      <Text className="text-sm text-foreground dark:text-dark-text leading-5">
+                        {sections.cognitive.note}
+                      </Text>
+                    )}
+                    {sections.cognitive.curiosity_signals.length > 0 && (
+                      <View className="flex-row flex-wrap gap-2 mt-4">
+                        {sections.cognitive.curiosity_signals.map((s) => (
+                          <View
+                            key={s}
+                            className="rounded-md"
+                            style={{
+                              backgroundColor: isDark ? '#1E3A5F' : '#F1F5F9',
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                            }}
+                          >
+                            <Text className="text-xs text-foreground dark:text-dark-text">
+                              {s}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-4 leading-4">
+                      Bu — suhbat uslubidan olingan kuzatuv, tibbiy yoki
+                      psixologik baho emas.
+                    </Text>
+                  </View>
+                )}
 
               {/* Guidance */}
               {sections.guidance && (

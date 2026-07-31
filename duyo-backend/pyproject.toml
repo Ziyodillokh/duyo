@@ -93,6 +93,9 @@ extend-immutable-calls = [
 # "fixing" the ambiguous characters would break detection of real messages.
 "src/duyo/crisis/*" = ["RUF001"]
 "tests/test_crisis_detector.py" = ["RUF001"]
+# Sample Russian-language lesson vocabulary — genuine Cyrillic content, not a
+# typo risk.
+"scripts/seed_language_content.py" = ["RUF001"]
 # Test-suite idioms, not defects: patched stubs must keep the signature of the
 # function they replace (ARG001), pytest.raises(Exception) guards code paths
 # that intentionally raise bare exceptions (B017), and nested `with patch(...)`

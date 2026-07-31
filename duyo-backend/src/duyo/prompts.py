@@ -84,9 +84,17 @@ PARENT_REPORT_PROMPT = (
     '  "mood_summary": "1-2 jumla umumiy kayfiyat (o\'zbekcha, iliq)",\n'
     '  "topics": ["mavzu1", "mavzu2"],\n'
     '  "stress_signals": "agar bo\'lsa qisqa eslatma, bo\'lmasa bo\'sh string",\n'
-    '  "highlight": "1 ijobiy kuzatuv"\n'
+    '  "highlight": "1 ijobiy kuzatuv",\n'
+    '  "vocabulary_level": "boshlang\'ich|o\'rta|yuqori",\n'
+    '  "curiosity_signals": ["savol berish", "chuqurlashtirish"],\n'
+    '  "cognitive_note": "1-2 jumla rivojlanish kuzatuvi"\n'
     "}\n\n"
     "topics — yuqori daraja (\"maktab\", \"do'stlar\", \"hobbi\", \"oila\"), aniq matn emas.\n"
+    "vocabulary_level/curiosity_signals/cognitive_note — bola suhbat uslubidan "
+    "kuzatilgan RIVOJLANISH belgilari (lug'at boyligi, savol berish, "
+    "chuqurlashtirish). curiosity_signals — qisqa teglar, ko'pi bilan 4 ta.\n"
+    "MUHIM: bular KLINIK yoki PSIXOMETRIK baho EMAS — IQ, ball yoki tashxis "
+    "so'zlarini HECH QACHON ishlatma. Faqat tabiiy kuzatuv sifatida yoz.\n\n"
     "Ohang: hurmatli, qo'llab-quvvatlovchi, ayblovsiz."
 )
 
@@ -100,12 +108,15 @@ PARENT_REPORT_PROMPT = (
 PARENT_GUIDANCE_PROMPT = (
     "Sen — bolalar psixologiyasi va pedagogika bo'yicha maslahatchisan. "
     "Senga bolaning so'nggi 10 kunlik UMUMLASHTIRILGAN hisoboti beriladi "
-    "(kayfiyat yo'nalishi, mavzular, faollik, signallar). Bola suhbatlarining "
-    "matni senga berilmaydi — faqat agregat ko'rsatkichlar.\n\n"
+    "(kayfiyat yo'nalishi, mavzular, faollik, signallar, kognitiv rivojlanish "
+    "belgilari). Bola suhbatlarining matni senga berilmaydi — faqat agregat "
+    "ko'rsatkichlar.\n\n"
     "Vazifang — ota-onaga 2-4 ta AMALIY, iliq maslahat berish. Maslahatlar:\n"
     "- aniq va bajarish mumkin bo'lsin (umumiy gap emas)\n"
     "- ayblovsiz, qo'llab-quvvatlovchi ohangda\n"
     "- bola yoshiga va hisobot signallariga mos bo'lsin\n"
+    "- kognitiv signal bo'lsa, uni tabiiy singdir (masalan qiziqishni "
+    "rag'batlantirish), lekin IQ/ball/tashxis kabi klinik so'z ISHLATMA\n"
     "- tibbiy/klinik tashxis QO'YMA; jiddiy xavf bo'lsa mutaxassisga yo'naltir\n\n"
     "JSON formatda javob ber:\n"
     "{\n"
@@ -132,4 +143,22 @@ LESSON_HELP_PROMPT = (
     '  "steps": [{"title": "qisqa sarlavha", "detail": "tushuntirish"}],\n'
     '  "answer": "yakuniy javob (qisqa)"\n'
     "}"
+)
+
+
+# Language-practice question generation (content library — Til mashqlari).
+# Mirrors the DTM grounded-generation pattern: use the material if useful,
+# otherwise generate a complete, age-appropriate exercise from the topic alone.
+LANGUAGE_PRACTICE_PROMPT = (
+    "Quyidagi material asosida {language} tilida {count} ta lug'at/grammatika "
+    "mashq savoli tuz (bola shu tilni o'rganmoqda). Har savol: aniq, bitta "
+    "to'g'ri javobli, 4 ta variant. Savol matni va variantlar {language} "
+    "tilida bo'lsin.\n"
+    "Agar material bo'sh yoki juda qisqa bo'lsa, {age_hint} darajasiga mos "
+    "O'ZING mavzu tanlab, to'liq mashq savollari tuz.\n"
+    "Har savol izohi (explanation) O'ZBEK tilida, sodda va qisqa yozilsin.\n"
+    "FAQAT shu JSON formatda javob ber (correct_index — butun son):\n"
+    '{{"questions": [{{"text": "savol", "choices": ["A","B","C","D"], '
+    '"correct_index": 0, "explanation": "izoh o\'zbekcha"}}]}}\n\n'
+    "Material:\n{material}"
 )

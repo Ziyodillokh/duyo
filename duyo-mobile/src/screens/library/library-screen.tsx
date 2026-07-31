@@ -230,6 +230,31 @@ export default function LibraryScreen() {
             </ScrollView>
           </View>
 
+          {selectedCategory === 'language' && (
+            <Pressable
+              onPress={() => router.push('/(main)/language-practice')}
+              accessibilityRole="button"
+              accessibilityLabel="Til mashqini boshlash"
+              className="rounded-xl border border-neon-blue/20 active:opacity-80"
+              style={{
+                padding: 16,
+                backgroundColor: 'rgba(96, 165, 250, 0.12)',
+              }}
+            >
+              <View className="flex-row items-center gap-3">
+                <Text className="text-3xl">✍️</Text>
+                <View className="flex-1">
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
+                    Til mashqi
+                  </Text>
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
+                    Ingliz yoki rus tilida savol-javob mashqi
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
+
           <View className="gap-3">
             {isLoading ? (
               <View

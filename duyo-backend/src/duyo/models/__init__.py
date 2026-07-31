@@ -15,6 +15,7 @@ from duyo.models.gamification import (
 from duyo.models.message import Message, MessageRole
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
+from duyo.models.psychology_chunk import PsychologyChunk
 from duyo.models.tamagochi import TamagochiState
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
@@ -44,6 +45,7 @@ __all__ = [
     "Payment",
     "PaymentProvider",
     "PaymentState",
+    "PsychologyChunk",
     "ReviewStatus",
     "Streak",
     "TamagochiState",

@@ -15,11 +15,13 @@ from duyo.core.config import get_settings
 from duyo.crisis.detector import CrisisCategory as L1Category
 from duyo.crisis.detector import KeywordCrisisDetector
 from duyo.crisis.router import get_detector
+from duyo.crisis.semantic import classify as classify_l3
 from duyo.models.child import AgeSegment, ChildProfile
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
+from duyo.psychology.retriever import retrieve_for_chat as retrieve_psych_for_chat
 from duyo.schemas.chat import (
     ChatImage,
     ChatRequest,
@@ -48,6 +50,7 @@ from duyo.services.gemini import (
 )
 from duyo.services.gemini import chat as gemini_chat
 from duyo.services.images import search_images
+from duyo.services.personalization import build_personalization_context
 from duyo.services.scripted import match_scripted
 from duyo.services.sms import get_sms_provider
 from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
@@ -62,6 +65,8 @@ log = logging.getLogger(__name__)
 # abuse alert to the abuser endangers the child). Those route to the 3rd-party
 # safety provider once D-002 is finalised.
 # ---------------------------------------------------------------------------
+
+_NO_AUTO_PARENT_CATEGORIES = {L1Category.ABUSE_VICTIM, L1Category.NEGLECT}
 
 _RED_TEMPLATE = (
     "DUYO XAVF: {name} bola jiddiy xavf signal berdi. "
@@ -249,7 +254,12 @@ async def chat_turn(
 
     # 4. Crisis Layer 2 (Gemini classifier) — sequential for simplicity
     l2 = await classify(payload.message, l1_level)
-    final_level = l2.level  # already protected from downgrade
+
+    # 4b. Crisis Layer 3 (semantic/embedding classifier) — catches paraphrased
+    # or coded risk language that neither L1's substring match nor L2's
+    # single-pass judgement flagged. Escalate-only, same as L2.
+    l3 = await classify_l3(payload.message, l2.level)
+    final_level = l3.level  # already protected from downgrade at every layer
 
     # 5. Persist child message
     child_msg = Message(
@@ -290,10 +300,31 @@ async def chat_turn(
         )
         db.add(ce2)
         crisis_events.append(ce2)
+    if l3.level != CrisisLevel.GREEN:
+        ce3 = CrisisEvent(
+            message_id=child_msg.id,
+            child_id=child.id,
+            level=l3.level,
+            layer=3,
+            matches=[{
+                "keyword": l3.closest_phrase,
+                "category": l3.category.value if l3.category else None,
+                "language": "semantic",
+                "confidence": l3.confidence,
+            }],
+        )
+        db.add(ce3)
+        crisis_events.append(ce3)
 
-    # 7. Parent SMS dispatch policy (TZ §9.6 — DO NOT alert abusive parent)
+    # 7. Parent SMS dispatch policy (TZ §9.6 — DO NOT alert a parent who may be
+    #    the harm source). NEGLECT carries the same risk as ABUSE_VICTIM here.
+    #    L3 can flag the same categories on paraphrased text with no literal L1
+    #    hit, so its category counts too — otherwise a semantic-only abuse
+    #    signal would incorrectly auto-SMS the potentially-abusive parent.
     l1_categories = {m.category for m in l1.matches}
-    is_abuse_only = bool(l1_categories) and l1_categories.issubset({L1Category.ABUSE_VICTIM})
+    l3_categories = {l3.category} if l3.category else set()
+    flagged_categories = l1_categories | l3_categories
+    is_abuse_only = bool(flagged_categories) and flagged_categories.issubset(_NO_AUTO_PARENT_CATEGORIES)
 
     should_notify_parent = (
         final_level == CrisisLevel.RED
@@ -322,13 +353,19 @@ async def chat_turn(
             child.id, child_msg.id,
         )
 
-    # 8-9. Build the reply. Three flows:
-    #   (a) action="web_search" → skip RAG, answer from Google Search grounding
-    #   (b) RAG hit            → textbook answer + cite + offer web search
-    #   (c) RAG miss           → answer from Google Search grounding
+    # 8-9. Build the reply. Four flows:
+    #   (a) action="web_search"  → skip RAG, answer from Google Search grounding
+    #   (b) textbook RAG hit     → textbook answer + cite + offer web search
+    #   (c) psychology RAG hit   → supportive reply grounded in the psych knowledge base
+    #   (d) no RAG hit           → answer from Google Search grounding
     source: ChatSource | None = None
     quick_replies: list[QuickReply] = []
     images: list[ChatImage] = []
+
+    # Adaptive personalization (no model retraining — see services/personalization.py):
+    # a small context block derived from the child's latest cached aggregate
+    # report, threaded into every LLM reply path below.
+    personalization_context = await build_personalization_context(db, child.id)
 
     # (0) Scripted intent — instant canned reply for common greetings/thanks,
     #     skipping the LLM entirely (cost saving). Only for GREEN, non-web-search
@@ -352,6 +389,7 @@ async def chat_turn(
         query = payload.action_query or payload.message
         reply = await chat_with_web_search(
             child_message=query, age_segment=child.age_segment,
+            personalization_context=personalization_context,
         )
         source = _web_source(reply.sources)
         # Attach a few illustrative, family-safe images for the same question.
@@ -368,6 +406,7 @@ async def chat_turn(
             reply = await gemini_chat(
                 child_message=payload.message, age_segment=child.age_segment,
                 history=history, rag_context=rag.context,  # type: ignore[arg-type]
+                personalization_context=personalization_context,
             )
             reply = _append_offer(reply)
             source = _textbook_source(rag)
@@ -376,10 +415,21 @@ async def chat_turn(
                 QuickReply(label="Yo'q", action="dismiss"),
             ]
         else:
-            reply = await chat_with_web_search(
-                child_message=payload.message, age_segment=child.age_segment, history=history,  # type: ignore[arg-type]
+            psych = await retrieve_psych_for_chat(
+                db, payload.message, age_segment=child.age_segment.value,
             )
-            source = _web_source(reply.sources)
+            if psych is not None:
+                reply = await gemini_chat(
+                    child_message=payload.message, age_segment=child.age_segment,
+                    history=history, rag_context=psych.context,  # type: ignore[arg-type]
+                    personalization_context=personalization_context,
+                )
+            else:
+                reply = await chat_with_web_search(
+                    child_message=payload.message, age_segment=child.age_segment, history=history,  # type: ignore[arg-type]
+                    personalization_context=personalization_context,
+                )
+                source = _web_source(reply.sources)
 
     # 10. Persist assistant message
     assistant_msg = Message(

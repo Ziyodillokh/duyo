@@ -13,6 +13,7 @@ export default function MainLayout() {
       <Stack.Screen name="avatar-customization" />
       <Stack.Screen name="library-item" />
       <Stack.Screen name="dtm" />
+      <Stack.Screen name="language-practice" />
       <Stack.Screen name="lesson-help" />
       <Stack.Screen name="parent-connection" />
       <Stack.Screen name="parent-dashboard" />

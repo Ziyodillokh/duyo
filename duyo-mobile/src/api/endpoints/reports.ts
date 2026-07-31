@@ -29,12 +29,25 @@ export interface GuidanceSection {
   focus: string;
 }
 
+/**
+ * Developmental observation drawn from conversation style — deliberately NOT
+ * a clinical or psychometric score (no IQ number). Backend enforces this in
+ * the prompt itself; the UI must present it the same way.
+ */
+export interface CognitiveSection {
+  vocabulary_level: string;
+  curiosity_signals: string[];
+  note: string;
+}
+
 export interface ReportSections {
   activity: ActivitySection;
   mood: MoodSection;
   safety: SafetySection;
   // Older cached reports (pre-guidance) may not carry this section.
   guidance: GuidanceSection | null;
+  // Older cached reports (pre-cognitive) may not carry this section either.
+  cognitive?: CognitiveSection | null;
 }
 
 export interface ReportRead {
