@@ -18,7 +18,10 @@ on:
 
 concurrency:
   group: build-apk
-  cancel-in-progress: true
+  # Queue, don't kill. An APK takes ~20 min; with cancel-in-progress a run of
+  # quick successive pushes cancelled every build in turn and no APK was ever
+  # published. Queued runs execute in order, so the newest still publishes last.
+  cancel-in-progress: false
 
 jobs:
   build:
