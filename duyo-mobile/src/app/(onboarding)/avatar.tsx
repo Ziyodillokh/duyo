@@ -1,79 +1,44 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { Check } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Card } from '@/components/v2/card';
-import { MascotImage } from '@/components/v2/mascot-image';
+import { MascotImage, type MascotVariant } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
-import { Tabs } from '@/components/v2/tabs';
 import { useOnboardingStore } from '@/store/onboarding';
 
-type TabKey = 'body' | 'color' | 'accent' | 'face';
-
-interface AvatarOption {
-  key: string;
-  emoji: string;
+interface BodyOption {
+  key: MascotVariant;
   label: string;
 }
 
-const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
-  { key: 'body', label: 'Tana' },
-  { key: 'color', label: 'Rang' },
-  { key: 'accent', label: 'Aksent' },
-  { key: 'face', label: 'Yuz' },
+// Only the body is chosen here — one tap, no tabs. The picked key is stored as
+// `body` so it keeps matching the backend's body_shape field.
+const BODIES: ReadonlyArray<BodyOption> = [
+  { key: 'duyo', label: 'DUYO' },
+  { key: 'raccoon', label: 'Yenot' },
 ];
 
-const OPTIONS: Record<TabKey, ReadonlyArray<AvatarOption>> = {
-  body: [
-    { key: 'sphere', emoji: '⚪', label: 'Sharsimon' },
-    { key: 'cube', emoji: '🟦', label: 'Kubik' },
-    { key: 'vertical', emoji: '⬜', label: 'Vertikal' },
-  ],
-  color: [
-    { key: 'blue', emoji: '🔵', label: 'Ko‘k' },
-    { key: 'purple', emoji: '🟣', label: 'Binafsha' },
-    { key: 'green', emoji: '🟢', label: 'Yashil' },
-  ],
-  accent: [
-    { key: 'star', emoji: '⭐', label: 'Yulduz' },
-    { key: 'cap', emoji: '🧢', label: 'Shapka' },
-    { key: 'glasses', emoji: '🤓', label: 'Ko‘zoynak' },
-  ],
-  face: [
-    { key: 'smile', emoji: '😊', label: 'Tabassum' },
-    { key: 'curious', emoji: '🤔', label: 'Qiziqish' },
-    { key: 'sunny', emoji: '😄', label: 'Quvonchli' },
-  ],
-};
+const DEFAULT_BODY: MascotVariant = 'duyo';
 
-const DEFAULTS: Record<TabKey, string> = {
-  body: 'sphere',
-  color: 'blue',
-  accent: 'star',
-  face: 'smile',
-};
+function isVariant(value: string | undefined): value is MascotVariant {
+  return BODIES.some((body) => body.key === value);
+}
 
 export default function AvatarScreen() {
   const setPendingAvatarConfig = useOnboardingStore(
     (s) => s.setPendingAvatarConfig,
   );
   const persisted = useOnboardingStore((s) => s.pendingAvatarConfig);
-  const [activeTab, setActiveTab] = useState<TabKey>('body');
-  const [config, setConfig] = useState<Record<TabKey, string>>({
-    body: persisted.body ?? DEFAULTS.body,
-    color: persisted.color ?? DEFAULTS.color,
-    accent: persisted.accent ?? DEFAULTS.accent,
-    face: persisted.face ?? DEFAULTS.face,
-  });
-
-  const setOption = (key: string) => {
-    setConfig((prev) => ({ ...prev, [activeTab]: key }));
-  };
+  const [body, setBody] = useState<MascotVariant>(
+    isVariant(persisted.body) ? persisted.body : DEFAULT_BODY,
+  );
 
   const handleContinue = () => {
-    setPendingAvatarConfig(config);
+    setPendingAvatarConfig({ body });
     router.push('/(onboarding)/first-conversation');
   };
 
@@ -101,36 +66,51 @@ export default function AvatarScreen() {
                 justifyContent: 'center',
               }}
             >
-              <MascotImage size={210} glow="cosmic" />
+              <MascotImage size={210} glow="cosmic" variant={body} />
             </LinearGradient>
           </View>
 
           <View className="mt-4">
-            <Card className="p-3">
-              <Tabs<TabKey>
-                items={TABS}
-                active={activeTab}
-                onChange={setActiveTab}
-              />
+            <Card className="p-4">
+              <Text className="text-base font-semibold text-foreground text-center">
+                O'z DUYO'yingni tanla
+              </Text>
 
               <View className="flex-row gap-3 mt-3">
-                {OPTIONS[activeTab].map((option) => {
-                  const isSelected = config[activeTab] === option.key;
+                {BODIES.map((option) => {
+                  const isSelected = body === option.key;
                   return (
                     <Pressable
                       key={option.key}
-                      onPress={() => setOption(option.key)}
+                      onPress={() => setBody(option.key)}
                       accessibilityRole="radio"
                       accessibilityState={{ selected: isSelected }}
                       accessibilityLabel={option.label}
-                      className={`flex-1 py-4 rounded-xl items-center gap-2 ${
+                      className={`flex-1 pt-3 pb-3 rounded-2xl items-center gap-2 active:opacity-80 ${
                         isSelected
                           ? 'bg-primary/5 border-2 border-primary'
                           : 'bg-white border border-primary/10'
                       }`}
                     >
-                      <Text className="text-3xl">{option.emoji}</Text>
-                      <Text className="text-xs text-foreground text-center">
+                      <View className="w-full items-center">
+                        <MascotImage
+                          size={96}
+                          glow="none"
+                          variant={option.key}
+                        />
+                        {isSelected && (
+                          <View className="absolute top-0 right-2 w-6 h-6 rounded-full bg-primary items-center justify-center">
+                            <Check size={14} color="#ffffff" strokeWidth={3} />
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        className={`text-sm text-center ${
+                          isSelected
+                            ? 'text-primary font-semibold'
+                            : 'text-foreground'
+                        }`}
+                      >
                         {option.label}
                       </Text>
                     </Pressable>
