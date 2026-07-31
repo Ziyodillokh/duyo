@@ -89,6 +89,9 @@ extend-immutable-calls = [
 # are false positives there.
 "src/duyo/textbook/*" = ["RUF001"]
 "tests/textbook/*" = ["RUF001"]
+# BOARD_PROMPT deliberately uses the typographic maths signs (× ÷ − √ ²) that
+# should appear on the chalkboard; ASCII "x" and "-" would look wrong there.
+"src/duyo/prompts.py" = ["RUF001"]
 # Crisis detection matches Uzbek Cyrillic/Latin and Russian keywords verbatim;
 # "fixing" the ambiguous characters would break detection of real messages.
 "src/duyo/crisis/*" = ["RUF001"]

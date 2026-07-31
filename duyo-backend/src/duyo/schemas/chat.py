@@ -99,6 +99,28 @@ class LessonHelpResponse(BaseModel):
     answer: str
 
 
+class BoardRequest(BaseModel):
+    """A single child utterance to consider writing on the chalkboard."""
+
+    child_id: UUID
+    question: str = Field(min_length=1, max_length=2000)
+
+
+class BoardStep(BaseModel):
+    expr: str   # one chalk line — the maths only
+    note: str   # small caption under it, may be empty
+
+
+class BoardResponse(BaseModel):
+    """is_problem=False means "not a solvable problem" — show no board."""
+
+    is_problem: bool
+    title: str = ""
+    problem: str = ""
+    steps: list[BoardStep] = []
+    answer: str = ""
+
+
 class TranslateRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     target_lang: Literal["uz", "ru", "en"] = "uz"

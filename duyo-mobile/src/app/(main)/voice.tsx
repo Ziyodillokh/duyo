@@ -13,6 +13,8 @@ import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { type BoardSolution, solveOnBoard } from '@/api/endpoints/board';
+import { Chalkboard } from '@/components/chalkboard';
 import { DuyoAvatar, type DuyoState } from '@/components/duyo-avatar';
 import { useMicRecorder } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
@@ -31,6 +33,42 @@ const STATUS_TEXT: Record<Phase, string> = {
   responding: 'DUYO gapiryapti',
   error: 'Xatolik yuz berdi',
 };
+
+// Cheap local gate before spending a Gemini call on the board. A solvable
+// problem almost always carries a digit or one of these verbs; plain chat
+// ("salom", "charchadim") carries neither, so most turns cost nothing.
+// Speech-to-text emits several apostrophe glyphs for o'/g', so match any.
+const APOS = "['‘’ʻʼ]?";
+const MATH_HINTS = new RegExp(
+  [
+    '\\d',
+    'hisobla',
+    'yech',
+    'tenglama',
+    'necha',
+    'qancha',
+    `ko${APOS}payt`,
+    // \b keeps the imperative "bo'l" (divide) from matching the extremely
+    // common "bo'ladi"/"bo'lsa"; division questions carry digits anyway.
+    `bo${APOS}l\\b`,
+    `qo${APOS}sh`,
+    'ayir',
+    'formula',
+    'yuzi',
+    'perimetr',
+    'tezlik',
+    'foiz',
+    'ildiz',
+    'daraja',
+    'masala',
+    'misol',
+  ].join('|'),
+  'i',
+);
+
+function looksSolvable(text: string): boolean {
+  return text.trim().length >= 4 && MATH_HINTS.test(text);
+}
 
 function avatarStateFor(
   phase: Phase,
@@ -62,6 +100,7 @@ export default function VoiceScreen() {
   const [outputTranscript, setOutputTranscript] = useState('');
   const [crisisLevel, setCrisisLevel] = useState<'orange' | 'red' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [board, setBoard] = useState<BoardSolution | null>(null);
   // Bosqich B debug overlay — last mic/ws/audio event, visible on screen
   // so we can diagnose the voice pipeline without USB logcat.
   const [debugLine, setDebugLine] = useState<string>('idle');
@@ -79,6 +118,12 @@ export default function VoiceScreen() {
   // we don't interrupt the assistant mid-reply.
   const pendingCrisisRef = useRef<'orange' | 'red' | null>(null);
 
+  // What the child said this turn. Kept in a ref because onTurnComplete is
+  // bound once and would otherwise read a stale transcript.
+  const utteranceRef = useRef('');
+  // Guards against a slow board reply landing after the child moved on.
+  const turnSeqRef = useRef(0);
+
   const voice = useVoiceSession({
     onOutputTranscript: (text) =>
       setOutputTranscript((prev) => prev + text),
@@ -95,6 +140,7 @@ export default function VoiceScreen() {
     },
     onInputTranscript: (text) => {
       setInputTranscript((prev) => prev + text);
+      utteranceRef.current += text;
       dbg(`stt: ${text.slice(-30)}`);
     },
     onCrisis: (level) => {
@@ -110,7 +156,17 @@ export default function VoiceScreen() {
           pathname: '/(main)/crisis',
           params: { level: pending },
         });
+        return; // a crisis outranks any blackboard
       }
+
+      // Did the child just ask something worth working through on the board?
+      const said = utteranceRef.current;
+      if (!child || !looksSolvable(said)) return;
+      const seq = turnSeqRef.current;
+      void solveOnBoard(child.id, said).then((solution) => {
+        // Ignore a late answer if another turn has started since.
+        if (solution && turnSeqRef.current === seq) setBoard(solution);
+      });
     },
     onError: (message) => {
       setErrorMessage(message);
@@ -151,6 +207,9 @@ export default function VoiceScreen() {
       setOutputTranscript('');
       setCrisisLevel(null);
       setErrorMessage(null);
+      setBoard(null);
+      utteranceRef.current = '';
+      turnSeqRef.current += 1;
       chunkCountRef.current = 0;
       dbg('connect+mic.start');
       voice.connect({
@@ -208,8 +267,28 @@ export default function VoiceScreen() {
         <View className="w-10 h-10 rounded-full border-2 border-white bg-[#e6e8ea]" />
       </View>
 
-      {/* Center — avatar with soft glow */}
+      {/* Center — avatar with soft glow, or the chalkboard when one is up */}
       <View className="flex-1 items-center justify-center gap-6 px-6">
+        {board ? (
+          /* Board fills the stage; DUYO steps aside and stands in front of its
+             lower corner, the way a teacher stands beside a blackboard. */
+          <View className="w-full" style={{ paddingBottom: 40 }}>
+            <Chalkboard
+              solution={board}
+              onClose={() => setBoard(null)}
+              compact
+            />
+            <View
+              style={{ position: 'absolute', right: -8, bottom: -14, zIndex: 10 }}
+              pointerEvents="none"
+            >
+              <DuyoAvatar
+                size="md"
+                state={avatarStateFor(phase, crisisLevel)}
+              />
+            </View>
+          </View>
+        ) : (
         <View className="items-center justify-center">
           {/* Soft glow behind avatar */}
           <View
@@ -248,6 +327,7 @@ export default function VoiceScreen() {
             </View>
           )}
         </View>
+        )}
 
         {/* Non-error status text */}
         {!isError && (
@@ -313,8 +393,9 @@ export default function VoiceScreen() {
         )}
       </View>
 
-      {/* Transcripts — preserved */}
-      {(inputTranscript || outputTranscript) && (
+      {/* Transcripts — hidden while the board is up; it already shows the
+          working, and both together overflow shorter screens. */}
+      {!board && (inputTranscript || outputTranscript) && (
         <ScrollView
           className="max-h-48 px-6 mb-4"
           contentContainerStyle={{ gap: 8 }}

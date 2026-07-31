@@ -19,7 +19,7 @@ from google.genai import types
 
 from duyo.core.config import get_settings
 from duyo.models.child import AgeSegment
-from duyo.prompts import LESSON_HELP_PROMPT, SYSTEM_PROMPTS
+from duyo.prompts import BOARD_PROMPT, LESSON_HELP_PROMPT, SYSTEM_PROMPTS
 
 HistoryRole = Literal["user", "model"]
 
@@ -198,6 +198,83 @@ def _extract_web_sources(resp) -> tuple[WebSource, ...]:
     seen: set[str] = set()
     deduped = [s for s in out if not (s.url in seen or seen.add(s.url))]
     return tuple(deduped)
+
+
+#: Hard caps mirroring BOARD_PROMPT. The model is asked for short lines, but a
+#: long `expr` would overflow the chalkboard, so truncation is enforced here too.
+_BOARD_EXPR_MAX = 32
+_BOARD_NOTE_MAX = 60
+_BOARD_MAX_STEPS = 5
+#: The problem is the board's headline and may wrap to two lines, so it gets
+#: more room than a step. Word problems ("V = 60 km/soat, t = 3 soat...") hit
+#: the step cap mid-token and left a dangling "S =" on the board.
+_BOARD_PROBLEM_MAX = 48
+
+#: Returned whenever the utterance is not a solvable problem, or on any error —
+#: the board simply stays hidden, the conversation is never interrupted.
+_NO_BOARD: dict = {
+    "is_problem": False,
+    "title": "",
+    "problem": "",
+    "steps": [],
+    "answer": "",
+}
+
+
+async def solve_on_board(*, question: str, age_segment: AgeSegment) -> dict:
+    """Decide whether `question` is a solvable problem and, if so, lay it out
+    for the chalkboard.
+
+    Returns {"is_problem", "title", "problem", "steps": [{"expr","note"}],
+    "answer"}. Fails closed: any error (or a non-problem utterance) yields
+    is_problem=False so the caller just doesn't show a board.
+    """
+    if not question.strip():
+        return dict(_NO_BOARD)
+
+    settings = get_settings()
+    client = get_client()
+    try:
+        resp = await client.aio.models.generate_content(
+            model=settings.gemini_model_primary,
+            contents=f"Bola aytdi: {question}",
+            config=types.GenerateContentConfig(
+                system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{BOARD_PROMPT}",
+                max_output_tokens=800,
+                temperature=0.2,  # deterministic — arithmetic must not wander
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=settings.gemini_thinking_budget_flash
+                ),
+                response_mime_type="application/json",
+            ),
+        )
+        data = json.loads((resp.text or "").strip())
+        if not data.get("is_problem"):
+            return dict(_NO_BOARD)
+
+        steps = [
+            {
+                "expr": str(s.get("expr", "")).strip()[:_BOARD_EXPR_MAX],
+                "note": str(s.get("note", "")).strip()[:_BOARD_NOTE_MAX],
+            }
+            for s in (data.get("steps") or [])
+            if str(s.get("expr", "")).strip()
+        ][:_BOARD_MAX_STEPS]
+
+        problem = str(data.get("problem", "")).strip()[:_BOARD_PROBLEM_MAX]
+        # A board with nothing written on it is worse than no board at all.
+        if not steps or not problem:
+            return dict(_NO_BOARD)
+
+        return {
+            "is_problem": True,
+            "title": str(data.get("title", "")).strip()[:40],
+            "problem": problem,
+            "steps": steps,
+            "answer": str(data.get("answer", "")).strip()[:_BOARD_EXPR_MAX],
+        }
+    except Exception:  # never interrupt the conversation over a board
+        return dict(_NO_BOARD)
 
 
 async def solve_lesson(

@@ -21,6 +21,9 @@ from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
 from duyo.schemas.chat import (
+    BoardRequest,
+    BoardResponse,
+    BoardStep,
     ChatImage,
     ChatRequest,
     ChatResponse,
@@ -43,6 +46,7 @@ from duyo.services.gemini import (
     GeminiReply,
     chat_with_web_search,
     solve_lesson,
+    solve_on_board,
     suggest_hint,
     translate_text,
 )
@@ -454,6 +458,32 @@ async def lesson_help(
     )
     return LessonHelpResponse(
         steps=[LessonStep(title=s["title"], detail=s["detail"]) for s in result["steps"]],
+        answer=result["answer"],
+    )
+
+
+@router.post("/board", response_model=BoardResponse)
+async def board(
+    payload: BoardRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> BoardResponse:
+    """Chalkboard: if the child just asked a solvable problem, lay it out.
+
+    Called per turn from the voice screen, so it fails closed — a non-problem
+    utterance or any model error returns is_problem=False and the board simply
+    never appears. Stateless; nothing is persisted.
+    """
+    child = await _get_owned_child(payload.child_id, current_user, db)
+    result = await solve_on_board(
+        question=payload.question,
+        age_segment=child.age_segment,
+    )
+    return BoardResponse(
+        is_problem=result["is_problem"],
+        title=result["title"],
+        problem=result["problem"],
+        steps=[BoardStep(expr=s["expr"], note=s["note"]) for s in result["steps"]],
         answer=result["answer"],
     )
 
