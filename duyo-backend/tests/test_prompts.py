@@ -7,7 +7,12 @@ can't quietly drop it.
 """
 
 from duyo.models.child import AgeSegment
-from duyo.prompts import COMPANION_STYLE_RULE, STORYTELLING_RULE, SYSTEM_PROMPTS
+from duyo.prompts import (
+    COMPANION_STYLE_RULE,
+    LANGUAGE_MIRROR_RULE,
+    STORYTELLING_RULE,
+    SYSTEM_PROMPTS,
+)
 
 
 def test_every_age_segment_has_a_prompt():
@@ -29,3 +34,26 @@ def test_companion_rule_keeps_the_real_people_boundary():
 def test_companion_rule_forbids_parasocial_and_romantic_framing():
     for banned in ("faqat menga ayt", "men eng yaqin do'stingman", "romantik"):
         assert banned in COMPANION_STYLE_RULE, banned
+
+
+def test_prompts_do_not_hardcode_a_reply_language():
+    """Regression: the age prompts used to say "O'zbek tilida javob ber",
+    so a Russian or English question came back in Uzbek."""
+    for segment, prompt in SYSTEM_PROMPTS.items():
+        assert "O'zbek tilida javob ber" not in prompt, segment
+
+
+def test_every_prompt_carries_the_language_mirror_rule():
+    for segment, prompt in SYSTEM_PROMPTS.items():
+        assert LANGUAGE_MIRROR_RULE in prompt, segment
+
+
+def test_language_rule_names_all_three_supported_languages():
+    for token in ("o'zbekcha", "ruscha", "inglizcha"):
+        assert token in LANGUAGE_MIRROR_RULE.lower(), token
+
+
+def test_language_rule_outranks_the_uzbek_wording_around_it():
+    """The instructions are written in Uzbek; the rule must say so explicitly,
+    otherwise the model reads the prompt language as the answer language."""
+    assert "javob tili faqat bolaning tiliga bog'liq" in LANGUAGE_MIRROR_RULE
