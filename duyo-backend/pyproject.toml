@@ -92,6 +92,9 @@ extend-immutable-calls = [
 # BOARD_PROMPT deliberately uses the typographic maths signs (× ÷ − √ ²) that
 # should appear on the chalkboard; ASCII "x" and "-" would look wrong there.
 "src/duyo/prompts.py" = ["RUF001"]
+# Same reason: the puzzle explanations are read by a child on the chalkboard,
+# so they use × and ² rather than ASCII stand-ins.
+"src/duyo/services/puzzles.py" = ["RUF001"]
 # Crisis detection matches Uzbek Cyrillic/Latin and Russian keywords verbatim;
 # "fixing" the ambiguous characters would break detection of real messages.
 # RUF002/RUF003 too: the comments and docstrings there NAME the apostrophe

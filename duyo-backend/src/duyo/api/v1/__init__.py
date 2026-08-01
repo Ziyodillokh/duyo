@@ -13,6 +13,7 @@ from duyo.api.v1.goals import router as goals_router
 from duyo.api.v1.health import router as health_router
 from duyo.api.v1.language import router as language_router
 from duyo.api.v1.payments import router as payments_router
+from duyo.api.v1.puzzle import router as puzzle_router
 from duyo.api.v1.report import router as report_router
 from duyo.api.v1.social import router as social_router
 from duyo.api.v1.subscription import router as subscription_router
@@ -35,6 +36,7 @@ api_v1.include_router(social_router)
 api_v1.include_router(tamagochi_router)
 api_v1.include_router(subscription_router)
 api_v1.include_router(payments_router)
+api_v1.include_router(puzzle_router)
 api_v1.include_router(report_router)
 api_v1.include_router(admin_router)
 api_v1.include_router(admin_modules_router)

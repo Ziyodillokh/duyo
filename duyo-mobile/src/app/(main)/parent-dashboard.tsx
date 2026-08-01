@@ -323,6 +323,7 @@ export default function ParentDashboardScreen() {
               {sections.cognitive &&
                 (sections.cognitive.note !== '' ||
                   sections.cognitive.vocabulary_level !== '' ||
+                  sections.cognitive.reasoning_band !== '' ||
                   sections.cognitive.curiosity_signals.length > 0) && (
                   <View
                     className="rounded-xl border border-neon-blue/20"
@@ -370,6 +371,23 @@ export default function ParentDashboardScreen() {
                             </Text>
                           </View>
                         ))}
+                      </View>
+                    )}
+                    {sections.cognitive.reasoning_band !== '' && (
+                      <View
+                        className="rounded-md mt-4"
+                        style={{
+                          padding: 12,
+                          backgroundColor: isDark ? '#1E3A5F' : '#F1F5F9',
+                        }}
+                      >
+                        <Text className="text-sm font-medium text-foreground dark:text-dark-text">
+                          Mantiqiy fikrlash: {sections.cognitive.reasoning_band}
+                        </Text>
+                        <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1">
+                          Doskadagi jumboqlar: {sections.cognitive.puzzles_correct}/
+                          {sections.cognitive.puzzles_answered} to'g'ri
+                        </Text>
                       </View>
                     )}
                     <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-4 leading-4">

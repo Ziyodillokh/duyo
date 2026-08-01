@@ -38,6 +38,10 @@ export interface CognitiveSection {
   vocabulary_level: string;
   curiosity_signals: string[];
   note: string;
+  /** Plain-language band from the chalkboard puzzles — never a score. */
+  reasoning_band: string;
+  puzzles_answered: number;
+  puzzles_correct: number;
 }
 
 export interface ReportSections {

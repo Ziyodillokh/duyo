@@ -25,6 +25,7 @@ from duyo.models.message import Message, MessageRole
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
 from duyo.models.psychology_chunk import PsychologyChunk
+from duyo.models.puzzle import PuzzleAttempt
 from duyo.models.report import Report
 from duyo.models.social import (
     ChildSocialSettings,
@@ -79,6 +80,7 @@ __all__ = [
     "PeerModerationState",
     "PeerReport",
     "PsychologyChunk",
+    "PuzzleAttempt",
     "Report",
     "ReviewStatus",
     "Streak",

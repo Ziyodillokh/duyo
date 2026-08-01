@@ -24,8 +24,10 @@ from duyo.core.config import get_settings
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisLevel
 from duyo.models.message import Message, MessageRole
+from duyo.models.puzzle import PuzzleAttempt
 from duyo.prompts import PARENT_REPORT_PROMPT
 from duyo.psychology.retriever import retrieve_for_guidance
+from duyo.services import puzzles
 from duyo.services.gemini import get_client
 
 log = logging.getLogger(__name__)
@@ -227,6 +229,42 @@ async def _guidance_rag_context(session: AsyncSession, mood: dict) -> str | None
 
 
 # ---------------------------------------------------------------------------
+# Reasoning signal from chalkboard puzzles (SQL only — no LLM, no cost)
+# ---------------------------------------------------------------------------
+
+
+async def _reasoning_signal(session: AsyncSession, child_id: UUID) -> dict:
+    """Puzzle results as a coarse band. Counts ALL attempts, not just the
+    10-day window: the catalogue is small and a child answers a handful a week,
+    so windowing it would leave nothing to report.
+
+    Fails safe to empty — a missing table or query error must not lose the rest
+    of the report.
+    """
+    empty = {"reasoning_band": "", "puzzles_answered": 0, "puzzles_correct": 0}
+    try:
+        rows = (
+            await session.execute(
+                select(
+                    func.count(PuzzleAttempt.id),
+                    func.count(PuzzleAttempt.id).filter(PuzzleAttempt.is_correct.is_(True)),
+                    func.avg(PuzzleAttempt.difficulty),
+                ).where(PuzzleAttempt.child_id == child_id)
+            )
+        ).one()
+    except Exception:
+        log.exception("reasoning_signal_failed child=%s", child_id)
+        return empty
+
+    total, correct, avg_difficulty = int(rows[0] or 0), int(rows[1] or 0), float(rows[2] or 1.0)
+    return {
+        "reasoning_band": puzzles.reasoning_band(correct, total, avg_difficulty),
+        "puzzles_answered": total,
+        "puzzles_correct": correct,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -245,17 +283,20 @@ async def build_report(
     messages = await _fetch_child_messages(session, child_id, start, now)
     mood, llm_ok = await _mood_section(messages)
 
+    reasoning = await _reasoning_signal(session, child_id)
+
     sections = {
         "activity": activity,
         "mood": mood,
         "safety": safety,
         # Rivojlanish kuzatuvi — KLINIK/psixometrik baho EMAS (IQ ball emas).
         # `mood`dagi bir xil Gemini chaqiruvidan ajratib olingan, qo'shimcha
-        # LLM chaqiruvi yo'q.
+        # LLM chaqiruvi yo'q. `reasoning_*` doska jumboqlaridan (SQL, LLM'siz).
         "cognitive": {
             "vocabulary_level": mood.get("vocabulary_level", ""),
             "curiosity_signals": mood.get("curiosity_signals", []),
             "note": mood.get("cognitive_note", ""),
+            **reasoning,
         },
     }
     # Ground the guidance in the psychology knowledge base (psychology/taxonomy.py)

@@ -165,6 +165,42 @@ def test_report_exposes_cognitive_section(monkeypatch):
     assert result.sections.cognitive.note == "Rivojlanish kuzatuvi."
 
 
+def test_report_exposes_reasoning_fields(monkeypatch):
+    """Regression: new cognitive keys must be declared in CognitiveSection or
+    FastAPI drops them (the whole section vanished this way once)."""
+    user = _User(uuid4())
+    child = _child()
+    db = _FakeSession(scalar_queue=[child])
+    cognitive = {
+        "vocabulary_level": "o'rta",
+        "curiosity_signals": [],
+        "note": "",
+        "reasoning_band": "yuqori",
+        "puzzles_answered": 8,
+        "puzzles_correct": 6,
+    }
+
+    @dataclass
+    class _Data:
+        now: datetime
+        def __post_init__(self):
+            self.period_start = self.now - timedelta(days=10)
+            self.period_end = self.now
+            self.sections = {**_SECTIONS, "cognitive": cognitive}
+            self.llm_ok = True
+
+    async def _fake_build(*_a, **kw):
+        return _Data(kw["now"])
+    monkeypatch.setattr(rep, "build_report", _fake_build)
+
+    out = _run(rep.get_report(child_id=child.id, refresh=True, current_user=user, db=db))
+    cog = out.sections.cognitive
+    assert cog is not None
+    assert cog.reasoning_band == "yuqori"
+    assert cog.puzzles_answered == 8
+    assert cog.puzzles_correct == 6
+
+
 # ── Trends (metrology — plottable series from cached reports) ────────────────
 
 @dataclass

@@ -32,11 +32,20 @@ class GuidanceSection(BaseModel):
 
 
 class CognitiveSection(BaseModel):
-    """Developmental observation — NOT a clinical or psychometric score."""
+    """Developmental observation — NOT a clinical or psychometric score.
+
+    Every field must be declared here or FastAPI silently drops it from the
+    response, which is how the whole section went missing once before.
+    """
 
     vocabulary_level: str = ""
     curiosity_signals: list[str] = []
     note: str = ""
+    # From the chalkboard puzzles (services/puzzles.py): a plain-language band
+    # plus the raw counts behind it. Never a score.
+    reasoning_band: str = ""
+    puzzles_answered: int = 0
+    puzzles_correct: int = 0
 
 
 class ReportSections(BaseModel):

@@ -11,7 +11,9 @@ import {
   type FeedbackRating,
   type QuickReply,
 } from '@/api/endpoints/chat';
+import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
+import { PuzzleBoard } from '@/components/puzzle-board';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -26,6 +28,9 @@ interface AxiosErrorShape {
 // system lands (Faza 1). Until then we show a soft local count.
 const DAILY_LIMIT = 30;
 const GREETING_ID = 'seed-greeting';
+// A puzzle every few turns keeps the chat from being wall-to-wall talking.
+// Rare enough not to interrupt a real conversation the child is having.
+const PUZZLE_EVERY_N_TURNS = 4;
 
 const GREETING_TEMPLATE = (name?: string): ChatMessage => ({
   id: GREETING_ID,
@@ -38,6 +43,7 @@ type DisplayItem =
   | { kind: 'message'; message: ChatMessage }
   | { kind: 'typing' }
   | { kind: 'counter' }
+  | { kind: 'puzzle'; puzzle: Puzzle }
   | { kind: 'suggested-replies' };
 
 function startOfTodayMs(): number {
@@ -59,6 +65,7 @@ export default function ChatScreen() {
   // messageId -> chosen rating. Local only: the vote is fire-and-forget, so a
   // failed request just clears the highlight rather than blocking the chat.
   const [ratings, setRatings] = useState<Record<string, FeedbackRating>>({});
+  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
 
   useEffect(() => {
     if (!child || !hydrated) return;
@@ -76,6 +83,19 @@ export default function ChatScreen() {
   }, [messages]);
   const remaining = Math.max(0, DAILY_LIMIT - todayCount);
   const limitReached = todayCount >= DAILY_LIMIT;
+
+  // Fetch a puzzle every Nth turn. Silent on failure and on an exhausted
+  // catalogue (the endpoint returns null) — a missing puzzle is a non-event.
+  const maybeOfferPuzzle = useCallback(() => {
+    if (!child) return;
+    const turns = useChatStore
+      .getState()
+      .messages.filter((m) => m.role === 'child').length;
+    if (turns === 0 || turns % PUZZLE_EVERY_N_TURNS !== 0) return;
+    getNextPuzzle(child.id)
+      .then((p) => p && setPuzzle(p))
+      .catch(() => {});
+  }, [child]);
 
   const send = useMutation({
     mutationFn: (vars: { text: string; action?: 'web_search'; actionQuery?: string }) => {
@@ -106,7 +126,9 @@ export default function ChatScreen() {
           pathname: '/(main)/crisis',
           params: { level: response.crisis_level },
         });
+        return; // never interrupt a crisis moment with a game
       }
+      maybeOfferPuzzle();
     },
     onError: (err) => {
       const detail =
@@ -163,6 +185,9 @@ export default function ChatScreen() {
   const items: DisplayItem[] = useMemo(
     () => [
       ...(send.isPending ? [{ kind: 'typing' as const }] : []),
+      // The list is inverted, so index 0 sits at the bottom — the puzzle
+      // lands directly above the composer, where the newest turn belongs.
+      ...(puzzle ? [{ kind: 'puzzle' as const, puzzle }] : []),
       ...(showSuggestions
         ? [{ kind: 'suggested-replies' as const }]
         : []),
@@ -171,7 +196,7 @@ export default function ChatScreen() {
         .map((message): DisplayItem => ({ kind: 'message', message })),
       { kind: 'counter' as const },
     ],
-    [send.isPending, showSuggestions, messages],
+    [send.isPending, showSuggestions, messages, puzzle],
   );
 
   const canSend =
@@ -217,6 +242,7 @@ export default function ChatScreen() {
           data={items}
           keyExtractor={(item, i) => {
             if (item.kind === 'typing') return 'typing-indicator';
+            if (item.kind === 'puzzle') return `puzzle-${item.puzzle.puzzle_id}`;
             if (item.kind === 'suggested-replies') return 'suggested-replies';
             if (item.kind === 'counter') return 'daily-counter';
             return `${item.message.id}-${i}`;
@@ -230,6 +256,15 @@ export default function ChatScreen() {
           contentContainerStyle={{ padding: 16, gap: 12 }}
           renderItem={({ item }) => {
             if (item.kind === 'typing') return <TypingIndicator />;
+            if (item.kind === 'puzzle') {
+              return child ? (
+                <PuzzleBoard
+                  puzzle={item.puzzle}
+                  childId={child.id}
+                  onDone={() => setPuzzle(null)}
+                />
+              ) : null;
+            }
             if (item.kind === 'suggested-replies') {
               return <SuggestedReplies onSelect={setInput} />;
             }
