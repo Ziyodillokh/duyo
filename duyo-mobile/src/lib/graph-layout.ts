@@ -7,9 +7,19 @@ export interface PositionedNode extends GraphNode {
   r: number;
 }
 
+export interface LayoutEdge {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  /** Endpoint titles, so the view can dim edges outside the focused set. */
+  sourceTitle: string;
+  targetTitle: string;
+}
+
 export interface Layout {
   nodes: PositionedNode[];
-  edges: { x1: number; y1: number; x2: number; y2: number }[];
+  edges: LayoutEdge[];
 }
 
 const ITERATIONS = 220;
@@ -136,7 +146,11 @@ export function layoutGraph(
   const pad = 26;
   const spanX = maxX - minX || 1;
   const spanY = maxY - minY || 1;
-  const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY, 1.6);
+  // Shrink to fit, never stretch to fill. Blowing a two-note graph up to the
+  // full canvas pushed the pair into opposite corners with nothing between
+  // them; keeping scale ≤ 1 lets the simulation's own spacing stand and a
+  // small graph sits as a small cluster in the middle, the way Obsidian's does.
+  const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY, 1);
   const offsetX = pad + (width - pad * 2 - spanX * scale) / 2;
   const offsetY = pad + (height - pad * 2 - spanY * scale) / 2;
 
@@ -157,6 +171,8 @@ export function layoutGraph(
       y1: toY(ys[a]),
       x2: toX(xs[b]),
       y2: toY(ys[b]),
+      sourceTitle: nodes[a].title,
+      targetTitle: nodes[b].title,
     })),
   };
 }
