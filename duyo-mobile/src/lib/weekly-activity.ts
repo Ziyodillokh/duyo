@@ -59,7 +59,7 @@ function parseLocalDate(value: string): Date | null {
 
 export function buildWeeklyActivity(
   streak: StreakWire | undefined,
-  history: ReadonlyArray<BallsTransactionWire> | undefined,
+  history: readonly BallsTransactionWire[] | undefined,
   now: Date = new Date(),
 ): WeeklyActivity {
   const today = startOfDay(now);
