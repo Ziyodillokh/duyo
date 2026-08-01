@@ -88,3 +88,44 @@ def test_band_is_a_word_not_a_score():
         band = puzzles.reasoning_band(correct, n, 2.0)
         assert band in ("", "yuqori", "o'rta", "rivojlanmoqda")
         assert not any(ch.isdigit() for ch in band)
+
+
+# ── Presentation order ───────────────────────────────────────────────────────
+
+def test_choices_are_unique_within_a_puzzle():
+    """Two identical options would make a puzzle unanswerable."""
+    for p in puzzles.PUZZLES:
+        assert len(set(p.choices)) == len(p.choices), p.puzzle_id
+
+
+def test_presented_order_is_stable():
+    """/next and /answer derive the permutation separately — it must match."""
+    for p in puzzles.PUZZLES:
+        first = puzzles.presented(p)
+        second = puzzles.presented(p)
+        assert first == second, p.puzzle_id
+
+
+def test_presented_keeps_pointing_at_the_right_answer():
+    for p in puzzles.PUZZLES:
+        choices, index = puzzles.presented(p)
+        assert choices[index] == p.choices[p.correct_index], p.puzzle_id
+        assert sorted(choices) == sorted(p.choices), p.puzzle_id
+
+
+def test_answer_is_not_always_the_first_option():
+    """Regression: the catalogue lists the answer first, so without the shuffle
+    every puzzle answered 'A' and a child could win by never reading."""
+    positions = {puzzles.presented(p)[1] for p in puzzles.PUZZLES}
+    assert len(positions) > 1
+    first_count = sum(1 for p in puzzles.PUZZLES if puzzles.presented(p)[1] == 0)
+    assert first_count < len(puzzles.PUZZLES) * 0.5
+
+
+# ── Catalogue depth ──────────────────────────────────────────────────────────
+
+def test_catalogue_is_deep_enough_to_last():
+    """One puzzle per 4 chat turns: a shallow segment runs dry in days."""
+    floors = {AgeSegment.JUNIOR: 30, AgeSegment.EXPLORER: 45, AgeSegment.COMPANION: 55}
+    for segment, floor in floors.items():
+        assert len(puzzles.for_segment(segment)) >= floor, segment

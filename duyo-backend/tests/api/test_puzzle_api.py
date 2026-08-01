@@ -99,6 +99,11 @@ def _first_puzzle():
     return puzzles.for_segment(AgeSegment.EXPLORER)[0]
 
 
+def _shown_answer(p):
+    """Index of the correct choice in the order the child is shown."""
+    return puzzles.presented(p)[1]
+
+
 def test_correct_answer_is_recorded():
     user = _User(uuid4())
     child = _child(user.id)
@@ -106,7 +111,7 @@ def test_correct_answer_is_recorded():
     db = _FakeSession(scalar_queue=[child, None])  # owned child, no prior attempt
 
     out = _run(mod.answer_puzzle(
-        p.puzzle_id, PuzzleAnswerRequest(child_id=child.id, chosen_index=p.correct_index),
+        p.puzzle_id, PuzzleAnswerRequest(child_id=child.id, chosen_index=_shown_answer(p)),
         user, db,
     ))
 
@@ -122,7 +127,7 @@ def test_wrong_answer_still_returns_the_explanation():
     user = _User(uuid4())
     child = _child(user.id)
     p = _first_puzzle()
-    wrong = (p.correct_index + 1) % len(p.choices)
+    wrong = (_shown_answer(p) + 1) % len(p.choices)
     db = _FakeSession(scalar_queue=[child, None])
 
     out = _run(mod.answer_puzzle(
@@ -130,7 +135,7 @@ def test_wrong_answer_still_returns_the_explanation():
     ))
 
     assert out.is_correct is False
-    assert out.correct_index == p.correct_index
+    assert out.correct_index == _shown_answer(p)
     assert out.explanation
 
 
@@ -145,7 +150,7 @@ def test_re_answering_keeps_the_first_attempt():
     db = _FakeSession(scalar_queue=[child, existing])
 
     out = _run(mod.answer_puzzle(
-        p.puzzle_id, PuzzleAnswerRequest(child_id=child.id, chosen_index=p.correct_index),
+        p.puzzle_id, PuzzleAnswerRequest(child_id=child.id, chosen_index=_shown_answer(p)),
         user, db,
     ))
 

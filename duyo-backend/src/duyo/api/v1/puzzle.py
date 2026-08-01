@@ -52,10 +52,11 @@ async def next_puzzle(
     puzzle = puzzles.pick_next(child.age_segment, seen)
     if puzzle is None:
         return None
+    choices, _ = puzzles.presented(puzzle)
     return PuzzleRead(
         puzzle_id=puzzle.puzzle_id,
         text=puzzle.text,
-        choices=list(puzzle.choices),
+        choices=list(choices),
         difficulty=puzzle.difficulty,
     )
 
@@ -79,7 +80,10 @@ async def answer_puzzle(
     if puzzle is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Puzzle not found")
 
-    is_correct = payload.chosen_index == puzzle.correct_index
+    # Compare against the SHUFFLED order the child was shown, not the
+    # catalogue order — presented() reproduces it from the puzzle_id.
+    _, shown_correct = puzzles.presented(puzzle)
+    is_correct = payload.chosen_index == shown_correct
 
     existing = await db.scalar(
         select(PuzzleAttempt).where(
@@ -99,6 +103,6 @@ async def answer_puzzle(
 
     return PuzzleAnswerResponse(
         is_correct=is_correct,
-        correct_index=puzzle.correct_index,
+        correct_index=shown_correct,
         explanation=puzzle.explanation,
     )
