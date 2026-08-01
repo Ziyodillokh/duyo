@@ -13,7 +13,9 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type BoardSolution, solveOnBoard } from '@/api/endpoints/board';
+import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
 import { Chalkboard } from '@/components/chalkboard';
+import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { DuyoAvatar, type DuyoState } from '@/components/duyo-avatar';
 import { useMicRecorder } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
@@ -32,6 +34,9 @@ const STATUS_TEXT: Record<Phase, string> = {
   responding: 'DUYO gapiryapti',
   error: 'Xatolik yuz berdi',
 };
+
+// A puzzle every few spoken turns, so a long voice session isn't only talking.
+const PUZZLE_EVERY_N_TURNS = 4;
 
 // Local pre-filter before spending a Gemini call on the board.
 //
@@ -89,6 +94,9 @@ export default function VoiceScreen() {
   const [crisisLevel, setCrisisLevel] = useState<'orange' | 'red' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [board, setBoard] = useState<BoardSolution | null>(null);
+  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+  // Spoken turns so far — drives how often a puzzle interrupts the talking.
+  const spokenTurnsRef = useRef(0);
   // Bosqich B debug overlay — last mic/ws/audio event, visible on screen
   // so we can diagnose the voice pipeline without USB logcat.
   const [debugLine, setDebugLine] = useState<string>('idle');
@@ -147,14 +155,29 @@ export default function VoiceScreen() {
         return; // a crisis outranks any blackboard
       }
 
-      // Did the child just ask something worth working through on the board?
       const said = utteranceRef.current;
-      if (!child || !worthAsking(said)) return;
-      const seq = turnSeqRef.current;
-      void solveOnBoard(child.id, said).then((solution) => {
-        // Ignore a late answer if another turn has started since.
-        if (solution && turnSeqRef.current === seq) setBoard(solution);
-      });
+      if (!child) return;
+      spokenTurnsRef.current += 1;
+
+      // Did the child just ask something worth working through on the board?
+      if (worthAsking(said)) {
+        const seq = turnSeqRef.current;
+        void solveOnBoard(child.id, said).then((solution) => {
+          // Ignore a late answer if another turn has started since.
+          if (solution && turnSeqRef.current === seq) setBoard(solution);
+        });
+        return;
+      }
+
+      // Otherwise, every few turns, put a puzzle up instead — but never over a
+      // solution the child is still reading.
+      if (spokenTurnsRef.current % PUZZLE_EVERY_N_TURNS !== 0) return;
+      const puzzleSeq = turnSeqRef.current;
+      void getNextPuzzle(child.id)
+        .then((p) => {
+          if (p && turnSeqRef.current === puzzleSeq) setPuzzle(p);
+        })
+        .catch(() => {});
     },
     onError: (message) => {
       setErrorMessage(message);
@@ -203,6 +226,7 @@ export default function VoiceScreen() {
       setCrisisLevel(null);
       setErrorMessage(null);
       setBoard(null);
+      setPuzzle(null);
       utteranceRef.current = '';
       turnSeqRef.current += 1;
       chunkCountRef.current = 0;
@@ -264,7 +288,17 @@ export default function VoiceScreen() {
 
       {/* Center — avatar with soft glow, or the chalkboard when one is up */}
       <View className="flex-1 items-center justify-center gap-6 px-6">
-        {board ? (
+        {!board && puzzle ? (
+          /* Same slate, asking instead of explaining. */
+          <View className="w-full" style={{ paddingBottom: 40 }}>
+            <PuzzleChalkboard
+              puzzle={puzzle}
+              childId={child?.id ?? ''}
+              onDone={() => setPuzzle(null)}
+              compact
+            />
+          </View>
+        ) : board ? (
           /* Board fills the stage; DUYO steps aside and stands in front of its
              lower corner, the way a teacher stands beside a blackboard. */
           <View className="w-full" style={{ paddingBottom: 40 }}>

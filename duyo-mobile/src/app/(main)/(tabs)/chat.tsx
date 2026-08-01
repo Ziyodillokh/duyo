@@ -13,7 +13,7 @@ import {
 } from '@/api/endpoints/chat';
 import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
-import { PuzzleBoard } from '@/components/puzzle-board';
+import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -258,7 +258,7 @@ export default function ChatScreen() {
             if (item.kind === 'typing') return <TypingIndicator />;
             if (item.kind === 'puzzle') {
               return child ? (
-                <PuzzleBoard
+                <PuzzleChalkboard
                   puzzle={item.puzzle}
                   childId={child.id}
                   onDone={() => setPuzzle(null)}

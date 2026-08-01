@@ -17,22 +17,22 @@ import { BoardFigureView, hasDrawableFigure } from '@/components/board-figure';
 
 // Chalkboard palette — kept local: these are physical-object colours (slate,
 // wood, chalk), not app theme tokens, and should not shift with light/dark.
-const SLATE = '#20372E';
-const SLATE_EDGE = '#16261F';
-const WOOD = '#8A5A33';
-const WOOD_DARK = '#6B4526';
-const CHALK = '#F2EFE4';
-const CHALK_DIM = '#A9BDAF';
-const CHALK_YELLOW = '#FFE08A';
+export const SLATE = '#20372E';
+export const SLATE_EDGE = '#16261F';
+export const WOOD = '#8A5A33';
+export const WOOD_DARK = '#6B4526';
+export const CHALK = '#F2EFE4';
+export const CHALK_DIM = '#A9BDAF';
+export const CHALK_YELLOW = '#FFE08A';
 
 // Writing pace. Per-character so a long line takes longer to "write" than a
 // short one, which is what makes it read as handwriting rather than a fade-in.
-const MS_PER_CHAR = 42;
+export const MS_PER_CHAR = 42;
 const MIN_WRITE_MS = 380;
-const LINE_GAP_MS = 260;
-const START_DELAY_MS = 420;
+export const LINE_GAP_MS = 260;
+export const START_DELAY_MS = 420;
 
-function writeDuration(text: string): number {
+export function writeDuration(text: string): number {
   return Math.max(MIN_WRITE_MS, text.length * MS_PER_CHAR);
 }
 
@@ -59,7 +59,7 @@ interface ChalkLineProps {
  * can only reveal the first visual line — so those fall back to a fade and are
  * allowed to wrap onto two lines. Hard problems produce such lines routinely.
  */
-function ChalkLine({
+export function ChalkLine({
   text,
   delay,
   size,
@@ -143,7 +143,7 @@ function ChalkLine({
  * is already proven on device by DuyoAvatar, whereas no screen in this app has
  * ever mounted a layout animation.
  */
-function FadeInView({
+export function FadeInView({
   delay,
   duration = 320,
   rise = 0,
