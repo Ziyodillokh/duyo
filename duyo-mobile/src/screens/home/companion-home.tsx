@@ -1,23 +1,26 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import {
-  BookOpen,
-  Briefcase,
-  MessageCircle,
-  PenLine,
-  Sparkles,
-} from 'lucide-react-native';
+import { Sparkles } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AchievementsCard } from '@/components/gamification/achievements-card';
+import { RecentRewardsCard } from '@/components/gamification/recent-rewards-card';
+import { WeeklyActivityCard } from '@/components/gamification/weekly-activity-card';
 import { useChildStore } from '@/store/child';
 
 // Figma node 9:18782 — CompanionHome (age 14+, dark navy gradient)
 
-const MOCK_STREAK = 5;
-const WEEK_DAYS = ['Du', 'Se', 'Cho', 'Pa', 'Ju', 'Sha', 'Ya'] as const;
-const WEEK_DONE = [true, true, true, true, true, false, false]; // 5 kunlik seriya
+// ── Parked mock sections ─────────────────────────────────────────────────────
+// Daily goals, weekly focus, the 2×2 action grid, focus mode and the weekly
+// streak strip were all hard-coded placeholders — they showed the same numbers
+// to every child and none of them had a backend. They are kept here (and their
+// JSX below) so they can come back the moment there is real data behind them.
+// Their slot on the dashboard now holds the live gamification cards.
+//
+// const MOCK_STREAK = 5;
+// const WEEK_DAYS = ['Du', 'Se', 'Cho', 'Pa', 'Ju', 'Sha', 'Ya'] as const;
+// const WEEK_DONE = [true, true, true, true, true, false, false];
 
 interface TopStat {
   key: string;
@@ -32,82 +35,82 @@ const TOP_STATS: ReadonlyArray<TopStat> = [
   { key: 'stress', value: '5', label: 'Stress' },
 ];
 
-interface DailyGoal {
-  key: string;
-  title: string;
-  category: string;
-  done: number;
-  total: number;
-}
-
-const DAILY_GOALS: ReadonlyArray<DailyGoal> = [
-  { key: 'dtm_math', title: 'DTM Matematika - 10 savol', category: 'DTM', done: 3, total: 10 },
-  { key: 'ielts_read', title: 'IELTS Reading mashq', category: 'IELTS', done: 0, total: 1 },
-  { key: 'fizika', title: 'Fizika - Mexanika', category: 'Fan', done: 1, total: 1 },
-];
-
-interface FocusSubject {
-  key: string;
-  label: string;
-  hours: string;
-  color: string;
-  percent: number;
-}
-
-const FOCUS_SUBJECTS: ReadonlyArray<FocusSubject> = [
-  { key: 'dtm', label: 'DTM Tayyorgarlik', hours: '2.5 soat', color: '#2563EB', percent: 0.72 },
-  { key: 'ielts', label: 'IELTS Practice', hours: '1.5 soat', color: '#8200DB', percent: 0.45 },
-  { key: 'kasb', label: 'Kasb tanlash', hours: '', color: '#FB64B6', percent: 0.30 },
-];
-
-interface ActionCard {
-  key: string;
-  label: string;
-  sublabel: string;
-  Icon: typeof MessageCircle;
-  iconColor: string;
-  gradientColors: readonly [string, string];
-  href: '/(main)/dtm' | '/(main)/(tabs)/chat' | '/(main)/lesson-help' | '/(main)/library';
-}
-
-const ACTION_CARDS: ReadonlyArray<ActionCard> = [
-  {
-    key: 'dtm',
-    label: 'DTM Practice',
-    sublabel: 'Imtihon tayyorligi',
-    Icon: BookOpen,
-    iconColor: '#FFFFFF',
-    gradientColors: ['#2563EB', '#155DFC'],
-    href: '/(main)/dtm',
-  },
-  {
-    key: 'ielts',
-    label: 'IELTS',
-    sublabel: 'Ingliz tili',
-    Icon: MessageCircle,
-    iconColor: '#FFFFFF',
-    gradientColors: ['#8200DB', '#6E11B0'],
-    href: '/(main)/(tabs)/chat',
-  },
-  {
-    key: 'dars',
-    label: 'Dars yordami',
-    sublabel: 'Fanlar bo\'yicha',
-    Icon: PenLine,
-    iconColor: '#FFFFFF',
-    gradientColors: ['#05DF72', '#00A63E'],
-    href: '/(main)/lesson-help',
-  },
-  {
-    key: 'karyera',
-    label: 'Karyera',
-    sublabel: 'Kasb tanlash',
-    Icon: Briefcase,
-    iconColor: '#FFFFFF',
-    gradientColors: ['#FF8904', '#F54900'],
-    href: '/(main)/library',
-  },
-];
+// interface DailyGoal {
+//   key: string;
+//   title: string;
+//   category: string;
+//   done: number;
+//   total: number;
+// }
+//
+// const DAILY_GOALS: ReadonlyArray<DailyGoal> = [
+//   { key: 'dtm_math', title: 'DTM Matematika - 10 savol', category: 'DTM', done: 3, total: 10 },
+//   { key: 'ielts_read', title: 'IELTS Reading mashq', category: 'IELTS', done: 0, total: 1 },
+//   { key: 'fizika', title: 'Fizika - Mexanika', category: 'Fan', done: 1, total: 1 },
+// ];
+//
+// interface FocusSubject {
+//   key: string;
+//   label: string;
+//   hours: string;
+//   color: string;
+//   percent: number;
+// }
+//
+// const FOCUS_SUBJECTS: ReadonlyArray<FocusSubject> = [
+//   { key: 'dtm', label: 'DTM Tayyorgarlik', hours: '2.5 soat', color: '#2563EB', percent: 0.72 },
+//   { key: 'ielts', label: 'IELTS Practice', hours: '1.5 soat', color: '#8200DB', percent: 0.45 },
+//   { key: 'kasb', label: 'Kasb tanlash', hours: '', color: '#FB64B6', percent: 0.30 },
+// ];
+//
+// interface ActionCard {
+//   key: string;
+//   label: string;
+//   sublabel: string;
+//   Icon: typeof MessageCircle;
+//   iconColor: string;
+//   gradientColors: readonly [string, string];
+//   href: '/(main)/dtm' | '/(main)/(tabs)/chat' | '/(main)/lesson-help' | '/(main)/library';
+// }
+//
+// const ACTION_CARDS: ReadonlyArray<ActionCard> = [
+//   {
+//     key: 'dtm',
+//     label: 'DTM Practice',
+//     sublabel: 'Imtihon tayyorligi',
+//     Icon: BookOpen,
+//     iconColor: '#FFFFFF',
+//     gradientColors: ['#2563EB', '#155DFC'],
+//     href: '/(main)/dtm',
+//   },
+//   {
+//     key: 'ielts',
+//     label: 'IELTS',
+//     sublabel: 'Ingliz tili',
+//     Icon: MessageCircle,
+//     iconColor: '#FFFFFF',
+//     gradientColors: ['#8200DB', '#6E11B0'],
+//     href: '/(main)/(tabs)/chat',
+//   },
+//   {
+//     key: 'dars',
+//     label: 'Dars yordami',
+//     sublabel: 'Fanlar bo\'yicha',
+//     Icon: PenLine,
+//     iconColor: '#FFFFFF',
+//     gradientColors: ['#05DF72', '#00A63E'],
+//     href: '/(main)/lesson-help',
+//   },
+//   {
+//     key: 'karyera',
+//     label: 'Karyera',
+//     sublabel: 'Kasb tanlash',
+//     Icon: Briefcase,
+//     iconColor: '#FFFFFF',
+//     gradientColors: ['#FF8904', '#F54900'],
+//     href: '/(main)/library',
+//   },
+// ];
 
 interface Mood {
   key: string;
@@ -127,7 +130,6 @@ const BORDER = 'rgba(96,165,250,0.18)';
 export function CompanionHome() {
   const childName = useChildStore((s) => s.child?.name ?? 'Foydalanuvchi');
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
-  const completedGoals = DAILY_GOALS.filter((g) => g.done >= g.total).length;
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -234,7 +236,14 @@ export function CompanionHome() {
             </LinearGradient>
           </View>
 
-          {/* Bugungi maqsadlar */}
+          {/* Live gamification — moved here from the profile tab. Every number
+              below comes from the backend: the streak, the XP ledger and the
+              badge catalogue. */}
+          <WeeklyActivityCard />
+          <AchievementsCard />
+          <RecentRewardsCard />
+
+          {/* ── Parked mock sections (see the note at the top of this file) ──
           <View
             className="rounded-xl"
             style={{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, padding: 16 }}
@@ -278,7 +287,6 @@ export function CompanionHome() {
             </View>
           </View>
 
-          {/* Bu haftadagi fokus */}
           <View
             className="rounded-xl"
             style={{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, padding: 16 }}
@@ -306,7 +314,6 @@ export function CompanionHome() {
             </View>
           </View>
 
-          {/* 4 action cards 2×2 */}
           <View className="flex-row flex-wrap" style={{ gap: 12 }}>
             {ACTION_CARDS.map((card) => (
               <Pressable
@@ -337,7 +344,6 @@ export function CompanionHome() {
             ))}
           </View>
 
-          {/* Fokus rejimi */}
           <Pressable
             onPress={() => router.push('/(main)/(tabs)/chat')}
             accessibilityRole="button"
@@ -373,7 +379,6 @@ export function CompanionHome() {
             </LinearGradient>
           </Pressable>
 
-          {/* Haftalik progress */}
           <View
             className="rounded-xl"
             style={{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, padding: 16 }}
@@ -420,6 +425,7 @@ export function CompanionHome() {
               ))}
             </View>
           </View>
+          ── end parked sections ── */}
 
           {/* Motivatsion quote */}
           <View

@@ -5,15 +5,22 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
+import { useEffect } from 'react';
+
 import {
+  type AchievementWire,
   type AvatarUpdateInput,
   type AvatarWire,
   type BallsBalance,
+  type BallsTransactionWire,
   type InventoryItemWire,
   type PurchaseInput,
   type StreakWire,
+  checkinStreak,
+  getAchievements,
   getAvatar,
   getBalls,
+  getBallsHistory,
   getInventory,
   getStreak,
   purchaseItem,
@@ -61,6 +68,51 @@ export function useStreak(): UseQueryResult<StreakWire> {
     queryFn: () => getStreak(childId as string),
     enabled: childId != null,
   });
+}
+
+export function useBallsHistory(): UseQueryResult<BallsTransactionWire[]> {
+  const childId = useChildId();
+  return useQuery({
+    queryKey: ['balls-history', childId],
+    queryFn: () => getBallsHistory(childId as string),
+    enabled: childId != null,
+  });
+}
+
+export function useAchievements(): UseQueryResult<AchievementWire[]> {
+  const childId = useChildId();
+  return useQuery({
+    queryKey: ['achievements', childId],
+    queryFn: () => getAchievements(childId as string),
+    enabled: childId != null,
+  });
+}
+
+/**
+ * Check the child in for today, once per mount of the home screen. The
+ * backend ignores a second call on the same day, so the only cost of an extra
+ * render is one cheap request — and without this the streak never advances,
+ * which is what left the activity cards permanently empty.
+ */
+export function useDailyCheckin(): void {
+  const childId = useChildId();
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (childId == null) return;
+    let cancelled = false;
+    void checkinStreak(childId)
+      .then((streak) => {
+        if (cancelled) return;
+        qc.setQueryData(['streak', childId], streak);
+      })
+      // A failed check-in must never break the dashboard; the streak simply
+      // stays where it was and the next launch tries again.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [childId, qc]);
 }
 
 export function useInventory(): UseQueryResult<InventoryItemWire[]> {

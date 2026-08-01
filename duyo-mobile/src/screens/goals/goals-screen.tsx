@@ -1,9 +1,12 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle2, Plus, Target, Trash2, Users } from 'lucide-react-native';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -12,6 +15,9 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Goal } from '@/api/endpoints/goals';
+import { GoalMatesSection } from '@/components/goals/goal-mates-section';
+import { DarkCard } from '@/components/v2/dark/dark-card';
+import { ProgressBar } from '@/components/v2/dark/progress-bar';
 import {
   useAddProgress,
   useCreateGoal,
@@ -21,17 +27,7 @@ import {
   useUpdateGoal,
 } from '@/hooks/use-goals';
 import { useChildStore } from '@/store/child';
-
-function GoalProgressBar({ pct }: { pct: number }) {
-  return (
-    <View className="h-2 rounded-full bg-secondary dark:bg-dark-surface-soft mt-3 overflow-hidden">
-      <View
-        className="h-2 rounded-full bg-neon-blue"
-        style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-      />
-    </View>
-  );
-}
+import { useIsDark } from '@/store/theme';
 
 function GoalCard({
   goal,
@@ -44,21 +40,20 @@ function GoalCard({
   onComplete: () => void;
   onDelete: () => void;
 }) {
+  const isDark = useIsDark();
   const [entry, setEntry] = useState('');
   const done = goal.status === 'completed';
   const unit = goal.unit_label ?? 'qadam';
+  const canSave = entry.length > 0;
 
   return (
-    <View
-      className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface"
-      style={{ padding: 16 }}
-    >
+    <DarkCard glow={done ? 'green' : 'none'}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text
-            className={`text-base font-semibold ${
+            className={`text-base font-bold ${
               done
-                ? 'text-muted-foreground dark:text-dark-muted line-through'
+                ? 'text-muted-foreground dark:text-dark-muted'
                 : 'text-foreground dark:text-dark-text'
             }`}
           >
@@ -69,6 +64,11 @@ function GoalCard({
               {goal.total_units
                 ? `${goal.current_unit} / ${goal.total_units} ${unit}`
                 : `${goal.current_unit}-${unit}da`}
+            </Text>
+          )}
+          {done && (
+            <Text className="text-sm font-medium text-neon-green mt-1">
+              Tugatilgan 🎉
             </Text>
           )}
         </View>
@@ -83,10 +83,21 @@ function GoalCard({
         </Pressable>
       </View>
 
-      {goal.progress_pct !== null && <GoalProgressBar pct={goal.progress_pct} />}
+      {goal.progress_pct !== null && (
+        <View className="mt-4">
+          <ProgressBar
+            value={(goal.progress_pct ?? 0) / 100}
+            color={done ? 'green' : 'blue'}
+            height={10}
+          />
+          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-right mt-2">
+            {Math.round(goal.progress_pct ?? 0)}%
+          </Text>
+        </View>
+      )}
 
       {!done && (
-        <View className="flex-row items-center gap-2 mt-3">
+        <View className="flex-row items-center gap-2 mt-4">
           <TextInput
             value={entry}
             onChangeText={(t) => setEntry(t.replace(/\D/g, '').slice(0, 6))}
@@ -94,27 +105,37 @@ function GoalCard({
             placeholderTextColor="#94A3B8"
             keyboardType="number-pad"
             accessibilityLabel="Yangi progress"
-            className="flex-1 px-3 py-2 rounded-md text-base text-foreground dark:text-dark-text"
-            style={{ backgroundColor: 'rgba(148,163,184,0.12)' }}
+            className="flex-1 px-4 rounded-md text-base text-foreground dark:text-dark-text"
+            style={{
+              height: 44,
+              backgroundColor: isDark ? '#1E3A5F' : '#F4F8FF',
+            }}
           />
           <Pressable
             onPress={() => {
               const value = Number(entry);
-              if (!entry || Number.isNaN(value)) return;
+              if (!canSave || Number.isNaN(value)) return;
               onProgress(value);
               setEntry('');
             }}
-            disabled={!entry}
+            disabled={!canSave}
             accessibilityRole="button"
             accessibilityLabel="Progressni saqlash"
-            className={`px-4 h-10 rounded-md items-center justify-center ${
-              entry ? 'bg-neon-blue' : 'bg-secondary dark:bg-dark-surface-soft'
+            className={`px-4 rounded-md items-center justify-center active:opacity-80 ${
+              canSave ? 'bg-neon-blue' : ''
             }`}
+            style={{
+              height: 44,
+              backgroundColor: canSave
+                ? undefined
+                : isDark
+                  ? '#1E3A5F'
+                  : '#F4F8FF',
+            }}
           >
             <Text
-              className={`text-sm font-semibold ${
-                entry ? 'text-white' : 'text-muted-foreground'
-              }`}
+              className="text-sm font-medium"
+              style={{ color: canSave ? '#0A1628' : '#94A3B8' }}
             >
               Saqlash
             </Text>
@@ -124,17 +145,19 @@ function GoalCard({
             accessibilityRole="button"
             accessibilityLabel="Tugatdim"
             hitSlop={8}
-            className="w-10 h-10 items-center justify-center"
+            className="items-center justify-center"
+            style={{ width: 44, height: 44 }}
           >
-            <CheckCircle2 size={22} color="#22C55E" />
+            <CheckCircle2 size={24} color="#34D399" />
           </Pressable>
         </View>
       )}
-    </View>
+    </DarkCard>
   );
 }
 
 export default function GoalsScreen() {
+  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
 
@@ -151,131 +174,183 @@ export default function GoalsScreen() {
   const active = goals.filter((g) => g.status === 'active');
   const finished = goals.filter((g) => g.status === 'completed');
   const signals = signalQuery.data ?? [];
+  const canAdd = draft.trim().length >= 2;
 
   const handleCreate = () => {
-    const title = draft.trim();
-    if (title.length < 2) return;
+    if (!canAdd) return;
     createMutation.mutate(
-      { title },
+      { title: draft.trim() },
       {
         onSuccess: () => setDraft(''),
         onError: () =>
-          Alert.alert('Saqlanmadi', "Internetni tekshirib, qayta urinib ko'ring."),
+          Alert.alert(
+            'Saqlanmadi',
+            "Internetni tekshirib, qayta urinib ko'ring.",
+          ),
       },
     );
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background dark:bg-dark-bg" edges={['top']}>
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
-        <ScrollView
-          contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View className="gap-1">
-            <Text className="text-2xl font-bold text-foreground dark:text-dark-text">
-              Maqsadlarim
-            </Text>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-              DUYO maqsadingni eslab qoladi va unga yetishda yordam beradi
-            </Text>
-          </View>
+    <View style={StyleSheet.absoluteFill}>
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
+        ]}
+      />
+      <LinearGradient
+        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.96, y: 0.2 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-          {/* New goal */}
-          <View className="flex-row items-center gap-2">
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Masalan: O'tkan Kunlarni o'qish"
-              placeholderTextColor="#94A3B8"
-              maxLength={160}
-              accessibilityLabel="Yangi maqsad"
-              className="flex-1 px-4 py-3 rounded-md text-base text-foreground dark:text-dark-text"
-              style={{ backgroundColor: 'rgba(148,163,184,0.12)' }}
-            />
-            <Pressable
-              onPress={handleCreate}
-              disabled={draft.trim().length < 2 || createMutation.isPending}
-              accessibilityRole="button"
-              accessibilityLabel="Maqsad qo'shish"
-              className={`w-12 h-12 rounded-md items-center justify-center ${
-                draft.trim().length >= 2
-                  ? 'bg-neon-blue'
-                  : 'bg-secondary dark:bg-dark-surface-soft'
-              }`}
-            >
-              <Plus
-                size={22}
-                color={draft.trim().length >= 2 ? '#FFFFFF' : '#94A3B8'}
-              />
-            </Pressable>
-          </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 96 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View className="gap-1">
+              <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
+                Maqsadlarim
+              </Text>
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                DUYO suhbat davomida maqsadingni o'zi eslab qoladi
+              </Text>
+            </View>
 
-          {/* "You are not alone" — counts only, never identities. */}
-          {signals.length > 0 && (
-            <View className="gap-2">
-              {signals.map((s) => (
-                <View
-                  key={s.match_key}
-                  className="flex-row items-center gap-2 rounded-xl border border-neon-blue/20 px-4 py-3"
+            {/* Add a goal by hand — DUYO also adds them from conversation. */}
+            <DarkCard>
+              <View className="flex-row items-center gap-2">
+                <TextInput
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Masalan: O'tkan Kunlarni o'qish"
+                  placeholderTextColor="#94A3B8"
+                  maxLength={160}
+                  accessibilityLabel="Yangi maqsad"
+                  className="flex-1 px-4 rounded-md text-base text-foreground dark:text-dark-text"
+                  style={{
+                    height: 48,
+                    backgroundColor: isDark ? '#1E3A5F' : '#F4F8FF',
+                  }}
+                />
+                <Pressable
+                  onPress={handleCreate}
+                  disabled={!canAdd || createMutation.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Maqsad qo'shish"
+                  className={`items-center justify-center rounded-md active:opacity-80 ${
+                    canAdd ? 'bg-neon-blue' : ''
+                  }`}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    backgroundColor: canAdd
+                      ? undefined
+                      : isDark
+                        ? '#1E3A5F'
+                        : '#F4F8FF',
+                  }}
                 >
-                  <Users size={18} color="#60A5FA" />
-                  <Text className="flex-1 text-sm text-foreground dark:text-dark-text">
-                    Yana{' '}
-                    <Text className="font-bold text-neon-blue">{s.count} ta</Text>{' '}
-                    bola ham shu maqsadda: {s.title}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
+                  {createMutation.isPending ? (
+                    <ActivityIndicator color="#0A1628" />
+                  ) : (
+                    <Plus size={22} color={canAdd ? '#0A1628' : '#94A3B8'} />
+                  )}
+                </Pressable>
+              </View>
+            </DarkCard>
 
-          {/* States. Never blank a list the child was just reading: on error
-              with cached goals we keep the list and show a thin strip. */}
-          {goalsQuery.isLoading && goals.length === 0 ? (
-            <View className="rounded-xl border border-neon-blue/20 items-center" style={{ padding: 24 }}>
-              <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                Yuklanmoqda…
-              </Text>
-            </View>
-          ) : goalsQuery.isError && goals.length === 0 ? (
-            <View className="rounded-xl border border-neon-blue/20 items-center" style={{ padding: 24 }}>
-              <Text className="text-4xl">⚠️</Text>
-              <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
-                Maqsadlarni yuklab bo'lmadi
-              </Text>
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
-                Internetni tekshirib, qaytadan urinib ko'ring
-              </Text>
-            </View>
-          ) : goals.length === 0 ? (
-            <View className="rounded-xl border border-neon-blue/20 items-center" style={{ padding: 24 }}>
-              <Target size={36} color="#60A5FA" />
-              <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
-                Hali maqsad yo'q
-              </Text>
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
-                Yuqoriga birinchi maqsadingni yoz — masalan o'qimoqchi bo'lgan
-                kitobing yoki tugatmoqchi bo'lgan darsliging
-              </Text>
-            </View>
-          ) : (
-            <>
-              {goalsQuery.isError && (
-                <View className="rounded-md px-3 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.15)' }}>
-                  <Text className="text-xs text-amber-600">
-                    Oflayn — oxirgi ma'lumot ko'rsatilyapti
-                  </Text>
+            {/* "You are not alone" — counts only, never identities. */}
+            {signals.map((s) => (
+              <DarkCard key={s.match_key} glow="blue">
+                <View className="flex-row items-center gap-3">
+                  <View
+                    className="rounded-full items-center justify-center"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      backgroundColor: 'rgba(96,165,250,0.15)',
+                    }}
+                  >
+                    <Users size={20} color="#60A5FA" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                      {s.count} ta bola ham shu maqsadda
+                    </Text>
+                    <Text
+                      className="text-sm text-muted-foreground dark:text-dark-muted"
+                      numberOfLines={1}
+                    >
+                      {s.title}
+                    </Text>
+                  </View>
                 </View>
-              )}
+              </DarkCard>
+            ))}
 
-              <View className="gap-3">
+            {/* States. A cached list is never blanked out mid-read. */}
+            {goalsQuery.isLoading && goals.length === 0 ? (
+              <View className="items-center" style={{ padding: 32 }}>
+                <ActivityIndicator color={isDark ? '#60A5FA' : '#102033'} />
+              </View>
+            ) : goalsQuery.isError && goals.length === 0 ? (
+              <DarkCard className="items-center">
+                <Text className="text-4xl">⚠️</Text>
+                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
+                  Maqsadlarni yuklab bo'lmadi
+                </Text>
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                  Internetni tekshirib, qaytadan urinib ko'ring
+                </Text>
+              </DarkCard>
+            ) : goals.length === 0 ? (
+              <DarkCard className="items-center">
+                <View
+                  className="rounded-full items-center justify-center"
+                  style={{
+                    width: 64,
+                    height: 64,
+                    backgroundColor: 'rgba(96,165,250,0.15)',
+                  }}
+                >
+                  <Target size={30} color="#60A5FA" />
+                </View>
+                <Text className="text-base font-bold text-foreground dark:text-dark-text mt-3">
+                  Hali maqsad yo'q
+                </Text>
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                  DUYO bilan gaplashganingda maqsadingni o'zi eslab qoladi —
+                  yoki yuqoriga o'zing yozib qo'ysang bo'ladi
+                </Text>
+              </DarkCard>
+            ) : (
+              <>
+                {goalsQuery.isError && (
+                  <View
+                    className="rounded-md px-4 py-2"
+                    style={{ backgroundColor: 'rgba(251,146,60,0.15)' }}
+                  >
+                    <Text className="text-xs" style={{ color: '#FB923C' }}>
+                      Oflayn — oxirgi ma'lumot ko'rsatilyapti
+                    </Text>
+                  </View>
+                )}
+
                 {active.map((goal) => (
                   <GoalCard
                     key={goal.id}
                     goal={goal}
                     onProgress={(value) =>
-                      progressMutation.mutate({ goalId: goal.id, unitValue: value })
+                      progressMutation.mutate({
+                        goalId: goal.id,
+                        unitValue: value,
+                      })
                     }
                     onComplete={() =>
                       updateMutation.mutate({
@@ -285,7 +360,7 @@ export default function GoalsScreen() {
                     }
                     onDelete={() =>
                       Alert.alert(
-                        'Maqsadni o’chirish',
+                        "Maqsadni o'chirish",
                         `"${goal.title}" o'chirilsinmi?`,
                         [
                           { text: 'Bekor qilish', style: 'cancel' },
@@ -299,28 +374,32 @@ export default function GoalsScreen() {
                     }
                   />
                 ))}
-              </View>
 
-              {finished.length > 0 && (
-                <View className="gap-3">
-                  <Text className="text-sm font-semibold text-muted-foreground dark:text-dark-muted mt-2">
-                    Tugatilgan ({finished.length})
-                  </Text>
-                  {finished.map((goal) => (
-                    <GoalCard
-                      key={goal.id}
-                      goal={goal}
-                      onProgress={() => {}}
-                      onComplete={() => {}}
-                      onDelete={() => deleteMutation.mutate(goal.id)}
-                    />
-                  ))}
-                </View>
-              )}
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+                {finished.length > 0 && (
+                  <>
+                    <Text className="text-base font-bold text-foreground dark:text-dark-text mt-2">
+                      Tugatilgan ({finished.length})
+                    </Text>
+                    {finished.map((goal) => (
+                      <GoalCard
+                        key={goal.id}
+                        goal={goal}
+                        onProgress={() => {}}
+                        onComplete={() => {}}
+                        onDelete={() => deleteMutation.mutate(goal.id)}
+                      />
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Peers working toward the same thing. Sits below the child's own
+                goals: the goal comes first, the company second. */}
+            <GoalMatesSection childId={childId} />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }

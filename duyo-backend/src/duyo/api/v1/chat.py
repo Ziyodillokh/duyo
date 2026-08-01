@@ -57,6 +57,7 @@ from duyo.services.gemini import (
     translate_text,
 )
 from duyo.services.gemini import chat as gemini_chat
+from duyo.services.goals import extract_goal_candidate
 from duyo.services.images import search_images
 from duyo.services.personalization import (
     build_goal_context,
@@ -363,6 +364,12 @@ async def chat_turn(
             "CRISIS abuse-only ORANGE — NOT notifying parent (TZ §9.6). child=%s msg=%s",
             child.id, child_msg.id,
         )
+
+    # Capture any goal the child just stated ("O'tkan Kunlarni o'qimoqchiman")
+    # or progress on one ("10-betdaman"). BackgroundTask so it costs the reply
+    # nothing; lands unconfirmed so DUYO never acts on its own guess.
+    if final_level == CrisisLevel.GREEN:
+        background_tasks.add_task(extract_goal_candidate, child.id, payload.message)
 
     # 8-9. Build the reply. Four flows:
     #   (a) action="web_search"  → skip RAG, answer from Google Search grounding

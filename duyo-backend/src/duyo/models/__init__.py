@@ -26,6 +26,14 @@ from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
 from duyo.models.psychology_chunk import PsychologyChunk
 from duyo.models.report import Report
+from duyo.models.social import (
+    ChildSocialSettings,
+    Friendship,
+    FriendshipStatus,
+    PeerMessage,
+    PeerModerationState,
+    PeerReport,
+)
 from duyo.models.subscription import Subscription
 from duyo.models.tamagochi import TamagochiState
 from duyo.models.textbook_chunk import TextbookChunk
@@ -45,12 +53,15 @@ __all__ = [
     "ChildGoal",
     "ChildGoalEvent",
     "ChildProfile",
+    "ChildSocialSettings",
     "ContentItem",
     "ContentType",
     "Conversation",
     "CrisisEvent",
     "CrisisLevel",
     "FeedbackRating",
+    "Friendship",
+    "FriendshipStatus",
     "GoalCatalog",
     "GoalKind",
     "GoalSource",
@@ -64,6 +75,9 @@ __all__ = [
     "Payment",
     "PaymentProvider",
     "PaymentState",
+    "PeerMessage",
+    "PeerModerationState",
+    "PeerReport",
     "PsychologyChunk",
     "Report",
     "ReviewStatus",

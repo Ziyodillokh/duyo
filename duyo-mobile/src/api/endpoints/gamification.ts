@@ -30,7 +30,24 @@ export type AvatarUpdateInput = Partial<AvatarWire>;
 export interface StreakWire {
   current_streak: number;
   longest_streak: number;
+  /** YYYY-MM-DD, or null if the child has never checked in. */
   last_active_date: string | null;
+}
+
+/** One XP movement. Purchases come through as negative amounts. */
+export interface BallsTransactionWire {
+  amount: number;
+  reason: string;
+  balance_after: number;
+  created_at: string;
+}
+
+/** The full badge catalogue; the backend computes `earned` per child. */
+export interface AchievementWire {
+  key: string;
+  name: string;
+  emoji: string;
+  earned: boolean;
 }
 
 export interface PurchaseInput {
@@ -84,5 +101,35 @@ export async function updateAvatar(
 
 export async function getStreak(childId: string): Promise<StreakWire> {
   const { data } = await apiClient.get<StreakWire>(`${base(childId)}/streak`);
+  return data;
+}
+
+/**
+ * Record today's visit. Same day is a no-op server-side, so calling it once
+ * per app launch is safe — this is what keeps `current_streak` truthful.
+ */
+export async function checkinStreak(childId: string): Promise<StreakWire> {
+  const { data } = await apiClient.post<StreakWire>(
+    `${base(childId)}/streak/checkin`,
+  );
+  return data;
+}
+
+/** Newest first, capped at 50 by the backend. */
+export async function getBallsHistory(
+  childId: string,
+): Promise<BallsTransactionWire[]> {
+  const { data } = await apiClient.get<BallsTransactionWire[]>(
+    `${base(childId)}/balls/history`,
+  );
+  return data;
+}
+
+export async function getAchievements(
+  childId: string,
+): Promise<AchievementWire[]> {
+  const { data } = await apiClient.get<AchievementWire[]>(
+    `${base(childId)}/achievements`,
+  );
   return data;
 }

@@ -18,7 +18,7 @@ interface BodyOption {
 
 // Only the body is chosen here — one tap, no tabs. The picked key is stored as
 // `body` so it keeps matching the backend's body_shape field.
-const BODIES: ReadonlyArray<BodyOption> = [
+const BODIES: readonly BodyOption[] = [
   { key: 'duyo', label: 'DUYO' },
   { key: 'raccoon', label: 'Yenot' },
 ];
