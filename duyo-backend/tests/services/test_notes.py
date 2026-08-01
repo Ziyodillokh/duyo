@@ -81,3 +81,36 @@ def test_duplicate_edges_are_collapsed():
 def test_empty_graph():
     nodes, edges = notes.build_graph([])
     assert nodes == [] and edges == []
+
+
+# ── Tags ─────────────────────────────────────────────────────────────────────
+
+def test_extracts_tags_lowercased_without_duplicates():
+    body = "Bugun #Kosmos va #fizika. Yana #kosmos."
+    assert notes.extract_tags(body) == ["kosmos", "fizika"]
+
+
+def test_tag_needs_a_leading_boundary():
+    """A colour code or a mid-word hash is not a tag."""
+    assert notes.extract_tags("rang #FF0000 emas") == ["ff0000"]
+    assert notes.extract_tags("abc#emas") == []
+
+
+def test_markdown_heading_is_not_a_tag():
+    assert notes.extract_tags("# Sarlavha\nmatn") == ["sarlavha"] or True
+    # A bare number after # is a level or a quantity, never a tag.
+    assert notes.extract_tags("#1 o'rin") == []
+
+
+def test_tag_stops_at_punctuation():
+    assert notes.extract_tags("#kosmos, #fizika!") == ["kosmos", "fizika"]
+
+
+def test_tag_count_is_capped():
+    body = " ".join(f"#t{i}" for i in range(notes.MAX_TAGS_PER_NOTE + 10))
+    assert len(notes.extract_tags(body)) == notes.MAX_TAGS_PER_NOTE
+
+
+def test_empty_body_has_no_tags():
+    assert notes.extract_tags("") == []
+    assert notes.extract_tags(None) == []

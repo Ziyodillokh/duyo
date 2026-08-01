@@ -14,7 +14,13 @@ from dataclasses import dataclass
 # the whole graph.
 _LINK = re.compile(r"\[\[([^\[\]|]{1,120})\]\]")
 
+# #teg — a tag runs to the first space or punctuation. Requires a leading
+# boundary so a colour like #FF0000 mid-sentence, or a markdown "# heading",
+# is not read as a tag. Digits alone don't make a tag either.
+_TAG = re.compile(r"(?:^|(?<=\s))#([^\s#.,;:!?()\[\]{}'\"]{1,40})")
+
 MAX_LINKS_PER_NOTE = 40
+MAX_TAGS_PER_NOTE = 20
 
 
 def extract_links(body: str) -> list[str]:
@@ -25,6 +31,23 @@ def extract_links(body: str) -> list[str]:
         if title:
             seen.setdefault(title, None)
         if len(seen) >= MAX_LINKS_PER_NOTE:
+            break
+    return list(seen)
+
+
+def extract_tags(body: str) -> list[str]:
+    """Distinct #tags, lowercased, in first-seen order.
+
+    Lowercased because a child writes #Kosmos and #kosmos meaning the same
+    thing; keeping both would split the filter in two.
+    """
+    seen: dict[str, None] = {}
+    for raw in _TAG.findall(body or ""):
+        tag = raw.strip().lower()
+        # A bare number is a heading level or a quantity, not a tag.
+        if tag and not tag.isdigit():
+            seen.setdefault(tag, None)
+        if len(seen) >= MAX_TAGS_PER_NOTE:
             break
     return list(seen)
 

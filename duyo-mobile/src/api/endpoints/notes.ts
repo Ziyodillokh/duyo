@@ -12,6 +12,17 @@ export interface NoteListItem {
 export interface Note extends NoteListItem {
   body: string;
   created_at: string;
+  /** Parsed from the body server-side, never stored. */
+  tags: string[];
+}
+
+export interface NoteSearchHit extends NoteListItem {
+  excerpt: string;
+}
+
+export interface Backlink {
+  id: string;
+  title: string;
 }
 
 export interface GraphNode {
@@ -74,4 +85,28 @@ export async function updateNote(
 
 export async function deleteNote(noteId: string): Promise<void> {
   await apiClient.delete(`/notes/${noteId}`);
+}
+
+export async function searchNotes(
+  childId: string,
+  q: string,
+  tag?: string,
+): Promise<NoteSearchHit[]> {
+  const { data } = await apiClient.get<NoteSearchHit[]>('/notes/search', {
+    params: { child_id: childId, q, tag },
+  });
+  return data;
+}
+
+export async function listTags(childId: string): Promise<string[]> {
+  const { data } = await apiClient.get<string[]>('/notes/tags', {
+    params: { child_id: childId },
+  });
+  return data;
+}
+
+/** Notes that link to this one — "who mentions this?". */
+export async function getBacklinks(noteId: string): Promise<Backlink[]> {
+  const { data } = await apiClient.get<Backlink[]>(`/notes/${noteId}/backlinks`);
+  return data;
 }

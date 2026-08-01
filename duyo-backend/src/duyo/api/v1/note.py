@@ -27,12 +27,14 @@ from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.note import ChildNote
 from duyo.models.user import User
 from duyo.schemas.note import (
+    BacklinkItem,
     GraphEdgeRead,
     GraphNodeRead,
     GraphRead,
     NoteCreate,
     NoteListItem,
     NoteRead,
+    NoteSearchHit,
     NoteUpdate,
 )
 from duyo.services import notes as notes_service
@@ -89,13 +91,39 @@ async def _screen(db: AsyncSession, child: ChildProfile, text: str,
     log.warning("CRISIS in note: level=%s child=%s", result.level.value, child.id)
 
 
+_EXCERPT_RADIUS = 45
+
+
+def _excerpt(body: str, needle: str) -> str:
+    """The words around the first match, so a hit shows why it matched."""
+    at = (body or "").lower().find(needle.lower())
+    if at < 0:
+        return (body or "")[: _EXCERPT_RADIUS * 2].strip()
+    start = max(0, at - _EXCERPT_RADIUS)
+    end = min(len(body), at + len(needle) + _EXCERPT_RADIUS)
+    text = body[start:end].replace("\n", " ").strip()
+    return f"{'…' if start else ''}{text}{'…' if end < len(body) else ''}"
+
+
+def _read(note: ChildNote) -> NoteRead:
+    """NoteRead with tags parsed from the body it carries."""
+    return NoteRead(
+        id=note.id,
+        title=note.title,
+        body=note.body,
+        created_at=note.created_at,
+        updated_at=note.updated_at,
+        tags=notes_service.extract_tags(note.body),
+    )
+
+
 @router.post("", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
 async def create_note(
     payload: NoteCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     detector: KeywordCrisisDetector = Depends(get_detector),
-) -> ChildNote:
+) -> NoteRead:
     child = await _owned_child(payload.child_id, current_user, db)
     note = ChildNote(child_id=child.id, title=payload.title.strip(), body=payload.body)
     db.add(note)
@@ -106,7 +134,7 @@ async def create_note(
             status.HTTP_409_CONFLICT, "Bunday nomli qayd allaqachon bor"
         ) from exc
     await _screen(db, child, f"{payload.title}\n{payload.body}", detector)
-    return note
+    return _read(note)
 
 
 @router.get("", response_model=list[NoteListItem])
@@ -151,13 +179,106 @@ async def note_graph(
     )
 
 
+@router.get("/search", response_model=list[NoteSearchHit])
+async def search_notes(
+    child_id: UUID,
+    q: str,
+    tag: str | None = None,
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[NoteSearchHit]:
+    """Substring search over title and body, optionally narrowed to a #tag.
+
+    ILIKE rather than a tsvector index: a child's notebook is tens of notes,
+    not a corpus, and Postgres full-text stemming has no Uzbek dictionary — it
+    would match worse than a plain substring while costing an index to
+    maintain. Revisit if a child ever reaches thousands of notes.
+    """
+    child = await _owned_child(child_id, current_user, db)
+    needle = q.strip()
+    if not needle:
+        return []
+
+    pattern = f"%{needle}%"
+    rows = (
+        await db.scalars(
+            select(ChildNote)
+            .where(
+                ChildNote.child_id == child.id,
+                ChildNote.title.ilike(pattern) | ChildNote.body.ilike(pattern),
+            )
+            .order_by(ChildNote.updated_at.desc())
+            .limit(min(limit, 100))
+        )
+    ).all()
+
+    hits: list[NoteSearchHit] = []
+    for note in rows:
+        if tag and tag.lower() not in notes_service.extract_tags(note.body):
+            continue
+        hits.append(NoteSearchHit(
+            id=note.id,
+            title=note.title,
+            updated_at=note.updated_at,
+            excerpt=_excerpt(note.body, needle),
+        ))
+    return hits
+
+
+@router.get("/tags", response_model=list[str])
+async def list_tags(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[str]:
+    """Every #tag the child has used, most-used first."""
+    child = await _owned_child(child_id, current_user, db)
+    bodies = (
+        await db.scalars(
+            select(ChildNote.body).where(ChildNote.child_id == child.id)
+        )
+    ).all()
+    counts: dict[str, int] = {}
+    for body in bodies:
+        for tag in notes_service.extract_tags(body):
+            counts[tag] = counts.get(tag, 0) + 1
+    return [t for t, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+
+@router.get("/{note_id}/backlinks", response_model=list[BacklinkItem])
+async def backlinks(
+    note_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[BacklinkItem]:
+    """Notes that link here — "who mentions this?".
+
+    Resolved from the bodies rather than a link table: at a child's scale the
+    scan is trivial, and a table would need to stay in step with every edit.
+    """
+    note = await _owned_note(note_id, current_user, db)
+    rows = (
+        await db.execute(
+            select(ChildNote.id, ChildNote.title, ChildNote.body)
+            .where(ChildNote.child_id == note.child_id, ChildNote.id != note.id)
+        )
+    ).all()
+    target = note.title.casefold()
+    return [
+        BacklinkItem(id=rid, title=rtitle)
+        for rid, rtitle, body in rows
+        if any(link.casefold() == target for link in notes_service.extract_links(body))
+    ]
+
+
 @router.get("/{note_id}", response_model=NoteRead)
 async def get_note(
     note_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> ChildNote:
-    return await _owned_note(note_id, current_user, db)
+) -> NoteRead:
+    return _read(await _owned_note(note_id, current_user, db))
 
 
 @router.put("/{note_id}", response_model=NoteRead)
@@ -167,7 +288,7 @@ async def update_note(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     detector: KeywordCrisisDetector = Depends(get_detector),
-) -> ChildNote:
+) -> NoteRead:
     note = await _owned_note(note_id, current_user, db)
     if payload.title is not None:
         note.title = payload.title.strip()
@@ -183,7 +304,7 @@ async def update_note(
     child = await db.scalar(select(ChildProfile).where(ChildProfile.id == note.child_id))
     if child is not None:
         await _screen(db, child, f"{note.title}\n{note.body}", detector)
-    return note
+    return _read(note)
 
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)

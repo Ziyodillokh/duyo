@@ -23,6 +23,9 @@ class NoteRead(BaseModel):
     body: str
     created_at: datetime
     updated_at: datetime
+    # Parsed from the body on read — never stored, so they can't drift out of
+    # sync with the text the child sees.
+    tags: list[str] = []
 
     model_config = {"from_attributes": True}
 
@@ -35,6 +38,19 @@ class NoteListItem(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class NoteSearchHit(NoteListItem):
+    """A match, with the surrounding words so the child can see why it matched."""
+
+    excerpt: str = ""
+
+
+class BacklinkItem(BaseModel):
+    """A note that links here."""
+
+    id: UUID
+    title: str
 
 
 class GraphNodeRead(BaseModel):
