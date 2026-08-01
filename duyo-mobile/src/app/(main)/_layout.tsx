@@ -1,6 +1,25 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import { useEffect } from 'react';
+
+import { useAuthStore } from '@/store/auth';
 
 export default function MainLayout() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hydrated = useAuthStore((s) => s.hydrated);
+
+  // The session can end mid-screen: the refresh token expires (30 days) or is
+  // rejected, and the API client clears auth. Without this the child stays on
+  // whatever screen they were on while every request 401s — the save button
+  // just keeps failing with no explanation. Send them to sign-in instead.
+  //
+  // Waits for `hydrated` so the first frame after a cold start, when the store
+  // is still empty, doesn't bounce a logged-in child out to onboarding.
+  useEffect(() => {
+    if (hydrated && !isAuthenticated) {
+      router.replace('/(onboarding)/phone');
+    }
+  }, [hydrated, isAuthenticated]);
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
