@@ -6,10 +6,13 @@ import { BottomNav, type TabKey } from '@/components/v2/dark/bottom-nav';
 type TabBarProp = NonNullable<ComponentProps<typeof Tabs>['tabBar']>;
 type TabBarProps = Parameters<TabBarProp>[0];
 
+// Keys are route file names under (tabs). Must stay in step with TABS in
+// bottom-nav.tsx: a stale key here silently no-ops on tap, and the reverse
+// lookup silently falls back to 'home' rather than erroring.
 const ROUTE_TO_TAB: Record<string, TabKey> = {
   index: 'home',
   chat: 'chat',
-  library: 'library',
+  goals: 'goals',
   profile: 'profile',
   inventory: 'inventory',
 };
@@ -38,7 +41,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="chat" />
-      <Tabs.Screen name="library" />
+      <Tabs.Screen name="goals" />
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="inventory" />
     </Tabs>

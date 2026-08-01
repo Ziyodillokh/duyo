@@ -31,7 +31,7 @@ interface ActionCard {
   emoji: string;
   label: string;
   colors: readonly [string, string];
-  href: '/(main)/(tabs)/chat' | '/(main)/(tabs)/library' | '/(main)/(tabs)/inventory';
+  href: '/(main)/(tabs)/chat' | '/(main)/library' | '/(main)/(tabs)/inventory';
 }
 
 const ACTION_CARDS: ReadonlyArray<ActionCard> = [
@@ -47,14 +47,14 @@ const ACTION_CARDS: ReadonlyArray<ActionCard> = [
     emoji: '📚',
     label: "She'r o'qish",
     colors: ['#51A2FF', '#00D3F3'],
-    href: '/(main)/(tabs)/library',
+    href: '/(main)/library',
   },
   {
     key: 'story',
     emoji: '🎵',
     label: 'Ertak tinglash',
     colors: ['#05DF72', '#00D492'],
-    href: '/(main)/(tabs)/library',
+    href: '/(main)/library',
   },
   {
     key: 'game',

@@ -11,6 +11,7 @@ export default function MainLayout() {
       <Stack.Screen name="settings-privacy" />
       <Stack.Screen name="settings-help" />
       <Stack.Screen name="avatar-customization" />
+      <Stack.Screen name="library" />
       <Stack.Screen name="library-item" />
       <Stack.Screen name="dtm" />
       <Stack.Screen name="language-practice" />

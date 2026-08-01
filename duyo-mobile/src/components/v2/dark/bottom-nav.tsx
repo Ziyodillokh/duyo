@@ -1,8 +1,8 @@
 import {
-  BookOpen,
   Home,
   MessageCircle,
   Package,
+  Target,
   User,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
@@ -11,18 +11,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useIsDark } from '@/store/theme';
 
-export type TabKey = 'home' | 'chat' | 'library' | 'profile' | 'inventory';
+export type TabKey = 'home' | 'chat' | 'goals' | 'profile' | 'inventory';
 
 interface TabItem {
   key: TabKey;
   label: string;
   Icon: ComponentType<{ size?: number; color?: string }>;
+  /** Rendered in a filled circle — the tab the product leads with. */
+  emphasis?: 'center';
 }
 
+// Position 3 of 5 IS the middle, so Maqsadlar lands centre with no reordering.
+// Kutubxona is not gone: it moved to a pushed screen at /(main)/library,
+// still reachable from every home card.
 const TABS: ReadonlyArray<TabItem> = [
   { key: 'home', label: 'Bosh sahifa', Icon: Home },
   { key: 'chat', label: 'Suhbat', Icon: MessageCircle },
-  { key: 'library', label: 'Kutubxona', Icon: BookOpen },
+  { key: 'goals', label: 'Maqsadlar', Icon: Target, emphasis: 'center' },
   { key: 'profile', label: 'Profil', Icon: User },
   { key: 'inventory', label: 'Inventar', Icon: Package },
 ];
@@ -60,7 +65,21 @@ export function BottomNav({ active, onSelect }: BottomNavProps) {
             accessibilityLabel={tab.label}
             className="h-16 flex-1 items-center justify-center gap-1"
           >
-            <tab.Icon size={24} color={color} />
+            {tab.emphasis === 'center' ? (
+              // Filled circle, NOT lifted above the bar with a negative margin:
+              // Android clips overflow on the safe-area-padded container, which
+              // would regress the edge-to-edge fix in 8e0d72b.
+              <View
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: isActive ? activeColor : `${activeColor}22`,
+                }}
+              >
+                <tab.Icon size={20} color={isActive ? '#FFFFFF' : activeColor} />
+              </View>
+            ) : (
+              <tab.Icon size={24} color={color} />
+            )}
             <Text
               className="text-xs font-medium"
               style={{ color }}

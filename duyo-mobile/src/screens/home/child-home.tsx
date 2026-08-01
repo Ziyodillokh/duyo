@@ -35,7 +35,7 @@ interface ChildActionCard {
   iconColor: string;
   href:
     | '/(main)/(tabs)/chat'
-    | '/(main)/(tabs)/library'
+    | '/(main)/library'
     | '/(main)/(tabs)/inventory'
     | '/(main)/lesson-help';
 }
@@ -53,7 +53,7 @@ const ACTION_CARDS: ReadonlyArray<ChildActionCard> = [
     Icon: BookOpen,
     label: "She'r o'qish",
     iconColor: '#FDC700',
-    href: '/(main)/(tabs)/library',
+    href: '/(main)/library',
   },
   {
     key: 'lessons',

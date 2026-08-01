@@ -67,7 +67,7 @@ interface ActionCard {
   Icon: typeof MessageCircle;
   iconColor: string;
   gradientColors: readonly [string, string];
-  href: '/(main)/dtm' | '/(main)/(tabs)/chat' | '/(main)/lesson-help' | '/(main)/(tabs)/library';
+  href: '/(main)/dtm' | '/(main)/(tabs)/chat' | '/(main)/lesson-help' | '/(main)/library';
 }
 
 const ACTION_CARDS: ReadonlyArray<ActionCard> = [
@@ -105,7 +105,7 @@ const ACTION_CARDS: ReadonlyArray<ActionCard> = [
     Icon: Briefcase,
     iconColor: '#FFFFFF',
     gradientColors: ['#FF8904', '#F54900'],
-    href: '/(main)/(tabs)/library',
+    href: '/(main)/library',
   },
 ];
 

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Search } from 'lucide-react-native';
+import { ArrowLeft, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   Pressable,
@@ -143,9 +143,22 @@ export default function LibraryScreen() {
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 96 }}
           showsVerticalScrollIndicator={false}
         >
-          <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
-            Kutubxona
-          </Text>
+          {/* Back row — this is a pushed screen now (it left the tab bar when
+              Maqsadlar took its slot), so it needs its own way out. */}
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Orqaga"
+              hitSlop={10}
+              className="p-1 -ml-1"
+            >
+              <ArrowLeft size={24} color={isDark ? '#E0E7FF' : '#102033'} />
+            </Pressable>
+            <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
+              Kutubxona
+            </Text>
+          </View>
 
           <View
             className="flex-row items-center rounded-lg gap-2 border border-neon-blue/20"
