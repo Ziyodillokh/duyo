@@ -15,6 +15,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Goal } from '@/api/endpoints/goals';
+import { GoalMatesSection } from '@/components/goals/goal-mates-section';
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import { ProgressBar } from '@/components/v2/dark/progress-bar';
 import {
@@ -392,6 +393,10 @@ export default function GoalsScreen() {
                 )}
               </>
             )}
+
+            {/* Peers working toward the same thing. Sits below the child's own
+                goals: the goal comes first, the company second. */}
+            <GoalMatesSection childId={childId} />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
