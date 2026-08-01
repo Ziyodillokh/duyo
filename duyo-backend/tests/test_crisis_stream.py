@@ -98,3 +98,30 @@ def test_inject_custom_detector():
     s = StreamCrisisDetector(detector=custom)
     s.feed("safe")
     assert s.result.level == CrisisLevel.GREEN
+
+
+# ---------------------------------------------------------------------------
+# Layer 2 fail-safe: a missing/broken client must not 500 the chat turn
+# ---------------------------------------------------------------------------
+
+
+async def test_layer2_falls_back_to_layer1_when_client_unavailable(monkeypatch):
+    """get_client() raising (no GOOGLE_API_KEY) must degrade, not propagate.
+
+    Regression: get_client() used to be called above the try block, so a
+    missing key raised RuntimeError straight out of classify() and the whole
+    chat turn returned 500 — with no crisis screening at all.
+    """
+    from duyo.models.crisis_event import CrisisLevel
+    from duyo.services import crisis_l2
+
+    def _boom():
+        raise RuntimeError("GOOGLE_API_KEY is not set")
+
+    monkeypatch.setattr(crisis_l2, "get_client", _boom)
+
+    result = await crisis_l2.classify("salom", CrisisLevel.YELLOW)
+
+    assert result.level == CrisisLevel.YELLOW  # Layer 1 verdict preserved
+    assert result.confidence == 0.0
+    assert "layer2_error" in result.reasoning

@@ -38,7 +38,6 @@ async def classify(child_message: str, layer1_level: CrisisLevel) -> Layer2Resul
     above it but should never silently downgrade unless very confident.
     """
     settings = get_settings()
-    client = get_client()
 
     user_payload = (
         f"Bola xabari: {child_message!r}\n"
@@ -48,6 +47,12 @@ async def classify(child_message: str, layer1_level: CrisisLevel) -> Layer2Resul
 
     start = time.perf_counter()
     try:
+        # Inside the try on purpose: get_client() raises when GOOGLE_API_KEY is
+        # missing or the SDK rejects it. Constructed above, that raise escaped
+        # this handler and 500'd the whole chat turn — defeating the fail-safe
+        # this function documents. Every other Gemini caller (dtm, language,
+        # reports, guidance) already builds the client inside its try.
+        client = get_client()
         resp = await client.aio.models.generate_content(
             model=settings.gemini_model_primary,
             contents=user_payload,
