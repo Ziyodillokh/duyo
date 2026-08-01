@@ -15,6 +15,8 @@ export interface LayoutEdge {
   /** Endpoint titles, so the view can dim edges outside the focused set. */
   sourceTitle: string;
   targetTitle: string;
+  /** A mention is drawn fainter than a link the child typed on purpose. */
+  kind: GraphEdge['kind'];
 }
 
 export interface Layout {
@@ -75,9 +77,10 @@ export function layoutGraph(
     .map((e) => [
       index.get(e.source.toLowerCase()),
       index.get(e.target.toLowerCase()),
+      e.kind,
     ])
-    .filter((pair): pair is [number, number] =>
-      pair[0] !== undefined && pair[1] !== undefined && pair[0] !== pair[1],
+    .filter((t): t is [number, number, GraphEdge['kind']] =>
+      t[0] !== undefined && t[1] !== undefined && t[0] !== t[1],
     );
 
   for (let step = 0; step < ITERATIONS; step++) {
@@ -146,11 +149,17 @@ export function layoutGraph(
   const pad = 26;
   const spanX = maxX - minX || 1;
   const spanY = maxY - minY || 1;
-  // Shrink to fit, never stretch to fill. Blowing a two-note graph up to the
+  // Shrink to fit; stretch only a little. Blowing a two-note graph up to the
   // full canvas pushed the pair into opposite corners with nothing between
-  // them; keeping scale ≤ 1 lets the simulation's own spacing stand and a
-  // small graph sits as a small cluster in the middle, the way Obsidian's does.
-  const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY, 1);
+  // them, but capping at 1 left a six-note graph as a small clump in a mostly
+  // empty box. MAX_FIT is the middle: a small graph uses the canvas without
+  // the gaps growing absurd.
+  const MAX_FIT = 1.7;
+  const scale = Math.min(
+    (width - pad * 2) / spanX,
+    (height - pad * 2) / spanY,
+    MAX_FIT,
+  );
   const offsetX = pad + (width - pad * 2 - spanX * scale) / 2;
   const offsetY = pad + (height - pad * 2 - spanY * scale) / 2;
 
@@ -166,13 +175,14 @@ export function layoutGraph(
 
   return {
     nodes: positioned,
-    edges: links.map(([a, b]) => ({
+    edges: links.map(([a, b, kind]) => ({
       x1: toX(xs[a]),
       y1: toY(ys[a]),
       x2: toX(xs[b]),
       y2: toY(ys[b]),
       sourceTitle: nodes[a].title,
       targetTitle: nodes[b].title,
+      kind,
     })),
   };
 }

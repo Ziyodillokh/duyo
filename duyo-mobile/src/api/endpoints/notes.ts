@@ -25,17 +25,25 @@ export interface Backlink {
   title: string;
 }
 
+export type GraphNodeKind = 'note' | 'unwritten' | 'tag';
+
 export interface GraphNode {
-  /** null for a [[link]] whose note hasn't been written yet. */
+  /** null for an unwritten [[link]] and for every #tag node. */
   id: string | null;
   title: string;
   links: number;
   exists: boolean;
+  kind: GraphNodeKind;
 }
+
+/** "link" is a deliberate [[wiki-link]]; "tag" joins notes through a #tag;
+ *  "mention" is one note naming another in plain prose. */
+export type GraphEdgeKind = 'link' | 'tag' | 'mention';
 
 export interface GraphEdge {
   source: string;
   target: string;
+  kind: GraphEdgeKind;
 }
 
 export interface NoteGraph {
@@ -43,9 +51,12 @@ export interface NoteGraph {
   edges: GraphEdge[];
 }
 
-export async function listNotes(childId: string): Promise<NoteListItem[]> {
+export async function listNotes(
+  childId: string,
+  tag?: string,
+): Promise<NoteListItem[]> {
   const { data } = await apiClient.get<NoteListItem[]>('/notes', {
-    params: { child_id: childId },
+    params: { child_id: childId, tag },
   });
   return data;
 }

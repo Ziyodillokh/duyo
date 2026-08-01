@@ -58,11 +58,15 @@ class GraphNodeRead(BaseModel):
     title: str
     links: int
     exists: bool
+    # "note" | "unwritten" | "tag" — the view colours by this.
+    kind: str = "note"
 
 
 class GraphEdgeRead(BaseModel):
     source: str
     target: str
+    # "link" | "tag" | "mention" — the view draws a mention fainter.
+    kind: str = "link"
 
 
 class GraphRead(BaseModel):

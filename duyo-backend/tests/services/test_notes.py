@@ -114,3 +114,78 @@ def test_tag_count_is_capped():
 def test_empty_body_has_no_tags():
     assert notes.extract_tags("") == []
     assert notes.extract_tags(None) == []
+
+
+# ── Tag nodes in the graph ───────────────────────────────────────────────────
+
+def test_tag_becomes_a_node_joining_the_notes_that_carry_it():
+    """Two notes sharing #fizika are related even without a [[link]]."""
+    nodes, edges = notes.build_graph([
+        ("1", "Tortishish", "Nyuton #fizika"),
+        ("2", "Yoruglik", "tezlik #fizika"),
+    ])
+    tag = next(n for n in nodes if n.title == "#fizika")
+    assert tag.kind == "tag"
+    assert tag.exists is False and tag.id is None
+    assert tag.links == 2
+    assert notes.GraphEdge("Tortishish", "#fizika", kind="tag") in edges
+    assert notes.GraphEdge("Yoruglik", "#fizika", kind="tag") in edges
+
+
+def test_tag_and_note_of_the_same_name_stay_separate():
+    nodes, _ = notes.build_graph([
+        ("1", "Kundalik", "[[Kosmos]] va #kosmos"),
+        ("2", "Kosmos", ""),
+    ])
+    kinds = {n.title: n.kind for n in nodes}
+    assert kinds["Kosmos"] == "note"
+    assert kinds["#kosmos"] == "tag"
+
+
+def test_node_kinds_cover_all_three_cases():
+    nodes, _ = notes.build_graph([
+        ("1", "Yozilgan", "[[Yozilmagan]] #teg"),
+    ])
+    assert {n.kind for n in nodes} == {"note", "unwritten", "tag"}
+
+
+def test_plain_prose_mention_becomes_an_edge():
+    """A child writes a title in prose, not as [[…]] — still a relationship.
+
+    This is the whole reason the graph isn't a field of unconnected dots for a
+    child who has never typed a wiki-link.
+    """
+    _, edges = notes.build_graph([
+        ("1", "Vulqon", "Lava juda issiq va Dinozavr uni ko'rgan."),
+        ("2", "Dinozavr", "Katta hayvon."),
+    ])
+    assert notes.GraphEdge("Vulqon", "Dinozavr", kind="mention") in edges
+
+
+def test_explicit_link_outranks_a_mention_for_the_same_pair():
+    """One relationship, one edge — and it keeps the stronger kind."""
+    _, edges = notes.build_graph([
+        ("1", "Vulqon", "[[Dinozavr]] va yana Dinozavr haqida."),
+        ("2", "Dinozavr", "Vulqon yonida yashagan."),
+    ])
+    pair = [e for e in edges if {e.source, e.target} == {"Vulqon", "Dinozavr"}]
+    assert len(pair) == 1
+    assert pair[0].kind == "link"
+
+
+def test_mention_needs_a_whole_word():
+    """"Suv" must not match inside "Suvenir" — substring hits are noise."""
+    _, edges = notes.build_graph([
+        ("1", "Sovga", "Menga Suvenir olib kelishdi."),
+        ("2", "Suvv", "H2O."),
+    ])
+    assert edges == []
+
+
+def test_short_titles_are_never_mentions():
+    """"Uy" appears in half of everything; it would wire the graph to mush."""
+    _, edges = notes.build_graph([
+        ("1", "Maktab", "Uy vazifasi ko'p edi."),
+        ("2", "Uy", "Men yashaydigan joy."),
+    ])
+    assert edges == []

@@ -140,16 +140,27 @@ async def create_note(
 @router.get("", response_model=list[NoteListItem])
 async def list_notes(
     child_id: UUID,
+    tag: str | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[ChildNote]:
+    """Every note, newest first — optionally only those carrying a #tag.
+
+    Filtered in Python for the same reason tags aren't a column: they're parsed
+    from the body on read, so they can never drift out of step with the text
+    the child actually sees.
+    """
     child = await _owned_child(child_id, current_user, db)
     rows = await db.scalars(
         select(ChildNote)
         .where(ChildNote.child_id == child.id)
         .order_by(ChildNote.updated_at.desc())
     )
-    return list(rows.all())
+    notes = list(rows.all())
+    if tag:
+        wanted = tag.lstrip("#").lower()
+        notes = [n for n in notes if wanted in notes_service.extract_tags(n.body)]
+    return notes
 
 
 @router.get("/graph", response_model=GraphRead)
@@ -172,10 +183,13 @@ async def note_graph(
     return GraphRead(
         nodes=[
             GraphNodeRead(id=UUID(n.id) if n.id else None, title=n.title,
-                          links=n.links, exists=n.exists)
+                          links=n.links, exists=n.exists, kind=n.kind)
             for n in nodes
         ],
-        edges=[GraphEdgeRead(source=e.source, target=e.target) for e in edges],
+        edges=[
+            GraphEdgeRead(source=e.source, target=e.target, kind=e.kind)
+            for e in edges
+        ],
     )
 
 

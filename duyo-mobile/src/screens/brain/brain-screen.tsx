@@ -58,8 +58,8 @@ export default function BrainScreen() {
     enabled: !!childId,
   });
   const notes = useQuery({
-    queryKey: ['notes', childId],
-    queryFn: () => listNotes(childId),
+    queryKey: ['notes', childId, activeTag],
+    queryFn: () => listNotes(childId, activeTag ?? undefined),
     enabled: !!childId,
   });
   const tags = useQuery({
@@ -131,6 +131,11 @@ export default function BrainScreen() {
   };
 
   const onSelectNode = (node: GraphNode) => {
+    // A tag node isn't a note — tapping it filters the map by that tag.
+    if (node.kind === 'tag') {
+      setActiveTag(node.title.replace(/^#/, '').toLowerCase());
+      return;
+    }
     if (node.id) open.mutate(node.id);
     else startNew(node.title);
   };
@@ -286,6 +291,59 @@ export default function BrainScreen() {
                     style={{ backgroundColor: cardBg, minHeight: 220 }}
                   />
 
+                  {/* A child will not discover "[[" on their own, and a note
+                      that links to nothing leaves the map a field of loose
+                      dots. These two buttons are how the graph gets built. */}
+                  <View className="flex-row gap-2">
+                    <Pressable
+                      onPress={() => setBody((p) => `${p}[[`)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Boshqa qaydga bog'lash"
+                      className="flex-1 rounded-md items-center justify-center active:opacity-70"
+                      style={{ height: 42, backgroundColor: 'rgba(96,165,250,0.15)' }}
+                    >
+                      <Text className="text-sm text-neon-blue">🔗 Qaydga bog'lash</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setBody((p) => `${p}${p.endsWith(' ') || p === '' ? '' : ' '}#`)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Teg qo'shish"
+                      className="flex-1 rounded-md items-center justify-center active:opacity-70"
+                      style={{ height: 42, backgroundColor: 'rgba(253,199,0,0.15)' }}
+                    >
+                      <Text className="text-sm" style={{ color: '#FDC700' }}>
+                        # Teg qo'shish
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Tags the child already uses — tapping one is faster than
+                      retyping it, and keeps #kosmos from becoming #kosmoss. */}
+                  {!!tags.data?.length && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View className="flex-row gap-2">
+                        {tags.data.slice(0, 12).map((t) => (
+                          <Pressable
+                            key={t}
+                            onPress={() =>
+                              setBody((p) =>
+                                `${p}${p.endsWith(' ') || p === '' ? '' : ' '}#${t} `,
+                              )
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`#${t} tegini qo'shish`}
+                            className="rounded-full px-3 py-1.5 active:opacity-70"
+                            style={{ backgroundColor: 'rgba(253,199,0,0.12)' }}
+                          >
+                            <Text className="text-xs" style={{ color: '#FDC700' }}>
+                              #{t}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  )}
+
                   {suggestions.length > 0 && (
                     <View className="rounded-md" style={{ backgroundColor: cardBg, padding: 6 }}>
                       {suggestions.map((s) => (
@@ -416,7 +474,7 @@ export default function BrainScreen() {
                   {!!notes.data?.length && (
                     <View className="gap-2">
                       <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                        Qaydlar ({notes.data.length})
+                        {activeTag ? `#${activeTag}` : 'Qaydlar'} ({notes.data.length})
                       </Text>
                       {notes.data.map((n) => (
                         <Pressable

@@ -11,8 +11,12 @@ import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 import type { GraphEdge, GraphNode } from '@/api/endpoints/notes';
 import { layoutGraph, type PositionedNode } from '@/lib/graph-layout';
 
-const WRITTEN = '#60A5FA';
-const GHOST = '#5C7599';
+// One colour per node kind, mirroring Obsidian's --graph-node /
+// --graph-node-unresolved / --graph-node-tag. Colour is what turns a mass of
+// identical dots into something readable at a glance.
+const WRITTEN = '#60A5FA';   // a note that exists
+const GHOST = '#5C7599';     // a [[link]] not yet written
+const TAG = '#FDC700';       // a #tag
 const EDGE = 'rgba(96, 165, 250, 0.30)';
 const EDGE_ON = 'rgba(147, 197, 253, 0.85)';
 const LABEL = '#C7D6EC';
@@ -20,6 +24,21 @@ const DIM = 0.18;
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
+
+function colourOf(kind: GraphNode['kind']): string {
+  if (kind === 'tag') return TAG;
+  if (kind === 'unwritten') return GHOST;
+  return WRITTEN;
+}
+
+/** What a screen reader says. A tag is not an unwritten note — it has no note
+ *  behind it by design, and calling it "unwritten" would invite the child to
+ *  write one. */
+function labelOf(node: { title: string; kind: GraphNode['kind'] }): string {
+  if (node.kind === 'tag') return `${node.title} tegi`;
+  if (node.kind === 'unwritten') return `${node.title} — hali yozilmagan`;
+  return node.title;
+}
 
 interface Props {
   nodes: GraphNode[];
@@ -67,42 +86,44 @@ export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
   const savedTx = useSharedValue(0);
   const savedTy = useSharedValue(0);
 
+  // .set()/.get() rather than .value: React Compiler can prove these are
+  // shared-value accessors, where a bare `.value =` reads as mutating state.
   const pinch = Gesture.Pinch()
     .onUpdate((e) => {
-      scale.value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, savedScale.value * e.scale));
+      scale.set(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, savedScale.get() * e.scale)));
     })
     .onEnd(() => {
-      savedScale.value = scale.value;
+      savedScale.set(scale.get());
     });
 
   const pan = Gesture.Pan()
     .averageTouches(true)
     .onUpdate((e) => {
-      tx.value = savedTx.value + e.translationX;
-      ty.value = savedTy.value + e.translationY;
+      tx.set(savedTx.get() + e.translationX);
+      ty.set(savedTy.get() + e.translationY);
     })
     .onEnd(() => {
-      savedTx.value = tx.value;
-      savedTy.value = ty.value;
+      savedTx.set(tx.get());
+      savedTy.set(ty.get());
     });
 
   const gesture = Gesture.Simultaneous(pinch, pan);
 
   const canvasStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: tx.value },
-      { translateY: ty.value },
-      { scale: scale.value },
+      { translateX: tx.get() },
+      { translateY: ty.get() },
+      { scale: scale.get() },
     ],
   }));
 
   const reset = () => {
-    scale.value = withTiming(1);
-    savedScale.value = 1;
-    tx.value = withTiming(0);
-    ty.value = withTiming(0);
-    savedTx.value = 0;
-    savedTy.value = 0;
+    scale.set(withTiming(1));
+    savedScale.set(1);
+    tx.set(withTiming(0));
+    ty.set(withTiming(0));
+    savedTx.set(0);
+    savedTy.set(0);
     setFocus(null);
   };
 
@@ -141,13 +162,18 @@ export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
                 const bow = Math.min(18, len * 0.12);
                 const cx = mx - (dy / len) * bow;
                 const cy = my + (dx / len) * bow;
+                // A mention is something we inferred, not something the child
+                // typed — drawn thinner and dashed so the map never overstates
+                // how deliberate a connection was.
+                const guessed = e.kind === 'mention';
                 return (
                   <Path
                     key={`e${i}`}
                     d={`M ${e.x1} ${e.y1} Q ${cx} ${cy} ${e.x2} ${e.y2}`}
                     stroke={lit ? EDGE_ON : EDGE}
-                    strokeWidth={lit ? 1.8 : 1.2}
-                    strokeOpacity={lit ? 1 : DIM}
+                    strokeWidth={guessed ? 1 : lit ? 1.8 : 1.2}
+                    strokeDasharray={guessed ? '4,4' : undefined}
+                    strokeOpacity={(lit ? 1 : DIM) * (guessed ? 0.6 : 1)}
                     fill="none"
                   />
                 );
@@ -160,24 +186,27 @@ export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
                   cx={n.x}
                   cy={n.y}
                   r={n.r * 2.4}
-                  fill={n.exists ? WRITTEN : GHOST}
+                  fill={colourOf(n.kind)}
                   opacity={0.13 * alpha(n.title)}
                 />
               ))}
 
-              {layout.nodes.map((n) => (
-                <Circle
-                  key={`c-${n.title}`}
-                  cx={n.x}
-                  cy={n.y}
-                  r={n.r}
-                  fill={n.exists ? WRITTEN : 'transparent'}
-                  stroke={n.exists ? '#BFDBFE' : GHOST}
-                  strokeWidth={n.exists ? (focus === n.title ? 2.5 : 1) : 1.5}
-                  strokeDasharray={n.exists ? undefined : '3,3'}
-                  opacity={alpha(n.title)}
-                />
-              ))}
+              {layout.nodes.map((n) => {
+                const solid = n.kind !== 'unwritten';
+                return (
+                  <Circle
+                    key={`c-${n.title}`}
+                    cx={n.x}
+                    cy={n.y}
+                    r={n.r}
+                    fill={solid ? colourOf(n.kind) : 'transparent'}
+                    stroke={solid ? '#BFDBFE' : GHOST}
+                    strokeWidth={solid ? (focus === n.title ? 2.5 : 1) : 1.5}
+                    strokeDasharray={solid ? undefined : '3,3'}
+                    opacity={alpha(n.title)}
+                  />
+                );
+              })}
 
               {layout.nodes.map((n) => (
                 <SvgText
@@ -203,9 +232,7 @@ export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
                   key={`p-${n.title}`}
                   onPress={() => tap(n)}
                   accessibilityRole="button"
-                  accessibilityLabel={
-                    n.exists ? n.title : `${n.title} — hali yozilmagan`
-                  }
+                  accessibilityLabel={labelOf(n)}
                   style={{
                     position: 'absolute',
                     left: n.x - hit,
