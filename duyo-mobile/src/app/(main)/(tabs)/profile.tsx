@@ -1,6 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Crown, Flame, Settings as SettingsIcon, Star, Trophy } from 'lucide-react-native';
+import {
+  ChevronRight,
+  Crown,
+  Flame,
+  Package,
+  Settings as SettingsIcon,
+  Star,
+  Trophy,
+} from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -168,6 +176,36 @@ export default function ProfileScreen() {
                 : 'Seriyani boshlash uchun DUYO bilan suhbatlashing'}
             </Text>
           </DarkCard>
+
+          {/* Inventar — folded in from its own tab: it answers the same
+              "what do I have" question this screen does. */}
+          <Pressable
+            onPress={() => router.push('/(main)/inventory')}
+            accessibilityRole="button"
+            accessibilityLabel="Inventarni ochish"
+            className="active:opacity-80"
+            style={{ marginBottom: 16 }}
+          >
+            <DarkCard>
+              <View className="flex-row items-center gap-3" style={{ padding: 16 }}>
+                <View
+                  className="items-center justify-center rounded-md"
+                  style={{ width: 44, height: 44, backgroundColor: 'rgba(96,165,250,0.15)' }}
+                >
+                  <Package size={22} color="#60A5FA" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
+                    Inventar
+                  </Text>
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-0.5">
+                    Aksessuarlar va buyumlaring
+                  </Text>
+                </View>
+                <ChevronRight size={20} color="#94A3B8" />
+              </View>
+            </DarkCard>
+          </Pressable>
 
           <Pressable
             onPress={() => router.push('/(main)/subscription')}

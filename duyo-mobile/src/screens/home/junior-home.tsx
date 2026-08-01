@@ -31,7 +31,7 @@ interface ActionCard {
   emoji: string;
   label: string;
   colors: readonly [string, string];
-  href: '/(main)/(tabs)/chat' | '/(main)/library' | '/(main)/(tabs)/inventory';
+  href: '/(main)/(tabs)/chat' | '/(main)/library' | '/(main)/inventory';
 }
 
 const ACTION_CARDS: ReadonlyArray<ActionCard> = [
@@ -61,7 +61,7 @@ const ACTION_CARDS: ReadonlyArray<ActionCard> = [
     emoji: '🎮',
     label: "O'yinlar",
     colors: ['#FF8904', '#FF6467'],
-    href: '/(main)/(tabs)/inventory',
+    href: '/(main)/inventory',
   },
 ];
 

@@ -14,6 +14,7 @@ export default function MainLayout() {
       <Stack.Screen name="library" />
       <Stack.Screen name="peer-chat" />
       <Stack.Screen name="library-item" />
+      <Stack.Screen name="inventory" />
       <Stack.Screen name="dtm" />
       <Stack.Screen name="language-practice" />
       <Stack.Screen name="lesson-help" />

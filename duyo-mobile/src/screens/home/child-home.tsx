@@ -36,7 +36,7 @@ interface ChildActionCard {
   href:
     | '/(main)/(tabs)/chat'
     | '/(main)/library'
-    | '/(main)/(tabs)/inventory'
+    | '/(main)/inventory'
     | '/(main)/lesson-help';
 }
 
@@ -67,7 +67,7 @@ const ACTION_CARDS: ReadonlyArray<ChildActionCard> = [
     Icon: Package,
     label: 'Inventar',
     iconColor: '#FB64B6',
-    href: '/(main)/(tabs)/inventory',
+    href: '/(main)/inventory',
   },
 ];
 

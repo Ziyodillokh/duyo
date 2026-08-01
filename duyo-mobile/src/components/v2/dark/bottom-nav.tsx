@@ -1,7 +1,7 @@
 import {
+  Brain,
   Home,
   MessageCircle,
-  Package,
   Target,
   User,
 } from 'lucide-react-native';
@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useIsDark } from '@/store/theme';
 
-export type TabKey = 'home' | 'chat' | 'goals' | 'profile' | 'inventory';
+export type TabKey = 'home' | 'chat' | 'goals' | 'brain' | 'profile';
 
 interface TabItem {
   key: TabKey;
@@ -28,8 +28,10 @@ const TABS: ReadonlyArray<TabItem> = [
   { key: 'home', label: 'Bosh sahifa', Icon: Home },
   { key: 'chat', label: 'Suhbat', Icon: MessageCircle },
   { key: 'goals', label: 'Maqsadlar', Icon: Target, emphasis: 'center' },
+  // Inventory moved inside Profil — it is part of "what I have", and the slot
+  // it freed goes to the note graph.
+  { key: 'brain', label: 'Miya', Icon: Brain },
   { key: 'profile', label: 'Profil', Icon: User },
-  { key: 'inventory', label: 'Inventar', Icon: Package },
 ];
 
 interface BottomNavProps {

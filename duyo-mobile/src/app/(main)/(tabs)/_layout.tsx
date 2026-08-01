@@ -13,8 +13,8 @@ const ROUTE_TO_TAB: Record<string, TabKey> = {
   index: 'home',
   chat: 'chat',
   goals: 'goals',
+  brain: 'brain',
   profile: 'profile',
-  inventory: 'inventory',
 };
 
 function CustomTabBar({ state, navigation }: TabBarProps) {
@@ -42,8 +42,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="chat" />
       <Tabs.Screen name="goals" />
+      <Tabs.Screen name="brain" />
       <Tabs.Screen name="profile" />
-      <Tabs.Screen name="inventory" />
     </Tabs>
   );
 }

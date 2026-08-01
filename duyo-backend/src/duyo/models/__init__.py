@@ -22,6 +22,7 @@ from duyo.models.goal import (
     GoalStatus,
 )
 from duyo.models.message import Message, MessageRole
+from duyo.models.note import ChildNote
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
 from duyo.models.psychology_chunk import PsychologyChunk
@@ -53,6 +54,7 @@ __all__ = [
     "CampaignStatus",
     "ChildGoal",
     "ChildGoalEvent",
+    "ChildNote",
     "ChildProfile",
     "ChildSocialSettings",
     "ContentItem",
