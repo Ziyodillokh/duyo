@@ -151,6 +151,39 @@ PARENT_GUIDANCE_PROMPT = (
 )
 
 
+# Goal extractor — runs in the background after a chat turn, never in the reply
+# path. Deliberately conservative: a companion that invents goals for a child
+# is worse than one that misses a few, so anything short of an explicit
+# statement returns has_goal=false.
+GOAL_EXTRACT_PROMPT = (
+    "Sen bolaning gapini o'qib, unda ANIQ MAQSAD bor-yo'qligini aniqlaysan.\n\n"
+    "MAQSAD deb hisoblanadi (bola o'zi aytgan bo'lsa):\n"
+    "- kitob o'qish niyati: \"O'tkan Kunlarni o'qimoqchiman\"\n"
+    "- darslikni tugatish: \"6-sinf fizikani tugatmoqchiman\"\n"
+    "- imtihonga tayyorgarlik: \"DTMga matematika tayyorlanyapman\"\n"
+    "- ko'nikma: \"ingliz tilida gapirishni o'rganmoqchiman\"\n"
+    "- odat: \"har kuni kitob o'qishni boshlayman\"\n\n"
+    "MAQSAD EMAS:\n"
+    "- oddiy savol: \"sitoplazma nima?\"\n"
+    "- his-tuyg'u: \"charchadim\", \"zerikdim\"\n"
+    "- bir martalik ish: \"uy vazifamni qilishim kerak\"\n"
+    "- sening o'z taklifing yoki bola shunchaki qiziqqan narsa\n\n"
+    "PROGRESS — bola allaqachon boshlagan ishida qayerdaligini aytsa: "
+    "\"10-betdaman\", \"3-bobni tugatdim\", \"20 ta masala yechdim\".\n\n"
+    "SHUBHALANSANG — has_goal=false qaytar. Bo'lmagan maqsadni yozib "
+    "qo'yish, bittasini o'tkazib yuborishdan yomonroq.\n\n"
+    "FAQAT shu JSON:\n"
+    "{\n"
+    '  "has_goal": true,\n'
+    '  "kind": "book|textbook|skill|exam|habit|other",\n'
+    '  "title": "bolaning o\'z so\'zlari bilan, qisqa (60 belgigacha)",\n'
+    '  "unit_label": "bet|bob|dars|kun yoki null",\n'
+    '  "total_units": son yoki null,\n'
+    '  "progress_value": son yoki null\n'
+    "}"
+)
+
+
 # Chalkboard tutor — the child asks a problem mid-conversation and DUYO writes
 # it out on a board. Unlike LESSON_HELP_PROMPT (prose steps for a scrollable
 # screen), every line here must fit one chalk line, so lengths are hard-capped
