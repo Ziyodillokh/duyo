@@ -1,5 +1,12 @@
 # DUYO — Holat tahlili va qolgan ishlar
 
+> ⚠️ **ESKIRGAN — 2026-08-01 holatiga mos kelmaydi.**
+> Joriy holat: [HOLAT-2026-08-01.md](HOLAT-2026-08-01.md).
+> Bu hujjat yozilgandan keyin ~40 commit tushdi: to'lov, kontent kutubxonasi,
+> psixologiya RAG, jumboqlar, feedback va boshqalar qo'shildi. Tarixiy yozuv
+> sifatida saqlanadi.
+
+
 **Sana:** 2026-06-01
 **Asos:** Concept v2.1 + TZ v1.0 ↔ haqiqiy kodbaza (tekshirilgan)
 **Maqsad:** Nima tayyor, nima qolgan — ustuvorlik bilan yo'l xaritasi.

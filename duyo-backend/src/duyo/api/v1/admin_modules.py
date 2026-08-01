@@ -28,10 +28,12 @@ from duyo.models.gamification import Avatar, BallsTransaction, InventoryItem, St
 from duyo.models.message import Message, MessageRole
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentState
+from duyo.models.puzzle import PuzzleAttempt
 from duyo.models.report import Report
 from duyo.models.subscription import Subscription
 from duyo.models.tamagochi import TamagochiState
 from duyo.models.user import User
+from duyo.services import puzzles
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -168,6 +170,74 @@ async def feedback_review(
         target=str(feedback_id), request=request,
     )
     return FeedbackRow.model_validate(fb)
+
+
+# ---- Chalkboard puzzles (content review — the catalogue lives in code) ----
+class PuzzleStatRow(BaseModel):
+    puzzle_id: str
+    text: str
+    difficulty: int
+    answered: int
+    correct: int
+    # Rounded share of correct answers. A near-zero rate on an easy item is the
+    # signal worth acting on: it usually means the item is wrong or unclear,
+    # not that every child is stumped.
+    correct_rate: float
+
+
+@router.get("/puzzles/stats", response_model=list[PuzzleStatRow])
+async def puzzle_stats(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+) -> list[PuzzleStatRow]:
+    """Per-puzzle results, hardest first — the review queue for the catalogue.
+
+    Puzzles are code-defined (services/puzzles.py), so this is read-only by
+    design: it tells a reviewer WHICH item to fix, and the fix is a code change
+    that goes through review rather than an edit box in production.
+    """
+    rows = (
+        await db.execute(
+            select(
+                PuzzleAttempt.puzzle_id,
+                func.count(PuzzleAttempt.id),
+                func.count(PuzzleAttempt.id).filter(PuzzleAttempt.is_correct.is_(True)),
+            ).group_by(PuzzleAttempt.puzzle_id)
+        )
+    ).all()
+    counts = {pid: (int(n), int(ok)) for pid, n, ok in rows}
+
+    out: list[PuzzleStatRow] = []
+    for puzzle in puzzles.PUZZLES:
+        answered, correct = counts.get(puzzle.puzzle_id, (0, 0))
+        out.append(PuzzleStatRow(
+            puzzle_id=puzzle.puzzle_id,
+            text=puzzle.text,
+            difficulty=puzzle.difficulty,
+            answered=answered,
+            correct=correct,
+            correct_rate=round(correct / answered, 2) if answered else 0.0,
+        ))
+    # Answered items first (unanswered ones carry no signal), hardest at the top.
+    out.sort(key=lambda r: (r.answered == 0, r.correct_rate))
+    return out
+
+
+@router.get("/puzzles/summary")
+async def puzzle_summary(
+    db: AsyncSession = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+) -> dict[str, int]:
+    total = await db.scalar(select(func.count()).select_from(PuzzleAttempt)) or 0
+    correct = await db.scalar(
+        select(func.count()).select_from(PuzzleAttempt)
+        .where(PuzzleAttempt.is_correct.is_(True))
+    ) or 0
+    return {
+        "catalogue_size": len(puzzles.PUZZLES),
+        "attempts_total": total,
+        "attempts_correct": correct,
+    }
 
 
 # ---- Parent Monitoring (aggregate reports only — no raw chat) ----
