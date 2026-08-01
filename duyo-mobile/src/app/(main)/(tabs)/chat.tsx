@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { Mic, Send, ThumbsDown, ThumbsUp } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -12,6 +11,7 @@ import {
   type FeedbackRating,
   type QuickReply,
 } from '@/api/endpoints/chat';
+import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -212,10 +212,7 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      <KeyboardAvoidingView
-        behavior="translate-with-padding"
-        className="flex-1 bg-card dark:bg-dark-surface"
-      >
+      <KeyboardAvoidingView className="flex-1 bg-card dark:bg-dark-surface">
         <FlatList
           data={items}
           keyExtractor={(item, i) => {
@@ -225,6 +222,11 @@ export default function ChatScreen() {
             return `${item.message.id}-${i}`;
           }}
           inverted
+          // Without flex-1 the list is only as tall as its content, so with a
+          // few messages it sat at the top and the composer floated in the
+          // middle of the screen. Filling the space pins the composer to the
+          // bottom and (being inverted) keeps the newest message just above it.
+          className="flex-1"
           contentContainerStyle={{ padding: 16, gap: 12 }}
           renderItem={({ item }) => {
             if (item.kind === 'typing') return <TypingIndicator />;
