@@ -28,6 +28,14 @@ const BUFFER_SIZE = 4096;
 // VOICE_RECOGNITION (6) silently failed on Samsung One UI 7.
 const ANDROID_AUDIO_SOURCE_MIC = 1;
 
+// @fugood/react-native-audio-pcm-stream is iOS/Android only: on web its
+// NativeEventEmitter is built from an undefined native module, so the very
+// first AudioRecord.on() throws "Cannot read properties of undefined (reading
+// 'removeAllListeners')" — which crashed VoiceScreen on mount and took the
+// whole route down. Voice is a native-only feature; on web the hook degrades
+// to a no-op and start() reports failure so the screen shows its error state.
+const SUPPORTED = Platform.OS === 'ios' || Platform.OS === 'android';
+
 export function useMicRecorder({
   onChunk,
   onError,
@@ -41,6 +49,7 @@ export function useMicRecorder({
   // Subscribe once on mount; AudioRecord.on internally replaces the listener
   // so re-binding with stale refs is unnecessary.
   useEffect(() => {
+    if (!SUPPORTED) return;
     AudioRecord.on('data', (base64) => {
       const buffer = base64ToArrayBuffer(base64);
       if (!buffer) return;
@@ -63,6 +72,10 @@ export function useMicRecorder({
   }, []);
 
   const start = useCallback(async (): Promise<boolean> => {
+    if (!SUPPORTED) {
+      onError?.(new Error('Ovozli suhbat faqat mobil ilovada ishlaydi'));
+      return false;
+    }
     try {
       if (Platform.OS === 'android') {
         const granted = await PermissionsAndroid.request(

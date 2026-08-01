@@ -2,6 +2,13 @@
 module.exports = {
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
+  // 'class', not NativeWind's default 'media': the app ships a manual theme
+  // switch (settings.tsx) whose state lives in the persisted theme store and is
+  // pushed into NativeWind via setColorScheme() in store/theme.ts. Under
+  // 'media' that call is illegal — NativeWind throws "Cannot manually set
+  // color scheme, as dark mode is type 'media'" and the app fails to boot on
+  // web — and the switch could never override the OS setting anyway.
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
