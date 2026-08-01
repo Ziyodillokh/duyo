@@ -120,3 +120,8 @@ addopts = "-v --cov=src/duyo --cov-report=term-missing --cov-fail-under=80"
 python_version = "3.11"
 strict = true
 warn_return_any = true
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+]

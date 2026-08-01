@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
@@ -19,14 +19,22 @@ import {
   getBacklinks,
   getNote,
   getNoteGraph,
+  getUnlinkedMentions,
+  linkMention,
   listNotes,
   listTags,
+  renameTag,
   searchNotes,
   updateNote,
   type GraphNode,
+  type NoteSort,
 } from '@/api/endpoints/notes';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
-import { MarkdownNote } from '@/components/markdown-note';
+import {
+  extractEmbeds,
+  MarkdownNote,
+  toggleCheckbox,
+} from '@/components/markdown-note';
 import { NoteGraph } from '@/components/note-graph';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
@@ -35,6 +43,12 @@ type Screen =
   | { kind: 'map' }
   | { kind: 'note'; id: string }
   | { kind: 'new' };
+
+const SORT_LABEL: Record<NoteSort, string> = {
+  updated: "O'zgargan",
+  created: 'Yaratilgan',
+  title: 'Nomi',
+};
 
 // An unclosed [[ before the caret means the child is picking a link target.
 const OPEN_LINK = /\[\[([^\[\]]*)$/;
@@ -51,6 +65,10 @@ export default function BrainScreen() {
   const [preview, setPreview] = useState(false);
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [sort, setSort] = useState<NoteSort>('updated');
+  const [peek, setPeek] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameTo, setRenameTo] = useState('');
 
   const graph = useQuery({
     queryKey: ['note-graph', childId],
@@ -58,8 +76,8 @@ export default function BrainScreen() {
     enabled: !!childId,
   });
   const notes = useQuery({
-    queryKey: ['notes', childId, activeTag],
-    queryFn: () => listNotes(childId, activeTag ?? undefined),
+    queryKey: ['notes', childId, activeTag, sort],
+    queryFn: () => listNotes(childId, activeTag ?? undefined, sort),
     enabled: !!childId,
   });
   const tags = useQuery({
@@ -76,6 +94,53 @@ export default function BrainScreen() {
     queryKey: ['backlinks', screen.kind === 'note' ? screen.id : null],
     queryFn: () => getBacklinks((screen as { id: string }).id),
     enabled: screen.kind === 'note',
+  });
+
+  const mentions = useQuery({
+    queryKey: ['mentions', screen.kind === 'note' ? screen.id : null],
+    queryFn: () => getUnlinkedMentions((screen as { id: string }).id),
+    enabled: screen.kind === 'note',
+  });
+
+  // Every title the child has written, so a [[link]] to nothing reads as
+  // unwritten rather than as a working link that goes nowhere.
+  const existing = useMemo(
+    () => new Set((notes.data ?? []).map((n) => n.title.toLowerCase())),
+    [notes.data],
+  );
+
+  // ![[Embeds]] need the embedded note's body, which the list view omits.
+  const embedIds = useMemo(() => {
+    const wanted = extractEmbeds(body).map((t) => t.toLowerCase());
+    return (notes.data ?? [])
+      .filter((n) => wanted.includes(n.title.toLowerCase()))
+      .map((n) => n.id);
+  }, [body, notes.data]);
+
+  const embedQueries = useQueries({
+    queries: embedIds.map((id) => ({
+      queryKey: ['note', id],
+      queryFn: () => getNote(id),
+    })),
+  });
+
+  const embeds = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const q of embedQueries) {
+      if (q.data) map[q.data.title.toLowerCase()] = q.data.body;
+    }
+    return map;
+  }, [embedQueries]);
+
+  const peeked = useQuery({
+    queryKey: ['peek', childId, peek],
+    queryFn: async () => {
+      const hit = (notes.data ?? []).find(
+        (n) => n.title.toLowerCase() === peek?.toLowerCase(),
+      );
+      return hit ? getNote(hit.id) : null;
+    },
+    enabled: !!peek,
   });
 
   const refresh = () => {
@@ -104,6 +169,40 @@ export default function BrainScreen() {
       void qc.invalidateQueries({ queryKey: ['backlinks', note.id] });
       setScreen({ kind: 'note', id: note.id });
       setPreview(true);
+    },
+  });
+
+  // Ticking a box is a save, not a draft edit — a child who ticks "uy vazifasi"
+  // and closes the app expects it to still be ticked.
+  const toggleCheck = useMutation({
+    mutationFn: async (index: number) => {
+      const next = toggleCheckbox(body, index);
+      setBody(next);
+      if (screen.kind !== 'note') return null;
+      return updateNote(screen.id, { body: next });
+    },
+    onSuccess: () => refresh(),
+  });
+
+  const link = useMutation({
+    mutationFn: (sourceId: string) =>
+      linkMention((screen as { id: string }).id, sourceId),
+    onSuccess: () => {
+      refresh();
+      void qc.invalidateQueries({ queryKey: ['mentions'] });
+      void qc.invalidateQueries({ queryKey: ['backlinks'] });
+    },
+  });
+
+  // Renaming a tag rewrites it in every note — a child who typed #kosmoss once
+  // shouldn't be stuck with a second node meaning the same thing.
+  const rename = useMutation({
+    mutationFn: () => renameTag(childId, renaming ?? '', renameTo),
+    onSuccess: () => {
+      if (activeTag === renaming) setActiveTag(renameTo.trim().toLowerCase());
+      setRenaming(null);
+      setRenameTo('');
+      refresh();
     },
   });
 
@@ -150,6 +249,11 @@ export default function BrainScreen() {
       .filter((n) => n.title.toLowerCase().includes(partial))
       .slice(0, 5);
   }, [body, notes.data, preview]);
+
+  const words = useMemo(
+    () => body.trim().split(/\s+/).filter(Boolean).length,
+    [body],
+  );
 
   const completeLink = (linkTitle: string) => {
     setBody((prev) => prev.replace(OPEN_LINK, `[[${linkTitle}]]`));
@@ -233,7 +337,11 @@ export default function BrainScreen() {
                     {body.trim() ? (
                       <MarkdownNote
                         body={body}
+                        existing={existing}
+                        embeds={embeds}
+                        onToggleCheck={(i) => toggleCheck.mutate(i)}
                         onLinkPress={openByTitle}
+                        onLinkHold={setPeek}
                         onTagPress={(t) => {
                           setActiveTag(t);
                           setQuery(t);
@@ -265,6 +373,51 @@ export default function BrainScreen() {
                       ))}
                     </View>
                   )}
+
+                  {/* Obsidian's "unlinked mentions": notes that name this one
+                      without linking it. The button does the typing. */}
+                  {!!mentions.data?.length && (
+                    <View className="rounded-xl" style={{ padding: 16, backgroundColor: cardBg }}>
+                      <Text className="text-sm font-bold text-foreground dark:text-dark-text mb-1">
+                        Nomi tilga olingan ({mentions.data.length})
+                      </Text>
+                      <Text className="text-xs text-muted-foreground dark:text-dark-muted mb-3">
+                        Bu qaydlar seni eslatgan, lekin hali bog'lanmagan.
+                      </Text>
+                      {mentions.data.map((m) => (
+                        <View key={m.id} className="flex-row items-center gap-3 py-2">
+                          <Pressable
+                            onPress={() => open.mutate(m.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={m.title}
+                            className="flex-1 active:opacity-70"
+                          >
+                            <Text className="text-sm text-foreground dark:text-dark-text">
+                              {m.title}
+                            </Text>
+                            {m.excerpt !== '' && (
+                              <Text
+                                className="text-xs text-muted-foreground dark:text-dark-muted"
+                                numberOfLines={1}
+                              >
+                                {m.excerpt}
+                              </Text>
+                            )}
+                          </Pressable>
+                          <Pressable
+                            onPress={() => link.mutate(m.id)}
+                            disabled={link.isPending}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${m.title} ni bog'lash`}
+                            className="rounded-md px-3 py-1.5 active:opacity-70"
+                            style={{ backgroundColor: 'rgba(96,165,250,0.18)' }}
+                          >
+                            <Text className="text-xs text-neon-blue">Bog'lash</Text>
+                          </Pressable>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </>
               ) : (
                 <>
@@ -290,6 +443,12 @@ export default function BrainScreen() {
                     className="text-base text-foreground dark:text-dark-text rounded-md px-4 py-3"
                     style={{ backgroundColor: cardBg, minHeight: 220 }}
                   />
+
+                  <View className="flex-row justify-end">
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                      {words} so'z · {body.length} belgi
+                    </Text>
+                  </View>
 
                   {/* A child will not discover "[[" on their own, and a note
                       that links to nothing leaves the map a field of loose
@@ -409,6 +568,10 @@ export default function BrainScreen() {
                       <Pressable
                         key={t}
                         onPress={() => setActiveTag(on ? null : t)}
+                        onLongPress={() => {
+                          setRenaming(t);
+                          setRenameTo(t);
+                        }}
                         accessibilityRole="button"
                         accessibilityLabel={`#${t}`}
                         className={`rounded-md border ${on ? 'border-neon-yellow' : 'border-neon-blue/20'}`}
@@ -425,6 +588,45 @@ export default function BrainScreen() {
                     );
                   })}
                 </ScrollView>
+              )}
+
+              {renaming !== null && (
+                <View
+                  className="rounded-md border border-neon-yellow/40 flex-row items-center gap-2"
+                  style={{ padding: 8, backgroundColor: cardBg }}
+                >
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                    #{renaming} →
+                  </Text>
+                  <TextInput
+                    value={renameTo}
+                    onChangeText={setRenameTo}
+                    autoFocus
+                    maxLength={40}
+                    accessibilityLabel="Tegning yangi nomi"
+                    className="flex-1 text-sm text-foreground dark:text-dark-text px-2 py-1"
+                  />
+                  <Pressable
+                    onPress={() => renameTo.trim() && rename.mutate()}
+                    disabled={!renameTo.trim() || rename.isPending}
+                    accessibilityRole="button"
+                    accessibilityLabel="Tegni qayta nomlash"
+                    className="rounded-md px-3 py-1.5 active:opacity-70"
+                    style={{ backgroundColor: 'rgba(253,199,0,0.2)' }}
+                  >
+                    <Text className="text-xs" style={{ color: '#FDC700' }}>
+                      Saqlash
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setRenaming(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Bekor qilish"
+                    className="px-2 py-1.5 active:opacity-70"
+                  >
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted">✕</Text>
+                  </Pressable>
+                </View>
               )}
 
               {query.trim() ? (
@@ -473,9 +675,24 @@ export default function BrainScreen() {
 
                   {!!notes.data?.length && (
                     <View className="gap-2">
-                      <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                        {activeTag ? `#${activeTag}` : 'Qaydlar'} ({notes.data.length})
-                      </Text>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                          {activeTag ? `#${activeTag}` : 'Qaydlar'} ({notes.data.length})
+                        </Text>
+                        <Pressable
+                          onPress={() =>
+                            setSort((p) =>
+                              p === 'updated' ? 'created' : p === 'created' ? 'title' : 'updated',
+                            )
+                          }
+                          accessibilityRole="button"
+                          accessibilityLabel={`Tartib: ${SORT_LABEL[sort]}`}
+                          className="rounded-md px-3 py-1.5 active:opacity-70"
+                          style={{ backgroundColor: 'rgba(96,165,250,0.12)' }}
+                        >
+                          <Text className="text-xs text-neon-blue">⇅ {SORT_LABEL[sort]}</Text>
+                        </Pressable>
+                      </View>
                       {notes.data.map((n) => (
                         <Pressable
                           key={n.id}
@@ -498,6 +715,53 @@ export default function BrainScreen() {
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Press-and-hold preview. Obsidian shows this on Ctrl+hover; a phone
+          has no hover, so a long press opens it and a tap anywhere closes. */}
+      {peek !== null && (
+        <Pressable
+          onPress={() => setPeek(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Ko'rinishni yopish"
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: 'rgba(4,10,22,0.6)', justifyContent: 'center', padding: 24 },
+          ]}
+        >
+          <View
+            className="rounded-xl border border-neon-blue/25"
+            style={{ padding: 18, backgroundColor: cardBg, maxHeight: 380 }}
+          >
+            <Text className="text-base font-bold text-foreground dark:text-dark-text mb-2">
+              {peek}
+            </Text>
+            {peeked.isLoading ? (
+              <ActivityIndicator color="#60A5FA" />
+            ) : peeked.data ? (
+              <ScrollView>
+                <MarkdownNote body={peeked.data.body} existing={existing} />
+              </ScrollView>
+            ) : (
+              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                Bu qayd hali yozilmagan.
+              </Text>
+            )}
+            <Pressable
+              onPress={() => {
+                const t = peek;
+                setPeek(null);
+                openByTitle(t);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Qaydni ochish"
+              className="rounded-md items-center justify-center mt-3 active:opacity-70"
+              style={{ height: 42, backgroundColor: 'rgba(96,165,250,0.18)' }}
+            >
+              <Text className="text-sm text-neon-blue">Ochish</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      )}
     </View>
   );
 }

@@ -53,6 +53,26 @@ class BacklinkItem(BaseModel):
     title: str
 
 
+class UnlinkedMention(BaseModel):
+    """A note that names this one in prose but never [[linked]] it."""
+
+    id: UUID
+    title: str
+    excerpt: str = ""
+
+
+class LinkMentionRequest(BaseModel):
+    """Turn one note's prose mention of another into a real link."""
+
+    source_id: UUID
+
+
+class TagRename(BaseModel):
+    child_id: UUID
+    old: str = Field(min_length=1, max_length=40)
+    new: str = Field(min_length=1, max_length=40)
+
+
 class GraphNodeRead(BaseModel):
     id: UUID | None
     title: str

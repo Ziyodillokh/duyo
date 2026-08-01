@@ -189,3 +189,84 @@ def test_short_titles_are_never_mentions():
         ("2", "Uy", "Men yashaydigan joy."),
     ])
     assert edges == []
+
+
+# --- unlinked mentions -------------------------------------------------------
+
+def test_prose_mention_without_a_link_is_reported():
+    assert notes.mentions_without_link("Bugun Vulqon haqida o'qidim.", "Vulqon")
+
+
+def test_an_existing_link_means_it_is_not_unlinked():
+    assert not notes.mentions_without_link("[[Vulqon]] qiziq.", "Vulqon")
+
+
+def test_a_bare_link_is_not_also_counted_as_a_mention():
+    """"[[Vulqon]]" must not read as prose naming Vulqon."""
+    assert not notes.mentions_without_link("Men [[Vulqon]] ni ko'rdim.", "Vulqon")
+
+
+def test_short_titles_are_never_unlinked_mentions():
+    assert not notes.mentions_without_link("Uy vazifasi.", "Uy")
+
+
+def test_link_mention_wraps_only_the_first_occurrence():
+    out = notes.link_mention("Vulqon issiq. Vulqon katta.", "Vulqon")
+    assert out == "[[Vulqon]] issiq. Vulqon katta."
+
+
+def test_link_mention_skips_text_already_inside_a_link():
+    out = notes.link_mention("[[Vulqon]] va yana Vulqon.", "Vulqon")
+    assert out == "[[Vulqon]] va yana [[Vulqon]]."
+
+
+def test_link_mention_leaves_a_body_without_the_title_alone():
+    body = "Bu yerda hech narsa yo'q."
+    assert notes.link_mention(body, "Vulqon") == body
+
+
+# --- tag rename --------------------------------------------------------------
+
+def test_rename_tag_replaces_every_occurrence():
+    out = notes.rename_tag("#kosmoss yulduz #kosmoss oy", "kosmoss", "kosmos")
+    assert out == "#kosmos yulduz #kosmos oy"
+
+
+def test_rename_tag_is_case_insensitive_on_the_old_name():
+    assert notes.rename_tag("#Kosmoss", "kosmoss", "kosmos") == "#kosmos"
+
+
+def test_rename_tag_leaves_other_tags_untouched():
+    out = notes.rename_tag("#fizika #kosmoss", "kosmoss", "kosmos")
+    assert out == "#fizika #kosmos"
+
+
+def test_rename_tag_ignores_a_no_op():
+    assert notes.rename_tag("#a", "a", "a") == "#a"
+    assert notes.rename_tag("#a", "", "b") == "#a"
+
+
+def test_rename_tag_does_not_touch_a_markdown_heading():
+    """"# Sarlavha" is a heading, not a #tag — renaming must not eat it."""
+    body = "# Kosmoss haqida\n\n#kosmoss"
+    assert notes.rename_tag(body, "kosmoss", "kosmos") == "# Kosmoss haqida\n\n#kosmos"
+
+
+def test_a_tag_is_not_a_prose_mention_of_the_same_named_note():
+    """"#kosmos" is a tag. It must not read as the child writing "Kosmos"."""
+    assert not notes.mentions_without_link("Yulduzlar.\n#kosmos", "Kosmos")
+
+
+def test_a_tag_does_not_create_a_mention_edge():
+    """#kosmos joins Quyosh to the TAG node, never to the note called Kosmos."""
+    _, edges = notes.build_graph([
+        ("1", "Quyosh", "Issiq yulduz.\n#kosmos"),
+        ("2", "Kosmos", "Juda katta."),
+    ])
+    assert [e.kind for e in edges] == ["tag"]
+    assert not any({e.source, e.target} == {"Quyosh", "Kosmos"} for e in edges)
+
+
+def test_link_mention_never_wraps_a_tag():
+    body = "Yulduzlar haqida.\n#kosmos"
+    assert notes.link_mention(body, "kosmos") == body

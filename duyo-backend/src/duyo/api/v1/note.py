@@ -12,6 +12,7 @@ as chat; it never blocks the save or shows the child a different screen.
 """
 
 import logging
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -31,11 +32,14 @@ from duyo.schemas.note import (
     GraphEdgeRead,
     GraphNodeRead,
     GraphRead,
+    LinkMentionRequest,
     NoteCreate,
     NoteListItem,
     NoteRead,
     NoteSearchHit,
     NoteUpdate,
+    TagRename,
+    UnlinkedMention,
 )
 from duyo.services import notes as notes_service
 
@@ -105,8 +109,15 @@ def _excerpt(body: str, needle: str) -> str:
     return f"{'…' if start else ''}{text}{'…' if end < len(body) else ''}"
 
 
-def _read(note: ChildNote) -> NoteRead:
-    """NoteRead with tags parsed from the body it carries."""
+async def _read(db: AsyncSession, note: ChildNote) -> NoteRead:
+    """NoteRead with tags parsed from the body it carries.
+
+    Refreshes first: `updated_at` is `onupdate=func.now()`, so after an UPDATE
+    the value lives in the database and the attribute is expired. Reading it
+    without an explicit await triggers a lazy load outside the greenlet and
+    raises MissingGreenlet — a 500 on every note edit.
+    """
+    await db.refresh(note)
     return NoteRead(
         id=note.id,
         title=note.title,
@@ -134,27 +145,31 @@ async def create_note(
             status.HTTP_409_CONFLICT, "Bunday nomli qayd allaqachon bor"
         ) from exc
     await _screen(db, child, f"{payload.title}\n{payload.body}", detector)
-    return _read(note)
+    return await _read(db, note)
 
 
 @router.get("", response_model=list[NoteListItem])
 async def list_notes(
     child_id: UUID,
     tag: str | None = None,
+    sort: Literal["updated", "created", "title"] = "updated",
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[ChildNote]:
-    """Every note, newest first — optionally only those carrying a #tag.
+    """Every note — optionally only those carrying a #tag.
 
-    Filtered in Python for the same reason tags aren't a column: they're parsed
-    from the body on read, so they can never drift out of step with the text
-    the child actually sees.
+    Tag filtering happens in Python for the same reason tags aren't a column:
+    they're parsed from the body on read, so they can never drift out of step
+    with the text the child actually sees.
     """
     child = await _owned_child(child_id, current_user, db)
+    order = {
+        "updated": ChildNote.updated_at.desc(),
+        "created": ChildNote.created_at.desc(),
+        "title": ChildNote.title.asc(),
+    }[sort]
     rows = await db.scalars(
-        select(ChildNote)
-        .where(ChildNote.child_id == child.id)
-        .order_by(ChildNote.updated_at.desc())
+        select(ChildNote).where(ChildNote.child_id == child.id).order_by(order)
     )
     notes = list(rows.all())
     if tag:
@@ -286,13 +301,83 @@ async def backlinks(
     ]
 
 
+@router.get("/{note_id}/unlinked-mentions", response_model=list[UnlinkedMention])
+async def unlinked_mentions(
+    note_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[UnlinkedMention]:
+    """Notes that name this one in prose but never [[linked]] it.
+
+    Obsidian's "unlinked mentions" pane. The child gets a button that does the
+    linking, which is the only realistic way a nine-year-old builds a graph.
+    """
+    note = await _owned_note(note_id, current_user, db)
+    rows = (
+        await db.execute(
+            select(ChildNote.id, ChildNote.title, ChildNote.body)
+            .where(ChildNote.child_id == note.child_id, ChildNote.id != note.id)
+        )
+    ).all()
+    return [
+        UnlinkedMention(id=rid, title=rtitle, excerpt=_excerpt(body, note.title))
+        for rid, rtitle, body in rows
+        if notes_service.mentions_without_link(body, note.title)
+    ]
+
+
+@router.post("/{note_id}/link-mention", response_model=NoteRead)
+async def link_mention(
+    note_id: UUID,
+    payload: LinkMentionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> NoteRead:
+    """Wrap `source`'s first prose mention of this note in [[…]].
+
+    Returns the SOURCE note, since that's the one whose text changed.
+    """
+    target = await _owned_note(note_id, current_user, db)
+    source = await _owned_note(payload.source_id, current_user, db)
+    if source.child_id != target.child_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    source.body = notes_service.link_mention(source.body, target.title)
+    await db.flush()
+    return await _read(db, source)
+
+
+@router.put("/tags/rename", response_model=int)
+async def rename_tag(
+    payload: TagRename,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> int:
+    """Rename a #tag across every note. Returns how many notes changed.
+
+    Vault-wide, as in Obsidian: a tag that means one thing must be one node,
+    and a child who typed #kosmoss once shouldn't be stuck with it.
+    """
+    child = await _owned_child(payload.child_id, current_user, db)
+    rows = (
+        await db.scalars(select(ChildNote).where(ChildNote.child_id == child.id))
+    ).all()
+    changed = 0
+    for note in rows:
+        updated = notes_service.rename_tag(note.body, payload.old, payload.new)
+        if updated != note.body:
+            note.body = updated
+            changed += 1
+    await db.flush()
+    return changed
+
+
 @router.get("/{note_id}", response_model=NoteRead)
 async def get_note(
     note_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> NoteRead:
-    return _read(await _owned_note(note_id, current_user, db))
+    return await _read(db, await _owned_note(note_id, current_user, db))
 
 
 @router.put("/{note_id}", response_model=NoteRead)
@@ -318,7 +403,7 @@ async def update_note(
     child = await db.scalar(select(ChildProfile).where(ChildProfile.id == note.child_id))
     if child is not None:
         await _screen(db, child, f"{note.title}\n{note.body}", detector)
-    return _read(note)
+    return await _read(db, note)
 
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)

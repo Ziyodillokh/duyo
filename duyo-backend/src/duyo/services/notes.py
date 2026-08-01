@@ -96,6 +96,62 @@ def _mention_pattern(title: str) -> re.Pattern[str]:
     return re.compile(rf"\b{re.escape(title)}\b", re.IGNORECASE)
 
 
+def mentions_without_link(body: str, title: str) -> bool:
+    """Does `body` name `title` in prose without ever [[linking]] it?
+
+    Obsidian calls these "unlinked mentions" and offers a one-click Link
+    button. Same idea here, with the button doing the typing a child can't.
+    """
+    if len(title) < MIN_MENTION_TITLE:
+        return False
+    if any(link.casefold() == title.casefold() for link in extract_links(body)):
+        return False
+    return bool(_mention_pattern(title).search(_prose_only(body)))
+
+
+def _prose_only(body: str) -> str:
+    """`body` with [[links]] and #tags blanked out, length preserved.
+
+    Both would otherwise read as prose: "[[Suv]]" is already a link, and
+    "#kosmos" is a tag, not the child writing the word Kosmos in a sentence.
+    Blanked rather than deleted so offsets still line up with the original.
+    """
+    text = _LINK.sub(lambda m: " " * len(m.group(0)), body or "")
+    return _TAG.sub(lambda m: " " * len(m.group(0)), text)
+
+
+def link_mention(body: str, title: str) -> str:
+    """Wrap the first plain-prose occurrence of `title` in [[…]].
+
+    Only the first: turning every mention into a link makes a paragraph
+    unreadable, and one link is all the graph needs.
+    """
+    # Matched against the blanked copy so a hit can never land inside an
+    # existing [[link]] or a #tag; offsets still index into the real body.
+    m = _mention_pattern(title).search(_prose_only(body))
+    if m is None:
+        return body
+    return f"{body[:m.start()]}[[{body[m.start():m.end()]}]]{body[m.end():]}"
+
+
+def rename_tag(body: str, old: str, new: str) -> str:
+    """Rename #old to #new everywhere in `body`.
+
+    A child writes #kosmos on Monday and #kosmoss on Friday and means one
+    thing; without a rename the two are separate nodes forever.
+    """
+    old_l, new_l = old.strip().lstrip("#").lower(), new.strip().lstrip("#").lower()
+    if not old_l or not new_l or old_l == new_l:
+        return body
+
+    def swap(m: re.Match[str]) -> str:
+        return m.group(0) if m.group(1).lower() != old_l else m.group(0).replace(
+            f"#{m.group(1)}", f"#{new_l}", 1
+        )
+
+    return _TAG.sub(swap, body or "")
+
+
 def build_graph(notes: list[tuple[str, str, str]]) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Assemble the graph from (id, title, body) rows.
 
@@ -158,7 +214,9 @@ def build_graph(notes: list[tuple[str, str, str]]) -> tuple[list[GraphNode], lis
     # Mentions last, so an explicit [[link]] always claims the pair first.
     scanned = 0
     for _, title, body in notes:
-        text = body or ""
+        # Same reason as mentions_without_link: "#kosmos" is a tag and
+        # "[[Kosmos]]" is already an edge — neither is prose naming Kosmos.
+        text = _prose_only(body)
         for _, other_title, _ in notes:
             if scanned >= MAX_MENTION_SCAN:
                 break

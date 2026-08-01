@@ -25,6 +25,13 @@ export interface Backlink {
   title: string;
 }
 
+/** A note that names this one in prose but never [[linked]] it. */
+export interface UnlinkedMention extends Backlink {
+  excerpt: string;
+}
+
+export type NoteSort = 'updated' | 'created' | 'title';
+
 export type GraphNodeKind = 'note' | 'unwritten' | 'tag';
 
 export interface GraphNode {
@@ -54,9 +61,44 @@ export interface NoteGraph {
 export async function listNotes(
   childId: string,
   tag?: string,
+  sort: NoteSort = 'updated',
 ): Promise<NoteListItem[]> {
   const { data } = await apiClient.get<NoteListItem[]>('/notes', {
-    params: { child_id: childId, tag },
+    params: { child_id: childId, tag, sort },
+  });
+  return data;
+}
+
+export async function getUnlinkedMentions(
+  noteId: string,
+): Promise<UnlinkedMention[]> {
+  const { data } = await apiClient.get<UnlinkedMention[]>(
+    `/notes/${noteId}/unlinked-mentions`,
+  );
+  return data;
+}
+
+/** Wrap `sourceId`'s first prose mention of this note in [[…]]. */
+export async function linkMention(
+  noteId: string,
+  sourceId: string,
+): Promise<Note> {
+  const { data } = await apiClient.post<Note>(`/notes/${noteId}/link-mention`, {
+    source_id: sourceId,
+  });
+  return data;
+}
+
+/** Rename a #tag across every note. Resolves to the number changed. */
+export async function renameTag(
+  childId: string,
+  oldTag: string,
+  newTag: string,
+): Promise<number> {
+  const { data } = await apiClient.put<number>('/notes/tags/rename', {
+    child_id: childId,
+    old: oldTag,
+    new: newTag,
   });
   return data;
 }
