@@ -57,6 +57,10 @@ from duyo.prompts import SYSTEM_PROMPTS
 from duyo.services import sms as sms_module
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini_live import GeminiVoiceSession
+from duyo.services.personalization import (
+    build_goal_context,
+    build_personalization_context,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 log = logging.getLogger(__name__)
@@ -156,6 +160,16 @@ async def voice_ws(
     #    the base prompt so the model doesn't greet on every reconnect.
     base_prompt = SYSTEM_PROMPTS[child.age_segment]
     voice_prompt = base_prompt.replace("Salom-alik bilan boshla.", "").strip()
+
+    # Same per-child context the text path builds. Without this a child who set
+    # a goal in text chat gets a DUYO with no memory of it the moment they
+    # switch to voice — the inconsistency reads as the companion forgetting.
+    for _block in (
+        await build_personalization_context(db, child.id),
+        await build_goal_context(db, child.id),
+    ):
+        if _block:
+            voice_prompt += f"\n\n{_block}"
 
     if conversation_id is not None:
         max_msgs = get_settings().conversation_history_max_messages

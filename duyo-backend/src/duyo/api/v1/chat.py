@@ -58,7 +58,10 @@ from duyo.services.gemini import (
 )
 from duyo.services.gemini import chat as gemini_chat
 from duyo.services.images import search_images
-from duyo.services.personalization import build_personalization_context
+from duyo.services.personalization import (
+    build_goal_context,
+    build_personalization_context,
+)
 from duyo.services.scripted import match_scripted
 from duyo.services.sms import get_sms_provider
 from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
@@ -373,7 +376,15 @@ async def chat_turn(
     # Adaptive personalization (no model retraining — see services/personalization.py):
     # a small context block derived from the child's latest cached aggregate
     # report, threaded into every LLM reply path below.
-    personalization_context = await build_personalization_context(db, child.id)
+    # Joined into ONE string on purpose: chat.py already threads
+    # `personalization_context` into all four LLM reply paths below, so goals
+    # ride along without touching either system-instruction assembly site.
+    # They must NOT use the rag_context slot — psychology RAG owns that.
+    _context_blocks = [
+        await build_personalization_context(db, child.id),
+        await build_goal_context(db, child.id),
+    ]
+    personalization_context = "\n\n".join(b for b in _context_blocks if b) or None
 
     # (0) Scripted intent — instant canned reply for common greetings/thanks,
     #     skipping the LLM entirely (cost saving). Only for GREEN, non-web-search

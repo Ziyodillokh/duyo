@@ -13,10 +13,20 @@ from duyo.models.gamification import (
     InventoryItem,
     Streak,
 )
+from duyo.models.goal import (
+    ChildGoal,
+    ChildGoalEvent,
+    GoalCatalog,
+    GoalKind,
+    GoalSource,
+    GoalStatus,
+)
 from duyo.models.message import Message, MessageRole
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
 from duyo.models.psychology_chunk import PsychologyChunk
+from duyo.models.report import Report
+from duyo.models.subscription import Subscription
 from duyo.models.tamagochi import TamagochiState
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
@@ -32,6 +42,8 @@ __all__ = [
     "Campaign",
     "CampaignChannel",
     "CampaignStatus",
+    "ChildGoal",
+    "ChildGoalEvent",
     "ChildProfile",
     "ContentItem",
     "ContentType",
@@ -39,6 +51,10 @@ __all__ = [
     "CrisisEvent",
     "CrisisLevel",
     "FeedbackRating",
+    "GoalCatalog",
+    "GoalKind",
+    "GoalSource",
+    "GoalStatus",
     "InventoryItem",
     "Language",
     "LicenseStatus",
@@ -49,8 +65,10 @@ __all__ = [
     "PaymentProvider",
     "PaymentState",
     "PsychologyChunk",
+    "Report",
     "ReviewStatus",
     "Streak",
+    "Subscription",
     "TamagochiState",
     "TextbookChunk",
     "User",
