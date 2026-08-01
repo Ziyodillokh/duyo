@@ -1,6 +1,7 @@
 """Chat endpoint — single-turn child↔DUYO message with crisis detection."""
 
 import logging
+import re
 from dataclasses import replace as _dc_replace
 from datetime import UTC, datetime
 from uuid import UUID
@@ -68,6 +69,81 @@ from duyo.services.sms import get_sms_provider
 from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+# What DUYO says when it cannot reach the model at all. Honest rather than
+# evasive — a child who is told "I'm thinking" and then gets nothing learns the
+# companion lies. Keyed by the child's own language, same as every other reply.
+LLM_UNAVAILABLE = {
+    "uz": ("Kechir, hozir javob bera olmayapman — biroz muammo bor. "
+           "Bir necha daqiqadan keyin yana yozib ko'r, men shu yerdaman."),
+    "ru": ("Извини, сейчас я не могу ответить — что-то не работает. "
+           "Напиши мне через пару минут, я никуда не денусь."),
+    "en": ("Sorry, I can't answer right now — something isn't working. "
+           "Try again in a couple of minutes, I'll be here."),
+}
+
+# Uzbek Cyrillic and Russian share most of an alphabet, but each has letters
+# the other never uses — the cheapest reliable way to tell them apart.
+_RUSSIAN_ONLY = set("щъыэё")          # щ ъ ы э ё
+_UZBEK_CYRILLIC_ONLY = set("ўқғҳ")          # ў қ ғ ҳ
+_CYRILLIC = set("абвгдежзи"
+                "йклмнопрс"
+                "туфхцчшьюя")
+
+# Common words in each language, checked whole. Short on purpose: this picks
+# which sentence of apology to send, not a translation.
+_ENGLISH_HINTS = {"the", "you", "how", "what", "why", "hello", "hi", "please",
+                  "can", "is", "are", "my", "me", "do", "does", "help"}
+_UZBEK_HINTS = {"va", "men", "sen", "nima", "qanday", "salom", "rahmat",
+                "bugun", "yaxshi", "kerak", "bor", "yoq"}
+_RUSSIAN_HINTS = {
+    "привет", "как",
+    "дела", "что",
+    "почему", "где",
+    "мне", "ты", "я",
+    "спасибо",
+    "помоги",
+}  # привет как дела что почему где мне ты я спасибо помоги
+
+_WORD = re.compile(r"[a-z']+")
+# Built from the sets above rather than retyped, so the alphabets can't drift.
+_CYR_WORD = re.compile(
+    "[" + "".join(sorted(_CYRILLIC | _RUSSIAN_ONLY | _UZBEK_CYRILLIC_ONLY)) + "]+"
+)
+
+
+def _reply_language(message: str, profile: str) -> str:
+    """Which language to apologise in.
+
+    The child is answered in the language they wrote in, not the one set on
+    their profile — a bilingual child switches mid-conversation and a reply in
+    the wrong language reads as not being listened to. A heuristic is right
+    here because the cost of being wrong is one apology in the wrong language;
+    real replies get their language from the model, which sees the message.
+    """
+    text = (message or "").lower()
+    letters = set(text)
+
+    if letters & _UZBEK_CYRILLIC_ONLY:
+        return "uz"
+    if letters & _RUSSIAN_ONLY:
+        return "ru"
+    if letters & _CYRILLIC:
+        # Cyrillic with no decisive letter: Russian words settle it, otherwise
+        # trust the profile — a Cyrillic-writing Uzbek child stays in Uzbek.
+        if set(_CYR_WORD.findall(text)) & _RUSSIAN_HINTS:
+            return "ru"
+        return "uz" if profile == "uz" else "ru"
+
+    words = set(_WORD.findall(text))
+    if words & _ENGLISH_HINTS and not words & _UZBEK_HINTS:
+        return "en"
+    if words & _UZBEK_HINTS:
+        return "uz"
+    return profile if profile in LLM_UNAVAILABLE else "uz"
+
+
 log = logging.getLogger(__name__)
 
 
@@ -407,55 +483,75 @@ async def chat_turn(
             text=scripted_text, model="scripted", latency_ms=0,
             tokens_in=0, tokens_out=0,
         )
-    elif payload.action == "web_search":
-        # "Ha" follow-up: search the web for the ORIGINAL question (action_query).
-        # Pass NO history on purpose — the history ends with the literal "Ha",
-        # which makes the model reply socially ("shall we talk about apples?")
-        # instead of delivering the web answer. The query is self-contained.
-        query = payload.action_query or payload.message
-        reply = await chat_with_web_search(
-            child_message=query, age_segment=child.age_segment,
-            personalization_context=personalization_context,
-        )
-        source = _web_source(reply.sources)
-        # Attach a few illustrative, family-safe images for the same question.
-        images = [
-            ChatImage(
-                url=img.url, title=img.title, source_url=img.source_url,
-                creator=img.creator, license=img.license,
-            )
-            for img in await search_images(query, limit=3)
-        ]
     else:
-        rag = await retrieve_for_chat(db, payload.message)
-        if rag is not None:
-            reply = await gemini_chat(
-                child_message=payload.message, age_segment=child.age_segment,
-                history=history, rag_context=rag.context,  # type: ignore[arg-type]
-                personalization_context=personalization_context,
-            )
-            reply = _append_offer(reply)
-            source = _textbook_source(rag)
-            quick_replies = [
-                QuickReply(label="Ha", action="web_search", query=payload.message),
-                QuickReply(label="Yo'q", action="dismiss"),
-            ]
-        else:
-            psych = await retrieve_psych_for_chat(
-                db, payload.message, age_segment=child.age_segment.value,
-            )
-            if psych is not None:
-                reply = await gemini_chat(
-                    child_message=payload.message, age_segment=child.age_segment,
-                    history=history, rag_context=psych.context,  # type: ignore[arg-type]
-                    personalization_context=personalization_context,
-                )
-            else:
+        # Every LLM path lives inside this try. A companion that answers a
+        # child with HTTP 500 is worse than one that answers honestly: quota
+        # exhaustion (429), a network blip, or a missing key are all states
+        # the child must never meet as an error screen. The message and its
+        # crisis screening are already recorded above, so a failure here loses
+        # the reply, never the safety signal.
+        try:
+            if payload.action == "web_search":
+                # "Ha" follow-up: search the web for the ORIGINAL question
+                # (action_query). Pass NO history on purpose — the history ends
+                # with the literal "Ha", which makes the model reply socially
+                # ("shall we talk about apples?") instead of delivering the web
+                # answer. The query is self-contained.
+                query = payload.action_query or payload.message
                 reply = await chat_with_web_search(
-                    child_message=payload.message, age_segment=child.age_segment, history=history,  # type: ignore[arg-type]
+                    child_message=query, age_segment=child.age_segment,
                     personalization_context=personalization_context,
                 )
                 source = _web_source(reply.sources)
+                # A few illustrative, family-safe images for the same question.
+                images = [
+                    ChatImage(
+                        url=img.url, title=img.title, source_url=img.source_url,
+                        creator=img.creator, license=img.license,
+                    )
+                    for img in await search_images(query, limit=3)
+                ]
+            else:
+                rag = await retrieve_for_chat(db, payload.message)
+                if rag is not None:
+                    reply = await gemini_chat(
+                        child_message=payload.message, age_segment=child.age_segment,
+                        history=history, rag_context=rag.context,  # type: ignore[arg-type]
+                        personalization_context=personalization_context,
+                    )
+                    reply = _append_offer(reply)
+                    source = _textbook_source(rag)
+                    quick_replies = [
+                        QuickReply(label="Ha", action="web_search", query=payload.message),
+                        QuickReply(label="Yo'q", action="dismiss"),
+                    ]
+                else:
+                    psych = await retrieve_psych_for_chat(
+                        db, payload.message, age_segment=child.age_segment.value,
+                    )
+                    if psych is not None:
+                        reply = await gemini_chat(
+                            child_message=payload.message, age_segment=child.age_segment,
+                            history=history, rag_context=psych.context,  # type: ignore[arg-type]
+                            personalization_context=personalization_context,
+                        )
+                    else:
+                        reply = await chat_with_web_search(
+                            child_message=payload.message, age_segment=child.age_segment, history=history,  # type: ignore[arg-type]
+                            personalization_context=personalization_context,
+                        )
+                        source = _web_source(reply.sources)
+        except Exception:
+            log.exception("chat_llm_failed child=%s", child.id)
+            reply = GeminiReply(
+                text=LLM_UNAVAILABLE[
+                    _reply_language(payload.message, child.language.value)
+                ],
+                model="fallback", latency_ms=0, tokens_in=0, tokens_out=0,
+            )
+            source = None
+            images = []
+            quick_replies = []
 
     # 10. Persist assistant message
     assistant_msg = Message(
