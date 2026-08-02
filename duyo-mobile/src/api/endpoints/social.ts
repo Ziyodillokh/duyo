@@ -49,13 +49,39 @@ export async function getSocialSettings(
 
 export async function updateSocialSettings(
   childId: string,
-  patch: { discoverable?: boolean; regenerate_handle?: boolean },
+  patch: {
+    discoverable?: boolean;
+    display_name?: string;
+    regenerate_handle?: boolean;
+  },
 ): Promise<SocialSettings> {
   const { data } = await apiClient.put<SocialSettings>(
     `/social/${childId}/settings`,
     patch,
   );
   return data;
+}
+
+/** Options to pick from — every word is an animal or a natural feature. */
+export async function fetchHandleSuggestions(
+  childId: string,
+): Promise<string[]> {
+  try {
+    const { data } = await apiClient.get<{ suggestions: string[] }>(
+      `/social/${childId}/handle-suggestions`,
+    );
+    return data.suggestions;
+  } catch {
+    return [];
+  }
+}
+
+/** Pulls the child-facing reason out of a rejected handle. */
+export function handleRejectionMessage(err: unknown): string | null {
+  const res = (err as { response?: { status?: number; data?: { detail?: string } } })
+    .response;
+  if (res?.status === 422 && res.data?.detail) return res.data.detail;
+  return null;
 }
 
 export async function listGoalMates(childId: string): Promise<GoalMate[]> {

@@ -1,8 +1,17 @@
 import { router } from 'expo-router';
-import { Check, MessageSquare, UserPlus, Users, X } from 'lucide-react-native';
+import {
+  Check,
+  MessageSquare,
+  Pencil,
+  UserPlus,
+  Users,
+  X,
+} from 'lucide-react-native';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 
 import type { Friendship, GoalMate } from '@/api/endpoints/social';
+import { HandleEditor } from '@/components/goals/handle-editor';
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import {
   useAcceptFriend,
@@ -63,6 +72,7 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
   const settingsQuery = useSocialSettings(childId);
   const updateSettings = useUpdateSocialSettings(childId);
   const discoverable = settingsQuery.data?.discoverable ?? false;
+  const [editingHandle, setEditingHandle] = useState(false);
 
   const matesQuery = useGoalMates(childId, discoverable);
   const friendsQuery = useFriends(childId);
@@ -96,9 +106,32 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
 
   return (
     <>
-      <Text className="text-base font-bold text-foreground dark:text-dark-text mt-2">
-        Maqsaddoshlar
-      </Text>
+      <View className="flex-row items-center justify-between mt-2">
+        <Text className="text-base font-bold text-foreground dark:text-dark-text">
+          Maqsaddoshlar
+        </Text>
+        {discoverable && !!settingsQuery.data && (
+          <Pressable
+            onPress={() => setEditingHandle(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Taxallusni o'zgartirish"
+            hitSlop={8}
+            className="flex-row items-center gap-1.5"
+          >
+            <Text className="text-sm font-medium" style={{ color: '#60A5FA' }}>
+              {settingsQuery.data.display_name}
+            </Text>
+            <Pencil size={13} color="#60A5FA" />
+          </Pressable>
+        )}
+      </View>
+
+      <HandleEditor
+        visible={editingHandle}
+        childId={childId}
+        current={settingsQuery.data?.display_name ?? ''}
+        onClose={() => setEditingHandle(false)}
+      />
 
       {/* Opt-in. Off by default: a child is never discoverable by accident. */}
       {!discoverable && (
@@ -118,10 +151,23 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
               Bir maqsaddagi bolalar bilan tanish
             </Text>
             <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
-              Ular sening ismingni ko'rmaydi — faqat taxallusing
-              {settingsQuery.data ? ` (${settingsQuery.data.display_name})` : ''}.
-              Xohlagan paytda o'chirib qo'yasan.
+              Ular sening ismingni ko'rmaydi — faqat taxallusing. Xohlagan
+              paytda o'chirib qo'yasan.
             </Text>
+            {!!settingsQuery.data && (
+              <Pressable
+                onPress={() => setEditingHandle(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Taxallusni o'zgartirish"
+                className="flex-row items-center gap-2 rounded-full px-4 py-2 mt-3"
+                style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+              >
+                <Text className="text-sm font-bold" style={{ color: '#60A5FA' }}>
+                  {settingsQuery.data.display_name}
+                </Text>
+                <Pencil size={14} color="#60A5FA" />
+              </Pressable>
+            )}
             <Pressable
               onPress={() => updateSettings.mutate({ discoverable: true })}
               disabled={updateSettings.isPending}
