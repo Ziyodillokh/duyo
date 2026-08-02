@@ -306,11 +306,8 @@ async def chat_turn(
 
     # 2. Resolve or create conversation
     history: list[tuple[str, str]] = []
-    if payload.conversation_id is None:
-        conv = Conversation(child_id=child.id)
-        db.add(conv)
-        await db.flush()
-    else:
+    conv = None
+    if payload.conversation_id is not None:
         conv = await db.scalar(
             select(Conversation).where(
                 Conversation.id == payload.conversation_id,
@@ -318,8 +315,24 @@ async def chat_turn(
             )
         )
         if conv is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+            # The client persists conversation_id locally, so it outlives the
+            # row — a wiped database, a deleted conversation, or an id created
+            # under a different child profile all leave a stale one behind.
+            # This used to 404 every message the child sent, with no way out
+            # but reinstalling, because nothing clears the stored id. Start a
+            # fresh conversation instead; the query above is already scoped to
+            # this child, so another child's id misses and gets a new
+            # conversation of the caller's own rather than attaching to theirs.
+            log.info(
+                "chat stale conversation_id=%s child=%s — starting a new one",
+                payload.conversation_id, child.id,
+            )
 
+    if conv is None:
+        conv = Conversation(child_id=child.id)
+        db.add(conv)
+        await db.flush()
+    else:
         # Fetch last N messages (chronological after reverse) for multi-turn context
         max_msgs = get_settings().conversation_history_max_messages
         prior = (

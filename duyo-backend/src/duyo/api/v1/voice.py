@@ -132,24 +132,34 @@ async def voice_ws(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="child not found")
         return
 
-    conv: Conversation
-    if conversation_id is None:
-        conv = Conversation(child_id=child.id)
-        db.add(conv)
-        await db.flush()
-    else:
-        existing = await db.scalar(
+    conv: Conversation | None = None
+    if conversation_id is not None:
+        conv = await db.scalar(
             select(Conversation).where(
                 Conversation.id == conversation_id,
                 Conversation.child_id == child.id,
             )
         )
-        if existing is None:
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION, reason="conversation not found"
+        if conv is None:
+            # The client persists conversation_id in local storage, so it
+            # outlives the row: a wiped database, a deleted conversation, or an
+            # id created under a different child profile all leave a stale one
+            # behind. This used to close the socket, and the child saw only
+            # "Aloqa uzildi" with no way out but reinstalling — the app never
+            # clears the id on its own. Start a fresh conversation instead.
+            #
+            # This is NOT a authorization hole: the query above is already
+            # scoped to this child, so an id belonging to another child simply
+            # misses and gets a new conversation of the caller's own rather
+            # than attaching to someone else's.
+            log.info(
+                "voice_ws stale conversation_id=%s child=%s — starting a new one",
+                conversation_id, child.id,
             )
-            return
-        conv = existing
+    if conv is None:
+        conv = Conversation(child_id=child.id)
+        db.add(conv)
+        await db.flush()
 
     # 2. Build the live system prompt: base age-segment prompt + (optionally)
     #    prior conversation embedded as plain text so the model has context.
