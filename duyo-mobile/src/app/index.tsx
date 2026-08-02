@@ -36,7 +36,7 @@ export default function SplashScreen() {
         accessibilityLabel="DUYO"
       />
       <Text className="text-lg text-muted-foreground mt-2">
-        Sening AI Hamrohingiz
+        Sizning AI hamrohingiz
       </Text>
       <ActivityIndicator size="large" color="#2563EB" className="mt-8" />
     </View>
