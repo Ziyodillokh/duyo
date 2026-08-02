@@ -60,8 +60,12 @@ export function layoutGraph(
   const vx = new Float64Array(nodes.length);
   const vy = new Float64Array(nodes.length);
 
-  // Seed on a circle; the most-linked node sits at the centre.
-  const radius = Math.min(width, height) * 0.32;
+  // Seed on an ELLIPSE shaped like the canvas; the most-linked node sits at
+  // the centre. A circular seed on a tall phone screen settles into a round
+  // clump with the top and bottom thirds empty — the simulation's forces are
+  // isotropic and never discover the shape of the space they are in.
+  const rx = width * 0.34;
+  const ry = height * 0.34;
   nodes.forEach((_, i) => {
     if (i === 0) {
       xs[i] = 0;
@@ -69,8 +73,8 @@ export function layoutGraph(
       return;
     }
     const angle = (2 * Math.PI * (i - 1)) / Math.max(1, nodes.length - 1);
-    xs[i] = Math.cos(angle) * radius;
-    ys[i] = Math.sin(angle) * radius;
+    xs[i] = Math.cos(angle) * rx;
+    ys[i] = Math.sin(angle) * ry;
   });
 
   const links = edges
@@ -155,16 +159,23 @@ export function layoutGraph(
   // empty box. MAX_FIT is the middle: a small graph uses the canvas without
   // the gaps growing absurd.
   const MAX_FIT = 1.7;
-  const scale = Math.min(
-    (width - pad * 2) / spanX,
-    (height - pad * 2) / spanY,
-    MAX_FIT,
-  );
-  const offsetX = pad + (width - pad * 2 - spanX * scale) / 2;
-  const offsetY = pad + (height - pad * 2 - spanY * scale) / 2;
+  // Each axis gets its own scale, so a wide layout still fills a tall phone
+  // screen. ANISOTROPY stops that becoming a smear: the tighter axis is never
+  // allowed to fall below this share of the looser one, which keeps a cluster
+  // recognisably a cluster rather than a stretched band.
+  const ANISOTROPY = 0.7;
+  const fitX = Math.min((width - pad * 2) / spanX, MAX_FIT);
+  const fitY = Math.min((height - pad * 2) / spanY, MAX_FIT);
+  // Each axis keeps its own bound and is only ever pulled DOWN toward the
+  // other, so neither can overflow the canvas.
+  const scaleX = Math.min(fitX, fitY / ANISOTROPY);
+  const scaleY = Math.min(fitY, fitX / ANISOTROPY);
 
-  const toX = (v: number) => (v - minX) * scale + offsetX;
-  const toY = (v: number) => (v - minY) * scale + offsetY;
+  const offsetX = pad + (width - pad * 2 - spanX * scaleX) / 2;
+  const offsetY = pad + (height - pad * 2 - spanY * scaleY) / 2;
+
+  const toX = (v: number) => (v - minX) * scaleX + offsetX;
+  const toY = (v: number) => (v - minY) * scaleY + offsetY;
 
   const positioned: PositionedNode[] = nodes.map((n, i) => ({
     ...n,

@@ -43,7 +43,10 @@ function labelOf(node: { title: string; kind: GraphNode['kind'] }): string {
 interface Props {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** A tap. Opens the note — the map is for getting somewhere, not admiring. */
   onSelect: (node: GraphNode) => void;
+  /** Fixed height. Omit to fill the parent, which is how the full-screen map
+   *  uses it; a card embedding the graph passes a number. */
   height?: number;
 }
 
@@ -58,13 +61,16 @@ interface Props {
  * Pinch to zoom, drag to pan. A single tap selects; a second tap on the same
  * note opens it, so exploring the map never opens something by accident.
  */
-export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
-  const [width, setWidth] = useState(0);
+export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
+  const [size, setSize] = useState({ width: 0, height: height ?? 0 });
   const [focus, setFocus] = useState<string | null>(null);
 
   const layout = useMemo(
-    () => (width > 0 ? layoutGraph(nodes, edges, width, height) : null),
-    [nodes, edges, width, height],
+    () =>
+      size.width > 0 && size.height > 0
+        ? layoutGraph(nodes, edges, size.width, size.height)
+        : null,
+    [nodes, edges, size],
   );
 
   // Which titles are one hop from the focused note.
@@ -127,26 +133,35 @@ export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
     setFocus(null);
   };
 
-  const tap = (node: PositionedNode) => {
-    if (focus === node.title) onSelect(node);
-    else setFocus(node.title);
-  };
+  // A tap opens; press-and-hold lights up the neighbourhood. Obsidian opens a
+  // node on click too — making the first tap only "select" meant every note
+  // cost two taps, which is the wrong trade on a phone.
+  const tap = (node: PositionedNode) => onSelect(node);
+  const hold = (node: PositionedNode) =>
+    setFocus((f) => (f === node.title ? null : node.title));
 
   const alpha = (title: string) =>
     !neighbours || neighbours.has(title.toLowerCase()) ? 1 : DIM;
 
-  const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
+  const onLayout = (e: LayoutChangeEvent) => {
+    const l = e.nativeEvent.layout;
+    setSize((prev) =>
+      prev.width === l.width && prev.height === (height ?? l.height)
+        ? prev
+        : { width: l.width, height: height ?? l.height },
+    );
+  };
 
   return (
     <View
       onLayout={onLayout}
-      style={{ height, overflow: 'hidden' }}
+      style={height === undefined ? { flex: 1, overflow: 'hidden' } : { height, overflow: 'hidden' }}
       accessibilityLabel="Qaydlar tarmog'i"
     >
       {layout && nodes.length > 0 && (
         <GestureDetector gesture={gesture}>
-          <Animated.View style={[{ width, height }, canvasStyle]}>
-            <Svg width={width} height={height}>
+          <Animated.View style={[{ width: size.width, height: size.height }, canvasStyle]}>
+            <Svg width={size.width} height={size.height}>
               {layout.edges.map((e, i) => {
                 const lit =
                   !neighbours ||
@@ -231,6 +246,7 @@ export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
                 <Pressable
                   key={`p-${n.title}`}
                   onPress={() => tap(n)}
+                  onLongPress={() => hold(n)}
                   accessibilityRole="button"
                   accessibilityLabel={labelOf(n)}
                   style={{
@@ -273,6 +289,22 @@ export function NoteGraph({ nodes, edges, onSelect, height = 400 }: Props) {
           <Text className="text-sm text-muted-foreground dark:text-dark-muted text-center px-8">
             Hali qayd yo'q. Birinchi qaydni yozsang, miyang shu yerda o'sa
             boshlaydi.
+          </Text>
+        </View>
+      )}
+
+      {/* Notes but no lines yet. Loose dots are the honest picture of an
+          unlinked notebook — a child who doesn't know what makes the lines
+          appear will just think the map is broken. */}
+      {nodes.length > 0 && edges.length === 0 && (
+        <View
+          className="absolute left-0 right-0 items-center"
+          style={{ bottom: 74 }}
+          pointerEvents="none"
+        >
+          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center px-10">
+            Qaydlarda #teg yoz yoki bir qaydda boshqasining nomini eslat —
+            chiziqlar o'zi paydo bo'ladi.
           </Text>
         </View>
       )}

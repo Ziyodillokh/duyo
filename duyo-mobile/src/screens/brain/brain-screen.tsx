@@ -1,6 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Eye, List, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -69,6 +69,7 @@ export default function BrainScreen() {
   const [peek, setPeek] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameTo, setRenameTo] = useState('');
+  const [listOpen, setListOpen] = useState(false);
 
   const graph = useQuery({
     queryKey: ['note-graph', childId],
@@ -542,176 +543,233 @@ export default function BrainScreen() {
               )}
             </ScrollView>
           ) : (
-            <ScrollView contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 120 }}>
-              {/* Search */}
-              <View
-                className="flex-row items-center rounded-md gap-2 border border-neon-blue/20"
-                style={{ backgroundColor: cardBg, paddingHorizontal: 14, height: 44 }}
-              >
-                <Search size={17} color="#94A3B8" />
-                <TextInput
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder="Qaydlardan qidirish…"
-                  placeholderTextColor="#94A3B8"
-                  accessibilityLabel="Qaydlardan qidirish"
-                  className="flex-1 text-base text-foreground dark:text-dark-text"
-                />
-              </View>
-
-              {/* Tags */}
-              {!!tags.data?.length && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  {tags.data.map((t) => {
-                    const on = activeTag === t;
-                    return (
-                      <Pressable
-                        key={t}
-                        onPress={() => setActiveTag(on ? null : t)}
-                        onLongPress={() => {
-                          setRenaming(t);
-                          setRenameTo(t);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={`#${t}`}
-                        className={`rounded-md border ${on ? 'border-neon-yellow' : 'border-neon-blue/20'}`}
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingVertical: 7,
-                          backgroundColor: on ? 'rgba(253,199,0,0.15)' : cardBg,
-                        }}
-                      >
-                        <Text className={`text-xs ${on ? 'text-neon-yellow' : 'text-foreground dark:text-dark-text'}`}>
-                          #{t}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              )}
-
-              {renaming !== null && (
-                <View
-                  className="rounded-md border border-neon-yellow/40 flex-row items-center gap-2"
-                  style={{ padding: 8, backgroundColor: cardBg }}
-                >
-                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-                    #{renaming} →
-                  </Text>
-                  <TextInput
-                    value={renameTo}
-                    onChangeText={setRenameTo}
-                    autoFocus
-                    maxLength={40}
-                    accessibilityLabel="Tegning yangi nomi"
-                    className="flex-1 text-sm text-foreground dark:text-dark-text px-2 py-1"
-                  />
-                  <Pressable
-                    onPress={() => renameTo.trim() && rename.mutate()}
-                    disabled={!renameTo.trim() || rename.isPending}
-                    accessibilityRole="button"
-                    accessibilityLabel="Tegni qayta nomlash"
-                    className="rounded-md px-3 py-1.5 active:opacity-70"
-                    style={{ backgroundColor: 'rgba(253,199,0,0.2)' }}
-                  >
-                    <Text className="text-xs" style={{ color: '#FDC700' }}>
-                      Saqlash
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setRenaming(null)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Bekor qilish"
-                    className="px-2 py-1.5 active:opacity-70"
-                  >
-                    <Text className="text-xs text-muted-foreground dark:text-dark-muted">✕</Text>
-                  </Pressable>
-                </View>
-              )}
-
-              {query.trim() ? (
-                <View className="gap-2">
-                  <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                    Topildi ({results.data?.length ?? 0})
-                  </Text>
-                  {results.data?.map((r) => (
-                    <Pressable
-                      key={r.id}
-                      onPress={() => open.mutate(r.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={r.title}
-                      className="rounded-md border border-neon-blue/20 active:opacity-80"
-                      style={{ padding: 14, backgroundColor: cardBg }}
-                    >
-                      <Text className="text-base text-foreground dark:text-dark-text">{r.title}</Text>
-                      {r.excerpt !== '' && (
-                        <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1" numberOfLines={2}>
-                          {r.excerpt}
-                        </Text>
-                      )}
-                    </Pressable>
-                  ))}
-                  {results.data?.length === 0 && (
-                    <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                      Hech narsa topilmadi.
-                    </Text>
-                  )}
+            /* The map owns the screen, the way Obsidian's graph view does.
+               Search, tags and the note list float over it or slide up from
+               the bottom, so the graph is never a thumbnail in a card with
+               the real content underneath it. */
+            <View className="flex-1">
+              {graph.isLoading ? (
+                <View className="flex-1 items-center justify-center">
+                  <ActivityIndicator color="#60A5FA" />
                 </View>
               ) : (
-                <>
-                  <View className="rounded-xl border border-neon-blue/20" style={{ backgroundColor: cardBg }}>
-                    {graph.isLoading ? (
-                      <View className="items-center justify-center" style={{ height: 340 }}>
-                        <ActivityIndicator color="#60A5FA" />
-                      </View>
-                    ) : (
-                      <NoteGraph
-                        nodes={graph.data?.nodes ?? []}
-                        edges={graph.data?.edges ?? []}
-                        onSelect={onSelectNode}
-                      />
-                    )}
-                  </View>
+                <NoteGraph
+                  nodes={graph.data?.nodes ?? []}
+                  edges={graph.data?.edges ?? []}
+                  onSelect={onSelectNode}
+                />
+              )}
 
-                  {!!notes.data?.length && (
-                    <View className="gap-2">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                          {activeTag ? `#${activeTag}` : 'Qaydlar'} ({notes.data.length})
-                        </Text>
+              {/* Floating chrome, pinned to the top of the map. */}
+              <View
+                className="absolute left-0 right-0 top-0"
+                style={{ paddingHorizontal: 16, paddingTop: 4, gap: 8 }}
+                pointerEvents="box-none"
+              >
+                <View
+                  className="flex-row items-center rounded-md gap-2 border border-neon-blue/20"
+                  style={{ backgroundColor: cardBg, paddingHorizontal: 14, height: 42 }}
+                >
+                  <Search size={17} color="#94A3B8" />
+                  <TextInput
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder="Qaydlardan qidirish…"
+                    placeholderTextColor="#94A3B8"
+                    accessibilityLabel="Qaydlardan qidirish"
+                    className="flex-1 text-base text-foreground dark:text-dark-text"
+                  />
+                </View>
+
+                {!!tags.data?.length && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 8 }}
+                  >
+                    {tags.data.map((t) => {
+                      const on = activeTag === t;
+                      return (
                         <Pressable
-                          onPress={() =>
-                            setSort((p) =>
-                              p === 'updated' ? 'created' : p === 'created' ? 'title' : 'updated',
-                            )
-                          }
+                          key={t}
+                          onPress={() => setActiveTag(on ? null : t)}
+                          onLongPress={() => {
+                            setRenaming(t);
+                            setRenameTo(t);
+                          }}
                           accessibilityRole="button"
-                          accessibilityLabel={`Tartib: ${SORT_LABEL[sort]}`}
-                          className="rounded-md px-3 py-1.5 active:opacity-70"
-                          style={{ backgroundColor: 'rgba(96,165,250,0.12)' }}
+                          accessibilityLabel={`#${t}`}
+                          className={`rounded-md border ${on ? 'border-neon-yellow' : 'border-neon-blue/20'}`}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            backgroundColor: on ? 'rgba(253,199,0,0.15)' : cardBg,
+                          }}
                         >
-                          <Text className="text-xs text-neon-blue">⇅ {SORT_LABEL[sort]}</Text>
-                        </Pressable>
-                      </View>
-                      {notes.data.map((n) => (
-                        <Pressable
-                          key={n.id}
-                          onPress={() => open.mutate(n.id)}
-                          accessibilityRole="button"
-                          accessibilityLabel={n.title}
-                          className="rounded-md border border-neon-blue/20 active:opacity-80"
-                          style={{ padding: 14, backgroundColor: cardBg }}
-                        >
-                          <Text className="text-base text-foreground dark:text-dark-text">
-                            {n.title}
+                          <Text className={`text-xs ${on ? 'text-neon-yellow' : 'text-foreground dark:text-dark-text'}`}>
+                            #{t}
                           </Text>
                         </Pressable>
-                      ))}
-                    </View>
-                  )}
-                </>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
+                {renaming !== null && (
+                  <View
+                    className="rounded-md border border-neon-yellow/40 flex-row items-center gap-2"
+                    style={{ padding: 8, backgroundColor: cardBg }}
+                  >
+                    <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                      #{renaming} →
+                    </Text>
+                    <TextInput
+                      value={renameTo}
+                      onChangeText={setRenameTo}
+                      autoFocus
+                      maxLength={40}
+                      accessibilityLabel="Tegning yangi nomi"
+                      className="flex-1 text-sm text-foreground dark:text-dark-text px-2 py-1"
+                    />
+                    <Pressable
+                      onPress={() => renameTo.trim() && rename.mutate()}
+                      disabled={!renameTo.trim() || rename.isPending}
+                      accessibilityRole="button"
+                      accessibilityLabel="Tegni qayta nomlash"
+                      className="rounded-md px-3 py-1.5 active:opacity-70"
+                      style={{ backgroundColor: 'rgba(253,199,0,0.2)' }}
+                    >
+                      <Text className="text-xs" style={{ color: '#FDC700' }}>Saqlash</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setRenaming(null)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Bekor qilish"
+                      className="px-2 py-1.5 active:opacity-70"
+                    >
+                      <Text className="text-xs text-muted-foreground dark:text-dark-muted">✕</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+
+              {/* Searching replaces the map: you are looking for one note, not
+                  reading the shape of everything. */}
+              {query.trim() !== '' && (
+                <View
+                  className="absolute left-0 right-0 bottom-0"
+                  style={{ top: 58, backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }}
+                >
+                  <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 8, gap: 8 }}>
+                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                      Topildi ({results.data?.length ?? 0})
+                    </Text>
+                    {results.data?.map((r) => (
+                      <Pressable
+                        key={r.id}
+                        onPress={() => {
+                          setQuery('');
+                          open.mutate(r.id);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={r.title}
+                        className="rounded-md border border-neon-blue/20 active:opacity-80"
+                        style={{ padding: 14, backgroundColor: cardBg }}
+                      >
+                        <Text className="text-base text-foreground dark:text-dark-text">{r.title}</Text>
+                        {r.excerpt !== '' && (
+                          <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1" numberOfLines={2}>
+                            {r.excerpt}
+                          </Text>
+                        )}
+                      </Pressable>
+                    ))}
+                    {results.data?.length === 0 && (
+                      <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                        Hech narsa topilmadi.
+                      </Text>
+                    )}
+                  </ScrollView>
+                </View>
               )}
-            </ScrollView>
+
+              {/* The list still exists — it just no longer takes the map's place. */}
+              {query.trim() === '' && !!notes.data?.length && !listOpen && (
+                <Pressable
+                  onPress={() => setListOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Qaydlar ro'yxati"
+                  className="absolute rounded-full flex-row items-center gap-2 active:opacity-80"
+                  style={{
+                    right: 16,
+                    bottom: 16,
+                    paddingHorizontal: 16,
+                    paddingVertical: 11,
+                    backgroundColor: 'rgba(96,165,250,0.92)',
+                  }}
+                >
+                  <List size={16} color="#0A1628" />
+                  <Text className="text-sm font-medium" style={{ color: '#0A1628' }}>
+                    {notes.data.length}
+                  </Text>
+                </Pressable>
+              )}
+
+              {listOpen && query.trim() === '' && (
+                <View
+                  className="absolute left-0 right-0 bottom-0 rounded-t-2xl border-t border-neon-blue/20"
+                  style={{ maxHeight: '62%', backgroundColor: cardBg }}
+                >
+                  <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
+                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                      {activeTag ? `#${activeTag}` : 'Qaydlar'} ({notes.data?.length ?? 0})
+                    </Text>
+                    <View className="flex-row items-center gap-2">
+                      <Pressable
+                        onPress={() =>
+                          setSort((prev) =>
+                            prev === 'updated' ? 'created' : prev === 'created' ? 'title' : 'updated',
+                          )
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel={`Tartib: ${SORT_LABEL[sort]}`}
+                        className="rounded-md px-3 py-1.5 active:opacity-70"
+                        style={{ backgroundColor: 'rgba(96,165,250,0.12)' }}
+                      >
+                        <Text className="text-xs text-neon-blue">⇅ {SORT_LABEL[sort]}</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setListOpen(false)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Ro'yxatni yopish"
+                        className="px-2 py-1.5 active:opacity-70"
+                      >
+                        <Text className="text-sm text-muted-foreground dark:text-dark-muted">✕</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                  <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 8 }}>
+                    {notes.data?.map((n) => (
+                      <Pressable
+                        key={n.id}
+                        onPress={() => {
+                          setListOpen(false);
+                          open.mutate(n.id);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={n.title}
+                        className="rounded-md border border-neon-blue/20 active:opacity-80"
+                        style={{ padding: 14 }}
+                      >
+                        <Text className="text-base text-foreground dark:text-dark-text">
+                          {n.title}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
