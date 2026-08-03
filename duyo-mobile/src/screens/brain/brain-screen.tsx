@@ -563,8 +563,7 @@ export default function BrainScreen() {
               {/* Floating chrome, pinned to the top of the map. */}
               <View
                 className="absolute left-0 right-0 top-0"
-                style={{ paddingHorizontal: 16, paddingTop: 4, gap: 8 }}
-                pointerEvents="box-none"
+                style={{ paddingHorizontal: 16, paddingTop: 4, gap: 8, pointerEvents: 'box-none' }}
               >
                 <View
                   className="flex-row items-center rounded-md gap-2 border border-neon-blue/20"

@@ -54,12 +54,12 @@ interface Props {
  * The brain: notes as dots, [[links]] as lines.
  *
  * Reads like Obsidian's graph rather than a scatter plot: each dot carries a
- * soft halo, links are curved rather than straight, and tapping a note pulls
+ * soft halo, links are curved rather than straight, and holding a note pulls
  * it and its neighbours forward while everything else fades back — which is
  * how you actually read a graph, one neighbourhood at a time.
  *
- * Pinch to zoom, drag to pan. A single tap selects; a second tap on the same
- * note opens it, so exploring the map never opens something by accident.
+ * Pinch to zoom, drag to pan. A tap opens the note; press-and-hold isolates
+ * its neighbourhood.
  */
 export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   const [size, setSize] = useState({ width: 0, height: height ?? 0 });
@@ -299,8 +299,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
       {nodes.length > 0 && edges.length === 0 && (
         <View
           className="absolute left-0 right-0 items-center"
-          style={{ bottom: 74 }}
-          pointerEvents="none"
+          style={{ bottom: 74, pointerEvents: 'none' }}
         >
           <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center px-10">
             Qaydlarda #teg yoz yoki bir qaydda boshqasining nomini eslat —
