@@ -22,6 +22,7 @@ from duyo.models.goal import (
     GoalStatus,
 )
 from duyo.models.message import Message, MessageRole
+from duyo.models.mood import MoodEntry, MoodValue
 from duyo.models.note import ChildNote
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
@@ -75,6 +76,8 @@ __all__ = [
     "Message",
     "MessageFeedback",
     "MessageRole",
+    "MoodEntry",
+    "MoodValue",
     "Payment",
     "PaymentProvider",
     "PaymentState",

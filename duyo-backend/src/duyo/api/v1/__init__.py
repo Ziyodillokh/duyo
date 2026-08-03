@@ -12,6 +12,7 @@ from duyo.api.v1.gamification import router as gamification_router
 from duyo.api.v1.goals import router as goals_router
 from duyo.api.v1.health import router as health_router
 from duyo.api.v1.language import router as language_router
+from duyo.api.v1.mood import router as mood_router
 from duyo.api.v1.note import router as note_router
 from duyo.api.v1.payments import router as payments_router
 from duyo.api.v1.puzzle import router as puzzle_router
@@ -36,6 +37,7 @@ api_v1.include_router(goals_router)
 api_v1.include_router(social_router)
 api_v1.include_router(tamagochi_router)
 api_v1.include_router(subscription_router)
+api_v1.include_router(mood_router)
 api_v1.include_router(note_router)
 api_v1.include_router(payments_router)
 api_v1.include_router(puzzle_router)

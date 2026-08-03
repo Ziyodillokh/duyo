@@ -16,9 +16,9 @@ Two safety properties matter more than recall:
 from __future__ import annotations
 
 import json
-import logging
 from uuid import UUID
 
+import structlog
 from google.genai import types
 from sqlalchemy import select
 
@@ -34,7 +34,12 @@ from duyo.models.goal import (
 from duyo.prompts import GOAL_EXTRACT_PROMPT
 from duyo.services.gemini import get_client
 
-log = logging.getLogger(__name__)
+# structlog, not stdlib logging: the app configures no logging at all, so a
+# stdlib logger's INFO lines never reach the container output. That is why a
+# goal that failed to save left no trace anywhere — the code could not be
+# diagnosed from production. Every module whose behaviour matters here
+# (textbook/retriever, psychology/*) already uses structlog.
+log = structlog.get_logger(__name__)
 
 _TITLE_MAX = 60
 #: Below this the utterance cannot carry a goal statement; skipping saves a
@@ -71,7 +76,7 @@ async def _extract(question: str) -> dict | None:
         )
         data = json.loads((resp.text or "").strip())
     except Exception:
-        log.warning("goal_extract_failed", exc_info=True)
+        log.exception("goal_extract_failed")
         return None
 
     if not isinstance(data, dict) or not data.get("has_goal"):
@@ -143,7 +148,8 @@ async def extract_goal_candidate(child_id: UUID, message: str) -> None:
                             min(100.0, progress / existing.total_units * 100), 1
                         )
                     await session.commit()
-                    log.info("goal_progress_inferred child=%s goal=%s", child_id, existing.id)
+                    log.info("goal_progress_inferred", child=str(child_id),
+                             goal=str(existing.id), unit=progress)
                 return
 
             # A child with a dozen open goals does not need DUYO inventing more.
@@ -171,6 +177,6 @@ async def extract_goal_candidate(child_id: UUID, message: str) -> None:
                 )
             )
             await session.commit()
-            log.info("goal_inferred child=%s title=%r", child_id, parsed["title"])
+            log.info("goal_inferred", child=str(child_id), title=parsed["title"])
     except Exception:
-        log.warning("goal_persist_failed child=%s", child_id, exc_info=True)
+        log.exception("goal_persist_failed", child=str(child_id))

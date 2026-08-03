@@ -35,6 +35,7 @@ from duyo.schemas.social import (
     FriendRequestCreate,
     FriendshipRead,
     GoalMateRead,
+    HandleSuggestions,
     PeerCard,
     PeerMessageCreate,
     PeerMessageRead,
@@ -43,11 +44,14 @@ from duyo.schemas.social import (
     SocialSettingsUpdate,
 )
 from duyo.services.social import (
+    HandleError,
     canonical_pair,
     find_goal_mates,
     generate_handle,
     get_or_create_settings,
     screen_peer_message,
+    suggest_handles,
+    validate_handle,
 )
 
 router = APIRouter(prefix="/social", tags=["social"])
@@ -128,12 +132,32 @@ async def update_settings(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Social access suspended")
     if payload.discoverable is not None:
         settings.discoverable = payload.discoverable
-    if payload.regenerate_handle:
+    if payload.display_name is not None:
+        try:
+            settings.display_name = validate_handle(payload.display_name)
+        except HandleError as exc:
+            # The message is written for the child, so pass it through as-is.
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)
+            ) from exc
+    elif payload.regenerate_handle:
         settings.display_name = generate_handle()
     await db.flush()
     return SocialSettingsRead(
         display_name=settings.display_name, discoverable=settings.discoverable
     )
+
+
+@router.get("/{child_id}/handle-suggestions", response_model=HandleSuggestions)
+async def handle_suggestions(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> HandleSuggestions:
+    """Options to pick from. Every word is an animal or a natural feature —
+    never a personal name, so no handle carries a gender."""
+    await _get_owned_child(child_id, current_user, db)
+    return HandleSuggestions(suggestions=suggest_handles())
 
 
 # ---------------------------------------------------------------------------

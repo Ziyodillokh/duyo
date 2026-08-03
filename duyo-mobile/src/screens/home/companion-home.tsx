@@ -1,12 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { MoodValue } from '@/api/endpoints/mood';
 import { AchievementsCard } from '@/components/gamification/achievements-card';
 import { RecentRewardsCard } from '@/components/gamification/recent-rewards-card';
 import { WeeklyActivityCard } from '@/components/gamification/weekly-activity-card';
+import { useSetTodayMood, useTodayMood } from '@/hooks/use-mood';
 import { useChildStore } from '@/store/child';
 
 // Figma node 9:18782 — CompanionHome (age 14+, dark navy gradient)
@@ -22,18 +23,21 @@ import { useChildStore } from '@/store/child';
 // const WEEK_DAYS = ['Du', 'Se', 'Cho', 'Pa', 'Ju', 'Sha', 'Ya'] as const;
 // const WEEK_DONE = [true, true, true, true, true, false, false];
 
-interface TopStat {
-  key: string;
-  value: string;
-  label: string;
-}
-
-const TOP_STATS: ReadonlyArray<TopStat> = [
-  { key: 'dtm', value: '18.5', label: 'DTM ball' },
-  { key: 'ielts', value: '6.0', label: 'IELTS' },
-  { key: 'fokus', value: '85%', label: 'Fokus' },
-  { key: 'stress', value: '5', label: 'Stress' },
-];
+// Parked with the rest: these four read as facts about the child ("DTM ball
+// 18.5", "Stress 5") while being the same constants for everyone. Restore only
+// once each number has a real source.
+// interface TopStat {
+//   key: string;
+//   value: string;
+//   label: string;
+// }
+//
+// const TOP_STATS: ReadonlyArray<TopStat> = [
+//   { key: 'dtm', value: '18.5', label: 'DTM ball' },
+//   { key: 'ielts', value: '6.0', label: 'IELTS' },
+//   { key: 'fokus', value: '85%', label: 'Fokus' },
+//   { key: 'stress', value: '5', label: 'Stress' },
+// ];
 
 // interface DailyGoal {
 //   key: string;
@@ -113,15 +117,19 @@ const TOP_STATS: ReadonlyArray<TopStat> = [
 // ];
 
 interface Mood {
-  key: string;
+  key: MoodValue;
   emoji: string;
   label: string;
 }
 
+// Five faces, matching the backend enum exactly. The previous three were a
+// local placeholder and one of them ("stress") did not exist server-side.
 const MOODS: ReadonlyArray<Mood> = [
   { key: 'great', emoji: '😄', label: 'Ajoyib' },
   { key: 'good', emoji: '🙂', label: 'Yaxshi' },
-  { key: 'stress', emoji: '😣', label: 'Stress' },
+  { key: 'okay', emoji: '😐', label: "O'rtacha" },
+  { key: 'sad', emoji: '😔', label: 'Xafa' },
+  { key: 'stressed', emoji: '😣', label: 'Stress' },
 ];
 
 const SURFACE = 'rgba(255,255,255,0.06)';
@@ -129,7 +137,10 @@ const BORDER = 'rgba(96,165,250,0.18)';
 
 export function CompanionHome() {
   const childName = useChildStore((s) => s.child?.name ?? 'Foydalanuvchi');
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  // Server-backed, so today's answer survives closing the app.
+  const todayMood = useTodayMood();
+  const setMood = useSetTodayMood();
+  const selectedMood = todayMood.data?.mood ?? null;
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -155,19 +166,10 @@ export function CompanionHome() {
             </Text>
           </View>
 
-          {/* Top stats row */}
-          <View className="flex-row gap-3">
-            {TOP_STATS.map((stat) => (
-              <View
-                key={stat.key}
-                className="flex-1 rounded-xl items-center"
-                style={{ backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, paddingVertical: 14 }}
-              >
-                <Text className="text-xl font-bold text-white">{stat.value}</Text>
-                <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>{stat.label}</Text>
-              </View>
-            ))}
-          </View>
+          {/* The DTM / IELTS / Fokus / Stress row that sat here was removed:
+              every figure in it was hard-coded, so it told the child things
+              about themselves that were not true. Nothing replaces it until
+              there is real data behind those numbers. */}
 
           {/* Mood selector */}
           <View
@@ -177,26 +179,27 @@ export function CompanionHome() {
             <Text className="text-sm font-medium text-white mb-3">
               Bugun o'zingizni qanday his qilyapsiz?
             </Text>
-            <View className="flex-row justify-around">
+            <View className="flex-row justify-between">
               {MOODS.map((m) => {
                 const isSel = selectedMood === m.key;
                 return (
                   <Pressable
                     key={m.key}
-                    onPress={() => setSelectedMood(m.key)}
+                    onPress={() => setMood.mutate(m.key)}
                     accessibilityRole="button"
+                    accessibilityState={{ selected: isSel }}
                     accessibilityLabel={m.label}
-                    className="rounded-xl items-center"
+                    className="rounded-xl items-center flex-1"
                     style={{
-                      padding: 10,
-                      minWidth: 72,
+                      paddingVertical: 10,
+                      marginHorizontal: 2,
                       backgroundColor: isSel ? 'rgba(96,165,250,0.15)' : 'transparent',
                       borderWidth: isSel ? 1 : 0,
                       borderColor: isSel ? '#60A5FA' : 'transparent',
                     }}
                   >
-                    <Text style={{ fontSize: 32 }}>{m.emoji}</Text>
-                    <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 4 }}>{m.label}</Text>
+                    <Text style={{ fontSize: 28 }}>{m.emoji}</Text>
+                    <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 4 }}>{m.label}</Text>
                   </Pressable>
                 );
               })}
@@ -207,7 +210,9 @@ export function CompanionHome() {
                 style={{ backgroundColor: 'rgba(96,165,250,0.10)', padding: 10 }}
               >
                 <Text style={{ color: '#CBD5E1', fontSize: 13 }}>
-                  Rahmat! DUYO sizning his-tuyg'ularingizni hisobga oladi.
+                  {setMood.isError
+                    ? "Saqlanmadi — internetni tekshiring."
+                    : "Rahmat! DUYO sizning his-tuyg'ularingizni hisobga oladi."}
                 </Text>
               </View>
             )}

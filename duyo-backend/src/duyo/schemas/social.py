@@ -33,8 +33,15 @@ class SocialSettingsRead(BaseModel):
 
 class SocialSettingsUpdate(BaseModel):
     discoverable: bool | None = None
-    # Re-roll only: the child picks from generated options, never free-types.
+    # The child's own handle. Validated server-side (see services/social.py):
+    # a handle shows on every message, so it needs the same contact-detail
+    # screening a message body gets.
+    display_name: str | None = Field(default=None, max_length=20)
     regenerate_handle: bool = False
+
+
+class HandleSuggestions(BaseModel):
+    suggestions: list[str]
 
 
 class FriendRequestCreate(BaseModel):

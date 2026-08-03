@@ -49,6 +49,12 @@ dev = [
     "mypy>=1.9.0",
     "httpx>=0.27.0",
     "anthropic>=0.20.0",
+    # The note API tests run against an in-memory SQLite database. This must
+    # live HERE and not only in [dependency-groups]: CI installs with
+    # `pip install -e ".[dev]"`, which reads this table and ignores that one —
+    # so it was never installed and every note test errored on collection,
+    # failing CI and the backend deploy with it.
+    "aiosqlite>=0.22.1",
 ]
 
 [build-system]
@@ -92,6 +98,10 @@ extend-immutable-calls = [
 # BOARD_PROMPT deliberately uses the typographic maths signs (× ÷ − √ ²) that
 # should appear on the chalkboard; ASCII "x" and "-" would look wrong there.
 "src/duyo/prompts.py" = ["RUF001"]
+# The handle validator's character class must accept every apostrophe glyph an
+# Uzbek keyboard produces (ʻ U+02BB, ʼ U+02BC, ‘ ’) — naming them IS the point.
+"src/duyo/services/social.py" = ["RUF001"]
+"tests/services/test_handles.py" = ["RUF001"]
 # Same reason: the puzzle explanations are read by a child on the chalkboard,
 # so they use × and ² rather than ASCII stand-ins.
 "src/duyo/services/puzzles.py" = ["RUF001"]

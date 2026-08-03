@@ -24,14 +24,62 @@ from duyo.models.social import ChildSocialSettings, Friendship
 
 log = logging.getLogger(__name__)
 
-#: Handles are drawn from this list — never free-typed. A free-text handle is
-#: both a PII channel ("Ali 42-maktab") and an abuse channel that would bypass
-#: message screening entirely.
+#: Default handles. Every word here is an animal, a natural feature or an
+#: object — NEVER a personal name. The first version used names like "Lola",
+#: "Sherzod" and "Shahzoda", which assigned a gender at random and handed boys
+#: girls' names. A nickname a child is embarrassed by is a nickname they work
+#: around, usually by telling the peer their real name.
 _HANDLE_WORDS = (
-    "Yulduz", "Quyosh", "Shamol", "Daryo", "Tog", "Bulut", "Chinor", "Lola",
-    "Burgut", "Ohu", "Shahzoda", "Bahor", "Olov", "Qorqiz", "Sherzod",
-    "Kapalak", "Anor", "Nilufar", "Humo", "Zilol",
+    "Burgut", "Yulbars", "Qoplon", "Delfin", "Kapalak", "Tulpor", "Ayiq",
+    "Shamol", "Chaqmoq", "Kometa", "Raketa", "Bulut", "Chinor", "Olov",
+    "Shalola", "Zilol", "Momaqaldiroq", "Quyosh", "Kamalak", "Toshqin",
 )
+
+#: A child may set their own handle, so it needs the guards a generated one
+#: never did. These reject the two things a free-text field would otherwise
+#: leak: contact details, and a real name plus identifying detail.
+_HANDLE_MIN = 3
+_HANDLE_MAX = 20
+#: Letters (Latin + Uzbek apostrophes) and digits. No spaces, no @, no dots —
+#: which rules out "Ali 42-maktab", "@user" and "ali.karimov" in one stroke.
+_HANDLE_ALLOWED = re.compile(r"^[A-Za-z‘’'`ʻʼ0-9-]+$")
+#: 4+ digits in a row is a phone fragment or a birth year, never a nickname.
+_HANDLE_DIGIT_RUN = re.compile(r"\d{4,}")
+
+
+class HandleError(ValueError):
+    """Carries the message shown to the child, in Uzbek."""
+
+
+def validate_handle(raw: str) -> str:
+    """Normalise a child-chosen handle or explain why it cannot be used."""
+    handle = " ".join(raw.split())  # collapse any whitespace the keyboard added
+    if len(handle) < _HANDLE_MIN:
+        raise HandleError("Taxallus kamida 3 ta belgidan iborat bo'lsin.")
+    if len(handle) > _HANDLE_MAX:
+        raise HandleError("Taxallus 20 ta belgidan uzun bo'lmasin.")
+    if not _HANDLE_ALLOWED.match(handle):
+        raise HandleError(
+            "Faqat harf, raqam va chiziqcha ishlatish mumkin — bo'sh joy, "
+            "@ va nuqta bo'lmasin."
+        )
+    if not any(ch.isalpha() for ch in handle):
+        raise HandleError("Taxallusda kamida bitta harf bo'lsin.")
+    if _HANDLE_DIGIT_RUN.search(handle):
+        raise HandleError("Taxallusda uzun raqam ketma-ketligi bo'lmasin.")
+    # Reuse the message screener's contact vocabulary — a handle is displayed
+    # on every message and would otherwise be an unscreened broadcast field.
+    for pattern in _CONTACT_PATTERNS:
+        if pattern.search(handle):
+            raise HandleError("Bu taxallusni ishlatib bo'lmaydi.")
+    return handle
+
+
+def suggest_handles(count: int = 6) -> list[str]:
+    """A few options to pick from — choosing beats being assigned."""
+    words = list(_HANDLE_WORDS)
+    secrets.SystemRandom().shuffle(words)
+    return [f"{w}-{secrets.randbelow(90) + 10}" for w in words[:count]]
 
 #: Peers must be within one year of each other AND in the same age segment.
 #: Cross-segment matching is forbidden: the 13/14 boundary is precisely the

@@ -4,6 +4,7 @@ import {
   acceptFriend,
   blockFriend,
   declineFriend,
+  fetchHandleSuggestions,
   getSocialSettings,
   listFriends,
   listGoalMates,
@@ -26,12 +27,26 @@ export function useSocialSettings(childId: string | undefined) {
 export function useUpdateSocialSettings(childId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (patch: { discoverable?: boolean; regenerate_handle?: boolean }) =>
-      updateSocialSettings(childId!, patch),
+    mutationFn: (patch: {
+      discoverable?: boolean;
+      display_name?: string;
+      regenerate_handle?: boolean;
+    }) => updateSocialSettings(childId!, patch),
     onSuccess: (data) => {
       qc.setQueryData(['social-settings', childId], data);
       qc.invalidateQueries({ queryKey: ['goal-mates', childId] });
     },
+  });
+}
+
+export function useHandleSuggestions(childId: string | undefined) {
+  return useQuery({
+    queryKey: ['handle-suggestions', childId],
+    queryFn: () => fetchHandleSuggestions(childId!),
+    enabled: !!childId,
+    // Fresh options on every visit to the editor — that is the point of them.
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
