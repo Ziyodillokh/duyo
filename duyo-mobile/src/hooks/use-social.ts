@@ -55,7 +55,11 @@ export function useGoalMates(childId: string | undefined, enabled: boolean) {
     queryKey: ['goal-mates', childId],
     queryFn: () => listGoalMates(childId!),
     enabled: !!childId && enabled,
-    staleTime: 60_000,
+    staleTime: 15_000,
+    // Same reasoning as useFriends: no push channel to a child, so a mate who
+    // added the matching goal after this screen opened is only ever found by
+    // polling.
+    refetchInterval: 20_000,
   });
 }
 

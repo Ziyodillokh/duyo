@@ -37,6 +37,10 @@ export function useCreateGoal(childId: string | undefined) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['goals', childId] });
       qc.invalidateQueries({ queryKey: ['goal-signal', childId] });
+      // A goal picked from the catalog can turn up a mate the instant it is
+      // created — without this the child only sees them after the 60s cache
+      // window lapses or they leave and reopen the screen.
+      qc.invalidateQueries({ queryKey: ['goal-mates', childId] });
     },
   });
 }

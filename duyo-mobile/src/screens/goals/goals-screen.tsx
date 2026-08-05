@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle2, Plus, Target, Trash2, Users } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,7 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Goal } from '@/api/endpoints/goals';
+import { fetchGoalCatalog, type Goal, type GoalCatalogEntry } from '@/api/endpoints/goals';
 import { GoalMatesSection } from '@/components/goals/goal-mates-section';
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import { ProgressBar } from '@/components/v2/dark/progress-bar';
@@ -28,6 +28,39 @@ import {
 } from '@/hooks/use-goals';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
+
+/**
+ * Debounced catalog search behind the free-text draft.
+ *
+ * A goal only becomes matchable to another child through a curated
+ * `match_key` (see models/goal.py) — raw title text is never compared, by
+ * design, so it can't leak whatever a child typed. Picking a suggestion here
+ * is the one path that attaches a match_key; typing and just hitting "+"
+ * still creates a perfectly good goal, only a private one.
+ */
+function useCatalogSuggestions(query: string) {
+  const [results, setResults] = useState<GoalCatalogEntry[]>([]);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetchGoalCatalog(q).then((entries) => {
+        if (!cancelled) setResults(entries);
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  return results;
+}
 
 function GoalCard({
   goal,
@@ -169,6 +202,10 @@ export default function GoalsScreen() {
   const deleteMutation = useDeleteGoal(childId);
 
   const [draft, setDraft] = useState('');
+  // Set only when the child taps a suggestion below; any further edit to the
+  // text clears it, so a stale key never rides along with different words.
+  const [picked, setPicked] = useState<GoalCatalogEntry | null>(null);
+  const suggestions = useCatalogSuggestions(picked ? '' : draft);
 
   const goals = goalsQuery.data ?? [];
   const active = goals.filter((g) => g.status === 'active');
@@ -176,12 +213,29 @@ export default function GoalsScreen() {
   const signals = signalQuery.data ?? [];
   const canAdd = draft.trim().length >= 2;
 
+  const handleChangeDraft = (text: string) => {
+    setDraft(text);
+    if (picked && text !== picked.title) setPicked(null);
+  };
+
+  const handlePickSuggestion = (entry: GoalCatalogEntry) => {
+    setPicked(entry);
+    setDraft(entry.title);
+  };
+
   const handleCreate = () => {
     if (!canAdd) return;
     createMutation.mutate(
-      { title: draft.trim() },
       {
-        onSuccess: () => setDraft(''),
+        title: draft.trim(),
+        kind: picked?.kind,
+        match_key: picked?.match_key,
+      },
+      {
+        onSuccess: () => {
+          setDraft('');
+          setPicked(null);
+        },
         onError: () =>
           Alert.alert(
             'Saqlanmadi',
@@ -227,7 +281,7 @@ export default function GoalsScreen() {
               <View className="flex-row items-center gap-2">
                 <TextInput
                   value={draft}
-                  onChangeText={setDraft}
+                  onChangeText={handleChangeDraft}
                   placeholder="Masalan: O'tkan Kunlarni o'qish"
                   placeholderTextColor="#94A3B8"
                   maxLength={160}
@@ -263,6 +317,39 @@ export default function GoalsScreen() {
                   )}
                 </Pressable>
               </View>
+
+              {/* Picking one of these is what lets another child with the same
+                  goal find you — free-typed text never matches anyone. */}
+              {!picked && suggestions.length > 0 && (
+                <View className="flex-row flex-wrap gap-2 mt-3">
+                  {suggestions.map((entry) => (
+                    <Pressable
+                      key={entry.match_key}
+                      onPress={() => handlePickSuggestion(entry)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`"${entry.title}" ni tanlash`}
+                      className="rounded-full px-3 py-1.5"
+                      style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+                    >
+                      <Text
+                        className="text-xs font-medium"
+                        style={{ color: '#60A5FA' }}
+                        numberOfLines={1}
+                      >
+                        {entry.title}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              {picked && (
+                <View className="flex-row items-center gap-1.5 mt-3">
+                  <Users size={13} color="#34D399" />
+                  <Text className="text-xs" style={{ color: '#34D399' }}>
+                    Shu maqsaddagi boshqalar bilan moslashtiriladi
+                  </Text>
+                </View>
+              )}
             </DarkCard>
 
             {/* "You are not alone" — counts only, never identities. */}
