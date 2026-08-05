@@ -45,6 +45,19 @@ class OTPVerify(BaseModel):
     def _normalize(cls, v: str) -> str:
         return normalize_uz_phone(v)
 
+    @field_validator("code")
+    @classmethod
+    def _digits_only(cls, v: str) -> str:
+        """Reject non-digits at the door.
+
+        secrets.compare_digest raises TypeError on non-ASCII input, so a code
+        typed on a Cyrillic keyboard used to come back as a 500 instead of a
+        plain "wrong code".
+        """
+        if not v.isdigit() or not v.isascii():
+            raise ValueError("Code must be digits only")
+        return v
+
 
 class TokenResponse(BaseModel):
     access_token: str

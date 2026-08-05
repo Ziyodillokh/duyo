@@ -25,8 +25,14 @@ export default function PhoneScreen() {
 
   const mutation = useMutation({
     mutationFn: (national: string) => sendOtp(`${PHONE_PREFIX}${national}`),
-    onSuccess: () => {
-      router.push({ pathname: '/(onboarding)/otp', params: { phone } });
+    onSuccess: (res) => {
+      // While SMS is not connected the server answers with the code itself.
+      // Carrying it to the next screen is what stops a tester waiting for an
+      // SMS that is never coming.
+      router.push({
+        pathname: '/(onboarding)/otp',
+        params: { phone, demoCode: res.demo_code ?? '' },
+      });
     },
     onError: (err) => {
       const status = (err as AxiosErrorShape).response?.status;

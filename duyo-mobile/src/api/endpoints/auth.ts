@@ -1,8 +1,11 @@
 import { apiClient } from '@/api/client';
 
 export interface SendOtpResponse {
-  status: 'sent';
+  /** 'demo' while no SMS provider is connected — then `demo_code` is filled. */
+  status: 'sent' | 'demo';
   phone: string;
+  /** The code to type, published by the server because no SMS will arrive. */
+  demo_code?: string;
 }
 
 // Backend snake_case wire format — converted into AuthTokens before persisting.

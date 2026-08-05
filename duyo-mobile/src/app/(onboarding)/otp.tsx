@@ -6,12 +6,17 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { sendOtp, verifyOtp } from '@/api/endpoints/auth';
+import { listChildren } from '@/api/endpoints/children';
+import { updateMe } from '@/api/endpoints/me';
 import { Card } from '@/components/v2/card';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { OtpInput } from '@/components/otp-input';
 import { useAuthStore } from '@/store/auth';
+import { useChildStore } from '@/store/child';
+import { useMascotStore } from '@/store/mascot';
+import { useOnboardingStore } from '@/store/onboarding';
 
 const PHONE_PREFIX = '+998';
 const OTP_LENGTH = 5;
@@ -23,13 +28,21 @@ interface JwtClaims {
   exp?: number;
 }
 
+interface AxiosErrorShape {
+  response?: { status?: number; data?: { detail?: string } };
+}
+
 export default function OtpScreen() {
-  const params = useLocalSearchParams<{ phone: string }>();
+  const params = useLocalSearchParams<{ phone: string; demoCode?: string }>();
   const national = params.phone ?? '';
   const fullPhone = `${PHONE_PREFIX}${national}`;
+  const [demoCode, setDemoCode] = useState(params.demoCode ?? '');
   const [code, setCode] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_SEC);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setChild = useChildStore((s) => s.setChild);
+  const setMascotVariant = useMascotStore((s) => s.setVariant);
+  const userType = useOnboardingStore((s) => s.userType);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -40,8 +53,8 @@ export default function OtpScreen() {
   }, [secondsLeft]);
 
   const verify = useMutation({
-    mutationFn: () => verifyOtp(fullPhone, code),
-    onSuccess: (token) => {
+    mutationFn: async () => {
+      const token = await verifyOtp(fullPhone, code);
       const claims = jwtDecode<JwtClaims>(token.access_token);
       setAuth(
         {
@@ -51,19 +64,67 @@ export default function OtpScreen() {
         },
         claims.sub,
       );
+
+      // Record who this account belongs to. Best-effort: the answer is a
+      // nice-to-have, and failing it must not block a login.
+      if (userType) {
+        void updateMe({ role: userType }).catch(() => undefined);
+      }
+
+      // Does this account already have a child? Signing in again — after a
+      // reinstall, on a new phone, after logging out — must return the child
+      // that exists, not walk onboarding and leave a second profile behind.
+      return listChildren();
+    },
+    onSuccess: (children) => {
+      const existing = children[0];
+      if (existing) {
+        setChild(existing);
+        if (existing.mascot === 'raccoon' || existing.mascot === 'duyo') {
+          setMascotVariant(existing.mascot);
+        }
+        router.replace('/(main)/(tabs)');
+        return;
+      }
       router.replace('/(onboarding)/child-name');
     },
-    onError: () => {
-      Alert.alert("Noto'g'ri kod", "Yana urinib ko'ring.");
-      setCode('');
+    onError: (err) => {
+      const status = (err as AxiosErrorShape).response?.status;
+      // Every failure used to say "wrong code", including the ones where
+      // retrying the same code is exactly the right move.
+      if (status === 401) {
+        Alert.alert("Noto'g'ri kod", "Yana urinib ko'ring.");
+        setCode('');
+        return;
+      }
+      if (status === 429) {
+        Alert.alert(
+          "Juda ko'p urinish",
+          "Bir necha daqiqadan keyin qayta urinib ko'ring.",
+        );
+        return;
+      }
+      if (status === undefined) {
+        Alert.alert(
+          'Internet yo‘q',
+          "Aloqani tekshiring va qayta urinib ko'ring.",
+        );
+        return;
+      }
+      Alert.alert(
+        'Xatolik',
+        (err as AxiosErrorShape).response?.data?.detail ??
+          "Keyinroq urinib ko'ring.",
+      );
     },
   });
 
   const resend = useMutation({
     mutationFn: () => sendOtp(fullPhone),
-    onSuccess: () => {
+    onSuccess: (res) => {
       setSecondsLeft(RESEND_COOLDOWN_SEC);
-      Alert.alert('SMS qaytadan yuborildi');
+      setDemoCode(res.demo_code ?? '');
+      if (!res.demo_code) Alert.alert('SMS qaytadan yuborildi');
     },
     onError: () => Alert.alert("Qayta yuborib bo'lmadi"),
   });
@@ -93,12 +154,25 @@ export default function OtpScreen() {
             <Card>
               <View className="gap-2 items-center">
                 <Text className="text-xl font-bold text-foreground text-center">
-                  SMS kodni kiriting
+                  {demoCode ? 'Tasdiqlash kodi' : 'SMS kodni kiriting'}
                 </Text>
                 <Text className="text-sm text-muted-foreground text-center">
-                  {fullPhone} raqamiga yuborildi
+                  {demoCode
+                    ? `${fullPhone} raqami uchun`
+                    : `${fullPhone} raqamiga yuborildi`}
                 </Text>
               </View>
+
+              {/* No SMS provider is connected yet, so the server publishes the
+                  code. Saying so is better than leaving a tester waiting. */}
+              {demoCode !== '' && (
+                <View className="mt-4 rounded-xl bg-primary/5 border border-primary/20 p-3">
+                  <Text className="text-sm text-foreground text-center">
+                    SMS xizmati hozircha ulanmagan. Kodni kiriting:{' '}
+                    <Text className="font-bold text-primary">{demoCode}</Text>
+                  </Text>
+                </View>
+              )}
 
               <View className="gap-3 mt-6">
                 <Text className="text-sm font-medium text-foreground text-center">

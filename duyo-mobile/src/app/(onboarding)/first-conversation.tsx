@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { createChild } from '@/api/endpoints/children';
+import { updateMe } from '@/api/endpoints/me';
 import { Card } from '@/components/v2/card';
 import { Chip } from '@/components/v2/chip';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -27,18 +28,34 @@ export default function FirstConversationScreen() {
   const setChild = useChildStore((s) => s.setChild);
   const pendingName = useOnboardingStore((s) => s.pendingName);
   const pendingAge = useOnboardingStore((s) => s.pendingAge);
+  const pendingInterests = useOnboardingStore((s) => s.pendingInterests);
+  const pendingAvatarConfig = useOnboardingStore((s) => s.pendingAvatarConfig);
+  const userType = useOnboardingStore((s) => s.userType);
   const resetOnboarding = useOnboardingStore((s) => s.reset);
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!pendingName || pendingAge === null) {
         throw new Error('Missing onboarding data');
       }
-      return createChild({
+      // Everything the child answered goes with the profile. Interests and
+      // the chosen body used to be collected and then dropped on the floor.
+      const child = await createChild({
         name: pendingName,
         age: pendingAge,
         language,
+        interests: [...pendingInterests],
+        mascot: pendingAvatarConfig.body,
       });
+
+      // A child-held account gets their own name on it; a parent's name was
+      // never asked for, so nothing is invented here.
+      if (userType === 'child') {
+        void updateMe({ role: 'child', display_name: pendingName }).catch(
+          () => undefined,
+        );
+      }
+      return child;
     },
     onSuccess: (child) => {
       setChild(child);

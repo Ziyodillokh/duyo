@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
@@ -184,15 +184,45 @@ async def create_child(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ChildProfile:
+    """Create the child, or return the one that already matches.
+
+    Onboarding can reach this more than once for the same child — a double
+    tap, a retried request after a timeout, or a reinstall that walks the
+    flow again. Each of those used to append another profile: production
+    accumulated six copies of one child this way. Same parent, same name,
+    same age is treated as the same child.
+    """
+    existing = await db.scalar(
+        select(ChildProfile).where(
+            ChildProfile.parent_id == current_user.id,
+            func.lower(func.trim(ChildProfile.name)) == payload.name.lower(),
+            ChildProfile.age == payload.age,
+        )
+    )
+    if existing is not None:
+        # Late-arriving onboarding answers still land on the existing row.
+        if payload.interests:
+            existing.interests = payload.interests
+        if payload.mascot:
+            existing.mascot = payload.mascot
+        await db.commit()
+        return existing
+
     child = ChildProfile(
         parent_id=current_user.id,
         name=payload.name,
         age=payload.age,
         age_segment=AgeSegment.from_age(payload.age),
         language=payload.language,
+        interests=payload.interests,
+        mascot=payload.mascot,
     )
     db.add(child)
-    await db.flush()
+    # Commit before returning: get_db commits only after the response is
+    # serialised, so a failure there would answer 201 with an id that never
+    # made it to Postgres.
+    await db.commit()
+    await db.refresh(child)
     return child
 
 
@@ -252,6 +282,10 @@ async def update_child(
         child.age_segment = AgeSegment.from_age(payload.age)
     if payload.language is not None:
         child.language = payload.language
+    if payload.interests is not None:
+        child.interests = payload.interests
+    if payload.mascot is not None:
+        child.mascot = payload.mascot
     await db.flush()
     return child
 

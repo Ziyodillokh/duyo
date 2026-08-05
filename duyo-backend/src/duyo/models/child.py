@@ -3,8 +3,8 @@
 from enum import Enum
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, ForeignKey, String
-from sqlalchemy.dialects.postgresql import ENUM
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, String, text
+from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from duyo.models.base import UUIDPK, Base, TimestampMixin
@@ -65,6 +65,18 @@ class ChildProfile(Base, UUIDPK, TimestampMixin):
     age: Mapped[int] = mapped_column(nullable=False)
     age_segment: Mapped[AgeSegment] = mapped_column(_age_segment_enum, nullable=False)
     language: Mapped[Language] = mapped_column(_language_enum, nullable=False, default=Language.UZ)
+    # What the child picked during onboarding. Interests steer conversation
+    # topics; mascot is which body they chose ("duyo" or "raccoon"). Both were
+    # collected and thrown away before this column existed.
+    # JSONB in Postgres; plain JSON elsewhere so the SQLite-backed API tests
+    # can still create this table (they build child_profiles for the FK).
+    interests: Mapped[list[str]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"),
+        nullable=False,
+        default=list,
+        server_default=text("'[]'"),
+    )
+    mascot: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     parent: Mapped["User"] = relationship(back_populates="children")  # noqa: F821
     conversations: Mapped[list["Conversation"]] = relationship(  # noqa: F821

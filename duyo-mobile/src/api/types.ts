@@ -16,6 +16,9 @@ export interface ChildProfile {
   age: number;
   age_segment: AgeSegment;
   language: Language;
+  /** Chosen during onboarding; older profiles have none. */
+  interests?: string[];
+  mascot?: string | null;
 }
 
 export interface ApiErrorBody {

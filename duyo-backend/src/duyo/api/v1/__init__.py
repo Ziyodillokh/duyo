@@ -12,6 +12,7 @@ from duyo.api.v1.gamification import router as gamification_router
 from duyo.api.v1.goals import router as goals_router
 from duyo.api.v1.health import router as health_router
 from duyo.api.v1.language import router as language_router
+from duyo.api.v1.me import router as me_router
 from duyo.api.v1.mood import router as mood_router
 from duyo.api.v1.note import router as note_router
 from duyo.api.v1.payments import router as payments_router
@@ -26,6 +27,7 @@ from duyo.api.v1.voice import router as voice_router
 api_v1 = APIRouter(prefix="/v1")
 api_v1.include_router(health_router)
 api_v1.include_router(auth_router)
+api_v1.include_router(me_router)
 api_v1.include_router(chat_router)
 api_v1.include_router(content_router)
 api_v1.include_router(dtm_router)

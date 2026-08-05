@@ -58,6 +58,11 @@ def _test_numbers() -> dict[str, str]:
     return out
 
 
+def demo_code() -> str:
+    """The pilot code every phone accepts, or "" when the bypass is off."""
+    return get_settings().otp_demo_code
+
+
 async def issue(phone: str) -> str:
     """Generate, store, and return a new OTP for `phone`.
 
@@ -66,6 +71,12 @@ async def issue(phone: str) -> str:
     # Test phones bypass SMS entirely — return the fixed code (verify accepts it).
     if phone in _test_numbers():
         return _test_numbers()[phone]
+
+    # Pilot bypass: one published code for everyone. Deliberately ahead of the
+    # Redis calls below, so signup keeps working through a Redis outage — the
+    # rate limit protects a secret, and this code is not one.
+    if demo_code():
+        return demo_code()
 
     settings = get_settings()
     redis = get_redis()
@@ -89,6 +100,14 @@ async def verify(phone: str, code: str) -> bool:
     test_numbers = _test_numbers()
     if phone in test_numbers:
         return secrets.compare_digest(test_numbers[phone], code)
+
+    # Pilot bypass — accepts exactly one code for any number, not any code.
+    # This returns rather than falling through because issue() stored nothing
+    # in Redis while the bypass is on: the path below could only ever answer
+    # "OTP expired or never issued", which is both wrong and needs Redis up.
+    demo = demo_code()
+    if demo:
+        return secrets.compare_digest(demo, code)
 
     settings = get_settings()
     redis = get_redis()

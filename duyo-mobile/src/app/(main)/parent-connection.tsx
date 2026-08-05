@@ -32,11 +32,15 @@ export default function ParentConnectionScreen() {
 
   const isValid = phone.length === NATIONAL_DIGITS;
 
+  // Linking a parent to a child across two accounts is a real feature —
+  // invite codes, a guardian record, an acceptance step — and none of it
+  // exists yet. This screen used to claim it had sent an SMS while making no
+  // network call at all, which is worse than saying nothing.
   const handleSend = () => {
     if (!isValid) return;
     Alert.alert(
-      'SMS yuborildi',
-      `+998${phone} raqamiga ulanish havolasi yuborildi`,
+      'Tez orada',
+      "Ota-onani ulash imkoniyati tayyorlanmoqda. Hozircha ota-ona o'z telefonida ro'yxatdan o'tishi mumkin.",
     );
   };
 

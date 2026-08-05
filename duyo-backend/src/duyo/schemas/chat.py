@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from duyo.models.child import AgeSegment, Language
 from duyo.models.crisis_event import CrisisLevel
@@ -34,10 +34,27 @@ class QuickReply(BaseModel):
     query: str | None = None
 
 
+# Interests are free text chosen from a fixed list in the app; cap both the
+# count and the length so a malformed client cannot write an essay per child.
+MAX_INTERESTS = 12
+_Interest = Annotated[str, Field(min_length=1, max_length=40)]
+
+
 class ChildCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     age: int = Field(ge=7, le=16)
     language: Language = Language.UZ
+    interests: list[_Interest] = Field(default_factory=list, max_length=MAX_INTERESTS)
+    mascot: Annotated[str, Field(max_length=32)] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _strip_name(cls, v: str) -> str:
+        """A name of spaces is not a name."""
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("Name cannot be blank")
+        return stripped
 
 
 class ChildUpdate(BaseModel):
@@ -51,6 +68,8 @@ class ChildUpdate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
     age: Annotated[int, Field(ge=7, le=16)] | None = None
     language: Language | None = None
+    interests: Annotated[list[_Interest], Field(max_length=MAX_INTERESTS)] | None = None
+    mascot: Annotated[str, Field(max_length=32)] | None = None
 
 
 class ChildRead(BaseModel):
@@ -59,6 +78,8 @@ class ChildRead(BaseModel):
     age: int
     age_segment: AgeSegment
     language: Language
+    interests: list[str] = []
+    mascot: str | None = None
 
     model_config = {"from_attributes": True}
 

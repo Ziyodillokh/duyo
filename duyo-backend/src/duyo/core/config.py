@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -62,8 +62,22 @@ class Settings(BaseSettings):
     otp_rate_limit_per_phone_per_hour: int = 10
     # Test phones that bypass SMS — comma-separated "phone:code" pairs. These
     # numbers always accept their fixed code (no SMS needed) for QA/testing.
-    # Set to "" to disable. REMOVE/empty before public launch.
-    otp_test_numbers: str = "+998900000000:00000"
+    # Empty by default: a hard-coded fake number in the shipped defaults means
+    # every deployment carries an account nobody owns.
+    otp_test_numbers: str = ""
+    # Pilot escape hatch while no SMS provider is connected: when set (e.g.
+    # "00000"), THIS ONE CODE is accepted for EVERY phone number, so testers
+    # sign up with their own real number and get a real account.
+    #
+    # Understand the trade-off before switching it on: while it is set, anyone
+    # who knows the code can log in as any phone number and read that family's
+    # conversations. It is acceptable only for a short pilot whose data is
+    # treated as non-private. Clear it the day Eskiz credentials land.
+    otp_demo_code: str = ""
+    # Second key for the same lock. In production the app refuses to start with
+    # a demo code unless someone has also set this, so the pilot setting can
+    # never survive into a real launch by inheritance or by accident.
+    otp_demo_allow_in_production: bool = False
     eskiz_email: str = ""
     eskiz_password: str = ""
     eskiz_from: str = "DUYO"
@@ -98,6 +112,23 @@ class Settings(BaseSettings):
     minio_bucket: str = "media"
     # Absolute base the app uses to fetch served media (GET /v1/content/media/{key}).
     public_base_url: str = "http://localhost:8000"
+
+    @model_validator(mode="after")
+    def _guard_demo_otp_code(self) -> "Settings":
+        """A pilot login bypass must be chosen twice to reach production.
+
+        Refusing to boot is deliberate: the deploy is health-gated and rolls
+        back, so a demo code that slipped into a production release fails
+        visibly at deploy time instead of quietly staying open for months.
+        """
+        if self.otp_demo_code and self.app_env == "production" and not self.otp_demo_allow_in_production:
+            raise ValueError(
+                "OTP_DEMO_CODE is set while APP_ENV=production. Every phone "
+                "number would accept that one code. Set "
+                "OTP_DEMO_ALLOW_IN_PRODUCTION=true to accept that during the "
+                "pilot, or clear OTP_DEMO_CODE."
+            )
+        return self
 
 
 @lru_cache

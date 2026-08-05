@@ -79,7 +79,10 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401) {
+    // A 401 from the login endpoints means "wrong code", not "your session
+    // died" — clearing auth there logged out a signed-in user over one
+    // mistyped digit.
+    if (error.response?.status === 401 && !isAuthCall) {
       useAuthStore.getState().clearAuth();
     }
     return Promise.reject(error);
