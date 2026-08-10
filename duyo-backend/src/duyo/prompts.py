@@ -202,6 +202,51 @@ GOAL_EXTRACT_PROMPT = (
 )
 
 
+# Personal-memory candidate extractor — runs synchronously inside the chat
+# turn (see services/memory_candidates.py) and, unlike GOAL_EXTRACT_PROMPT,
+# its result is NEVER written to any database. It rides back in the HTTP
+# response only; the device's own Memory Guard and the child's explicit
+# consent decide whether it is ever kept, encrypted, on the child's own
+# phone. Deliberately narrower than "anything personal": goals already have
+# their own extractor and confirmation flow (GOAL_EXTRACT_PROMPT), so a
+# goal-shaped statement here must be skipped rather than double-captured.
+MEMORY_CANDIDATE_EXTRACT_PROMPT = (
+    "Sen bolaning gapini o'qib, unda KELAJAKDA FOYDALI BO'LADIGAN, "
+    "SUHBATLAR ORASIDA ESLAB QOLISHGA ARZIYDIGAN shaxsiy ma'lumot "
+    "bor-yo'qligini aniqlaysan.\n\n"
+    "ESLAB QOLISHGA ARZIYDI (bola o'zi aytgan bo'lsa), kategoriyasi bilan:\n"
+    "- profile: bola o'zi haqida aytgan barqaror fakt (\"6-sinfda o'qiyman\")\n"
+    "- preferences: yoqtirish/yoqtirmasligi (\"tarixni yoqtirmayman\")\n"
+    "- interests: qiziqishlari, hobbi (\"shaxmatga qiziqaman\")\n"
+    "- learning: o'rganishdagi qiyinchilik yoki kuchli tomoni "
+    "(\"algebra bo'yicha qiynalaman\")\n"
+    "- research: ilmiy ish yoki chuqur o'rganayotgan mavzu "
+    "(\"AI agentlar haqida ilmiy ish qilyapman\")\n"
+    "- notes: yuqoridagilarga sig'maydigan, lekin keyingi suhbatda "
+    "foydali bo'lishi mumkin bo'lgan boshqa shaxsiy izoh\n\n"
+    "ESLAB QOLISHGA ARZIMAYDI — has_memory=false qaytar:\n"
+    "- oddiy savol, bir martalik so'rov, salomlashish, kayfiyat "
+    "(\"charchadim\", \"zerikdim\") — bular doimiy fakt emas\n"
+    "- ANIQ MAQSAD bayonoti (\"kitob o'qimoqchiman\", \"DTMga tayyorlanyapman\") "
+    "— bu alohida tizimda qayd etiladi, bu yerda YOZMA\n"
+    "- HAR QANDAY sensitive/xavfli ma'lumot: uy manzili, telefon raqami, "
+    "maktab nomi + manzil, parol, kartа/to'lov ma'lumoti, real-time "
+    "joylashuv, sog'liq/tibbiy tashxis, boshqa odamning shaxsiy ma'lumoti "
+    "— BULARNI HECH QACHON eslab qolishga TAVSIYA QILMA, has_memory=false\n\n"
+    "SHUBHALANSANG — has_memory=false qaytar. Bo'lmagan narsani yozib "
+    "qo'yish yoki sensitive ma'lumotni saqlashga undash, bittasini "
+    "o'tkazib yuborishdan YOMONROQ.\n\n"
+    "FAQAT shu JSON:\n"
+    "{\n"
+    '  "has_memory": true,\n'
+    '  "category": "profile|preferences|interests|learning|research|notes",\n'
+    '  "content": "bolaning o\'z so\'zlaridan qisqa, uchinchi shaxsda '
+    "yozilgan fakt (masalan: \\\"Bola AI agentlar bo'yicha ilmiy ish "
+    "qilmoqda\\\"), 160 belgigacha\"\n"
+    "}"
+)
+
+
 # Chalkboard tutor — the child asks a problem mid-conversation and DUYO writes
 # it out on a board. Unlike LESSON_HELP_PROMPT (prose steps for a scrollable
 # screen), every line here must fit one chalk line, so lengths are hard-capped
