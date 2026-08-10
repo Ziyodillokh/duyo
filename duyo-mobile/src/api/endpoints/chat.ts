@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client';
 import { type CrisisLevel } from '@/api/types';
+import { type MemoryCategory } from '@/lib/memory-db';
 
 export interface QuickReply {
   label: string;
@@ -18,12 +19,30 @@ export interface ChatSource {
   refs: SourceRef[];
 }
 
+/**
+ * The extractor's suggestion for THIS turn only (see duyo-backend
+ * services/memory_candidates.py) — never something the server persisted.
+ * The device runs its own Memory Guard against `content` before ever
+ * offering the "eslab qolaymi?" consent prompt; see memory-guard.ts.
+ */
+export interface MemoryCandidate {
+  category: MemoryCategory;
+  content: string;
+}
+
 export interface ChatRequest {
   child_id: string;
   message: string;
   conversation_id?: string;
   action?: 'web_search';
   action_query?: string;
+  /**
+   * Short facts THIS device selected from the child's own encrypted local
+   * memory as relevant to `message` (see memory-retrieval.ts). Folds into
+   * this one request's prompt on the backend and is never stored there —
+   * the source of truth stays on the device. Capped at 6 items server-side.
+   */
+  memory_context?: string[];
 }
 
 interface ChatResponseWire {
@@ -35,6 +54,7 @@ interface ChatResponseWire {
   latency_ms: number;
   source?: ChatSource | null;
   quick_replies?: QuickReply[];
+  memory_candidate?: MemoryCandidate | null;
 }
 
 export interface ChatResponse {
@@ -46,6 +66,7 @@ export interface ChatResponse {
   latency_ms: number;
   source?: ChatSource | null;
   quick_replies: QuickReply[];
+  memory_candidate: MemoryCandidate | null;
 }
 
 function normalizeLevel(raw: string): CrisisLevel {
@@ -70,6 +91,7 @@ export async function sendChatMessage(
     crisis_level: normalizeLevel(data.crisis_level),
     source: data.source ?? null,
     quick_replies: data.quick_replies ?? [],
+    memory_candidate: data.memory_candidate ?? null,
   };
 }
 

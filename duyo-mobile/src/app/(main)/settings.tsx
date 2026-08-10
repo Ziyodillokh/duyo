@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import {
   ArrowLeft,
   Bell,
+  BrainCircuit,
   Crown,
   Globe,
   HelpCircle,
@@ -137,6 +138,17 @@ export default function SettingsScreen() {
           </SettingsSection>
 
           <SettingsSection title="Xavfsizlik">
+            <SettingsRow
+              Icon={BrainCircuit}
+              label="Mening Xotiram"
+              trailing={
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                  Shu qurilmada
+                </Text>
+              }
+              showChevron
+              onPress={() => router.push('/(main)/memory')}
+            />
             <SettingsRow
               Icon={Shield}
               label="Maxfiylik"

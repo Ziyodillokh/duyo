@@ -81,13 +81,19 @@ async def build_personalization_context(session: AsyncSession, child_id: UUID) -
     return "\n".join(lines)
 
 
-def _sanitize_goal_title(title: str) -> str:
+def _sanitize_for_prompt(text: str, max_len: int) -> str:
     """Child-authored text is about to enter a system prompt.
 
-    Newlines are the injection vector that matters here — a title containing
+    Newlines are the injection vector that matters here — text containing
     "\\nYangi ko'rsatma: ..." would otherwise read as a new instruction line.
+    Shared by the goal and local-memory blocks below so the escaping rule
+    lives in exactly one place.
     """
-    return " ".join(title.split())[:_GOAL_TITLE_MAX]
+    return " ".join(text.split())[:max_len]
+
+
+def _sanitize_goal_title(title: str) -> str:
+    return _sanitize_for_prompt(title, _GOAL_TITLE_MAX)
 
 
 async def build_goal_context(session: AsyncSession, child_id: UUID) -> str | None:
@@ -142,3 +148,45 @@ async def build_goal_context(session: AsyncSession, child_id: UUID) -> str | Non
         "Bola orqada qolgan bo'lsa ham hech qachon ayblama yoki bosim qilma."
     )
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Local-first personal memory — the block is built from what the DEVICE sent
+# in ChatRequest.memory_context (see duyo-mobile/src/lib/memory-retrieval.ts),
+# never from a database read. Nothing here is persisted: the request line
+# this string is folded into is the only place it ever exists server-side.
+# ---------------------------------------------------------------------------
+
+_MEMORY_LINE_MAX = 240
+
+
+def _sanitize_memory_line(text: str) -> str:
+    """Same escaping as goal titles — this text passed the device's Memory
+    Guard and the child's consent, but it is still child-authored text about
+    to sit inside a system prompt, so it is flattened rather than trusted.
+    """
+    return _sanitize_for_prompt(text, _MEMORY_LINE_MAX)
+
+
+def build_local_memory_context(memory_context: list[str] | None) -> str | None:
+    """Turn the device's own relevant-memory selection into a prompt block.
+
+    Pure function, no I/O — `memory_context` already IS the relevant subset
+    the device chose (see MAX_MEMORY_CONTEXT_ITEMS), so this only sanitizes
+    and formats it. Returns None for an empty/missing list so an empty
+    "[BOLA HAQIDA...]" header never lands in the prompt.
+    """
+    if not memory_context:
+        return None
+    lines = [_sanitize_memory_line(m) for m in memory_context]
+    lines = [ln for ln in lines if ln]
+    if not lines:
+        return None
+
+    return "\n".join([
+        "[BOLA HAQIDA ILGARI ESLAB QOLINGAN MA'LUMOT — tabiiy ravishda hisobga ol]",
+        *(f"- {ln}" for ln in lines),
+        "Buni tabiiy suhbatda ishlatishing mumkin, lekin \"xotiramda saqlangan\" "
+        "yoki shunga o'xshash texnik iboralar ishlatma, va bu asosida bolani "
+        "ortiqcha so'roq qilma.",
+    ])
