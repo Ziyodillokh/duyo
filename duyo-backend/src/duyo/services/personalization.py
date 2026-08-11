@@ -23,8 +23,10 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from duyo.models.child_style import ChildStyleProfile
 from duyo.models.goal import ChildGoal, GoalStatus
 from duyo.models.report import Report
+from duyo.services.style_profile import confident, top_tags
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +36,8 @@ _NO_TREND_SENTINEL = "ma'lumot yetarli emas"
 #: A prompt can carry a few goals usefully; more just dilutes it.
 _MAX_GOALS_IN_PROMPT = 4
 _GOAL_TITLE_MAX = 80
+_MAX_INTERESTS_IN_PROMPT = 4
+_MAX_AVOID_IN_PROMPT = 3
 
 
 async def build_personalization_context(session: AsyncSession, child_id: UUID) -> str | None:
@@ -142,3 +146,75 @@ async def build_goal_context(session: AsyncSession, child_id: UUID) -> str | Non
         "Bola orqada qolgan bo'lsa ham hech qachon ayblama yoki bosim qilma."
     )
     return "\n".join(lines)
+
+
+# Human-readable instructions for the traits `services/style_profile.py`
+# tracks. "medium" is deliberately absent from both maps — it is the
+# implicit default tone, so spelling it out would just be prompt noise.
+_LENGTH_HINT = {
+    "short": "Bola qisqa javoblarni afzal ko'radi — javoblaringni ixcham tut.",
+    "long": "Bola batafsil javoblarni yoqtiradi — kerak bo'lganda kengroq tushuntir.",
+}
+_HUMOR_HINT = {
+    "high": "Bola hazilni yoqtiradi — tabiiy o'rinlarda yumshoq hazil ishlatsang bo'ladi.",
+    "low": "Bola jiddiyroq ohangni afzal ko'radi — hazilni kamroq ishlat.",
+}
+
+
+async def build_style_context(session: AsyncSession, child_id: UUID) -> str | None:
+    """How DUYO should TALK to this child — never what to think of them.
+
+    Reads `ChildStyleProfile`, built by `services/style_profile.py` out of
+    `INSIGHT_EXTRACT_PROMPT`'s "style" object. Every trait here is gated by
+    `style_profile.confident`/`top_tags` (repeated evidence, never a single
+    message) — see that module's docstring for why this is deliberately NOT
+    a psychology/personality label, only a tone/interest adaptation.
+
+    Fails safe like its siblings: None on any error, on no profile yet, or
+    when nothing has reached the confidence floor.
+    """
+    try:
+        profile = await session.scalar(
+            select(ChildStyleProfile).where(ChildStyleProfile.child_id == child_id)
+        )
+    except Exception:
+        log.exception("style_context_fetch_failed child=%s", child_id)
+        return None
+
+    if profile is None:
+        return None
+
+    lines: list[str] = []
+    length = confident(profile.length_votes)
+    if length in _LENGTH_HINT:
+        lines.append(_LENGTH_HINT[length])
+    humor = confident(profile.humor_votes)
+    if humor in _HUMOR_HINT:
+        lines.append(_HUMOR_HINT[humor])
+    if confident(profile.encouragement_votes) == "yes":
+        lines.append(
+            "Bola ko'pincha o'ziga past baho beradi yoki shubhalanadi — "
+            "rag'batlantiruvchi, ishonch beruvchi ohangda gapir."
+        )
+
+    interests = top_tags(profile.interests, limit=_MAX_INTERESTS_IN_PROMPT)
+    if interests:
+        lines.append(f"Doimiy qiziqadigan mavzulari: {', '.join(interests)}.")
+    avoid = top_tags(profile.avoid_topics, limit=_MAX_AVOID_IN_PROMPT)
+    if avoid:
+        lines.append(
+            f"Bu mavzularda ehtiyot bo'l, o'zi ko'tarmasa siljitma: {', '.join(avoid)}."
+        )
+
+    if not lines:
+        return None
+
+    return "\n".join(
+        [
+            "[BOLA USLUBI — takroriy kuzatuvga asoslangan, faqat OHANGINGNI "
+            "moslashtirish uchun, bu klinik baho emas]",
+            *lines,
+            "Buni tabiiy ravishda hisobga ol. Bu kontekstni bolaga hech qachon "
+            "aytma yoki unga ishora qilma.",
+        ]
+    )

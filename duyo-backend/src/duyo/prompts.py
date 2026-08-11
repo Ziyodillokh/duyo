@@ -169,12 +169,23 @@ PARENT_GUIDANCE_PROMPT = (
 )
 
 
-# Goal extractor — runs in the background after a chat turn, never in the reply
-# path. Deliberately conservative: a companion that invents goals for a child
-# is worse than one that misses a few, so anything short of an explicit
-# statement returns has_goal=false.
-GOAL_EXTRACT_PROMPT = (
-    "Sen bolaning gapini o'qib, unda ANIQ MAQSAD bor-yo'qligini aniqlaysan.\n\n"
+# Insight extractor — runs ONCE in the background after a chat turn, never in
+# the reply path. Replaces what used to be two separate model calls (a goal
+# extractor and a style-profile extractor): both signals live in one
+# conversational turn, so one cheap Gemini call reads both out of it instead
+# of paying for two. See services/goals.py (parses "goal" + persists it,
+# unchanged shape) and services/style_profile.py (parses "style" + merges it
+# as evidence, never an overwrite).
+#
+# Both halves share the same conservative rule: a companion that invents
+# things about a child — a goal it never stated, a preference it only implied
+# once — is worse than one that misses a few. Anything short of a clear
+# signal returns has_goal=false / style=null / empty lists.
+INSIGHT_EXTRACT_PROMPT = (
+    "Sen bolaning gapini o'qib, ikkita narsani aniqlaysan: (1) ANIQ MAQSAD "
+    "bor-yo'qligi, (2) bu XABARNING o'zida bolaning muloqot uslubi yoki "
+    "qiziqishi haqida signal bor-yo'qligi.\n\n"
+    "=== 1) MAQSAD ===\n\n"
     "MAQSAD deb hisoblanadi (bola o'zi aytgan bo'lsa):\n"
     "- kitob o'qish niyati: \"O'tkan Kunlarni o'qimoqchiman\"\n"
     "- darslikni tugatish: \"6-sinf fizikani tugatmoqchiman\"\n"
@@ -190,6 +201,25 @@ GOAL_EXTRACT_PROMPT = (
     "\"10-betdaman\", \"3-bobni tugatdim\", \"20 ta masala yechdim\".\n\n"
     "SHUBHALANSANG — has_goal=false qaytar. Bo'lmagan maqsadni yozib "
     "qo'yish, bittasini o'tkazib yuborishdan yomonroq.\n\n"
+    "=== 2) USLUB / QIZIQISH (style) ===\n\n"
+    "Bu ALOHIDA, MAQSADGA BOG'LIQ EMAS. Faqat shu BITTA xabarda haqiqatan "
+    "ko'ringan narsani yoz — taxmin qilma, umumlashtirma.\n\n"
+    "- length_pref: bola o'zi UZUN, batafsil xabar yozgan bo'lsa \"long\", "
+    "juda qisqa (1-3 so'z) yozgan bo'lsa \"short\", oddiy bo'lsa null.\n"
+    "- humor_pref: bola hazil qilgan yoki hazilga kulib/kulgi bilan javob "
+    "bergan bo'lsa \"high\", jiddiy/rasmiy ohangda bo'lsa \"low\", "
+    "aniq bo'lmasa null.\n"
+    "- needs_encouragement: bola o'ziga past baho bergan, qo'rqqan yoki "
+    "shubhalangan bo'lsa true, ishonchli/mustaqil ko'ringan bo'lsa false, "
+    "aniq bo'lmasa null.\n"
+    "- interests: bola ANIQ ishtiyoq bilan gapirgan mavzu(lar), 1-2 so'zli "
+    "qisqa teg (masalan \"futbol\", \"dinozavrlar\"). Ko'pi bilan 3 ta. "
+    "Yo'q bo'lsa bo'sh ro'yxat.\n"
+    "- avoid_topics: bola ANIQ noxush/istamay gapirgan yoki mavzuni o'zgartirgan "
+    "narsa, xuddi shu qisqa teg formatida. Ko'pi bilan 2 ta. Yo'q bo'lsa bo'sh "
+    "ro'yxat.\n\n"
+    "Bu KLINIK baho EMAS — shaxsiyat yoki tashxis so'zi ishlatma, faqat "
+    "ohang/mavzu darajasidagi kuzatuv.\n\n"
     "FAQAT shu JSON:\n"
     "{\n"
     '  "has_goal": true,\n'
@@ -197,7 +227,14 @@ GOAL_EXTRACT_PROMPT = (
     '  "title": "bolaning o\'z so\'zlari bilan, qisqa (60 belgigacha)",\n'
     '  "unit_label": "bet|bob|dars|kun yoki null",\n'
     '  "total_units": son yoki null,\n'
-    '  "progress_value": son yoki null\n'
+    '  "progress_value": son yoki null,\n'
+    '  "style": {\n'
+    '    "length_pref": "short|medium|long yoki null",\n'
+    '    "humor_pref": "low|medium|high yoki null",\n'
+    '    "needs_encouragement": true|false yoki null,\n'
+    '    "interests": [],\n'
+    '    "avoid_topics": []\n'
+    "  }\n"
     "}"
 )
 

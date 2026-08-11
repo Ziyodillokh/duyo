@@ -58,11 +58,12 @@ from duyo.services.gemini import (
     translate_text,
 )
 from duyo.services.gemini import chat as gemini_chat
-from duyo.services.goals import extract_goal_candidate
+from duyo.services.goals import extract_child_insights
 from duyo.services.images import search_images
 from duyo.services.personalization import (
     build_goal_context,
     build_personalization_context,
+    build_style_context,
 )
 from duyo.services.scripted import match_scripted
 from duyo.services.sms import get_sms_provider
@@ -489,10 +490,13 @@ async def chat_turn(
         )
 
     # Capture any goal the child just stated ("O'tkan Kunlarni o'qimoqchiman")
-    # or progress on one ("10-betdaman"). BackgroundTask so it costs the reply
-    # nothing; lands unconfirmed so DUYO never acts on its own guess.
+    # or progress on one ("10-betdaman"), AND fold in a style/interest signal
+    # (services/style_profile.py) — ONE combined Gemini call for both, see
+    # prompts.py::INSIGHT_EXTRACT_PROMPT. BackgroundTask so it costs the
+    # reply nothing; a goal lands unconfirmed so DUYO never acts on its own
+    # guess, and a style trait only reaches the prompt once it has repeated.
     if final_level == CrisisLevel.GREEN:
-        background_tasks.add_task(extract_goal_candidate, child.id, payload.message)
+        background_tasks.add_task(extract_child_insights, child.id, payload.message)
 
     # 8-9. Build the reply. Four flows:
     #   (a) action="web_search"  → skip RAG, answer from Google Search grounding
@@ -508,11 +512,13 @@ async def chat_turn(
     # report, threaded into every LLM reply path below.
     # Joined into ONE string on purpose: chat.py already threads
     # `personalization_context` into all four LLM reply paths below, so goals
-    # ride along without touching either system-instruction assembly site.
+    # and the style profile ride along without touching either
+    # system-instruction assembly site.
     # They must NOT use the rag_context slot — psychology RAG owns that.
     _context_blocks = [
         await build_personalization_context(db, child.id),
         await build_goal_context(db, child.id),
+        await build_style_context(db, child.id),
     ]
     personalization_context = "\n\n".join(b for b in _context_blocks if b) or None
 
