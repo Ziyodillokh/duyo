@@ -6,30 +6,33 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Ellipse,
+  G,
+  Path,
+  RadialGradient,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import type { GraphEdge, GraphNode } from '@/api/endpoints/notes';
-import { layoutGraph, type PositionedNode } from '@/lib/graph-layout';
+import {
+  layoutGalaxy,
+  starField,
+  UNFORMED,
+  type OrbitedNode,
+} from '@/lib/galaxy-layout';
 
-// One colour per node kind, mirroring Obsidian's --graph-node /
-// --graph-node-unresolved / --graph-node-tag. Colour is what turns a mass of
-// identical dots into something readable at a glance.
-const WRITTEN = '#60A5FA';   // a note that exists
-const GHOST = '#5C7599';     // a [[link]] not yet written
-const TAG = '#FDC700';       // a #tag
-const EDGE = 'rgba(96, 165, 250, 0.30)';
-const EDGE_ON = 'rgba(147, 197, 253, 0.85)';
-const LABEL = '#C7D6EC';
-const DIM = 0.18;
+const EDGE = 'rgba(160, 190, 255, 0.22)';
+const EDGE_ON = 'rgba(200, 220, 255, 0.85)';
+const LABEL = '#DCE6FA';
+const ORBIT = 'rgba(150, 180, 255, 0.13)';
+const DIM = 0.16;
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
-
-function colourOf(kind: GraphNode['kind']): string {
-  if (kind === 'tag') return TAG;
-  if (kind === 'unwritten') return GHOST;
-  return WRITTEN;
-}
 
 /** What a screen reader says. A tag is not an unwritten note — it has no note
  *  behind it by design, and calling it "unwritten" would invite the child to
@@ -39,6 +42,22 @@ function labelOf(node: { title: string; kind: GraphNode['kind'] }): string {
   if (node.kind === 'unwritten') return `${node.title} — hali yozilmagan`;
   return node.title;
 }
+
+/** A four-pointed sparkle, centred on (x, y). Tags are drawn as stars rather
+ *  than discs so a landmark never reads as one more note. */
+function sparkle(x: number, y: number, r: number): string {
+  const w = r * 0.32;
+  return (
+    `M ${x} ${y - r} Q ${x + w} ${y - w} ${x + r} ${y} ` +
+    `Q ${x + w} ${y + w} ${x} ${y + r} ` +
+    `Q ${x - w} ${y + w} ${x - r} ${y} ` +
+    `Q ${x - w} ${y - w} ${x} ${y - r} Z`
+  );
+}
+
+/** Gradient ids have to be unique per colour, and colours arrive as hex. */
+const idFor = (colour: string, prefix: string) =>
+  `${prefix}-${colour.replace('#', '')}`;
 
 interface Props {
   nodes: GraphNode[];
@@ -51,26 +70,44 @@ interface Props {
 }
 
 /**
- * The brain: notes as dots, [[links]] as lines.
+ * The brain as a solar system: the note you link to most burns at the centre,
+ * everything else orbits it, #tags hang as coloured stars and [[links]] draw
+ * the constellations between them.
  *
- * Reads like Obsidian's graph rather than a scatter plot: each dot carries a
- * soft halo, links are curved rather than straight, and holding a note pulls
- * it and its neighbours forward while everything else fades back — which is
- * how you actually read a graph, one neighbourhood at a time.
+ * The metaphor is doing real work, not decoration. Distance from the centre is
+ * how connected a note is; colour is the #tag it is filed under; a note that is
+ * only a [[link]] so far is drawn as a body that has not finished forming. A
+ * child can read all three without being told.
  *
- * Pinch to zoom, drag to pan. A tap opens the note; press-and-hold isolates
- * its neighbourhood.
+ * Bodies do not drift. Positions are computed once and stay put — the touch
+ * targets sit above the canvas at fixed coordinates, and an orbiting planet
+ * would slide out from under the child's finger.
+ *
+ * Pinch to zoom, drag to pan. A tap opens the note; press-and-hold lights up
+ * its constellation and fades the rest of the sky.
  */
 export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   const [size, setSize] = useState({ width: 0, height: height ?? 0 });
   const [focus, setFocus] = useState<string | null>(null);
 
-  const layout = useMemo(
+  const galaxy = useMemo(
     () =>
       size.width > 0 && size.height > 0
-        ? layoutGraph(nodes, edges, size.width, size.height)
+        ? layoutGalaxy(nodes, edges, size.width, size.height)
         : null,
     [nodes, edges, size],
+  );
+
+  const stars = useMemo(
+    () => (size.width > 0 ? starField(size.width, size.height) : []),
+    [size],
+  );
+
+  // Every distinct body colour, so one gradient is defined per colour rather
+  // than one per node.
+  const palette = useMemo(
+    () => [...new Set((galaxy?.nodes ?? []).map((n) => n.colour))],
+    [galaxy],
   );
 
   // Which titles are one hop from the focused note.
@@ -136,8 +173,8 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   // A tap opens; press-and-hold lights up the neighbourhood. Obsidian opens a
   // node on click too — making the first tap only "select" meant every note
   // cost two taps, which is the wrong trade on a phone.
-  const tap = (node: PositionedNode) => onSelect(node);
-  const hold = (node: PositionedNode) =>
+  const tap = (node: OrbitedNode) => onSelect(node);
+  const hold = (node: OrbitedNode) =>
     setFocus((f) => (f === node.title ? null : node.title));
 
   const alpha = (title: string) =>
@@ -156,13 +193,112 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     <View
       onLayout={onLayout}
       style={height === undefined ? { flex: 1, overflow: 'hidden' } : { height, overflow: 'hidden' }}
-      accessibilityLabel="Qaydlar tarmog'i"
+      accessibilityLabel="Qaydlar olami"
     >
-      {layout && nodes.length > 0 && (
+      {galaxy && nodes.length > 0 && (
         <GestureDetector gesture={gesture}>
           <Animated.View style={[{ width: size.width, height: size.height }, canvasStyle]}>
             <Svg width={size.width} height={size.height}>
-              {layout.edges.map((e, i) => {
+              <Defs>
+                {/* Nebula — two wide, soft clouds. Stacked radial gradients
+                    rather than a blur filter: blur is expensive on native and
+                    a gradient is exactly as convincing at this softness. */}
+                <RadialGradient id="nebula-a" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0%" stopColor="#8200DB" stopOpacity={0.30} />
+                  <Stop offset="60%" stopColor="#5B21B6" stopOpacity={0.10} />
+                  <Stop offset="100%" stopColor="#3C0366" stopOpacity={0} />
+                </RadialGradient>
+                <RadialGradient id="nebula-b" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0%" stopColor="#C6005C" stopOpacity={0.22} />
+                  <Stop offset="65%" stopColor="#510424" stopOpacity={0.08} />
+                  <Stop offset="100%" stopColor="#162456" stopOpacity={0} />
+                </RadialGradient>
+
+                {/* The centre star. */}
+                <RadialGradient id="sun-core" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={1} />
+                  <Stop offset="35%" stopColor="#DAB2FF" stopOpacity={0.95} />
+                  <Stop offset="75%" stopColor="#8200DB" stopOpacity={0.75} />
+                  <Stop offset="100%" stopColor="#3C0366" stopOpacity={0.15} />
+                </RadialGradient>
+                <RadialGradient id="sun-glow" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0%" stopColor="#C27AFF" stopOpacity={0.42} />
+                  <Stop offset="100%" stopColor="#8200DB" stopOpacity={0} />
+                </RadialGradient>
+
+                {palette.map((colour) => (
+                  <RadialGradient
+                    key={idFor(colour, 'body')}
+                    id={idFor(colour, 'body')}
+                    /* Lit from the upper-left, which is what makes a flat disc
+                       read as a sphere. */
+                    cx="35%"
+                    cy="32%"
+                    r="72%"
+                  >
+                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.85} />
+                    <Stop offset="38%" stopColor={colour} stopOpacity={1} />
+                    <Stop offset="100%" stopColor="#0B1020" stopOpacity={0.92} />
+                  </RadialGradient>
+                ))}
+                {palette.map((colour) => (
+                  <RadialGradient
+                    key={idFor(colour, 'halo')}
+                    id={idFor(colour, 'halo')}
+                    cx="50%"
+                    cy="50%"
+                    r="50%"
+                  >
+                    <Stop offset="0%" stopColor={colour} stopOpacity={0.34} />
+                    <Stop offset="55%" stopColor={colour} stopOpacity={0.12} />
+                    <Stop offset="100%" stopColor={colour} stopOpacity={0} />
+                  </RadialGradient>
+                ))}
+              </Defs>
+
+              {/* ── Deep space ─────────────────────────────────────────── */}
+              <Ellipse
+                cx={size.width * 0.24}
+                cy={size.height * 0.26}
+                rx={size.width * 0.62}
+                ry={size.height * 0.34}
+                fill="url(#nebula-a)"
+              />
+              <Ellipse
+                cx={size.width * 0.78}
+                cy={size.height * 0.74}
+                rx={size.width * 0.58}
+                ry={size.height * 0.30}
+                fill="url(#nebula-b)"
+              />
+
+              {stars.map((s, i) => (
+                <Circle
+                  key={`s${i}`}
+                  cx={s.x}
+                  cy={s.y}
+                  r={s.r}
+                  fill="#FFFFFF"
+                  opacity={s.o * (focus ? 0.45 : 1)}
+                />
+              ))}
+
+              {/* ── Orbits ─────────────────────────────────────────────── */}
+              {galaxy.orbits.map((o, i) => (
+                <Ellipse
+                  key={`o${i}`}
+                  cx={galaxy.cx}
+                  cy={galaxy.cy}
+                  rx={o.rx}
+                  ry={o.ry}
+                  stroke={ORBIT}
+                  strokeWidth={1}
+                  fill="none"
+                />
+              ))}
+
+              {/* ── Constellations ─────────────────────────────────────── */}
+              {galaxy.edges.map((e, i) => {
                 const lit =
                   !neighbours ||
                   (neighbours.has(e.sourceTitle.toLowerCase()) &&
@@ -175,8 +311,8 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 const dy = e.y2 - e.y1;
                 const len = Math.sqrt(dx * dx + dy * dy) || 1;
                 const bow = Math.min(18, len * 0.12);
-                const cx = mx - (dy / len) * bow;
-                const cy = my + (dx / len) * bow;
+                const bx = mx - (dy / len) * bow;
+                const by = my + (dx / len) * bow;
                 // A mention is something we inferred, not something the child
                 // typed — drawn thinner and dashed so the map never overstates
                 // how deliberate a connection was.
@@ -184,9 +320,9 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 return (
                   <Path
                     key={`e${i}`}
-                    d={`M ${e.x1} ${e.y1} Q ${cx} ${cy} ${e.x2} ${e.y2}`}
+                    d={`M ${e.x1} ${e.y1} Q ${bx} ${by} ${e.x2} ${e.y2}`}
                     stroke={lit ? EDGE_ON : EDGE}
-                    strokeWidth={guessed ? 1 : lit ? 1.8 : 1.2}
+                    strokeWidth={guessed ? 1 : lit ? 1.6 : 1.1}
                     strokeDasharray={guessed ? '4,4' : undefined}
                     strokeOpacity={(lit ? 1 : DIM) * (guessed ? 0.6 : 1)}
                     fill="none"
@@ -194,42 +330,82 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 );
               })}
 
-              {/* Halo — a wide, faint disc under each dot. */}
-              {layout.nodes.map((n) => (
-                <Circle
-                  key={`h-${n.title}`}
-                  cx={n.x}
-                  cy={n.y}
-                  r={n.r * 2.4}
-                  fill={colourOf(n.kind)}
-                  opacity={0.13 * alpha(n.title)}
-                />
-              ))}
+              {/* ── Bodies ─────────────────────────────────────────────── */}
+              {galaxy.nodes.map((n) => {
+                const a = alpha(n.title);
 
-              {layout.nodes.map((n) => {
-                const solid = n.kind !== 'unwritten';
+                if (n.ring === 0) {
+                  return (
+                    <G key={`n-${n.title}`} opacity={a}>
+                      <Circle cx={n.x} cy={n.y} r={n.r * 2.6} fill="url(#sun-glow)" />
+                      <Circle cx={n.x} cy={n.y} r={n.r} fill="url(#sun-core)" />
+                    </G>
+                  );
+                }
+
+                if (n.kind === 'tag') {
+                  return (
+                    <G key={`n-${n.title}`} opacity={a}>
+                      <Circle
+                        cx={n.x}
+                        cy={n.y}
+                        r={n.r * 2.2}
+                        fill={`url(#${idFor(n.colour, 'halo')})`}
+                      />
+                      <Path d={sparkle(n.x, n.y, n.r * 1.5)} fill={n.colour} />
+                    </G>
+                  );
+                }
+
+                // Not written yet — an outline with nothing inside it, so the
+                // map shows the child where a note is missing.
+                if (n.kind === 'unwritten') {
+                  return (
+                    <Circle
+                      key={`n-${n.title}`}
+                      cx={n.x}
+                      cy={n.y}
+                      r={n.r}
+                      fill="none"
+                      stroke={UNFORMED}
+                      strokeWidth={1.4}
+                      strokeDasharray="3,3"
+                      opacity={a}
+                    />
+                  );
+                }
+
+                const lit = focus === n.title;
                 return (
-                  <Circle
-                    key={`c-${n.title}`}
-                    cx={n.x}
-                    cy={n.y}
-                    r={n.r}
-                    fill={solid ? colourOf(n.kind) : 'transparent'}
-                    stroke={solid ? '#BFDBFE' : GHOST}
-                    strokeWidth={solid ? (focus === n.title ? 2.5 : 1) : 1.5}
-                    strokeDasharray={solid ? undefined : '3,3'}
-                    opacity={alpha(n.title)}
-                  />
+                  <G key={`n-${n.title}`} opacity={a}>
+                    <Circle
+                      cx={n.x}
+                      cy={n.y}
+                      r={n.r * 2.5}
+                      fill={`url(#${idFor(n.colour, 'halo')})`}
+                    />
+                    <Circle
+                      cx={n.x}
+                      cy={n.y}
+                      r={n.r}
+                      fill={`url(#${idFor(n.colour, 'body')})`}
+                      stroke={lit ? '#FFFFFF' : n.colour}
+                      strokeWidth={lit ? 2 : 0.8}
+                      strokeOpacity={lit ? 0.9 : 0.5}
+                    />
+                  </G>
                 );
               })}
 
-              {layout.nodes.map((n) => (
+              {/* ── Names ──────────────────────────────────────────────── */}
+              {galaxy.nodes.map((n) => (
                 <SvgText
                   key={`t-${n.title}`}
                   x={n.x}
-                  y={n.y + n.r + 14}
-                  fill={LABEL}
-                  fontSize={11}
+                  y={n.y + n.r + (n.ring === 0 ? 18 : 14)}
+                  fill={n.ring === 0 ? '#F2E9FF' : LABEL}
+                  fontSize={n.ring === 0 ? 12 : 11}
+                  fontWeight={n.ring === 0 ? 'bold' : 'normal'}
                   textAnchor="middle"
                   opacity={alpha(n.title)}
                 >
@@ -240,7 +416,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
 
             {/* Tap targets over the SVG: svg press handling is inconsistent
                 across platforms, and a finger needs more than the dot. */}
-            {layout.nodes.map((n) => {
+            {galaxy.nodes.map((n) => {
               const hit = Math.max(n.r + 12, 24);
               return (
                 <Pressable
@@ -276,24 +452,26 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
             paddingHorizontal: 12,
             paddingVertical: 7,
             borderRadius: 8,
-            backgroundColor: 'rgba(96,165,250,0.18)',
+            backgroundColor: 'rgba(130,0,219,0.28)',
           }}
         >
-          <Text className="text-xs text-neon-blue">Tiklash</Text>
+          <Text className="text-xs text-dark-subtitle">Tiklash</Text>
         </Pressable>
       )}
 
+      {/* The canvas is deep space in both themes, so text over it is always
+          light — a theme-coloured muted grey would vanish into the nebula. */}
       {nodes.length === 0 && (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-4xl mb-2">🧠</Text>
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted text-center px-8">
-            Hali qayd yo'q. Birinchi qaydni yozsang, miyang shu yerda o'sa
-            boshlaydi.
+          <Text className="text-4xl mb-2">🌌</Text>
+          <Text className="text-sm text-center px-8" style={{ color: '#94A3B8' }}>
+            Olaming hali bo'sh. Birinchi qaydni yozsang, shu yerda birinchi
+            yulduzing yonadi.
           </Text>
         </View>
       )}
 
-      {/* Notes but no lines yet. Loose dots are the honest picture of an
+      {/* Notes but no lines yet. Loose bodies are the honest picture of an
           unlinked notebook — a child who doesn't know what makes the lines
           appear will just think the map is broken. */}
       {nodes.length > 0 && edges.length === 0 && (
@@ -301,9 +479,9 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
           className="absolute left-0 right-0 items-center"
           style={{ bottom: 74, pointerEvents: 'none' }}
         >
-          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center px-10">
+          <Text className="text-xs text-center px-10" style={{ color: '#94A3B8' }}>
             Qaydlarda #teg yoz yoki bir qaydda boshqasining nomini eslat —
-            chiziqlar o'zi paydo bo'ladi.
+            yulduzlar o'zaro bog'lana boshlaydi.
           </Text>
         </View>
       )}

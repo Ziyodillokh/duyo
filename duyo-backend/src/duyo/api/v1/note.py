@@ -125,6 +125,7 @@ async def _read(db: AsyncSession, note: ChildNote) -> NoteRead:
         created_at=note.created_at,
         updated_at=note.updated_at,
         tags=notes_service.extract_tags(note.body),
+        colour=note.colour,
     )
 
 
@@ -136,7 +137,12 @@ async def create_note(
     detector: KeywordCrisisDetector = Depends(get_detector),
 ) -> NoteRead:
     child = await _owned_child(payload.child_id, current_user, db)
-    note = ChildNote(child_id=child.id, title=payload.title.strip(), body=payload.body)
+    note = ChildNote(
+        child_id=child.id,
+        title=payload.title.strip(),
+        body=payload.body,
+        colour=payload.colour,
+    )
     db.add(note)
     try:
         await db.flush()
@@ -188,17 +194,18 @@ async def note_graph(
     child = await _owned_child(child_id, current_user, db)
     rows = (
         await db.execute(
-            select(ChildNote.id, ChildNote.title, ChildNote.body)
+            select(ChildNote.id, ChildNote.title, ChildNote.body, ChildNote.colour)
             .where(ChildNote.child_id == child.id)
         )
     ).all()
     nodes, edges = notes_service.build_graph(
-        [(str(i), t, b) for i, t, b in rows]
+        [(str(i), t, b, c) for i, t, b, c in rows]
     )
     return GraphRead(
         nodes=[
             GraphNodeRead(id=UUID(n.id) if n.id else None, title=n.title,
-                          links=n.links, exists=n.exists, kind=n.kind)
+                          links=n.links, exists=n.exists, kind=n.kind,
+                          colour=n.colour)
             for n in nodes
         ],
         edges=[
@@ -393,6 +400,11 @@ async def update_note(
         note.title = payload.title.strip()
     if payload.body is not None:
         note.body = payload.body
+    # "colour" needs the field PRESENT/absent distinction, not just
+    # None-checking: "" is a deliberate "clear it back to auto", which looks
+    # identical to "omitted" once Pydantic has parsed both down to a value.
+    if "colour" in payload.model_fields_set:
+        note.colour = payload.colour or None
     try:
         await db.flush()
     except IntegrityError as exc:
