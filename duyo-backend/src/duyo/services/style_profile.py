@@ -115,7 +115,7 @@ async def merge_style_signal(child_id: UUID, style: dict[str, Any] | None) -> No
 
     Opens its own session — called from a BackgroundTask, whose caller's
     session is already closed by the time this runs (same reasoning as
-    `services/goals.py::extract_goal_candidate`). Fails safe: never raises,
+    `services/goals.py::extract_child_insights`). Fails safe: never raises,
     so a persistence problem here can never surface as a broken chat turn.
     """
     if not style or not isinstance(style, dict):

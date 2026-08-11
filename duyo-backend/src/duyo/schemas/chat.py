@@ -84,12 +84,46 @@ class ChildRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# Local-first personal memory (see duyo-mobile/src/lib/memory-*.ts and
+# duyo/services/memory_candidates.py). "goals" is deliberately not a memory
+# category — GoalCreate/INSIGHT_EXTRACT_PROMPT already own that shape of fact.
+MemoryCategory = Literal[
+    "profile", "preferences", "interests", "learning", "research", "notes"
+]
+
+#: Cap on how many locally-selected memory snippets one request may carry —
+#: the device already narrowed 100s of memories down to "relevant ones"; a
+#: cap here is a second backstop against a buggy client sending everything.
+MAX_MEMORY_CONTEXT_ITEMS = 6
+_MemoryContextLine = Annotated[str, Field(max_length=240)]
+
+
+class MemoryCandidateRead(BaseModel):
+    """The extractor's suggestion for this turn only — never persisted here.
+
+    The device runs its own Memory Guard against this before ever offering
+    the child a consent prompt; a category/content pair reaching this schema
+    is not itself a save.
+    """
+
+    category: MemoryCategory
+    content: str
+
+
 class ChatRequest(BaseModel):
     child_id: UUID
     message: str = Field(min_length=1, max_length=2000)
     conversation_id: UUID | None = None  # null → create new conversation
     action: Literal["web_search"] | None = None
     action_query: str | None = Field(default=None, max_length=2000)
+    # Short facts the DEVICE selected from the child's own encrypted local
+    # memory as relevant to this message (see memory-retrieval.ts). Folded
+    # into this one request's prompt and then discarded — the source of
+    # truth stays on the child's device, never written to Postgres.
+    memory_context: (
+        Annotated[list[_MemoryContextLine], Field(max_length=MAX_MEMORY_CONTEXT_ITEMS)]
+        | None
+    ) = None
 
 
 class ChatResponse(BaseModel):
@@ -102,6 +136,10 @@ class ChatResponse(BaseModel):
     source: ChatSource | None = None
     quick_replies: list[QuickReply] = []
     images: list[ChatImage] = []
+    # Present only when this turn's message contained something worth
+    # offering to remember. The app shows a consent prompt; nothing is saved
+    # without it.
+    memory_candidate: MemoryCandidateRead | None = None
 
 
 class LessonHelpRequest(BaseModel):

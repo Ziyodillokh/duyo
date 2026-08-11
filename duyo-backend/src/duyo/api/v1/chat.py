@@ -1,5 +1,6 @@
 """Chat endpoint — single-turn child↔DUYO message with crisis detection."""
 
+import asyncio
 import logging
 import re
 from dataclasses import replace as _dc_replace
@@ -43,6 +44,7 @@ from duyo.schemas.chat import (
     LessonHelpRequest,
     LessonHelpResponse,
     LessonStep,
+    MemoryCandidateRead,
     QuickReply,
     SourceRef,
     TranslateRequest,
@@ -60,8 +62,10 @@ from duyo.services.gemini import (
 from duyo.services.gemini import chat as gemini_chat
 from duyo.services.goals import extract_child_insights
 from duyo.services.images import search_images
+from duyo.services.memory_candidates import MemoryCandidate, extract_memory_candidate
 from duyo.services.personalization import (
     build_goal_context,
+    build_local_memory_context,
     build_personalization_context,
     build_style_context,
 )
@@ -498,6 +502,21 @@ async def chat_turn(
     if final_level == CrisisLevel.GREEN:
         background_tasks.add_task(extract_child_insights, child.id, payload.message)
 
+    # Personal-memory candidate for the LOCAL, on-device store (spec §4) —
+    # started here and awaited at the very end, so its Gemini call overlaps
+    # the reply's instead of running after it. Awaiting it sequentially would
+    # add its full latency to every GREEN turn the child waits through, for a
+    # result that only feeds an optional "eslab qolaymi?" prompt.
+    #
+    # Unlike the goal extractor above this is NOT a BackgroundTask: those run
+    # after the response is sent, and this result has to travel IN the
+    # response (nothing about it is ever persisted server-side — see
+    # services/memory_candidates.py). It cannot raise: every failure path in
+    # extract_memory_candidate returns None.
+    memory_task: asyncio.Task[MemoryCandidate | None] | None = None
+    if final_level == CrisisLevel.GREEN:
+        memory_task = asyncio.create_task(extract_memory_candidate(payload.message))
+
     # 8-9. Build the reply. Four flows:
     #   (a) action="web_search"  → skip RAG, answer from Google Search grounding
     #   (b) textbook RAG hit     → textbook answer + cite + offer web search
@@ -511,14 +530,18 @@ async def chat_turn(
     # a small context block derived from the child's latest cached aggregate
     # report, threaded into every LLM reply path below.
     # Joined into ONE string on purpose: chat.py already threads
-    # `personalization_context` into all four LLM reply paths below, so goals
-    # and the style profile ride along without touching either
-    # system-instruction assembly site.
+    # `personalization_context` into all four LLM reply paths below, so goals,
+    # the style profile and the device's own memory ride along without
+    # touching either system-instruction assembly site.
     # They must NOT use the rag_context slot — psychology RAG owns that.
     _context_blocks = [
         await build_personalization_context(db, child.id),
         await build_goal_context(db, child.id),
         await build_style_context(db, child.id),
+        # Device-selected, device-stored personal memory — see
+        # services/memory_candidates.py's module docstring. Pure function
+        # over payload.memory_context; no DB read, nothing persisted.
+        build_local_memory_context(payload.memory_context),
     ]
     personalization_context = "\n\n".join(b for b in _context_blocks if b) or None
 
@@ -621,6 +644,30 @@ async def chat_turn(
     conv.message_count = (conv.message_count or 0) + 2
     await db.flush()
 
+    # 11. Collect the personal-memory candidate started before the reply was
+    #     built. Same "child's own words, extractor only suggests" philosophy
+    #     as the goal extractor, but this result is NEVER written to Postgres
+    #     (see services/memory_candidates.py) — it rides back in this response
+    #     only, and the device's Memory Guard plus the child's explicit
+    #     consent decide whether it is kept at all, encrypted, on their own
+    #     phone. GREEN-only, same gate as goal extraction: a message already
+    #     flagged as crisis-relevant is not a candidate for a casual
+    #     "remember this?" prompt.
+    memory_candidate: MemoryCandidateRead | None = None
+    if memory_task is not None:
+        try:
+            candidate = await memory_task
+        except Exception:
+            # Belt-and-braces: extract_memory_candidate swallows its own
+            # failures, so reaching here means something unforeseen. A missed
+            # memory prompt must never cost the child their reply.
+            log.exception("memory_candidate_task_failed child=%s", child.id)
+            candidate = None
+        if candidate is not None:
+            memory_candidate = MemoryCandidateRead(
+                category=candidate.category, content=candidate.content,
+            )
+
     return ChatResponse(
         conversation_id=conv.id,
         message_id=assistant_msg.id,
@@ -631,6 +678,7 @@ async def chat_turn(
         source=source,
         quick_replies=quick_replies,
         images=images,
+        memory_candidate=memory_candidate,
     )
 
 

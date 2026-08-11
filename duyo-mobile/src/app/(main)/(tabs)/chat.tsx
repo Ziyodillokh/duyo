@@ -9,6 +9,7 @@ import {
   rateMessage,
   sendChatMessage,
   type FeedbackRating,
+  type MemoryCandidate,
   type QuickReply,
 } from '@/api/endpoints/chat';
 import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
@@ -17,8 +18,12 @@ import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { MascotImage } from '@/components/v2/mascot-image';
+import { MEMORY_CATEGORY_LABELS } from '@/lib/memory-categories';
+import { screenMemoryContent } from '@/lib/memory-guard';
+import { selectRelevantMemories, toMemoryContextLines } from '@/lib/memory-retrieval';
 import { type ChatMessage, useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
+import { MemoryGuardError, useMemoryStore } from '@/store/memory';
 
 interface AxiosErrorShape {
   response?: { data?: { detail?: string } };
@@ -73,7 +78,51 @@ export default function ChatScreen() {
     if (useChatStore.getState().messages.length === 0) {
       appendMessage(GREETING_TEMPLATE(child.name));
     }
+    // Local encrypted memory for THIS child — see store/memory.ts. Loaded
+    // eagerly so the first send() of the session already has something to
+    // search; a slow/failed load just means that one message goes out
+    // without local context, never a blocked chat.
+    useMemoryStore.getState().load(child.id).catch(() => {});
   }, [child, hydrated, setActiveChild, appendMessage]);
+
+  // A memory candidate reaches this screen already past the SERVER's
+  // conservative extractor prompt; the device's own Memory Guard is the
+  // authoritative check (see memory-guard.ts's module docstring) — a
+  // sensitive-looking candidate is dropped here silently, no prompt shown.
+  const offerMemoryConsent = useCallback(
+    (candidate: MemoryCandidate | null) => {
+      if (!candidate || !child) return;
+      const guard = screenMemoryContent(candidate.content);
+      if (guard.verdict !== 'safe') return;
+
+      Alert.alert(
+        'Buni eslab qolaymi?',
+        `"${candidate.content}"\n\nKategoriya: ${MEMORY_CATEGORY_LABELS[candidate.category]}`,
+        [
+          { text: "Yo'q", style: 'cancel' },
+          {
+            text: 'Ha, eslab qol',
+            onPress: () => {
+              useMemoryStore
+                .getState()
+                .addMemory(candidate.category, candidate.content, 'chat_confirmed')
+                .catch((err) => {
+                  // A MemoryGuardError here means the store's screening
+                  // disagreed with the pre-check above — treat it as a
+                  // successful block, not a failure to explain to the child.
+                  if (err instanceof MemoryGuardError) return;
+                  Alert.alert(
+                    'Xatolik',
+                    "Eslab qololmadim. Birozdan keyin \"Mening Xotiram\" bo'limidan qo'lda qo'shib ko'ring.",
+                  );
+                });
+            },
+          },
+        ],
+      );
+    },
+    [child],
+  );
 
   const todayCount = useMemo(() => {
     const start = startOfTodayMs();
@@ -102,12 +151,17 @@ export default function ChatScreen() {
       if (!child) {
         return Promise.reject(new Error('child profile missing'));
       }
+      // Device-side retrieval (spec §6): pick the few local memories
+      // relevant to THIS message, out of however many the child has, so the
+      // request carries only what this turn needs — never the whole store.
+      const relevant = selectRelevantMemories(vars.text, useMemoryStore.getState().items);
       return sendChatMessage({
         child_id: child.id,
         message: vars.text,
         conversation_id: conversationId ?? undefined,
         action: vars.action,
         action_query: vars.actionQuery,
+        memory_context: toMemoryContextLines(relevant),
       });
     },
     onSuccess: (response) => {
@@ -129,6 +183,7 @@ export default function ChatScreen() {
         return; // never interrupt a crisis moment with a game
       }
       maybeOfferPuzzle();
+      offerMemoryConsent(response.memory_candidate);
     },
     onError: (err) => {
       const detail =

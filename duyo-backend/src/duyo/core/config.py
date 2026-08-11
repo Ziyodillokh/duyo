@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     gemini_max_output_tokens: int = 2000
     gemini_thinking_budget_flash: int = 0  # Flash thinking off, Pro always-on
 
+    # Personal-memory candidate extraction (local-first memory — see
+    # services/memory_candidates.py). The extractor never writes to Postgres;
+    # this is only an ops kill switch for cost/latency, flippable without a
+    # deploy if the extra per-turn Gemini call needs a fast rollback.
+    memory_candidate_extraction_enabled: bool = True
+
     # Conversation context window — last N messages sent back as history.
     # Each turn is ~80-150 tokens; 20 messages ≈ 1500-3000 input tokens,
     # well within Flash's 1M context. Larger windows pay more per turn.
