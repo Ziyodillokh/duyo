@@ -74,6 +74,9 @@ export default function BrainScreen() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameTo, setRenameTo] = useState('');
   const [listOpen, setListOpen] = useState(false);
+  // null = auto. Only ever reaches the map for a note with no #tag; see
+  // lib/galaxy-layout.ts colourOf for why a tag outranks it.
+  const [colour, setColour] = useState<string | null>(null);
 
   const graph = useQuery({
     queryKey: ['note-graph', childId],
@@ -159,6 +162,7 @@ export default function BrainScreen() {
     onSuccess: (note) => {
       setTitle(note.title);
       setBody(note.body);
+      setColour(note.colour);
       setPreview(true);
       setScreen({ kind: 'note', id: note.id });
     },
@@ -167,8 +171,10 @@ export default function BrainScreen() {
   const save = useMutation({
     mutationFn: async () =>
       screen.kind === 'note'
-        ? updateNote(screen.id, { title: title.trim(), body })
-        : createNote(childId, title.trim(), body),
+        ? // '' is the backend's "clear it back to auto" — distinct from
+          // omitting the key, which would leave the old colour in place.
+          updateNote(screen.id, { title: title.trim(), body, colour: colour ?? '' })
+        : createNote(childId, title.trim(), body, colour),
     onSuccess: (note) => {
       refresh();
       void qc.invalidateQueries({ queryKey: ['backlinks', note.id] });
@@ -222,6 +228,7 @@ export default function BrainScreen() {
   const startNew = (preset = '') => {
     setTitle(preset);
     setBody('');
+    setColour(null);
     setPreview(false);
     setScreen({ kind: 'new' });
   };
@@ -506,6 +513,66 @@ export default function BrainScreen() {
                       </Text>
                     </Pressable>
                   </View>
+
+                  {/* Colour. Offered ONLY while the note carries no #tag: a
+                      tagged note takes its tag's colour on the map (see
+                      lib/galaxy-layout.ts), so a picker here would let the
+                      child choose something they then never see. When a tag
+                      is present we say so instead of hiding the row silently
+                      — otherwise adding a tag looks like it broke the
+                      feature. */}
+                  {hasTag ? (
+                    <View
+                      className="rounded-md px-3 py-2"
+                      style={{ backgroundColor: 'rgba(253,199,0,0.10)' }}
+                    >
+                      <Text className="text-xs" style={{ color: '#FDC700' }}>
+                        Rangni #teg belgilaydi — bir xil tegli qaydlar xaritada
+                        bir rangda turadi.
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="gap-2">
+                      <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                        Xaritadagi rangi
+                      </Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        <Pressable
+                          onPress={() => setColour(null)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Rang: avtomatik"
+                          accessibilityState={{ selected: colour === null }}
+                          className="rounded-full items-center justify-center active:opacity-70"
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderWidth: colour === null ? 2 : 1,
+                            borderColor: colour === null ? '#E0E7FF' : 'rgba(150,180,255,0.35)',
+                            backgroundColor: UNTAGGED,
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, color: '#0B1020' }}>A</Text>
+                        </Pressable>
+                        {PALETTE.map((c) => (
+                          <Pressable
+                            key={c}
+                            onPress={() => setColour(c)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Rang ${c}`}
+                            accessibilityState={{ selected: colour === c }}
+                            className="rounded-full active:opacity-70"
+                            style={{
+                              width: 34,
+                              height: 34,
+                              backgroundColor: c,
+                              borderWidth: colour === c ? 3 : 0,
+                              borderColor: '#FFFFFF',
+                            }}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  )}
 
                   {/* Tags the child already uses — tapping one is faster than
                       retyping it, and keeps #kosmos from becoming #kosmoss. */}

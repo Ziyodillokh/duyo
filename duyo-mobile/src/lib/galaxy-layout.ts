@@ -43,7 +43,10 @@ export interface Galaxy {
 // One colour per #tag, assigned by name so a tag keeps its colour for good.
 // Drawn from the app's neon palette (tailwind.config.js) so the map belongs to
 // the same product as everything around it.
-const PALETTE = [
+// Exported so the note editor's colour picker offers exactly the colours the
+// map can draw — a swatch that looked different on the map than in the picker
+// would make the child's choice feel arbitrary.
+export const PALETTE = [
   '#60A5FA', // blue
   '#05DF72', // green
   '#FB64B6', // pink
@@ -148,10 +151,19 @@ export function layoutGalaxy(
     }
   }
 
+  // Priority: #tag first, then the child's own pick, then neutral grey.
+  //
+  // The tag has to outrank the manual colour. A tag is a CATEGORY shared by
+  // many notes and the filter chips double as the map's legend (see
+  // brain-screen.tsx) — if one note under #fizika could paint itself a
+  // different colour, the legend would be telling the child something untrue.
+  // The manual colour is therefore what an UNTAGGED note gets instead of the
+  // flat grey every unfiled note used to share, which is exactly the case
+  // where it carries information and nothing else claims the slot.
   const colourOf = (n: GraphNode): string => {
     if (n.kind === 'unwritten') return UNFORMED;
     if (n.kind === 'tag') return tagColour.get(n.title.toLowerCase()) ?? UNTAGGED;
-    return noteColour.get(n.title.toLowerCase()) ?? UNTAGGED;
+    return noteColour.get(n.title.toLowerCase()) ?? n.colour ?? UNTAGGED;
   };
 
   // ── 2. Force pass — position is thrown away, only the angle is kept ──────

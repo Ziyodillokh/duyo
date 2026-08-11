@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -18,12 +18,14 @@ import Svg, {
 } from 'react-native-svg';
 
 import type { GraphEdge, GraphNode } from '@/api/endpoints/notes';
+import { useGraphClock } from '@/hooks/use-graph-clock';
 import {
   layoutGalaxy,
   starField,
   UNFORMED,
   type OrbitedNode,
 } from '@/lib/galaxy-layout';
+import { driftAt, driftSeed, type DriftSeed } from '@/lib/graph-drift';
 
 const EDGE = 'rgba(160, 190, 255, 0.22)';
 const EDGE_ON = 'rgba(200, 220, 255, 0.85)';
@@ -59,6 +61,50 @@ function sparkle(x: number, y: number, r: number): string {
 const idFor = (colour: string, prefix: string) =>
   `${prefix}-${colour.replace('#', '')}`;
 
+/**
+ * The tap targets, at the STATIC layout positions.
+ *
+ * Memoised and split out on purpose: the drift clock re-renders NoteGraph
+ * ~20 times a second, and re-mounting a Pressable per node at that rate is
+ * both wasted work and a way to lose an in-flight long press. These sit
+ * still while only the drawing moves — see the drift note in NoteGraph's
+ * docstring for why that stays accurate.
+ */
+const TouchLayer = memo(function TouchLayer({
+  nodes,
+  onTap,
+  onHold,
+}: {
+  nodes: OrbitedNode[];
+  onTap: (n: OrbitedNode) => void;
+  onHold: (n: OrbitedNode) => void;
+}) {
+  return (
+    <>
+      {nodes.map((n) => {
+        const hit = Math.max(n.r + 12, 24);
+        return (
+          <Pressable
+            key={`p-${n.title}`}
+            onPress={() => onTap(n)}
+            onLongPress={() => onHold(n)}
+            accessibilityRole="button"
+            accessibilityLabel={labelOf(n)}
+            style={{
+              position: 'absolute',
+              left: n.x - hit,
+              top: n.y - hit,
+              width: hit * 2,
+              height: hit * 2,
+              borderRadius: hit,
+            }}
+          />
+        );
+      })}
+    </>
+  );
+});
+
 interface Props {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -79,9 +125,13 @@ interface Props {
  * only a [[link]] so far is drawn as a body that has not finished forming. A
  * child can read all three without being told.
  *
- * Bodies do not drift. Positions are computed once and stay put — the touch
- * targets sit above the canvas at fixed coordinates, and an orbiting planet
- * would slide out from under the child's finger.
+ * Bodies drift — a small, never-repeating wobble around the position the
+ * layout gave them (see lib/graph-drift.ts), so the sky reads as alive rather
+ * than printed. The LAYOUT itself is still fixed: a note keeps its place in
+ * the sky, and the touch targets stay at that fixed place while only the
+ * drawing moves. The drift amplitude is small enough that a dot never leaves
+ * its own hit area, which is what lets the map move without becoming harder
+ * to tap. Drift stops entirely under the OS "reduce motion" setting.
  *
  * Pinch to zoom, drag to pan. A tap opens the note; press-and-hold lights up
  * its constellation and fades the rest of the sky.
@@ -102,6 +152,26 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     () => (size.width > 0 ? starField(size.width, size.height) : []),
     [size],
   );
+
+  // ── Drift ────────────────────────────────────────────────────────────────
+  // A seed per node, recomputed only when the node set changes; the clock
+  // ticks independently. Splitting them this way keeps the per-frame work to
+  // arithmetic — no hashing, no allocation of the seed table.
+  const seeds = useMemo(() => {
+    const map = new Map<string, DriftSeed>();
+    for (const n of galaxy?.nodes ?? []) map.set(n.title, driftSeed(n.title));
+    return map;
+  }, [galaxy]);
+
+  const clock = useGraphClock((galaxy?.nodes.length ?? 0) > 0);
+
+  /** Where a body is DRAWN this frame. The tap target stays at (n.x, n.y). */
+  const drawnAt = (title: string, x: number, y: number) => {
+    const seed = seeds.get(title);
+    if (!seed || clock === 0) return { x, y };
+    const { dx, dy } = driftAt(seed, clock);
+    return { x: x + dx, y: y + dy };
+  };
 
   // Every distinct body colour, so one gradient is defined per colour rather
   // than one per node.
@@ -173,9 +243,13 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   // A tap opens; press-and-hold lights up the neighbourhood. Obsidian opens a
   // node on click too — making the first tap only "select" meant every note
   // cost two taps, which is the wrong trade on a phone.
-  const tap = (node: OrbitedNode) => onSelect(node);
-  const hold = (node: OrbitedNode) =>
-    setFocus((f) => (f === node.title ? null : node.title));
+  // Stable identities, or TouchLayer's memo never holds and the drift clock
+  // re-renders every Pressable 20 times a second after all.
+  const tap = useCallback((node: OrbitedNode) => onSelect(node), [onSelect]);
+  const hold = useCallback(
+    (node: OrbitedNode) => setFocus((f) => (f === node.title ? null : node.title)),
+    [],
+  );
 
   const alpha = (title: string) =>
     !neighbours || neighbours.has(title.toLowerCase()) ? 1 : DIM;
@@ -303,12 +377,16 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   !neighbours ||
                   (neighbours.has(e.sourceTitle.toLowerCase()) &&
                     neighbours.has(e.targetTitle.toLowerCase()));
+                // Endpoints follow the bodies they join, so a line never
+                // detaches from the dot it belongs to while the sky drifts.
+                const a = drawnAt(e.sourceTitle, e.x1, e.y1);
+                const b = drawnAt(e.targetTitle, e.x2, e.y2);
                 // A shallow arc, bowed perpendicular to the line — straight
                 // lines read as a diagram, curves as a web.
-                const mx = (e.x1 + e.x2) / 2;
-                const my = (e.y1 + e.y2) / 2;
-                const dx = e.x2 - e.x1;
-                const dy = e.y2 - e.y1;
+                const mx = (a.x + b.x) / 2;
+                const my = (a.y + b.y) / 2;
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
                 const len = Math.sqrt(dx * dx + dy * dy) || 1;
                 const bow = Math.min(18, len * 0.12);
                 const bx = mx - (dy / len) * bow;
@@ -320,7 +398,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 return (
                   <Path
                     key={`e${i}`}
-                    d={`M ${e.x1} ${e.y1} Q ${bx} ${by} ${e.x2} ${e.y2}`}
+                    d={`M ${a.x} ${a.y} Q ${bx} ${by} ${b.x} ${b.y}`}
                     stroke={lit ? EDGE_ON : EDGE}
                     strokeWidth={guessed ? 1 : lit ? 1.6 : 1.1}
                     strokeDasharray={guessed ? '4,4' : undefined}
@@ -333,12 +411,13 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
               {/* ── Bodies ─────────────────────────────────────────────── */}
               {galaxy.nodes.map((n) => {
                 const a = alpha(n.title);
+                const { x, y } = drawnAt(n.title, n.x, n.y);
 
                 if (n.ring === 0) {
                   return (
                     <G key={`n-${n.title}`} opacity={a}>
-                      <Circle cx={n.x} cy={n.y} r={n.r * 2.6} fill="url(#sun-glow)" />
-                      <Circle cx={n.x} cy={n.y} r={n.r} fill="url(#sun-core)" />
+                      <Circle cx={x} cy={y} r={n.r * 2.6} fill="url(#sun-glow)" />
+                      <Circle cx={x} cy={y} r={n.r} fill="url(#sun-core)" />
                     </G>
                   );
                 }
@@ -347,12 +426,12 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   return (
                     <G key={`n-${n.title}`} opacity={a}>
                       <Circle
-                        cx={n.x}
-                        cy={n.y}
+                        cx={x}
+                        cy={y}
                         r={n.r * 2.2}
                         fill={`url(#${idFor(n.colour, 'halo')})`}
                       />
-                      <Path d={sparkle(n.x, n.y, n.r * 1.5)} fill={n.colour} />
+                      <Path d={sparkle(x, y, n.r * 1.5)} fill={n.colour} />
                     </G>
                   );
                 }
@@ -363,8 +442,8 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   return (
                     <Circle
                       key={`n-${n.title}`}
-                      cx={n.x}
-                      cy={n.y}
+                      cx={x}
+                      cy={y}
                       r={n.r}
                       fill="none"
                       stroke={UNFORMED}
@@ -379,14 +458,14 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 return (
                   <G key={`n-${n.title}`} opacity={a}>
                     <Circle
-                      cx={n.x}
-                      cy={n.y}
+                      cx={x}
+                      cy={y}
                       r={n.r * 2.5}
                       fill={`url(#${idFor(n.colour, 'halo')})`}
                     />
                     <Circle
-                      cx={n.x}
-                      cy={n.y}
+                      cx={x}
+                      cy={y}
                       r={n.r}
                       fill={`url(#${idFor(n.colour, 'body')})`}
                       stroke={lit ? '#FFFFFF' : n.colour}
@@ -398,44 +477,26 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
               })}
 
               {/* ── Names ──────────────────────────────────────────────── */}
-              {galaxy.nodes.map((n) => (
-                <SvgText
-                  key={`t-${n.title}`}
-                  x={n.x}
-                  y={n.y + n.r + (n.ring === 0 ? 18 : 14)}
-                  fill={n.ring === 0 ? '#F2E9FF' : LABEL}
-                  fontSize={n.ring === 0 ? 12 : 11}
-                  fontWeight={n.ring === 0 ? 'bold' : 'normal'}
-                  textAnchor="middle"
-                  opacity={alpha(n.title)}
-                >
-                  {n.title.length > 14 ? `${n.title.slice(0, 13)}…` : n.title}
-                </SvgText>
-              ))}
+              {galaxy.nodes.map((n) => {
+                const { x, y } = drawnAt(n.title, n.x, n.y);
+                return (
+                  <SvgText
+                    key={`t-${n.title}`}
+                    x={x}
+                    y={y + n.r + (n.ring === 0 ? 18 : 14)}
+                    fill={n.ring === 0 ? '#F2E9FF' : LABEL}
+                    fontSize={n.ring === 0 ? 12 : 11}
+                    fontWeight={n.ring === 0 ? 'bold' : 'normal'}
+                    textAnchor="middle"
+                    opacity={alpha(n.title)}
+                  >
+                    {n.title.length > 14 ? `${n.title.slice(0, 13)}…` : n.title}
+                  </SvgText>
+                );
+              })}
             </Svg>
 
-            {/* Tap targets over the SVG: svg press handling is inconsistent
-                across platforms, and a finger needs more than the dot. */}
-            {galaxy.nodes.map((n) => {
-              const hit = Math.max(n.r + 12, 24);
-              return (
-                <Pressable
-                  key={`p-${n.title}`}
-                  onPress={() => tap(n)}
-                  onLongPress={() => hold(n)}
-                  accessibilityRole="button"
-                  accessibilityLabel={labelOf(n)}
-                  style={{
-                    position: 'absolute',
-                    left: n.x - hit,
-                    top: n.y - hit,
-                    width: hit * 2,
-                    height: hit * 2,
-                    borderRadius: hit,
-                  }}
-                />
-              );
-            })}
+            <TouchLayer nodes={galaxy.nodes} onTap={tap} onHold={hold} />
           </Animated.View>
         </GestureDetector>
       )}
