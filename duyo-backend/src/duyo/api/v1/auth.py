@@ -46,8 +46,13 @@ async def send_otp(payload: OTPRequest) -> dict[str, str]:
     if demo_code():
         return {"status": "demo", "phone": payload.phone, "demo_code": demo_code()}
 
+    # Eskiz only delivers text that matches a template its moderators approved;
+    # anything else is rejected at send time. This string is that template
+    # verbatim ("DUYO ilovasiga kirish uchun tasdiqlash kodi: %d (5 daqiqa amal
+    # qiladi.)") — do not reword it without re-submitting the template, or
+    # every login SMS stops arriving.
     sms = get_sms_provider()
-    message = f"DUYO tasdiqlash kodi: {code}. 5 daqiqa amal qiladi."
+    message = f"DUYO ilovasiga kirish uchun tasdiqlash kodi: {code} (5 daqiqa amal qiladi.)"
     sent = await sms.send(payload.phone, message)
     if not sent:
         raise HTTPException(
