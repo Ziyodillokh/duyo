@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -18,19 +18,17 @@ import Svg, {
 } from 'react-native-svg';
 
 import type { GraphEdge, GraphNode } from '@/api/endpoints/notes';
-import { useGraphClock } from '@/hooks/use-graph-clock';
+import { useGraphSim } from '@/hooks/use-graph-sim';
 import {
   layoutGalaxy,
   starField,
   UNFORMED,
   type OrbitedNode,
 } from '@/lib/galaxy-layout';
-import { driftAt, driftSeed, type DriftSeed } from '@/lib/graph-drift';
 
 const EDGE = 'rgba(160, 190, 255, 0.22)';
 const EDGE_ON = 'rgba(200, 220, 255, 0.85)';
 const LABEL = '#DCE6FA';
-const ORBIT = 'rgba(150, 180, 255, 0.13)';
 const DIM = 0.16;
 
 const MIN_ZOOM = 0.5;
@@ -62,15 +60,11 @@ const idFor = (colour: string, prefix: string) =>
   `${prefix}-${colour.replace('#', '')}`;
 
 /**
- * The tap targets, at the STATIC layout positions.
- *
- * Memoised and split out on purpose: the drift clock re-renders NoteGraph
- * ~20 times a second, and re-mounting a Pressable per node at that rate is
- * both wasted work and a way to lose an in-flight long press. These sit
- * still while only the drawing moves — see the drift note in NoteGraph's
- * docstring for why that stays accurate.
+ * The tap targets. They follow the simulation — a body IS its touch target,
+ * so wherever physics carries a note, the finger finds it there. While the
+ * system is asleep (which is the steady state) nothing here re-renders.
  */
-const TouchLayer = memo(function TouchLayer({
+function TouchLayer({
   nodes,
   onTap,
   onHold,
@@ -103,7 +97,7 @@ const TouchLayer = memo(function TouchLayer({
       })}
     </>
   );
-});
+}
 
 interface Props {
   nodes: GraphNode[];
@@ -116,25 +110,24 @@ interface Props {
 }
 
 /**
- * The brain as a solar system: the note you link to most burns at the centre,
- * everything else orbits it, #tags hang as coloured stars and [[links]] draw
- * the constellations between them.
+ * The brain as a solar system that moves the way Obsidian's graph does.
  *
- * The metaphor is doing real work, not decoration. Distance from the centre is
- * how connected a note is; colour is the #tag it is filed under; a note that is
- * only a [[link]] so far is drawn as a body that has not finished forming. A
- * child can read all three without being told.
+ * `layoutGalaxy` still seeds the sky — most-linked note largest, colours from
+ * #tags, sizes from links — but from there the map is a live force simulation
+ * (`lib/graph-physics.ts`): bodies repel, [[links]] pull like springs, and the
+ * whole system settles over a few seconds into stillness, exactly the
+ * open-then-calm rhythm of Obsidian's graph view. The physics is
+ * deterministic, so the same notebook still settles into the same sky.
  *
- * Bodies drift — a small, never-repeating wobble around the position the
- * layout gave them (see lib/graph-drift.ts), so the sky reads as alive rather
- * than printed. The LAYOUT itself is still fixed: a note keeps its place in
- * the sky, and the touch targets stay at that fixed place while only the
- * drawing moves. The drift amplitude is small enough that a dot never leaves
- * its own hit area, which is what lets the map move without becoming harder
- * to tap. Drift stops entirely under the OS "reduce motion" setting.
+ * A child can grab any body and drag it: its constellation stretches, follows,
+ * and relaxes again on release. Grabs are told apart from canvas pans by what
+ * the finger lands on — a body drags it, empty space pans the sky. Pinch to
+ * zoom. A tap opens the note; press-and-hold lights up its constellation and
+ * fades the rest.
  *
- * Pinch to zoom, drag to pan. A tap opens the note; press-and-hold lights up
- * its constellation and fades the rest of the sky.
+ * Under the OS "reduce motion" setting the same physics chooses the layout,
+ * but it runs to rest instantly and the sky never animates — and dragging is
+ * off, because a drag's whole feedback is motion.
  */
 export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   const [size, setSize] = useState({ width: 0, height: height ?? 0 });
@@ -153,25 +146,24 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     [size],
   );
 
-  // ── Drift ────────────────────────────────────────────────────────────────
-  // A seed per node, recomputed only when the node set changes; the clock
-  // ticks independently. Splitting them this way keeps the per-frame work to
-  // arithmetic — no hashing, no allocation of the seed table.
-  const seeds = useMemo(() => {
-    const map = new Map<string, DriftSeed>();
-    for (const n of galaxy?.nodes ?? []) map.set(n.title, driftSeed(n.title));
-    return map;
-  }, [galaxy]);
+  const sim = useGraphSim(galaxy);
 
-  const clock = useGraphClock((galaxy?.nodes.length ?? 0) > 0);
+  /** Where a body is this frame — physics first, layout as the fallback. */
+  const drawnAt = (title: string, x: number, y: number) =>
+    sim.positionOf(title) ?? { x, y };
 
-  /** Where a body is DRAWN this frame. The tap target stays at (n.x, n.y). */
-  const drawnAt = (title: string, x: number, y: number) => {
-    const seed = seeds.get(title);
-    if (!seed || clock === 0) return { x, y };
-    const { dx, dy } = driftAt(seed, clock);
-    return { x: x + dx, y: y + dy };
-  };
+  /** The bodies with their live coordinates — what both the SVG and the
+   *  touch layer draw from, so they can never disagree. */
+  const liveNodes = useMemo(
+    () =>
+      (galaxy?.nodes ?? []).map((n) => {
+        const p = sim.positionOf(n.title);
+        return p ? { ...n, x: p.x, y: p.y } : n;
+      }),
+    // sim.tick is the physics clock: each step must rebuild, same step must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [galaxy, sim.tick],
+  );
 
   // Every distinct body colour, so one gradient is defined per colour rather
   // than one per node.
@@ -209,15 +201,66 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
       savedScale.set(scale.get());
     });
 
+  /** Screen point → canvas point, inverting the pan/zoom transform. The
+   *  transform scales about the canvas centre, then translates. */
+  const toCanvas = (ex: number, ey: number) => {
+    const s = scale.get();
+    const cxV = size.width / 2;
+    const cyV = size.height / 2;
+    return {
+      x: cxV + (ex - tx.get() - cxV) / s,
+      y: cyV + (ey - ty.get() - cyV) / s,
+    };
+  };
+
+  /** What this pan is: dragging a body, or panning the sky. Also carries the
+   *  grab offset so a body follows the finger without jumping to it. */
+  const panMode = useRef<
+    { kind: 'node'; dx: number; dy: number } | { kind: 'canvas' } | null
+  >(null);
+  /** Set when a pan ends. On web a drag can still deliver a click to the
+   *  touch target under the finger; taps arriving right after a pan are that
+   *  ghost, not the child's intent. */
+  const panEndedAt = useRef(0);
+
+  // On the JS thread (.runOnJS): the grab has to hit-test against simulation
+  // state, which lives on this side.
   const pan = Gesture.Pan()
+    .runOnJS(true)
     .averageTouches(true)
+    .onStart((e) => {
+      // The gesture activates a few points in; grab from where it BEGAN.
+      const origin = toCanvas(e.x - e.translationX, e.y - e.translationY);
+      const grabbed =
+        e.numberOfPointers === 1 ? sim.grabAt(origin.x, origin.y) : null;
+      if (grabbed) {
+        const p = sim.positionOf(grabbed);
+        panMode.current = p
+          ? { kind: 'node', dx: p.x - origin.x, dy: p.y - origin.y }
+          : { kind: 'canvas' };
+      } else {
+        panMode.current = { kind: 'canvas' };
+      }
+    })
     .onUpdate((e) => {
-      tx.set(savedTx.get() + e.translationX);
-      ty.set(savedTy.get() + e.translationY);
+      const mode = panMode.current;
+      if (mode?.kind === 'node') {
+        const p = toCanvas(e.x, e.y);
+        sim.dragTo(p.x + mode.dx, p.y + mode.dy);
+      } else {
+        tx.set(savedTx.get() + e.translationX);
+        ty.set(savedTy.get() + e.translationY);
+      }
     })
     .onEnd(() => {
-      savedTx.set(tx.get());
-      savedTy.set(ty.get());
+      if (panMode.current?.kind === 'node') {
+        sim.release();
+      } else {
+        savedTx.set(tx.get());
+        savedTy.set(ty.get());
+      }
+      panMode.current = null;
+      panEndedAt.current = Date.now();
     });
 
   const gesture = Gesture.Simultaneous(pinch, pan);
@@ -243,9 +286,13 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   // A tap opens; press-and-hold lights up the neighbourhood. Obsidian opens a
   // node on click too — making the first tap only "select" meant every note
   // cost two taps, which is the wrong trade on a phone.
-  // Stable identities, or TouchLayer's memo never holds and the drift clock
-  // re-renders every Pressable 20 times a second after all.
-  const tap = useCallback((node: OrbitedNode) => onSelect(node), [onSelect]);
+  const tap = useCallback(
+    (node: OrbitedNode) => {
+      if (Date.now() - panEndedAt.current < 250) return;
+      onSelect(node);
+    },
+    [onSelect],
+  );
   const hold = useCallback(
     (node: OrbitedNode) => setFocus((f) => (f === node.title ? null : node.title)),
     [],
@@ -264,14 +311,20 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   };
 
   return (
-    <View
-      onLayout={onLayout}
-      style={height === undefined ? { flex: 1, overflow: 'hidden' } : { height, overflow: 'hidden' }}
-      accessibilityLabel="Qaydlar olami"
-    >
-      {galaxy && nodes.length > 0 && (
-        <GestureDetector gesture={gesture}>
-          <Animated.View style={[{ width: size.width, height: size.height }, canvasStyle]}>
+    <GestureDetector gesture={gesture}>
+      <View
+        onLayout={onLayout}
+        style={
+          height === undefined
+            ? { flex: 1, overflow: 'hidden' }
+            : { height, overflow: 'hidden' }
+        }
+        accessibilityLabel="Qaydlar olami"
+      >
+        {galaxy && nodes.length > 0 && (
+          <Animated.View
+            style={[{ width: size.width, height: size.height }, canvasStyle]}
+          >
             <Svg width={size.width} height={size.height}>
               <Defs>
                 {/* Nebula — two wide, soft clouds. Stacked radial gradients
@@ -357,20 +410,6 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 />
               ))}
 
-              {/* ── Orbits ─────────────────────────────────────────────── */}
-              {galaxy.orbits.map((o, i) => (
-                <Ellipse
-                  key={`o${i}`}
-                  cx={galaxy.cx}
-                  cy={galaxy.cy}
-                  rx={o.rx}
-                  ry={o.ry}
-                  stroke={ORBIT}
-                  strokeWidth={1}
-                  fill="none"
-                />
-              ))}
-
               {/* ── Constellations ─────────────────────────────────────── */}
               {galaxy.edges.map((e, i) => {
                 const lit =
@@ -378,7 +417,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   (neighbours.has(e.sourceTitle.toLowerCase()) &&
                     neighbours.has(e.targetTitle.toLowerCase()));
                 // Endpoints follow the bodies they join, so a line never
-                // detaches from the dot it belongs to while the sky drifts.
+                // detaches from the dot it belongs to while the system moves.
                 const a = drawnAt(e.sourceTitle, e.x1, e.y1);
                 const b = drawnAt(e.targetTitle, e.x2, e.y2);
                 // A shallow arc, bowed perpendicular to the line — straight
@@ -409,9 +448,9 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
               })}
 
               {/* ── Bodies ─────────────────────────────────────────────── */}
-              {galaxy.nodes.map((n) => {
+              {liveNodes.map((n) => {
                 const a = alpha(n.title);
-                const { x, y } = drawnAt(n.title, n.x, n.y);
+                const { x, y } = n;
 
                 if (n.ring === 0) {
                   return (
@@ -477,75 +516,72 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
               })}
 
               {/* ── Names ──────────────────────────────────────────────── */}
-              {galaxy.nodes.map((n) => {
-                const { x, y } = drawnAt(n.title, n.x, n.y);
-                return (
-                  <SvgText
-                    key={`t-${n.title}`}
-                    x={x}
-                    y={y + n.r + (n.ring === 0 ? 18 : 14)}
-                    fill={n.ring === 0 ? '#F2E9FF' : LABEL}
-                    fontSize={n.ring === 0 ? 12 : 11}
-                    fontWeight={n.ring === 0 ? 'bold' : 'normal'}
-                    textAnchor="middle"
-                    opacity={alpha(n.title)}
-                  >
-                    {n.title.length > 14 ? `${n.title.slice(0, 13)}…` : n.title}
-                  </SvgText>
-                );
-              })}
+              {liveNodes.map((n) => (
+                <SvgText
+                  key={`t-${n.title}`}
+                  x={n.x}
+                  y={n.y + n.r + (n.ring === 0 ? 18 : 14)}
+                  fill={n.ring === 0 ? '#F2E9FF' : LABEL}
+                  fontSize={n.ring === 0 ? 12 : 11}
+                  fontWeight={n.ring === 0 ? 'bold' : 'normal'}
+                  textAnchor="middle"
+                  opacity={alpha(n.title)}
+                >
+                  {n.title.length > 14 ? `${n.title.slice(0, 13)}…` : n.title}
+                </SvgText>
+              ))}
             </Svg>
 
-            <TouchLayer nodes={galaxy.nodes} onTap={tap} onHold={hold} />
+            <TouchLayer nodes={liveNodes} onTap={tap} onHold={hold} />
           </Animated.View>
-        </GestureDetector>
-      )}
+        )}
 
-      {focus && (
-        <Pressable
-          onPress={reset}
-          accessibilityRole="button"
-          accessibilityLabel="Ko'rinishni tiklash"
-          style={{
-            position: 'absolute',
-            right: 10,
-            top: 10,
-            paddingHorizontal: 12,
-            paddingVertical: 7,
-            borderRadius: 8,
-            backgroundColor: 'rgba(130,0,219,0.28)',
-          }}
-        >
-          <Text className="text-xs text-dark-subtitle">Tiklash</Text>
-        </Pressable>
-      )}
+        {focus && (
+          <Pressable
+            onPress={reset}
+            accessibilityRole="button"
+            accessibilityLabel="Ko'rinishni tiklash"
+            style={{
+              position: 'absolute',
+              right: 10,
+              top: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 8,
+              backgroundColor: 'rgba(130,0,219,0.28)',
+            }}
+          >
+            <Text className="text-xs text-dark-subtitle">Tiklash</Text>
+          </Pressable>
+        )}
 
-      {/* The canvas is deep space in both themes, so text over it is always
-          light — a theme-coloured muted grey would vanish into the nebula. */}
-      {nodes.length === 0 && (
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-4xl mb-2">🌌</Text>
-          <Text className="text-sm text-center px-8" style={{ color: '#94A3B8' }}>
-            Olaming hali bo'sh. Birinchi qaydni yozsang, shu yerda birinchi
-            yulduzing yonadi.
-          </Text>
-        </View>
-      )}
+        {/* The canvas is deep space in both themes, so text over it is always
+            light — a theme-coloured muted grey would vanish into the nebula. */}
+        {nodes.length === 0 && (
+          <View className="flex-1 items-center justify-center">
+            <Text className="text-4xl mb-2">🌌</Text>
+            <Text className="text-sm text-center px-8" style={{ color: '#94A3B8' }}>
+              Olaming hali bo'sh. Birinchi qaydni yozsang, shu yerda birinchi
+              yulduzing yonadi.
+            </Text>
+          </View>
+        )}
 
-      {/* Notes but no lines yet. Loose bodies are the honest picture of an
-          unlinked notebook — a child who doesn't know what makes the lines
-          appear will just think the map is broken. */}
-      {nodes.length > 0 && edges.length === 0 && (
-        <View
-          className="absolute left-0 right-0 items-center"
-          style={{ bottom: 74, pointerEvents: 'none' }}
-        >
-          <Text className="text-xs text-center px-10" style={{ color: '#94A3B8' }}>
-            Qaydlarda #teg yoz yoki bir qaydda boshqasining nomini eslat —
-            yulduzlar o'zaro bog'lana boshlaydi.
-          </Text>
-        </View>
-      )}
-    </View>
+        {/* Notes but no lines yet. Loose bodies are the honest picture of an
+            unlinked notebook — a child who doesn't know what makes the lines
+            appear will just think the map is broken. */}
+        {nodes.length > 0 && edges.length === 0 && (
+          <View
+            className="absolute left-0 right-0 items-center"
+            style={{ bottom: 74, pointerEvents: 'none' }}
+          >
+            <Text className="text-xs text-center px-10" style={{ color: '#94A3B8' }}>
+              Qaydlarda #teg yoz yoki bir qaydda boshqasining nomini eslat —
+              yulduzlar o'zaro bog'lana boshlaydi.
+            </Text>
+          </View>
+        )}
+      </View>
+    </GestureDetector>
   );
 }
