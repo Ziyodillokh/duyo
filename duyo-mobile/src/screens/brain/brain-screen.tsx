@@ -36,10 +36,14 @@ import {
   toggleCheckbox,
 } from '@/components/markdown-note';
 import { NoteGraph } from '@/components/note-graph';
+import { colourForTag } from '@/lib/galaxy-layout';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
 
+import BrainHome from './brain-home';
+
 type Screen =
+  | { kind: 'home' }
   | { kind: 'map' }
   | { kind: 'note'; id: string }
   | { kind: 'new' };
@@ -59,7 +63,7 @@ export default function BrainScreen() {
   const childId = child?.id ?? '';
   const qc = useQueryClient();
 
-  const [screen, setScreen] = useState<Screen>({ kind: 'map' });
+  const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [preview, setPreview] = useState(false);
@@ -70,6 +74,9 @@ export default function BrainScreen() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameTo, setRenameTo] = useState('');
   const [listOpen, setListOpen] = useState(false);
+  // null = auto. Only ever reaches the map for a note with no #tag; see
+  // lib/galaxy-layout.ts colourOf for why a tag outranks it.
+  const [colour, setColour] = useState<string | null>(null);
 
   const graph = useQuery({
     queryKey: ['note-graph', childId],
@@ -155,6 +162,7 @@ export default function BrainScreen() {
     onSuccess: (note) => {
       setTitle(note.title);
       setBody(note.body);
+      setColour(note.colour);
       setPreview(true);
       setScreen({ kind: 'note', id: note.id });
     },
@@ -163,8 +171,10 @@ export default function BrainScreen() {
   const save = useMutation({
     mutationFn: async () =>
       screen.kind === 'note'
-        ? updateNote(screen.id, { title: title.trim(), body })
-        : createNote(childId, title.trim(), body),
+        ? // '' is the backend's "clear it back to auto" — distinct from
+          // omitting the key, which would leave the old colour in place.
+          updateNote(screen.id, { title: title.trim(), body, colour: colour ?? '' })
+        : createNote(childId, title.trim(), body, colour),
     onSuccess: (note) => {
       refresh();
       void qc.invalidateQueries({ queryKey: ['backlinks', note.id] });
@@ -218,6 +228,7 @@ export default function BrainScreen() {
   const startNew = (preset = '') => {
     setTitle(preset);
     setBody('');
+    setColour(null);
     setPreview(false);
     setScreen({ kind: 'new' });
   };
@@ -261,15 +272,25 @@ export default function BrainScreen() {
   };
 
   const cardBg = isDark ? '#132340' : '#FFFFFF';
-  const editing = screen.kind !== 'map';
+  // The note editor/preview is its own header mode; 'home' and 'map' share
+  // the plain "Miya" header with a "+" instead of the back/preview/trash row.
+  const editingNote = screen.kind === 'note' || screen.kind === 'new';
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
+      {/* Deep space, in both themes. The map draws white stars and coloured
+          nebulae straight onto this backdrop, so a light background would not
+          just look wrong — it would make half the sky invisible. The chrome
+          above it (search, chips, cards) still follows the theme. */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#070B1A' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.18)', 'rgba(96, 165, 250, 0.04)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+        colors={[
+          'rgba(60, 3, 102, 0.55)',   // dark-bg-from, purple
+          'rgba(81, 4, 36, 0.30)',    // dark-bg-mid, burgundy
+          'rgba(22, 36, 86, 0.65)',   // dark-bg-to, navy
+        ]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
@@ -277,21 +298,21 @@ export default function BrainScreen() {
         <KeyboardAvoidingView className="flex-1">
           {/* Header */}
           <View className="flex-row items-center gap-2 px-6 py-4">
-            {editing && (
+            {screen.kind !== 'home' && (
               <Pressable
-                onPress={() => setScreen({ kind: 'map' })}
+                onPress={() => setScreen(editingNote ? { kind: 'map' } : { kind: 'home' })}
                 accessibilityRole="button"
-                accessibilityLabel="Xaritaga qaytish"
+                accessibilityLabel={editingNote ? 'Xaritaga qaytish' : 'Bosh sahifaga qaytish'}
                 className="w-10 h-10 items-center justify-center"
               >
                 <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
               </Pressable>
             )}
             <Text className="text-xl font-bold text-foreground dark:text-dark-text flex-1">
-              {editing ? (preview ? title || 'Qayd' : 'Tahrir') : 'Miya'}
+              {editingNote ? (preview ? title || 'Qayd' : 'Tahrir') : 'Miya'}
             </Text>
 
-            {editing ? (
+            {editingNote ? (
               <View className="flex-row items-center gap-1">
                 <Pressable
                   onPress={() => setPreview((p) => !p)}
@@ -330,7 +351,23 @@ export default function BrainScreen() {
             )}
           </View>
 
-          {editing ? (
+          {screen.kind === 'home' ? (
+            <BrainHome
+              childId={childId}
+              notes={notes.data ?? []}
+              tags={tags.data ?? []}
+              graphNodes={graph.data?.nodes ?? []}
+              graphEdges={graph.data?.edges ?? []}
+              cardBg={cardBg}
+              onNewNote={() => startNew()}
+              onStartNote={(t) => startNew(t)}
+              onOpenTag={(t) => {
+                setActiveTag(t);
+                setScreen({ kind: 'map' });
+              }}
+              onExploreGraph={() => setScreen({ kind: 'map' })}
+            />
+          ) : editingNote ? (
             <ScrollView contentContainerStyle={{ padding: 24, gap: 14, paddingBottom: 140 }}>
               {preview ? (
                 <>
@@ -477,6 +514,66 @@ export default function BrainScreen() {
                     </Pressable>
                   </View>
 
+                  {/* Colour. Offered ONLY while the note carries no #tag: a
+                      tagged note takes its tag's colour on the map (see
+                      lib/galaxy-layout.ts), so a picker here would let the
+                      child choose something they then never see. When a tag
+                      is present we say so instead of hiding the row silently
+                      — otherwise adding a tag looks like it broke the
+                      feature. */}
+                  {hasTag ? (
+                    <View
+                      className="rounded-md px-3 py-2"
+                      style={{ backgroundColor: 'rgba(253,199,0,0.10)' }}
+                    >
+                      <Text className="text-xs" style={{ color: '#FDC700' }}>
+                        Rangni #teg belgilaydi — bir xil tegli qaydlar xaritada
+                        bir rangda turadi.
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="gap-2">
+                      <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                        Xaritadagi rangi
+                      </Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        <Pressable
+                          onPress={() => setColour(null)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Rang: avtomatik"
+                          accessibilityState={{ selected: colour === null }}
+                          className="rounded-full items-center justify-center active:opacity-70"
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderWidth: colour === null ? 2 : 1,
+                            borderColor: colour === null ? '#E0E7FF' : 'rgba(150,180,255,0.35)',
+                            backgroundColor: UNTAGGED,
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, color: '#0B1020' }}>A</Text>
+                        </Pressable>
+                        {PALETTE.map((c) => (
+                          <Pressable
+                            key={c}
+                            onPress={() => setColour(c)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Rang ${c}`}
+                            accessibilityState={{ selected: colour === c }}
+                            className="rounded-full active:opacity-70"
+                            style={{
+                              width: 34,
+                              height: 34,
+                              backgroundColor: c,
+                              borderWidth: colour === c ? 3 : 0,
+                              borderColor: '#FFFFFF',
+                            }}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
                   {/* Tags the child already uses — tapping one is faster than
                       retyping it, and keeps #kosmos from becoming #kosmoss. */}
                   {!!tags.data?.length && (
@@ -586,8 +683,13 @@ export default function BrainScreen() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ gap: 8 }}
                   >
+                    {/* Each chip wears its tag's own colour — the same one that
+                        tag's star and everything filed under it carries on the
+                        map. The filter row is therefore also the legend, and a
+                        child reads the colours by using them. */}
                     {tags.data.map((t) => {
                       const on = activeTag === t;
+                      const colour = colourForTag(t);
                       return (
                         <Pressable
                           key={t}
@@ -598,14 +700,23 @@ export default function BrainScreen() {
                           }}
                           accessibilityRole="button"
                           accessibilityLabel={`#${t}`}
-                          className={`rounded-md border ${on ? 'border-neon-yellow' : 'border-neon-blue/20'}`}
+                          className="rounded-md border flex-row items-center gap-2"
                           style={{
                             paddingHorizontal: 12,
                             paddingVertical: 6,
-                            backgroundColor: on ? 'rgba(253,199,0,0.15)' : cardBg,
+                            borderColor: on ? colour : 'rgba(150,180,255,0.22)',
+                            backgroundColor: on ? `${colour}26` : 'rgba(11,16,32,0.55)',
                           }}
                         >
-                          <Text className={`text-xs ${on ? 'text-neon-yellow' : 'text-foreground dark:text-dark-text'}`}>
+                          <View
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 4,
+                              backgroundColor: colour,
+                            }}
+                          />
+                          <Text className="text-xs" style={{ color: on ? colour : '#DCE6FA' }}>
                             #{t}
                           </Text>
                         </Pressable>
@@ -657,7 +768,7 @@ export default function BrainScreen() {
               {query.trim() !== '' && (
                 <View
                   className="absolute left-0 right-0 bottom-0"
-                  style={{ top: 58, backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }}
+                  style={{ top: 58, backgroundColor: isDark ? '#070B1A' : '#F4F8FF' }}
                 >
                   <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 8, gap: 8 }}>
                     <Text className="text-base font-bold text-foreground dark:text-dark-text">

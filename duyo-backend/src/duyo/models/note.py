@@ -28,6 +28,12 @@ class ChildNote(Base, UUIDPK, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Child-chosen hex colour ("#60A5FA"), used by the graph view ONLY as a
+    # fallback for a note with no #tag. A tagged note is always coloured by
+    # its tag (see mobile lib/galaxy-layout.ts colourOf) — a tag is a
+    # category shared by many notes, and letting a per-note colour override
+    # it would make the tag legend lie. Null means "use the untagged grey".
+    colour: Mapped[str | None] = mapped_column(String(7), nullable=True)
 
     def __repr__(self) -> str:
         return f"<ChildNote {self.title!r}>"

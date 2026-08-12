@@ -30,7 +30,7 @@ def test_link_count_is_capped():
 # ── Graph ────────────────────────────────────────────────────────────────────
 
 def test_graph_of_a_single_unlinked_note():
-    nodes, edges = notes.build_graph([("1", "Kosmos", "matn")])
+    nodes, edges = notes.build_graph([("1", "Kosmos", "matn", None)])
     assert [n.title for n in nodes] == ["Kosmos"]
     assert nodes[0].exists is True
     assert edges == []
@@ -38,8 +38,8 @@ def test_graph_of_a_single_unlinked_note():
 
 def test_link_between_two_written_notes():
     nodes, edges = notes.build_graph([
-        ("1", "Kosmos", "[[Sayyoralar]] qiziq"),
-        ("2", "Sayyoralar", "Mars, Venera"),
+        ("1", "Kosmos", "[[Sayyoralar]] qiziq", None),
+        ("2", "Sayyoralar", "Mars, Venera", None),
     ])
     assert edges == [notes.GraphEdge(source="Kosmos", target="Sayyoralar")]
     assert all(n.exists for n in nodes)
@@ -50,7 +50,7 @@ def test_link_between_two_written_notes():
 
 def test_unwritten_link_becomes_a_ghost_node():
     """Writing [[Kosmos]] before the note exists must still show Kosmos."""
-    nodes, _ = notes.build_graph([("1", "Kundalik", "[[Kosmos]] haqida yozaman")])
+    nodes, _ = notes.build_graph([("1", "Kundalik", "[[Kosmos]] haqida yozaman", None)])
     ghost = next(n for n in nodes if n.title == "Kosmos")
     assert ghost.exists is False
     assert ghost.id is None
@@ -58,22 +58,22 @@ def test_unwritten_link_becomes_a_ghost_node():
 
 def test_links_match_case_insensitively():
     nodes, edges = notes.build_graph([
-        ("1", "Kundalik", "[[kosmos]] va [[KOSMOS]]"),
-        ("2", "Kosmos", ""),
+        ("1", "Kundalik", "[[kosmos]] va [[KOSMOS]]", None),
+        ("2", "Kosmos", "", None),
     ])
     assert len(edges) == 1
     assert not any(n.title.casefold() == "kosmos" and not n.exists for n in nodes)
 
 
 def test_self_link_is_ignored():
-    _, edges = notes.build_graph([("1", "Kosmos", "[[Kosmos]] o'zim haqimda")])
+    _, edges = notes.build_graph([("1", "Kosmos", "[[Kosmos]] o'zim haqimda", None)])
     assert edges == []
 
 
 def test_duplicate_edges_are_collapsed():
     _, edges = notes.build_graph([
-        ("1", "A", "[[B]] va yana [[B]]"),
-        ("2", "B", ""),
+        ("1", "A", "[[B]] va yana [[B]]", None),
+        ("2", "B", "", None),
     ])
     assert len(edges) == 1
 
@@ -81,6 +81,20 @@ def test_duplicate_edges_are_collapsed():
 def test_empty_graph():
     nodes, edges = notes.build_graph([])
     assert nodes == [] and edges == []
+
+
+def test_note_colour_is_carried_onto_its_node():
+    nodes, _ = notes.build_graph([("1", "Kosmos", "matn", "#60A5FA")])
+    assert nodes[0].colour == "#60A5FA"
+
+
+def test_unwritten_and_tag_nodes_never_carry_a_colour():
+    """Neither has a note behind it — nothing to have chosen a colour."""
+    nodes, _ = notes.build_graph([("1", "Kundalik", "[[Kosmos]] #fizika", "#60A5FA")])
+    ghost = next(n for n in nodes if n.title == "Kosmos")
+    tag = next(n for n in nodes if n.title == "#fizika")
+    assert ghost.colour is None
+    assert tag.colour is None
 
 
 # ── Tags ─────────────────────────────────────────────────────────────────────
@@ -121,8 +135,8 @@ def test_empty_body_has_no_tags():
 def test_tag_becomes_a_node_joining_the_notes_that_carry_it():
     """Two notes sharing #fizika are related even without a [[link]]."""
     nodes, edges = notes.build_graph([
-        ("1", "Tortishish", "Nyuton #fizika"),
-        ("2", "Yoruglik", "tezlik #fizika"),
+        ("1", "Tortishish", "Nyuton #fizika", None),
+        ("2", "Yoruglik", "tezlik #fizika", None),
     ])
     tag = next(n for n in nodes if n.title == "#fizika")
     assert tag.kind == "tag"
@@ -134,8 +148,8 @@ def test_tag_becomes_a_node_joining_the_notes_that_carry_it():
 
 def test_tag_and_note_of_the_same_name_stay_separate():
     nodes, _ = notes.build_graph([
-        ("1", "Kundalik", "[[Kosmos]] va #kosmos"),
-        ("2", "Kosmos", ""),
+        ("1", "Kundalik", "[[Kosmos]] va #kosmos", None),
+        ("2", "Kosmos", "", None),
     ])
     kinds = {n.title: n.kind for n in nodes}
     assert kinds["Kosmos"] == "note"
@@ -144,7 +158,7 @@ def test_tag_and_note_of_the_same_name_stay_separate():
 
 def test_node_kinds_cover_all_three_cases():
     nodes, _ = notes.build_graph([
-        ("1", "Yozilgan", "[[Yozilmagan]] #teg"),
+        ("1", "Yozilgan", "[[Yozilmagan]] #teg", None),
     ])
     assert {n.kind for n in nodes} == {"note", "unwritten", "tag"}
 
@@ -156,8 +170,8 @@ def test_plain_prose_mention_becomes_an_edge():
     child who has never typed a wiki-link.
     """
     _, edges = notes.build_graph([
-        ("1", "Vulqon", "Lava juda issiq va Dinozavr uni ko'rgan."),
-        ("2", "Dinozavr", "Katta hayvon."),
+        ("1", "Vulqon", "Lava juda issiq va Dinozavr uni ko'rgan.", None),
+        ("2", "Dinozavr", "Katta hayvon.", None),
     ])
     assert notes.GraphEdge("Vulqon", "Dinozavr", kind="mention") in edges
 
@@ -165,8 +179,8 @@ def test_plain_prose_mention_becomes_an_edge():
 def test_explicit_link_outranks_a_mention_for_the_same_pair():
     """One relationship, one edge — and it keeps the stronger kind."""
     _, edges = notes.build_graph([
-        ("1", "Vulqon", "[[Dinozavr]] va yana Dinozavr haqida."),
-        ("2", "Dinozavr", "Vulqon yonida yashagan."),
+        ("1", "Vulqon", "[[Dinozavr]] va yana Dinozavr haqida.", None),
+        ("2", "Dinozavr", "Vulqon yonida yashagan.", None),
     ])
     pair = [e for e in edges if {e.source, e.target} == {"Vulqon", "Dinozavr"}]
     assert len(pair) == 1
@@ -176,8 +190,8 @@ def test_explicit_link_outranks_a_mention_for_the_same_pair():
 def test_mention_needs_a_whole_word():
     """"Suv" must not match inside "Suvenir" — substring hits are noise."""
     _, edges = notes.build_graph([
-        ("1", "Sovga", "Menga Suvenir olib kelishdi."),
-        ("2", "Suvv", "H2O."),
+        ("1", "Sovga", "Menga Suvenir olib kelishdi.", None),
+        ("2", "Suvv", "H2O.", None),
     ])
     assert edges == []
 
@@ -185,8 +199,8 @@ def test_mention_needs_a_whole_word():
 def test_short_titles_are_never_mentions():
     """"Uy" appears in half of everything; it would wire the graph to mush."""
     _, edges = notes.build_graph([
-        ("1", "Maktab", "Uy vazifasi ko'p edi."),
-        ("2", "Uy", "Men yashaydigan joy."),
+        ("1", "Maktab", "Uy vazifasi ko'p edi.", None),
+        ("2", "Uy", "Men yashaydigan joy.", None),
     ])
     assert edges == []
 
@@ -260,8 +274,8 @@ def test_a_tag_is_not_a_prose_mention_of_the_same_named_note():
 def test_a_tag_does_not_create_a_mention_edge():
     """#kosmos joins Quyosh to the TAG node, never to the note called Kosmos."""
     _, edges = notes.build_graph([
-        ("1", "Quyosh", "Issiq yulduz.\n#kosmos"),
-        ("2", "Kosmos", "Juda katta."),
+        ("1", "Quyosh", "Issiq yulduz.\n#kosmos", None),
+        ("2", "Kosmos", "Juda katta.", None),
     ])
     assert [e.kind for e in edges] == ["tag"]
     assert not any({e.source, e.target} == {"Quyosh", "Kosmos"} for e in edges)

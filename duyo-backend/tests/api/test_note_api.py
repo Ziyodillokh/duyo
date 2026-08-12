@@ -171,6 +171,77 @@ def test_list_sort_by_title(world, detector):
     assert [n.title for n in listed] == ["Aziza", "Kosmos", "Vulqon"]
 
 
+def test_colour_is_saved_and_read_back(world, detector):
+    db, user, child = world
+    note = _run(
+        mod.create_note(
+            NoteCreate(child_id=child.id, title="Kosmos", body="matn", colour="#60A5FA"),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    assert note.colour == "#60A5FA"
+
+
+def test_colour_defaults_to_none(world, detector):
+    db, user, child = world
+    note = _create(db, user, child, "Kosmos", "matn", detector)
+    assert note.colour is None
+
+
+def test_colour_can_be_set_then_cleared(world, detector):
+    """"" is a deliberate clear, distinct from omitting the field."""
+    db, user, child = world
+    note = _create(db, user, child, "Kosmos", "matn", detector)
+
+    coloured = _run(
+        mod.update_note(
+            note.id, NoteUpdate(colour="#FB64B6"),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    assert coloured.colour == "#FB64B6"
+
+    cleared = _run(
+        mod.update_note(
+            note.id, NoteUpdate(colour=""),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    assert cleared.colour is None
+
+
+def test_update_without_colour_leaves_it_untouched(world, detector):
+    db, user, child = world
+    note = _run(
+        mod.create_note(
+            NoteCreate(child_id=child.id, title="Kosmos", body="matn", colour="#60A5FA"),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    updated = _run(
+        mod.update_note(
+            note.id, NoteUpdate(body="Yangi matn"),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    assert updated.colour == "#60A5FA"
+
+
+def test_graph_carries_colour_only_for_the_note_that_owns_it(world, detector):
+    db, user, child = world
+    _run(
+        mod.create_note(
+            NoteCreate(child_id=child.id, title="Kosmos", body="#fizika", colour="#FDC700"),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    graph = _run(mod.note_graph(child.id, current_user=user, db=db))
+    by_title = {n.title: n for n in graph.nodes}
+    assert by_title["Kosmos"].colour == "#FDC700"
+    # The tag node has no note behind it — nothing to carry a colour.
+    assert by_title["#fizika"].colour is None
+
+
 def test_another_parents_note_is_not_reachable(world, session_factory, detector):
     db, user, child = world
     note = _create(db, user, child, "Shaxsiy", "matn", detector)

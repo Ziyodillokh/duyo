@@ -60,13 +60,14 @@ from duyo.services.gemini import (
     translate_text,
 )
 from duyo.services.gemini import chat as gemini_chat
-from duyo.services.goals import extract_goal_candidate
+from duyo.services.goals import extract_child_insights
 from duyo.services.images import search_images
 from duyo.services.memory_candidates import MemoryCandidate, extract_memory_candidate
 from duyo.services.personalization import (
     build_goal_context,
     build_local_memory_context,
     build_personalization_context,
+    build_style_context,
 )
 from duyo.services.scripted import match_scripted
 from duyo.services.sms import get_sms_provider
@@ -493,10 +494,13 @@ async def chat_turn(
         )
 
     # Capture any goal the child just stated ("O'tkan Kunlarni o'qimoqchiman")
-    # or progress on one ("10-betdaman"). BackgroundTask so it costs the reply
-    # nothing; lands unconfirmed so DUYO never acts on its own guess.
+    # or progress on one ("10-betdaman"), AND fold in a style/interest signal
+    # (services/style_profile.py) — ONE combined Gemini call for both, see
+    # prompts.py::INSIGHT_EXTRACT_PROMPT. BackgroundTask so it costs the
+    # reply nothing; a goal lands unconfirmed so DUYO never acts on its own
+    # guess, and a style trait only reaches the prompt once it has repeated.
     if final_level == CrisisLevel.GREEN:
-        background_tasks.add_task(extract_goal_candidate, child.id, payload.message)
+        background_tasks.add_task(extract_child_insights, child.id, payload.message)
 
     # Personal-memory candidate for the LOCAL, on-device store (spec §4) —
     # started here and awaited at the very end, so its Gemini call overlaps
@@ -526,12 +530,14 @@ async def chat_turn(
     # a small context block derived from the child's latest cached aggregate
     # report, threaded into every LLM reply path below.
     # Joined into ONE string on purpose: chat.py already threads
-    # `personalization_context` into all four LLM reply paths below, so goals
-    # ride along without touching either system-instruction assembly site.
+    # `personalization_context` into all four LLM reply paths below, so goals,
+    # the style profile and the device's own memory ride along without
+    # touching either system-instruction assembly site.
     # They must NOT use the rag_context slot — psychology RAG owns that.
     _context_blocks = [
         await build_personalization_context(db, child.id),
         await build_goal_context(db, child.id),
+        await build_style_context(db, child.id),
         # Device-selected, device-stored personal memory — see
         # services/memory_candidates.py's module docstring. Pure function
         # over payload.memory_context; no DB read, nothing persisted.

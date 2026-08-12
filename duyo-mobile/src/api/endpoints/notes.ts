@@ -14,6 +14,10 @@ export interface Note extends NoteListItem {
   created_at: string;
   /** Parsed from the body server-side, never stored. */
   tags: string[];
+  /** Child-chosen hex colour, or null for "auto". Only takes effect on the
+   *  graph when the note carries no #tag — a tag always wins, so the tag
+   *  legend never lies. See lib/galaxy-layout.ts. */
+  colour: string | null;
 }
 
 export interface NoteSearchHit extends NoteListItem {
@@ -41,6 +45,9 @@ export interface GraphNode {
   links: number;
   exists: boolean;
   kind: GraphNodeKind;
+  /** The note's own chosen colour; null for unwritten/tag nodes, which have
+   *  no note behind them to have chosen one. */
+  colour: string | null;
 }
 
 /** "link" is a deliberate [[wiki-link]]; "tag" joins notes through a #tag;
@@ -119,18 +126,23 @@ export async function createNote(
   childId: string,
   title: string,
   body = '',
+  colour?: string | null,
 ): Promise<Note> {
   const { data } = await apiClient.post<Note>('/notes', {
     child_id: childId,
     title,
     body,
+    // Omitted rather than sent as null when unset: the backend treats an
+    // absent field as "no colour chosen", which is exactly this case.
+    ...(colour ? { colour } : {}),
   });
   return data;
 }
 
+/** `colour: ''` clears it back to auto; omitting the key leaves it untouched. */
 export async function updateNote(
   noteId: string,
-  patch: { title?: string; body?: string },
+  patch: { title?: string; body?: string; colour?: string },
 ): Promise<Note> {
   const { data } = await apiClient.put<Note>(`/notes/${noteId}`, patch);
   return data;

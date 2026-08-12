@@ -86,7 +86,7 @@ class ChildRead(BaseModel):
 
 # Local-first personal memory (see duyo-mobile/src/lib/memory-*.ts and
 # duyo/services/memory_candidates.py). "goals" is deliberately not a memory
-# category — GoalCreate/GOAL_EXTRACT_PROMPT already own that shape of fact.
+# category — GoalCreate/INSIGHT_EXTRACT_PROMPT already own that shape of fact.
 MemoryCategory = Literal[
     "profile", "preferences", "interests", "learning", "research", "notes"
 ]

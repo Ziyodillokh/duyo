@@ -5,16 +5,28 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+# Opaque 6-hex-digit colour only ("#60A5FA") — matches the app's neon
+# palette swatches (tailwind.config.js), not free-form CSS colour syntax.
+# "" is also accepted (NoteUpdate only) as an explicit "clear it" value,
+# distinct from omitting the field entirely — see NoteUpdate.colour.
+_HEX_COLOUR = r"^#[0-9A-Fa-f]{6}$"
+_HEX_COLOUR_OR_CLEAR = r"^(#[0-9A-Fa-f]{6})?$"
+
 
 class NoteCreate(BaseModel):
     child_id: UUID
     title: str = Field(min_length=1, max_length=120)
     body: str = Field(default="", max_length=20_000)
+    colour: str | None = Field(default=None, pattern=_HEX_COLOUR)
 
 
 class NoteUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
     body: str | None = Field(default=None, max_length=20_000)
+    # None = "leave colour as it is"; "" = "clear it back to auto"; a hex
+    # string = "set it". Unlike title/body there is a real reason to want
+    # "clear", so colour alone needs the three-way distinction.
+    colour: str | None = Field(default=None, pattern=_HEX_COLOUR_OR_CLEAR)
 
 
 class NoteRead(BaseModel):
@@ -26,6 +38,7 @@ class NoteRead(BaseModel):
     # Parsed from the body on read — never stored, so they can't drift out of
     # sync with the text the child sees.
     tags: list[str] = []
+    colour: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -80,6 +93,9 @@ class GraphNodeRead(BaseModel):
     exists: bool
     # "note" | "unwritten" | "tag" — the view colours by this.
     kind: str = "note"
+    # The note's own chosen colour. Only meaningful when the note carries no
+    # #tag — the view still colours a tagged note by its tag first.
+    colour: str | None = None
 
 
 class GraphEdgeRead(BaseModel):

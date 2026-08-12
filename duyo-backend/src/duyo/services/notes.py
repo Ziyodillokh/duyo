@@ -66,6 +66,9 @@ class GraphNode:
     # is most of what makes the map readable at a glance rather than a mass of
     # identical dots.
     kind: str = "note"
+    # The note's own chosen colour, carried through untouched from the row —
+    # None for unwritten/tag synthetic nodes, which have no note behind them.
+    colour: str | None = None
 
 
 @dataclass(frozen=True)
@@ -152,8 +155,10 @@ def rename_tag(body: str, old: str, new: str) -> str:
     return _TAG.sub(swap, body or "")
 
 
-def build_graph(notes: list[tuple[str, str, str]]) -> tuple[list[GraphNode], list[GraphEdge]]:
-    """Assemble the graph from (id, title, body) rows.
+def build_graph(
+    notes: list[tuple[str, str, str, str | None]],
+) -> tuple[list[GraphNode], list[GraphEdge]]:
+    """Assemble the graph from (id, title, body, colour) rows.
 
     Unresolved links become nodes too (`exists=False`): a child who writes
     "[[Kosmos]]" before the note exists should still see Kosmos appear, and
@@ -175,9 +180,9 @@ def build_graph(notes: list[tuple[str, str, str]]) -> tuple[list[GraphNode], lis
     correct and useless. Mentions are marked so the view can draw them fainter
     than a deliberate link.
     """
-    by_key: dict[str, tuple[str | None, str, str]] = {}
-    for note_id, title, _ in notes:
-        by_key[title.casefold()] = (note_id, title, "note")
+    by_key: dict[str, tuple[str | None, str, str, str | None]] = {}
+    for note_id, title, _, colour in notes:
+        by_key[title.casefold()] = (note_id, title, "note", colour)
 
     edges: list[GraphEdge] = []
     incoming: dict[str, int] = {}
@@ -194,13 +199,13 @@ def build_graph(notes: list[tuple[str, str, str]]) -> tuple[list[GraphNode], lis
         edges.append(GraphEdge(source=source_title, target=target_title, kind=kind))
         incoming[key] = incoming.get(key, 0) + 1
 
-    for _, title, body in notes:
+    for _, title, body, _ in notes:
         for link in extract_links(body):
             key = link.casefold()
             if key == title.casefold():
                 continue  # a note linking to itself adds no structure
             if key not in by_key:
-                by_key[key] = (None, link, "unwritten")
+                by_key[key] = (None, link, "unwritten", None)
             connect(title, key)
 
         for tag in extract_tags(body):
@@ -208,16 +213,16 @@ def build_graph(notes: list[tuple[str, str, str]]) -> tuple[list[GraphNode], lis
             # name — "#kosmos" and the note "Kosmos" stay separate dots.
             key = f"#{tag}"
             if key not in by_key:
-                by_key[key] = (None, f"#{tag}", "tag")
+                by_key[key] = (None, f"#{tag}", "tag", None)
             connect(title, key, kind="tag")
 
     # Mentions last, so an explicit [[link]] always claims the pair first.
     scanned = 0
-    for _, title, body in notes:
+    for _, title, body, _ in notes:
         # Same reason as mentions_without_link: "#kosmos" is a tag and
         # "[[Kosmos]]" is already an edge — neither is prose naming Kosmos.
         text = _prose_only(body)
-        for _, other_title, _ in notes:
+        for _, other_title, _, _ in notes:
             if scanned >= MAX_MENTION_SCAN:
                 break
             if other_title.casefold() == title.casefold():
@@ -235,8 +240,9 @@ def build_graph(notes: list[tuple[str, str, str]]) -> tuple[list[GraphNode], lis
             links=incoming.get(key, 0),
             exists=kind == "note",
             kind=kind,
+            colour=colour,
         )
-        for key, (note_id, title, kind) in by_key.items()
+        for key, (note_id, title, kind, colour) in by_key.items()
     ]
     # Most-linked first: the view draws them at the centre.
     nodes.sort(key=lambda n: (-n.links, n.title.casefold()))

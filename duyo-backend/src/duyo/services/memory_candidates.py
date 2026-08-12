@@ -2,7 +2,7 @@
 
 This is the server half of DUYO's local-first memory feature. It mirrors
 `services/goals.py` in spirit (an LLM extractor over one child message,
-conservative to a fault) but differs in one deliberate way: `extract_goal_candidate`
+conservative to a fault) but differs in one deliberate way: `extract_child_insights`
 writes an unconfirmed `ChildGoal` row to Postgres, because a goal is meant to
 be visible across the family (parent-set goals, social goal-matching) and to
 survive a reinstall. A personal-memory candidate is neither — it is a private
@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
 _MIN_LEN = 12
 _CONTENT_MAX = 160
 
-# Deliberately excludes "goals" — GOAL_EXTRACT_PROMPT already owns that shape
+# Deliberately excludes "goals" — INSIGHT_EXTRACT_PROMPT already owns that shape
 # of statement, and "relationships" — that is a graph EDGE between two
 # memories (see duyo-mobile/src/lib/memory-graph.ts), not a content category
 # an extractor writes text into.

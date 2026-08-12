@@ -3,6 +3,7 @@
 from duyo.models.admin import AdminRole, AdminUser, AuditLog
 from duyo.models.base import Base
 from duyo.models.child import AgeSegment, ChildProfile, Language
+from duyo.models.child_style import ChildStyleProfile
 from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
@@ -58,6 +59,7 @@ __all__ = [
     "ChildNote",
     "ChildProfile",
     "ChildSocialSettings",
+    "ChildStyleProfile",
     "ContentItem",
     "ContentType",
     "Conversation",
