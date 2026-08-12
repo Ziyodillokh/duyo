@@ -36,7 +36,7 @@ import {
   toggleCheckbox,
 } from '@/components/markdown-note';
 import { NoteGraph } from '@/components/note-graph';
-import { colourForTag } from '@/lib/galaxy-layout';
+import { colourForTag, PALETTE, UNTAGGED } from '@/lib/galaxy-layout';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
 
@@ -77,6 +77,16 @@ export default function BrainScreen() {
   // null = auto. Only ever reaches the map for a note with no #tag; see
   // lib/galaxy-layout.ts colourOf for why a tag outranks it.
   const [colour, setColour] = useState<string | null>(null);
+
+  // Does the note being edited carry a #tag? Drives the colour row below,
+  // which is hidden for a tagged note because the tag decides its colour on
+  // the map. Same shape as the backend's _TAG (services/notes.py) and the
+  // renderer's INLINE (components/markdown-note.tsx): a tag needs a leading
+  // boundary, so "#FF0000" mid-sentence or a markdown "# heading" is not one.
+  const hasTag = useMemo(
+    () => /(?:^|\s)#[^\s#.,;:!?()[\]{}'"]{1,40}/.test(body),
+    [body],
+  );
 
   const graph = useQuery({
     queryKey: ['note-graph', childId],
