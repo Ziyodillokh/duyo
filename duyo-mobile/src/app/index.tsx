@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { listChildren } from '@/api/endpoints/children';
+import { useT } from '@/i18n';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useMascotStore } from '@/store/mascot';
@@ -11,6 +12,7 @@ import { useMascotStore } from '@/store/mascot';
 const SPLASH_DURATION_MS = 1500;
 
 export default function SplashScreen() {
+  const t = useT();
   const [failed, setFailed] = useState(false);
 
   const decide = useCallback(async () => {
@@ -65,22 +67,22 @@ export default function SplashScreen() {
         accessibilityLabel="DUYO"
       />
       <Text className="text-lg text-muted-foreground mt-2">
-        Sizning AI hamrohingiz
+        {t('splash.tagline')}
       </Text>
 
       {failed ? (
         <View className="items-center mt-8 gap-3">
           <Text className="text-base text-foreground text-center">
-            Ma'lumotlarni yuklab bo'lmadi. Internetni tekshiring.
+            {t('splash.loadFailed')}
           </Text>
           <Pressable
             onPress={() => void decide()}
             accessibilityRole="button"
-            accessibilityLabel="Qayta urinish"
+            accessibilityLabel={t('common.retry')}
             className="rounded-xl bg-primary px-6 py-3 active:opacity-80"
           >
             <Text className="text-base font-semibold text-white">
-              Qayta urinish
+              {t('common.retry')}
             </Text>
           </Pressable>
         </View>

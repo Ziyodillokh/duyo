@@ -20,46 +20,44 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT, type TranslationKey } from '@/i18n';
+
 interface FAQItem {
   id: string;
-  question: string;
-  answer: string;
+  questionKey: TranslationKey;
+  answerKey: TranslationKey;
 }
 
-const FAQ_ITEMS: ReadonlyArray<FAQItem> = [
+const FAQ_ITEMS: readonly FAQItem[] = [
   {
     id: 'q1',
-    question: 'DUYO nima?',
-    answer:
-      "DUYO — bu O'zbek tilida bola bilan suhbatlashadigan, o'rgatadigan va qo'llab-quvvatlaydigan AI hamroh. U mehribon kosmik kashshof sifatida ishlaydi.",
+    questionKey: 'settings.helpScreen.q1',
+    answerKey: 'settings.helpScreen.a1',
   },
   {
     id: 'q2',
-    question: 'Suhbat xavfsizmi?',
-    answer:
-      "Ha. Suhbatlar shifrlangan, faqat sizning hisobingizdan ko'rish mumkin. Ota-ona ulanmasa, faqat siz va DUYO ko'radi.",
+    questionKey: 'settings.helpScreen.q2',
+    answerKey: 'settings.helpScreen.a2',
   },
   {
     id: 'q3',
-    question: "Kunlik limit qancha?",
-    answer:
-      "Bepul rejada kuniga 30 ta suhbat. Premium uchun cheksiz, kelajakda Click/Payme orqali to'lov qo'shiladi.",
+    questionKey: 'settings.helpScreen.q3',
+    answerKey: 'settings.helpScreen.a3',
   },
   {
     id: 'q4',
-    question: "Ovozli suhbat ishlaydimi?",
-    answer:
-      "Ha — Suhbat sahifasidagi mikrofon tugmasi ovozli rejimni ochadi. DUYO real vaqtda ovoz bilan javob beradi.",
+    questionKey: 'settings.helpScreen.q4',
+    answerKey: 'settings.helpScreen.a4',
   },
   {
     id: 'q5',
-    question: "Ma'lumotlarimni qanday o'chirishim mumkin?",
-    answer:
-      "Sozlamalar → Maxfiylik bo'limidan suhbat tarixini yoki hisobni yopishingiz mumkin.",
+    questionKey: 'settings.helpScreen.q5',
+    answerKey: 'settings.helpScreen.a5',
   },
 ];
 
 export default function HelpSettingsScreen() {
+  const t = useT();
   const isDark = useIsDark();
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -81,19 +79,23 @@ export default function HelpSettingsScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             className="w-10 h-10 items-center justify-center"
           >
             <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">Yordam</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
+            {t('settings.help')}
+          </Text>
         </View>
 
         <ScrollView
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
         >
           <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">Ko'p so'raladigan</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+              {t('settings.helpScreen.faqSection')}
+            </Text>
             {FAQ_ITEMS.map((f) => {
               const isOpen = openId === f.id;
               return (
@@ -102,13 +104,13 @@ export default function HelpSettingsScreen() {
                   onPress={() => toggle(f.id)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: isOpen }}
-                  accessibilityLabel={f.question}
+                  accessibilityLabel={t(f.questionKey)}
                   className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
                   style={{ padding: 16 }}
                 >
                   <View className="flex-row items-center justify-between">
                     <Text className="text-base font-medium text-foreground dark:text-dark-text flex-1 mr-2">
-                      {f.question}
+                      {t(f.questionKey)}
                     </Text>
                     {isOpen ? (
                       <ChevronUp size={20} color="#94A3B8" />
@@ -118,7 +120,7 @@ export default function HelpSettingsScreen() {
                   </View>
                   {isOpen && (
                     <Text className="text-sm text-muted-foreground dark:text-dark-muted leading-6 mt-3">
-                      {f.answer}
+                      {t(f.answerKey)}
                     </Text>
                   )}
                 </Pressable>
@@ -127,12 +129,14 @@ export default function HelpSettingsScreen() {
           </View>
 
           <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">Bog'lanish</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+              {t('settings.helpScreen.contact')}
+            </Text>
             <Pressable
               onPress={() =>
                 Alert.alert(
-                  'Email yuborish',
-                  'support@duyo.uz manziliga email yozing',
+                  t('settings.helpScreen.email'),
+                  t('settings.helpScreen.emailBody'),
                 )
               }
               accessibilityRole="button"
@@ -149,7 +153,7 @@ export default function HelpSettingsScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                    Email yuborish
+                    {t('settings.helpScreen.email')}
                   </Text>
                   <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                     support@duyo.uz
@@ -163,7 +167,7 @@ export default function HelpSettingsScreen() {
               onPress={() =>
                 Alert.alert(
                   'Telegram',
-                  "Tez orada Telegram bot qo'llab-quvvatlash qo'shiladi",
+                  t('settings.helpScreen.telegramBody'),
                 )
               }
               accessibilityRole="button"
@@ -180,7 +184,7 @@ export default function HelpSettingsScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                    Telegram qo'llab-quvvatlash
+                    {t('settings.helpScreen.telegram')}
                   </Text>
                   <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
                     @duyo_support
@@ -194,7 +198,7 @@ export default function HelpSettingsScreen() {
           <View className="items-center gap-1 pt-4">
             <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO v1.0.0</Text>
             <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-              © 2026 DUYO. Barcha huquqlar himoyalangan.
+              {t('common.copyright')}
             </Text>
           </View>
         </ScrollView>

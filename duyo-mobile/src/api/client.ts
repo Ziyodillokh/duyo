@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import { useAuthStore } from '@/store/auth';
+import { useLanguageStore } from '@/store/language';
 
 const DEFAULT_BASE_URL = 'https://api.duyo.uz/v1';
 
@@ -16,6 +17,12 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().tokens?.accessToken;
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // The language the child is reading the app in, on every request. The child
+  // profile carries the same value, but the header also covers calls made
+  // before a profile exists (onboarding, auth).
+  if (config.headers) {
+    config.headers['Accept-Language'] = useLanguageStore.getState().language;
   }
   return config;
 });

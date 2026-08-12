@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SettingsRow } from '@/components/v2/dark/settings-row';
 import { SettingsSection } from '@/components/v2/dark/settings-section';
+import { LANGUAGE_NAMES, useT } from '@/i18n';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useLanguageStore } from '@/store/language';
@@ -26,13 +27,8 @@ import { useMascotStore } from '@/store/mascot';
 import { useThemeStore } from '@/store/theme';
 import { useIsDark } from '@/store/theme';
 
-const LANGUAGE_LABELS = {
-  uz: "O'zbek",
-  ru: 'Русский',
-  en: 'English',
-} as const;
-
 export default function SettingsScreen() {
+  const t = useT();
   const isDark = useIsDark();
   const language = useLanguageStore((s) => s.language);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -43,10 +39,10 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = useState(true);
 
   const handleLogout = () => {
-    Alert.alert('Chiqish', "Hisobdan chiqishni xohlaysizmi?", [
-      { text: 'Bekor qilish', style: 'cancel' },
+    Alert.alert(t('settings.logout'), t('settings.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Chiqish',
+        text: t('settings.logout'),
         style: 'destructive',
         onPress: () => {
           clearAuth();
@@ -80,25 +76,27 @@ export default function SettingsScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             className="w-10 h-10 items-center justify-center"
           >
             <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
-          <Text className="text-2xl font-bold text-foreground dark:text-dark-text">Sozlamalar</Text>
+          <Text className="text-2xl font-bold text-foreground dark:text-dark-text">
+            {t('settings.title')}
+          </Text>
         </View>
 
         <ScrollView
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
           showsVerticalScrollIndicator={false}
         >
-          <SettingsSection title="Umumiy">
+          <SettingsSection title={t('settings.section.general')}>
             <SettingsRow
               Icon={Globe}
-              label="Til"
+              label={t('settings.language')}
               trailing={
                 <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  {LANGUAGE_LABELS[language]}
+                  {LANGUAGE_NAMES[language]}
                 </Text>
               }
               showChevron
@@ -106,7 +104,7 @@ export default function SettingsScreen() {
             />
             <SettingsRow
               Icon={Moon}
-              label="Qorongʻu rejim"
+              label={t('settings.darkMode')}
               trailing={
                 <Switch
                   value={themeMode === 'dark'}
@@ -118,7 +116,7 @@ export default function SettingsScreen() {
             />
             <SettingsRow
               Icon={Bell}
-              label="Bildirishnomalar"
+              label={t('settings.notifications')}
               trailing={
                 <Switch
                   value={notifications}
@@ -130,20 +128,20 @@ export default function SettingsScreen() {
             />
             <SettingsRow
               Icon={Mic}
-              label="Ovoz sozlamalari"
+              label={t('settings.voice')}
               showChevron
               isLast
               onPress={() => router.push('/(main)/settings-voice')}
             />
           </SettingsSection>
 
-          <SettingsSection title="Xavfsizlik">
+          <SettingsSection title={t('settings.section.safety')}>
             <SettingsRow
               Icon={BrainCircuit}
-              label="Mening Xotiram"
+              label={t('settings.memory')}
               trailing={
                 <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  Shu qurilmada
+                  {t('settings.memoryValue')}
                 </Text>
               }
               showChevron
@@ -151,16 +149,18 @@ export default function SettingsScreen() {
             />
             <SettingsRow
               Icon={Shield}
-              label="Maxfiylik"
+              label={t('settings.privacy')}
               showChevron
               onPress={() => router.push('/(main)/settings-privacy')}
             />
             <SettingsRow
               Icon={Users}
-              label="Ota-ona ulanishi"
+              label={t('settings.parentLink')}
               trailing={
                 <View className="bg-emerald-400/30 rounded-full px-3 py-1">
-                  <Text className="text-xs text-emerald-400">Ulangan</Text>
+                  <Text className="text-xs text-emerald-400">
+                    {t('settings.parentLinkConnected')}
+                  </Text>
                 </View>
               }
               showChevron
@@ -169,21 +169,25 @@ export default function SettingsScreen() {
             />
           </SettingsSection>
 
-          <SettingsSection title="Obuna">
+          <SettingsSection title={t('settings.section.subscription')}>
             <SettingsRow
               Icon={Crown}
-              label="Obuna rejasi"
-              trailing={<Text className="text-sm text-muted-foreground dark:text-dark-muted">Do'st</Text>}
+              label={t('settings.plan')}
+              trailing={
+                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                  {t('settings.planValue')}
+                </Text>
+              }
               showChevron
               isLast
               onPress={() => router.push('/(main)/subscription')}
             />
           </SettingsSection>
 
-          <SettingsSection title="Yordam">
+          <SettingsSection title={t('settings.section.help')}>
             <SettingsRow
               Icon={HelpCircle}
-              label="Yordam"
+              label={t('settings.help')}
               showChevron
               isLast
               onPress={() => router.push('/(main)/settings-help')}
@@ -193,17 +197,19 @@ export default function SettingsScreen() {
           <Pressable
             onPress={handleLogout}
             accessibilityRole="button"
-            accessibilityLabel="Chiqish"
+            accessibilityLabel={t('settings.logout')}
             className="flex-row items-center justify-center gap-2 py-3"
           >
             <LogOut size={16} color="#F87171" />
-            <Text className="text-sm font-medium text-red-400">Chiqish</Text>
+            <Text className="text-sm font-medium text-red-400">
+              {t('settings.logout')}
+            </Text>
           </Pressable>
 
           <View className="items-center gap-1 pt-4">
             <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO v1.0.0</Text>
             <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-              © 2026 DUYO. Barcha huquqlar himoyalangan.
+              {t('common.copyright')}
             </Text>
           </View>
         </ScrollView>

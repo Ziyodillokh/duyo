@@ -20,6 +20,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/i18n';
+
 interface PrivacyAction {
   key: string;
   Icon: typeof Download;
@@ -30,28 +32,33 @@ interface PrivacyAction {
 }
 
 export default function PrivacySettingsScreen() {
+  const t = useT();
   const isDark = useIsDark();
   const handleExport = () => {
     Alert.alert(
-      "Ma'lumotlarni eksport qilish",
-      "Sizning barcha ma'lumotlaringiz JSON formatida emailingizga yuboriladi.",
+      t('settings.privacyScreen.exportLabel'),
+      t('settings.privacyScreen.exportBody'),
       [
-        { text: 'Bekor qilish', style: 'cancel' },
-        { text: "So'rash", onPress: () => Alert.alert('Yuborildi') },
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.privacyScreen.exportConfirm'),
+          onPress: () => Alert.alert(t('settings.privacyScreen.exportSent')),
+        },
       ],
     );
   };
 
   const handleDelete = () => {
     Alert.alert(
-      "Suhbatlarni o'chirish",
-      "Barcha suhbatlar tarixi o'chiriladi. Bu amal ortga qaytarib bo'lmaydi.",
+      t('settings.privacyScreen.deleteChatsTitle'),
+      t('settings.privacyScreen.deleteChatsBody'),
       [
-        { text: 'Bekor qilish', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: "O'chirish",
+          text: t('common.delete'),
           style: 'destructive',
-          onPress: () => Alert.alert('Suhbatlar tozalandi'),
+          onPress: () =>
+            Alert.alert(t('settings.privacyScreen.deleteChatsDone')),
         },
       ],
     );
@@ -59,41 +66,44 @@ export default function PrivacySettingsScreen() {
 
   const handleCloseAccount = () => {
     Alert.alert(
-      'Hisobni yopish',
-      'Hisobingiz va barcha ma\'lumotlar 30 kun ichida o\'chiriladi.',
+      t('settings.privacyScreen.closeAccountLabel'),
+      t('settings.privacyScreen.closeAccountBody'),
       [
-        { text: 'Bekor qilish', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Yopish',
+          text: t('common.close'),
           style: 'destructive',
           onPress: () =>
-            Alert.alert("Tez orada", "Faza 1'da to'liq integratsiya qo'shiladi"),
+            Alert.alert(
+              t('common.comingSoon'),
+              t('settings.privacyScreen.closeAccountSoon'),
+            ),
         },
       ],
     );
   };
 
-  const ACTIONS: ReadonlyArray<PrivacyAction> = [
+  const ACTIONS: readonly PrivacyAction[] = [
     {
       key: 'export',
       Icon: Download,
-      label: "Ma'lumotlarni eksport qilish",
-      description: "Barcha ma'lumotlarni JSON ko'rinishida yuklab oling",
+      label: t('settings.privacyScreen.exportLabel'),
+      description: t('settings.privacyScreen.exportDesc'),
       onPress: handleExport,
     },
     {
       key: 'delete-chats',
       Icon: Trash2,
-      label: "Suhbat tarixini o'chirish",
-      description: 'Barcha suhbatlar va xabarlarni tozalash',
+      label: t('settings.privacyScreen.deleteChatsLabel'),
+      description: t('settings.privacyScreen.deleteChatsDesc'),
       destructive: true,
       onPress: handleDelete,
     },
     {
       key: 'close',
       Icon: UserX,
-      label: 'Hisobni yopish',
-      description: 'Hisob va barcha ma\'lumotlarni o\'chirish',
+      label: t('settings.privacyScreen.closeAccountLabel'),
+      description: t('settings.privacyScreen.closeAccountDesc'),
       destructive: true,
       onPress: handleCloseAccount,
     },
@@ -114,12 +124,14 @@ export default function PrivacySettingsScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             className="w-10 h-10 items-center justify-center"
           >
             <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">Maxfiylik</Text>
+          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
+            {t('settings.privacy')}
+          </Text>
         </View>
 
         <ScrollView
@@ -132,26 +144,25 @@ export default function PrivacySettingsScreen() {
             <View className="flex-row items-center gap-2 mb-2">
               <FileText size={18} color="#60A5FA" />
               <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                Maxfiylik siyosati
+                {t('settings.privacyScreen.policyTitle')}
               </Text>
             </View>
             <Text className="text-sm text-muted-foreground dark:text-dark-muted leading-5 mb-3">
-              DUYO sizning ma'lumotlaringizni qanday saqlaydi va himoya qilishi
-              haqida ma'lumot.
+              {t('settings.privacyScreen.policyBody')}
             </Text>
             <Pressable
               onPress={() =>
                 Alert.alert(
-                  'Tez orada',
-                  "Maxfiylik siyosati matni Faza 1'da qo'shiladi",
+                  t('common.comingSoon'),
+                  t('settings.privacyScreen.policySoon'),
                 )
               }
               accessibilityRole="link"
-              accessibilityLabel="Toliq matn"
+              accessibilityLabel={t('settings.privacyScreen.readFullA11y')}
               className="flex-row items-center gap-1 active:opacity-80"
             >
               <Text className="text-sm font-medium text-neon-blue">
-                To'liq matnni o'qish
+                {t('settings.privacyScreen.readFull')}
               </Text>
               <ExternalLink size={14} color="#60A5FA" />
             </Pressable>
@@ -159,7 +170,7 @@ export default function PrivacySettingsScreen() {
 
           <View className="gap-3">
             <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-              Ma'lumotlar boshqaruvi
+              {t('settings.privacyScreen.dataSection')}
             </Text>
             {ACTIONS.map((a) => (
               <Pressable

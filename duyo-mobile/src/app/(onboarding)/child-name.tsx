@@ -9,11 +9,13 @@ import { HelperText } from '@/components/v2/helper-text';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
+import { useT } from '@/i18n';
 import { useOnboardingStore } from '@/store/onboarding';
 
 const NAME_MAX_LENGTH = 80;
 
 export default function ChildNameScreen() {
+  const t = useT();
   const setPendingName = useOnboardingStore((s) => s.setPendingName);
   const persistedName = useOnboardingStore((s) => s.pendingName);
   const [name, setName] = useState(persistedName);
@@ -47,24 +49,24 @@ export default function ChildNameScreen() {
               <Card>
                 <View className="gap-2 items-center">
                   <Text className="text-[24px] leading-8 font-bold text-foreground text-center">
-                    Isming nima?
+                    {t('onboarding.name.title')}
                   </Text>
                   <Text className="text-base text-muted-foreground text-center">
-                    Men seni ismingiz bilan chaqirishni xohlayman
+                    {t('onboarding.name.subtitle')}
                   </Text>
                 </View>
 
                 <View className="gap-2 mt-6">
                   <Text className="text-sm font-medium text-foreground">
-                    Ismingiz
+                    {t('onboarding.name.label')}
                   </Text>
                   <FormInput
                     value={name}
                     onChangeText={setName}
-                    placeholder="Masalan: Aziza"
+                    placeholder={t('onboarding.name.placeholder')}
                     maxLength={NAME_MAX_LENGTH}
                     autoFocus
-                    accessibilityLabel="Ismingiz"
+                    accessibilityLabel={t('onboarding.name.label')}
                   />
                 </View>
 
@@ -72,19 +74,16 @@ export default function ChildNameScreen() {
                   <PrimaryButton
                     onPress={handleContinue}
                     disabled={!isValid}
-                    accessibilityLabel="Davom etish"
+                    accessibilityLabel={t('common.continue')}
                   >
-                    Davom etish
+                    {t('common.continue')}
                   </PrimaryButton>
                 </View>
               </Card>
             </View>
 
             <View className="mt-6 px-4">
-              <HelperText>
-                Ismingiz faqat men bilan suhbatlarda ishlatiladi va xavfsiz
-                saqlanadi
-              </HelperText>
+              <HelperText>{t('onboarding.name.helper')}</HelperText>
             </View>
         </View>
       </KeyboardAwareScrollView>

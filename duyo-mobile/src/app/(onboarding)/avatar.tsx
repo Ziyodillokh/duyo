@@ -8,19 +8,20 @@ import { Card } from '@/components/v2/card';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
+import { useT, type TranslationKey } from '@/i18n';
 import { useMascotStore, type MascotVariant } from '@/store/mascot';
 import { useOnboardingStore } from '@/store/onboarding';
 
 interface BodyOption {
   key: MascotVariant;
-  label: string;
+  labelKey: TranslationKey;
 }
 
 // Only the body is chosen here — one tap, no tabs. The picked key is stored as
 // `body` so it keeps matching the backend's body_shape field.
 const BODIES: readonly BodyOption[] = [
-  { key: 'duyo', label: 'DUYO' },
-  { key: 'raccoon', label: 'Yenot' },
+  { key: 'duyo', labelKey: 'onboarding.avatar.bodyDuyo' },
+  { key: 'raccoon', labelKey: 'onboarding.avatar.bodyRaccoon' },
 ];
 
 const DEFAULT_BODY: MascotVariant = 'duyo';
@@ -30,6 +31,7 @@ function isVariant(value: string | undefined): value is MascotVariant {
 }
 
 export default function AvatarScreen() {
+  const t = useT();
   const setPendingAvatarConfig = useOnboardingStore(
     (s) => s.setPendingAvatarConfig,
   );
@@ -52,10 +54,10 @@ export default function AvatarScreen() {
         <View className="w-full max-w-[345px] flex-1 pt-6">
           <View className="items-center gap-2">
             <Text className="text-[24px] leading-8 font-bold text-foreground text-center">
-              DUYO'ingizni yarating
+              {t('onboarding.avatar.title')}
             </Text>
             <Text className="text-base text-muted-foreground text-center">
-              O'zingizga yoqqan ko'rinishni tanlang
+              {t('onboarding.avatar.subtitle')}
             </Text>
           </View>
 
@@ -77,7 +79,7 @@ export default function AvatarScreen() {
           <View className="mt-4">
             <Card className="p-4">
               <Text className="text-base font-semibold text-foreground text-center">
-                O'z DUYO'yingni tanla
+                {t('onboarding.avatar.pick')}
               </Text>
 
               <View className="flex-row gap-3 mt-3">
@@ -89,7 +91,7 @@ export default function AvatarScreen() {
                       onPress={() => setBody(option.key)}
                       accessibilityRole="radio"
                       accessibilityState={{ selected: isSelected }}
-                      accessibilityLabel={option.label}
+                      accessibilityLabel={t(option.labelKey)}
                       className={`flex-1 pt-3 pb-3 rounded-2xl items-center gap-2 active:opacity-80 ${
                         isSelected
                           ? 'bg-primary/5 border-2 border-primary'
@@ -115,7 +117,7 @@ export default function AvatarScreen() {
                             : 'text-foreground'
                         }`}
                       >
-                        {option.label}
+                        {t(option.labelKey)}
                       </Text>
                     </Pressable>
                   );
@@ -127,9 +129,9 @@ export default function AvatarScreen() {
           <View className="mt-auto pb-6">
             <PrimaryButton
               onPress={handleContinue}
-              accessibilityLabel="Mening DUYO'im tayyor"
+              accessibilityLabel={t('onboarding.avatar.done')}
             >
-              Mening DUYO'im tayyor
+              {t('onboarding.avatar.done')}
             </PrimaryButton>
           </View>
         </View>

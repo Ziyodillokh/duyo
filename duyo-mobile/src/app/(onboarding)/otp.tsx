@@ -13,6 +13,7 @@ import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { OtpInput } from '@/components/otp-input';
+import { useT } from '@/i18n';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useMascotStore } from '@/store/mascot';
@@ -33,6 +34,7 @@ interface AxiosErrorShape {
 }
 
 export default function OtpScreen() {
+  const t = useT();
   const params = useLocalSearchParams<{ phone: string; demoCode?: string }>();
   const national = params.phone ?? '';
   const fullPhone = `${PHONE_PREFIX}${national}`;
@@ -93,28 +95,27 @@ export default function OtpScreen() {
       // Every failure used to say "wrong code", including the ones where
       // retrying the same code is exactly the right move.
       if (status === 401) {
-        Alert.alert("Noto'g'ri kod", "Yana urinib ko'ring.");
+        Alert.alert(
+          t('onboarding.otp.wrongCode.title'),
+          t('onboarding.otp.wrongCode.body'),
+        );
         setCode('');
         return;
       }
       if (status === 429) {
         Alert.alert(
-          "Juda ko'p urinish",
-          "Bir necha daqiqadan keyin qayta urinib ko'ring.",
+          t('common.tooManyAttempts.title'),
+          t('common.tooManyAttempts.body'),
         );
         return;
       }
       if (status === undefined) {
-        Alert.alert(
-          'Internet yo‘q',
-          "Aloqani tekshiring va qayta urinib ko'ring.",
-        );
+        Alert.alert(t('common.noInternet.title'), t('common.noInternet.body'));
         return;
       }
       Alert.alert(
-        'Xatolik',
-        (err as AxiosErrorShape).response?.data?.detail ??
-          "Keyinroq urinib ko'ring.",
+        t('common.error'),
+        (err as AxiosErrorShape).response?.data?.detail ?? t('common.tryLater'),
       );
     },
   });
@@ -124,9 +125,9 @@ export default function OtpScreen() {
     onSuccess: (res) => {
       setSecondsLeft(RESEND_COOLDOWN_SEC);
       setDemoCode(res.demo_code ?? '');
-      if (!res.demo_code) Alert.alert('SMS qaytadan yuborildi');
+      if (!res.demo_code) Alert.alert(t('onboarding.otp.resent'));
     },
-    onError: () => Alert.alert("Qayta yuborib bo'lmadi"),
+    onError: () => Alert.alert(t('onboarding.otp.resendFailed')),
   });
 
   const isReady = code.length === OTP_LENGTH;
@@ -154,12 +155,14 @@ export default function OtpScreen() {
             <Card>
               <View className="gap-2 items-center">
                 <Text className="text-xl font-bold text-foreground text-center">
-                  {demoCode ? 'Tasdiqlash kodi' : 'SMS kodni kiriting'}
+                  {demoCode
+                    ? t('onboarding.otp.titleDemo')
+                    : t('onboarding.otp.titleSms')}
                 </Text>
                 <Text className="text-sm text-muted-foreground text-center">
                   {demoCode
-                    ? `${fullPhone} raqami uchun`
-                    : `${fullPhone} raqamiga yuborildi`}
+                    ? t('onboarding.otp.subtitleDemo', { phone: fullPhone })
+                    : t('onboarding.otp.subtitleSms', { phone: fullPhone })}
                 </Text>
               </View>
 
@@ -168,7 +171,7 @@ export default function OtpScreen() {
               {demoCode !== '' && (
                 <View className="mt-4 rounded-xl bg-primary/5 border border-primary/20 p-3">
                   <Text className="text-sm text-foreground text-center">
-                    SMS xizmati hozircha ulanmagan. Kodni kiriting:{' '}
+                    {t('onboarding.otp.demoNotice')}{' '}
                     <Text className="font-bold text-primary">{demoCode}</Text>
                   </Text>
                 </View>
@@ -176,7 +179,7 @@ export default function OtpScreen() {
 
               <View className="gap-3 mt-6">
                 <Text className="text-sm font-medium text-foreground text-center">
-                  Tasdiqlash kodi
+                  {t('onboarding.otp.codeLabel')}
                 </Text>
                 <View className="items-center">
                   <OtpInput
@@ -191,9 +194,11 @@ export default function OtpScreen() {
                 <PrimaryButton
                   onPress={() => verify.mutate()}
                   disabled={!canVerify}
-                  accessibilityLabel="Tasdiqlash"
+                  accessibilityLabel={t('onboarding.otp.verify')}
                 >
-                  {verify.isPending ? 'Tekshirilmoqda...' : 'Tasdiqlash'}
+                  {verify.isPending
+                    ? t('onboarding.otp.verifying')
+                    : t('onboarding.otp.verify')}
                 </PrimaryButton>
               </View>
 
@@ -211,10 +216,10 @@ export default function OtpScreen() {
                   }`}
                 >
                   {resend.isPending
-                    ? 'Yuborilmoqda...'
+                    ? t('common.sending')
                     : canResend
-                      ? 'Qayta yuborish'
-                      : `Qayta yuborish: ${secondsLeft} soniya`}
+                      ? t('onboarding.otp.resend')
+                      : t('onboarding.otp.resendIn', { seconds: secondsLeft })}
                 </Text>
               </Pressable>
             </Card>

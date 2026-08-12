@@ -13,27 +13,35 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT, type TranslationKey } from '@/i18n';
+
 interface VoiceOption {
   key: string;
+  /** Gemini voice name — a proper noun, never translated. */
   label: string;
-  description: string;
+  descriptionKey: TranslationKey;
 }
 
-const VOICE_OPTIONS: ReadonlyArray<VoiceOption> = [
-  { key: 'kore', label: 'Kore', description: 'Iliq, samimiy ayol ovozi' },
-  { key: 'aoede', label: 'Aoede', description: "Yumshoq, o'rgatuvchi ovoz" },
-  { key: 'charon', label: 'Charon', description: 'Chuqur, jiddiy erkak ovozi' },
-  { key: 'fenrir', label: 'Fenrir', description: 'Faol, hayajonli ovoz' },
-  { key: 'leda', label: 'Leda', description: 'Yengil, bolalarbop ovoz' },
+const VOICE_OPTIONS: readonly VoiceOption[] = [
+  { key: 'kore', label: 'Kore', descriptionKey: 'settings.voiceScreen.voiceKore' },
+  { key: 'aoede', label: 'Aoede', descriptionKey: 'settings.voiceScreen.voiceAoede' },
+  { key: 'charon', label: 'Charon', descriptionKey: 'settings.voiceScreen.voiceCharon' },
+  { key: 'fenrir', label: 'Fenrir', descriptionKey: 'settings.voiceScreen.voiceFenrir' },
+  { key: 'leda', label: 'Leda', descriptionKey: 'settings.voiceScreen.voiceLeda' },
 ];
 
-const SPEED_OPTIONS: ReadonlyArray<{ key: string; label: string; multiplier: number }> = [
-  { key: 'slow', label: 'Sekin', multiplier: 0.8 },
-  { key: 'normal', label: 'Normal', multiplier: 1.0 },
-  { key: 'fast', label: 'Tez', multiplier: 1.25 },
+const SPEED_OPTIONS: readonly {
+  key: string;
+  labelKey: TranslationKey;
+  multiplier: number;
+}[] = [
+  { key: 'slow', labelKey: 'settings.voiceScreen.speedSlow', multiplier: 0.8 },
+  { key: 'normal', labelKey: 'settings.voiceScreen.speedNormal', multiplier: 1.0 },
+  { key: 'fast', labelKey: 'settings.voiceScreen.speedFast', multiplier: 1.25 },
 ];
 
 export default function VoiceSettingsScreen() {
+  const t = useT();
   const isDark = useIsDark();
   const [selectedVoice, setSelectedVoice] = useState('kore');
   const [selectedSpeed, setSelectedSpeed] = useState('normal');
@@ -53,13 +61,13 @@ export default function VoiceSettingsScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             className="w-10 h-10 items-center justify-center"
           >
             <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-            Ovoz sozlamalari
+            {t('settings.voice')}
           </Text>
         </View>
 
@@ -67,7 +75,9 @@ export default function VoiceSettingsScreen() {
           contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
         >
           <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO ovozi</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+              {t('settings.voiceScreen.duyoVoice')}
+            </Text>
             {VOICE_OPTIONS.map((v) => {
               const isSel = v.key === selectedVoice;
               return (
@@ -90,18 +100,20 @@ export default function VoiceSettingsScreen() {
                         {v.label}
                       </Text>
                       <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
-                        {v.description}
+                        {t(v.descriptionKey)}
                       </Text>
                     </View>
                     <Pressable
                       onPress={() =>
                         Alert.alert(
-                          'Tez orada',
-                          `${v.label} ovoz namunasi Faza 1'da qo'shiladi`,
+                          t('common.comingSoon'),
+                          t('settings.voiceScreen.sampleSoon', {
+                            voice: v.label,
+                          }),
                         )
                       }
                       accessibilityRole="button"
-                      accessibilityLabel="Tinglash"
+                      accessibilityLabel={t('settings.voiceScreen.listen')}
                       className="w-10 h-10 rounded-full bg-neon-blue/20 items-center justify-center active:opacity-80"
                     >
                       <Play size={16} color="#60A5FA" fill="#60A5FA" />
@@ -114,7 +126,9 @@ export default function VoiceSettingsScreen() {
           </View>
 
           <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">Gapirish tezligi</Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+              {t('settings.voiceScreen.speed')}
+            </Text>
             <View className="flex-row gap-3">
               {SPEED_OPTIONS.map((s) => {
                 const isSel = s.key === selectedSpeed;
@@ -124,7 +138,7 @@ export default function VoiceSettingsScreen() {
                     onPress={() => setSelectedSpeed(s.key)}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: isSel }}
-                    accessibilityLabel={s.label}
+                    accessibilityLabel={t(s.labelKey)}
                     className={`flex-1 rounded-xl border items-center active:opacity-80 ${
                       isSel
                         ? 'bg-neon-blue border-neon-blue'
@@ -138,7 +152,7 @@ export default function VoiceSettingsScreen() {
                         color: isSel ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033',
                       }}
                     >
-                      {s.label}
+                      {t(s.labelKey)}
                     </Text>
                     <Text
                       className="text-xs mt-1"
@@ -155,9 +169,14 @@ export default function VoiceSettingsScreen() {
           </View>
 
           <Pressable
-            onPress={() => Alert.alert('Saqlandi', 'Ovoz sozlamalari yangilandi')}
+            onPress={() =>
+              Alert.alert(
+                t('settings.voiceScreen.savedTitle'),
+                t('settings.voiceScreen.savedBody'),
+              )
+            }
             accessibilityRole="button"
-            accessibilityLabel="Saqlash"
+            accessibilityLabel={t('common.save')}
             className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
             style={{ height: 56 }}
           >
@@ -165,7 +184,7 @@ export default function VoiceSettingsScreen() {
               className="text-base font-medium"
               style={{ color: '#0A1628' }}
             >
-              Saqlash
+              {t('common.save')}
             </Text>
           </Pressable>
         </ScrollView>

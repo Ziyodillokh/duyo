@@ -1,33 +1,33 @@
 import { router } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { MascotImage } from '@/components/v2/mascot-image';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
+import { UserTypeIcon } from '@/components/v2/user-type-icon';
+import { useT, type TranslationKey } from '@/i18n';
 import { type UserType, useOnboardingStore } from '@/store/onboarding';
 
 interface TypeOption {
   type: UserType;
-  emoji: string;
-  label: string;
-  accessibilityLabel: string;
+  labelKey: TranslationKey;
+  a11yKey: TranslationKey;
 }
 
 const TYPE_OPTIONS: readonly TypeOption[] = [
   {
     type: 'child',
-    emoji: '👧🏻',
-    label: 'Men bola',
-    accessibilityLabel: 'Men bola — bolaning hisobi',
+    labelKey: 'onboarding.userType.child',
+    a11yKey: 'onboarding.userType.childA11y',
   },
   {
     type: 'parent',
-    emoji: '👨‍👩‍👧‍👦',
-    label: 'Men ota-ona',
-    accessibilityLabel: 'Men ota-ona — ota-onaning hisobi',
+    labelKey: 'onboarding.userType.parent',
+    a11yKey: 'onboarding.userType.parentA11y',
   },
 ];
 
 export default function UserTypeScreen() {
+  const t = useT();
   const setUserType = useOnboardingStore((s) => s.setUserType);
 
   const handleSelect = (type: UserType) => {
@@ -37,15 +37,29 @@ export default function UserTypeScreen() {
 
   return (
     <ScreenGradient>
-      <View className="flex-1 px-6 items-center">
-        <View className="flex-1 justify-center items-center w-full max-w-[345px]">
+      {/* Card-sized artwork does not fit a short phone alongside the mascot,
+          so the column centres when there is room and scrolls when there
+          is not, instead of clipping off both ends. */}
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingVertical: 24,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="items-center w-full max-w-[345px]">
           <MascotImage size={176} glow="cosmic" />
 
           <View className="items-center mt-6 gap-2">
             <Text className="text-[24px] leading-8 font-bold text-foreground">
-              Salom!
+              {t('onboarding.userType.greeting')}
             </Text>
-            <Text className="text-base text-muted-foreground">Siz kimsiz?</Text>
+            <Text className="text-base text-muted-foreground">
+              {t('onboarding.userType.question')}
+            </Text>
           </View>
 
           <View className="w-full gap-4 mt-8">
@@ -54,18 +68,18 @@ export default function UserTypeScreen() {
                 key={option.type}
                 onPress={() => handleSelect(option.type)}
                 accessibilityRole="button"
-                accessibilityLabel={option.accessibilityLabel}
-                className="w-full bg-white rounded-xl border border-primary/10 py-8 items-center active:opacity-80"
+                accessibilityLabel={t(option.a11yKey)}
+                className="w-full bg-white rounded-xl border border-primary/10 px-4 pt-4 pb-5 items-center active:opacity-80"
               >
-                <Text className="text-[60px]">{option.emoji}</Text>
-                <Text className="text-[20px] font-medium text-foreground mt-3">
-                  {option.label}
+                <UserTypeIcon type={option.type} />
+                <Text className="text-[20px] font-medium text-foreground mt-2">
+                  {t(option.labelKey)}
                 </Text>
               </Pressable>
             ))}
           </View>
         </View>
-      </View>
+      </ScrollView>
     </ScreenGradient>
   );
 }

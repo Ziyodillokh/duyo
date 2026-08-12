@@ -2,28 +2,24 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
+import { FlagIcon } from '@/components/v2/flag-icon';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { SelectCard } from '@/components/v2/select-card';
+import { LANGUAGE_NAMES, translate } from '@/i18n';
 import { type Language, useLanguageStore } from '@/store/language';
 
-interface LanguageOption {
-  code: Language;
-  label: string;
-  flag: string;
-}
-
-const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
-  { code: 'uz', label: "O'zbek", flag: '🇺🇿' },
-  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-];
+const LANGUAGE_OPTIONS: readonly Language[] = ['uz', 'ru', 'en'];
 
 export default function LanguageScreen() {
   const persistedLanguage = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
   const [selected, setSelected] = useState<Language>(persistedLanguage);
+
+  // This one screen follows the highlighted card, not the saved language —
+  // the whole point of it is previewing the language before committing.
+  const t = (key: Parameters<typeof translate>[1]) => translate(selected, key);
 
   const handleContinue = () => {
     setLanguage(selected);
@@ -37,20 +33,20 @@ export default function LanguageScreen() {
           <MascotImage size={176} />
 
           <Text className="text-[24px] leading-8 font-bold text-foreground mt-6">
-            Tilni tanlang
+            {t('onboarding.language.title')}
           </Text>
 
           <View className="w-full gap-3 mt-8">
-            {LANGUAGE_OPTIONS.map((option) => (
+            {LANGUAGE_OPTIONS.map((code) => (
               <SelectCard
-                key={option.code}
-                selected={option.code === selected}
-                onPress={() => setSelected(option.code)}
-                accessibilityLabel={option.label}
+                key={code}
+                selected={code === selected}
+                onPress={() => setSelected(code)}
+                accessibilityLabel={LANGUAGE_NAMES[code]}
               >
-                <Text className="text-[36px]">{option.flag}</Text>
+                <FlagIcon code={code} width={40} />
                 <Text className="text-[20px] font-medium text-foreground">
-                  {option.label}
+                  {LANGUAGE_NAMES[code]}
                 </Text>
               </SelectCard>
             ))}
@@ -60,9 +56,9 @@ export default function LanguageScreen() {
         <View className="w-full max-w-[345px] pb-6">
           <PrimaryButton
             onPress={handleContinue}
-            accessibilityLabel="Davom etish"
+            accessibilityLabel={t('common.continue')}
           >
-            Davom etish
+            {t('common.continue')}
           </PrimaryButton>
         </View>
       </View>

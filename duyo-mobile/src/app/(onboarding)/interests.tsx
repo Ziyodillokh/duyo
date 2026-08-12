@@ -7,27 +7,30 @@ import { Chip } from '@/components/v2/chip';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
+import { useT, type TranslationKey } from '@/i18n';
 import { useOnboardingStore } from '@/store/onboarding';
 
 interface InterestOption {
+  /** Stored on the child profile — never translated. */
   key: string;
-  label: string;
+  labelKey: TranslationKey;
 }
 
 const INTEREST_OPTIONS: readonly InterestOption[] = [
-  { key: 'drawing', label: 'Rasm chizish' },
-  { key: 'animals', label: 'Hayvonlar' },
-  { key: 'fairy_tales', label: 'Ertaklar' },
-  { key: 'space', label: 'Kosmos' },
-  { key: 'superheroes', label: 'Super qahramonlar' },
-  { key: 'games', label: "O'yinlar" },
-  { key: 'music', label: 'Musiqa' },
-  { key: 'nature', label: 'Tabiat' },
+  { key: 'drawing', labelKey: 'onboarding.interests.drawing' },
+  { key: 'animals', labelKey: 'onboarding.interests.animals' },
+  { key: 'fairy_tales', labelKey: 'onboarding.interests.fairyTales' },
+  { key: 'space', labelKey: 'onboarding.interests.space' },
+  { key: 'superheroes', labelKey: 'onboarding.interests.superheroes' },
+  { key: 'games', labelKey: 'onboarding.interests.games' },
+  { key: 'music', labelKey: 'onboarding.interests.music' },
+  { key: 'nature', labelKey: 'onboarding.interests.nature' },
 ];
 
 const MIN_SELECTED = 3;
 
 export default function InterestsScreen() {
+  const t = useT();
   const setPendingInterests = useOnboardingStore((s) => s.setPendingInterests);
   const persistedInterests = useOnboardingStore((s) => s.pendingInterests);
   const [selected, setSelected] = useState<ReadonlyArray<string>>(
@@ -57,10 +60,10 @@ export default function InterestsScreen() {
             <Card>
               <View className="gap-2 items-center">
                 <Text className="text-[24px] leading-8 font-bold text-foreground text-center">
-                  Sizni nima qiziqtiradi?
+                  {t('onboarding.interests.title')}
                 </Text>
                 <Text className="text-base text-muted-foreground text-center">
-                  Kamida {MIN_SELECTED} ta tanlang
+                  {t('onboarding.interests.subtitle', { count: MIN_SELECTED })}
                 </Text>
               </View>
 
@@ -70,24 +73,24 @@ export default function InterestsScreen() {
                     key={option.key}
                     selected={selected.includes(option.key)}
                     onPress={() => toggle(option.key)}
-                    accessibilityLabel={option.label}
+                    accessibilityLabel={t(option.labelKey)}
                   >
-                    {option.label}
+                    {t(option.labelKey)}
                   </Chip>
                 ))}
               </View>
 
               <Text className="text-sm text-muted-foreground text-center mt-4">
-                {selected.length} ta tanlandi
+                {t('onboarding.interests.selected', { count: selected.length })}
               </Text>
 
               <View className="mt-4">
                 <PrimaryButton
                   onPress={handleContinue}
                   disabled={!canContinue}
-                  accessibilityLabel="Davom etish"
+                  accessibilityLabel={t('common.continue')}
                 >
-                  Davom etish
+                  {t('common.continue')}
                 </PrimaryButton>
               </View>
             </Card>

@@ -11,6 +11,7 @@ import { FormInput } from '@/components/v2/form-input';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { ScreenGradient } from '@/components/v2/screen-gradient';
+import { useT } from '@/i18n';
 
 const PHONE_PREFIX = '+998';
 const NATIONAL_DIGITS = 9;
@@ -20,6 +21,7 @@ interface AxiosErrorShape {
 }
 
 export default function PhoneScreen() {
+  const t = useT();
   const [phone, setPhone] = useState('');
   const isValid = phone.length === NATIONAL_DIGITS;
 
@@ -38,14 +40,15 @@ export default function PhoneScreen() {
       const status = (err as AxiosErrorShape).response?.status;
       if (status === 429) {
         Alert.alert(
-          "Juda ko'p urinish",
-          "Bir necha daqiqadan keyin qayta urinib ko'ring.",
+          t('common.tooManyAttempts.title'),
+          t('common.tooManyAttempts.body'),
         );
         return;
       }
       const detail =
-        (err as AxiosErrorShape).response?.data?.detail ?? 'Xatolik yuz berdi';
-      Alert.alert('Xatolik', detail);
+        (err as AxiosErrorShape).response?.data?.detail ??
+        t('common.errorGeneric');
+      Alert.alert(t('common.error'), detail);
     },
   });
 
@@ -72,16 +75,16 @@ export default function PhoneScreen() {
               <Card>
                 <View className="gap-2 items-center">
                   <Text className="text-xl font-bold text-foreground text-center">
-                    Telefon raqamingiz
+                    {t('onboarding.phone.title')}
                   </Text>
                   <Text className="text-sm text-muted-foreground text-center">
-                    Xavfsizlik uchun telefon raqamingizni tasdiqlang
+                    {t('onboarding.phone.subtitle')}
                   </Text>
                 </View>
 
                 <View className="gap-2 mt-6">
                   <Text className="text-sm font-medium text-foreground">
-                    Telefon raqam
+                    {t('onboarding.phone.label')}
                   </Text>
                   <View className="flex-row gap-2 items-center">
                     <CountryChip code={PHONE_PREFIX} />
@@ -96,7 +99,7 @@ export default function PhoneScreen() {
                         placeholder="901234567"
                         keyboardType="phone-pad"
                         autoFocus
-                        accessibilityLabel="Telefon raqam"
+                        accessibilityLabel={t('onboarding.phone.label')}
                       />
                     </View>
                   </View>
@@ -106,9 +109,11 @@ export default function PhoneScreen() {
                   <PrimaryButton
                     onPress={() => mutation.mutate(phone)}
                     disabled={!canSend}
-                    accessibilityLabel="SMS yuborish"
+                    accessibilityLabel={t('onboarding.phone.send')}
                   >
-                    {mutation.isPending ? 'Yuborilmoqda...' : 'SMS yuborish'}
+                    {mutation.isPending
+                      ? t('common.sending')
+                      : t('onboarding.phone.send')}
                   </PrimaryButton>
                 </View>
               </Card>
