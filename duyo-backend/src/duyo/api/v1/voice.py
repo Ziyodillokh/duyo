@@ -15,8 +15,14 @@ Server → client frames:
   - Text JSON {"type": "output_transcript", "text": "..."}   (incremental)
   - Text JSON {"type": "crisis", "level": "RED|ORANGE", "layer": 1}
   - Text JSON {"type": "turn_complete", "conversation_id": "...",
-               "child_message_id": "...", "assistant_message_id": "..."}
+               "child_message_id": "...", "assistant_message_id": "...",
+               "memory_candidate": {"category": "...", "content": "..."}?}
   - Text JSON {"type": "error", "message": "..."}
+
+`memory_candidate` is present only when the child said something worth
+offering to remember on a GREEN turn. It is a SUGGESTION and is never stored
+server-side — the device screens it and asks the child, exactly as the text
+chat path does. See services/memory_candidates.py.
 
 JWT lives in the query string because the browser WebSocket API can't
 send Authorization headers. WS close codes follow RFC 6455: 1008 for
@@ -57,6 +63,7 @@ from duyo.prompts import SYSTEM_PROMPTS
 from duyo.services import sms as sms_module
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini_live import GeminiVoiceSession
+from duyo.services.memory_candidates import extract_memory_candidate
 from duyo.services.personalization import (
     build_goal_context,
     build_personalization_context,
@@ -283,6 +290,24 @@ async def voice_ws(
     child_text = crisis.text
     l1_level = crisis.result.level
     final_matches = crisis.result.matches
+
+    # Personal-memory candidate from what the child SAID OUT LOUD. Started
+    # here so it overlaps the Layer 2 classifier, the DB writes and any SMS
+    # dispatch below, and collected just before turn_complete — a child
+    # waiting on the end of their own turn should not also wait on this.
+    #
+    # Same contract as the text path (see services/memory_candidates.py):
+    # nothing is written server-side, the result only rides back in
+    # turn_complete, and the device's Memory Guard plus the child's explicit
+    # yes decide whether it is ever kept. Deliberately NOT gated on the
+    # crisis level yet — final_level is not known until L2 returns below, so
+    # the gate is applied at collection time instead.
+    memory_task = (
+        asyncio.create_task(extract_memory_candidate(child_text))
+        if child_text.strip()
+        else None
+    )
+
     l2 = await classify(child_text, l1_level) if child_text.strip() else None
     final_level = l2.level if l2 is not None else l1_level
 
@@ -361,12 +386,39 @@ async def voice_ws(
             {"type": "crisis", "level": final_level.value, "layer": 2}
         )
 
-    await websocket.send_json(
-        {
-            "type": "turn_complete",
-            "conversation_id": str(conv.id),
-            "child_message_id": str(child_msg.id),
-            "assistant_message_id": str(assistant_msg.id),
-        }
-    )
+    # Collect the memory candidate started above. GREEN only, matching the
+    # text path: a turn already flagged as crisis-relevant is not a moment to
+    # ask "shall I remember that?".
+    memory_candidate: dict[str, str] | None = None
+    if memory_task is not None:
+        if final_level == CrisisLevel.GREEN:
+            try:
+                candidate = await memory_task
+            except Exception:
+                # extract_memory_candidate swallows its own failures, so
+                # reaching here is unforeseen. A missed prompt must never cost
+                # the child the end of their turn.
+                log.exception("voice memory candidate failed conv=%s", conv.id)
+                candidate = None
+            if candidate is not None:
+                memory_candidate = {
+                    "category": candidate.category,
+                    "content": candidate.content,
+                }
+        else:
+            # Not needed — cancel rather than leave it running past the turn.
+            memory_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await memory_task
+
+    turn_complete: dict[str, Any] = {
+        "type": "turn_complete",
+        "conversation_id": str(conv.id),
+        "child_message_id": str(child_msg.id),
+        "assistant_message_id": str(assistant_msg.id),
+    }
+    if memory_candidate is not None:
+        turn_complete["memory_candidate"] = memory_candidate
+
+    await websocket.send_json(turn_complete)
     await websocket.close()

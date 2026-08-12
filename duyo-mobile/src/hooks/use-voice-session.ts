@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { type MemoryCandidate } from '@/api/endpoints/chat';
+import { MEMORY_CATEGORIES, type MemoryCategory } from '@/lib/memory-db';
 import { useAuthStore } from '@/store/auth';
 
 // Mirrors duyo-backend/src/duyo/api/v1/voice.py protocol.
@@ -18,6 +20,12 @@ export interface TurnCompleteInfo {
   conversationId: string;
   childMessageId: string;
   assistantMessageId: string;
+  /**
+   * Something the child said OUT LOUD that may be worth remembering. Absent
+   * on most turns. A suggestion only — the device screens it and asks the
+   * child before anything is stored (see hooks/use-memory-consent.ts).
+   */
+  memoryCandidate: MemoryCandidate | null;
 }
 
 export interface VoiceSessionHandlers {
@@ -151,6 +159,23 @@ function normalizeCrisisLevel(raw: unknown): 'orange' | 'red' | null {
   return level === 'orange' || level === 'red' ? level : null;
 }
 
+/**
+ * Validate the candidate off the wire before it reaches the consent prompt.
+ *
+ * The category indexes MEMORY_CATEGORY_LABELS and is written into the
+ * database as a filter key, so an unknown value would show a blank label and
+ * create a row the "Mening Xotiram" filters can never select again.
+ */
+function normalizeMemoryCandidate(raw: unknown): MemoryCandidate | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const { category, content } = raw as { category?: unknown; content?: unknown };
+  if (typeof category !== 'string' || typeof content !== 'string') return null;
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+  if (!MEMORY_CATEGORIES.includes(category as MemoryCategory)) return null;
+  return { category: category as MemoryCategory, content: trimmed };
+}
+
 function handleJson(
   msg: ServerEnvelope,
   handlers: VoiceSessionHandlers | undefined,
@@ -187,6 +212,7 @@ function handleJson(
           conversationId: msg.conversation_id,
           childMessageId: msg.child_message_id,
           assistantMessageId: msg.assistant_message_id,
+          memoryCandidate: normalizeMemoryCandidate(msg.memory_candidate),
         });
       }
       break;

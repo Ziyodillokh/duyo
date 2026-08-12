@@ -338,3 +338,177 @@ def test_voice_red_crisis_emits_event_and_dispatches_sms(
     assert sms_send.await_count == 1
     sent_phone = sms_send.call_args.args[0]
     assert sent_phone == user.phone
+
+
+# ---------------------------------------------------------------------------
+# Personal memory — a child who SAYS something memorable gets the same
+# "eslab qolaymi?" offer as one who types it.
+#
+# The candidate rides back in turn_complete and is never persisted: the
+# device screens it and asks the child (see services/memory_candidates.py and
+# duyo-mobile/src/hooks/use-memory-consent.ts).
+# ---------------------------------------------------------------------------
+
+
+def _run_voice_turn(configured_app, access_token, child, events):
+    """Drive one voice turn to completion; return the turn_complete payload."""
+    factory = make_voice_session_factory(events)
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+
+    client = TestClient(configured_app)
+    with client.websocket_connect(
+        f"/v1/chat/voice?token={access_token}&child_id={child.id}"
+    ) as ws:
+        ws.send_text("END_TURN")
+        while True:
+            msg = ws.receive()
+            if msg.get("text"):
+                payload = json.loads(msg["text"])
+                if payload["type"] == "turn_complete":
+                    return payload
+            elif msg.get("type") == "websocket.disconnect":
+                raise AssertionError("socket closed before turn_complete")
+
+
+def test_voice_turn_complete_carries_a_memory_candidate(
+    configured_app, db_session, access_token, user, child, monkeypatch
+):
+    db_session.scalar_queue = [user, child]
+
+    from duyo.api.v1 import voice as voice_api
+    from duyo.services.memory_candidates import MemoryCandidate
+
+    seen: list[str] = []
+
+    async def _fake_extract(message: str):
+        seen.append(message)
+        return MemoryCandidate(
+            category="interests", content="Bola shaxmatga qiziqadi"
+        )
+
+    monkeypatch.setattr(voice_api, "extract_memory_candidate", _fake_extract)
+
+    payload = _run_voice_turn(
+        configured_app, access_token, child,
+        [
+            LiveEvent(kind="input_tr", text="Men shaxmat o'ynashni yaxshi ko'raman"),
+            LiveEvent(kind="turn_complete"),
+        ],
+    )
+
+    assert payload["memory_candidate"] == {
+        "category": "interests",
+        "content": "Bola shaxmatga qiziqadi",
+    }
+    # Extraction runs on what the child SAID, i.e. the STT transcript.
+    assert seen == ["Men shaxmat o'ynashni yaxshi ko'raman"]
+
+
+def test_voice_memory_candidate_absent_when_nothing_worth_remembering(
+    configured_app, db_session, access_token, user, child, monkeypatch
+):
+    """Most turns carry nothing — the key must be absent, not null."""
+    db_session.scalar_queue = [user, child]
+
+    from duyo.api.v1 import voice as voice_api
+
+    async def _no_candidate(_message: str):
+        return None
+
+    monkeypatch.setattr(voice_api, "extract_memory_candidate", _no_candidate)
+
+    payload = _run_voice_turn(
+        configured_app, access_token, child,
+        [
+            LiveEvent(kind="input_tr", text="Bugun havo qanday"),
+            LiveEvent(kind="turn_complete"),
+        ],
+    )
+    assert "memory_candidate" not in payload
+
+
+def test_voice_never_offers_to_remember_a_crisis_turn(
+    configured_app, db_session, access_token, user, child, monkeypatch
+):
+    """A child in crisis is being routed to help, not asked to save a note.
+
+    The extractor may still have been started (the level is not known until
+    Layer 2 returns), but its result must never reach the client.
+    """
+    db_session.scalar_queue = [user, child]
+
+    from duyo.api.v1 import voice as voice_api
+    from duyo.services import sms as sms_module
+    from duyo.services.memory_candidates import MemoryCandidate
+
+    async def _would_extract(_message: str):
+        return MemoryCandidate(category="notes", content="eslab qolinmasin")
+
+    monkeypatch.setattr(voice_api, "extract_memory_candidate", _would_extract)
+
+    class _FakeSmsProvider:
+        send = AsyncMock()
+
+    monkeypatch.setattr(sms_module, "get_sms_provider", lambda: _FakeSmsProvider())
+
+    payload = _run_voice_turn(
+        configured_app, access_token, child,
+        [
+            LiveEvent(kind="input_tr", text="men o'zimni o'ldiraman"),
+            LiveEvent(kind="turn_complete"),
+        ],
+    )
+    assert "memory_candidate" not in payload
+
+
+def test_voice_memory_candidate_is_never_persisted(
+    configured_app, db_session, access_token, user, child, monkeypatch
+):
+    """Same guarantee as the text path: no row, anywhere, for the candidate."""
+    db_session.scalar_queue = [user, child]
+
+    from duyo.api.v1 import voice as voice_api
+    from duyo.services.memory_candidates import MemoryCandidate
+
+    async def _fake_extract(_message: str):
+        return MemoryCandidate(category="research", content="UNIQUE_MEMORY_MARKER")
+
+    monkeypatch.setattr(voice_api, "extract_memory_candidate", _fake_extract)
+
+    payload = _run_voice_turn(
+        configured_app, access_token, child,
+        [
+            LiveEvent(kind="input_tr", text="Men ilmiy ish qilyapman"),
+            LiveEvent(kind="turn_complete"),
+        ],
+    )
+    assert payload["memory_candidate"]["content"] == "UNIQUE_MEMORY_MARKER"
+
+    # The marker must appear in NOTHING that was handed to the database.
+    for obj in db_session.added:
+        for value in vars(obj).values():
+            assert "UNIQUE_MEMORY_MARKER" not in str(value)
+
+
+def test_voice_extraction_failure_does_not_break_the_turn(
+    configured_app, db_session, access_token, user, child, monkeypatch
+):
+    """A missed memory prompt must never cost the child the end of their turn."""
+    db_session.scalar_queue = [user, child]
+
+    from duyo.api.v1 import voice as voice_api
+
+    async def _boom(_message: str):
+        raise RuntimeError("extractor exploded")
+
+    monkeypatch.setattr(voice_api, "extract_memory_candidate", _boom)
+
+    payload = _run_voice_turn(
+        configured_app, access_token, child,
+        [
+            LiveEvent(kind="input_tr", text="Men shaxmatni yaxshi ko'raman"),
+            LiveEvent(kind="turn_complete"),
+        ],
+    )
+    assert payload["type"] == "turn_complete"
+    assert "memory_candidate" not in payload

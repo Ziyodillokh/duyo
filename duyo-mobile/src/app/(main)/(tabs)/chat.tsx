@@ -9,7 +9,6 @@ import {
   rateMessage,
   sendChatMessage,
   type FeedbackRating,
-  type MemoryCandidate,
   type QuickReply,
 } from '@/api/endpoints/chat';
 import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
@@ -18,12 +17,11 @@ import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { MascotImage } from '@/components/v2/mascot-image';
-import { MEMORY_CATEGORY_LABELS } from '@/lib/memory-categories';
-import { screenMemoryContent } from '@/lib/memory-guard';
+import { useMemoryConsent } from '@/hooks/use-memory-consent';
 import { selectRelevantMemories, toMemoryContextLines } from '@/lib/memory-retrieval';
 import { type ChatMessage, useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
-import { MemoryGuardError, useMemoryStore } from '@/store/memory';
+import { useMemoryStore } from '@/store/memory';
 
 interface AxiosErrorShape {
   response?: { data?: { detail?: string } };
@@ -85,44 +83,9 @@ export default function ChatScreen() {
     useMemoryStore.getState().load(child.id).catch(() => {});
   }, [child, hydrated, setActiveChild, appendMessage]);
 
-  // A memory candidate reaches this screen already past the SERVER's
-  // conservative extractor prompt; the device's own Memory Guard is the
-  // authoritative check (see memory-guard.ts's module docstring) — a
-  // sensitive-looking candidate is dropped here silently, no prompt shown.
-  const offerMemoryConsent = useCallback(
-    (candidate: MemoryCandidate | null) => {
-      if (!candidate || !child) return;
-      const guard = screenMemoryContent(candidate.content);
-      if (guard.verdict !== 'safe') return;
-
-      Alert.alert(
-        'Buni eslab qolaymi?',
-        `"${candidate.content}"\n\nKategoriya: ${MEMORY_CATEGORY_LABELS[candidate.category]}`,
-        [
-          { text: "Yo'q", style: 'cancel' },
-          {
-            text: 'Ha, eslab qol',
-            onPress: () => {
-              useMemoryStore
-                .getState()
-                .addMemory(candidate.category, candidate.content, 'chat_confirmed')
-                .catch((err) => {
-                  // A MemoryGuardError here means the store's screening
-                  // disagreed with the pre-check above — treat it as a
-                  // successful block, not a failure to explain to the child.
-                  if (err instanceof MemoryGuardError) return;
-                  Alert.alert(
-                    'Xatolik',
-                    "Eslab qololmadim. Birozdan keyin \"Mening Xotiram\" bo'limidan qo'lda qo'shib ko'ring.",
-                  );
-                });
-            },
-          },
-        ],
-      );
-    },
-    [child],
-  );
+  // Shared with the voice screen so both surfaces prompt, screen and store
+  // identically — see hooks/use-memory-consent.ts.
+  const offerMemoryConsent = useMemoryConsent();
 
   const todayCount = useMemo(() => {
     const start = startOfTodayMs();
@@ -154,14 +117,27 @@ export default function ChatScreen() {
       // Device-side retrieval (spec §6): pick the few local memories
       // relevant to THIS message, out of however many the child has, so the
       // request carries only what this turn needs — never the whole store.
-      const relevant = selectRelevantMemories(vars.text, useMemoryStore.getState().items);
+      //
+      // Wrapped because memory is an ENHANCEMENT and chat is the product. A
+      // throw here used to propagate out of mutationFn, so the message never
+      // reached the network and the child got "Internetni tekshiring" with a
+      // working connection. Whatever breaks in the memory subsystem, the
+      // child still gets to talk to DUYO — just without local context.
+      let memoryContext: string[] = [];
+      try {
+        memoryContext = toMemoryContextLines(
+          selectRelevantMemories(vars.text, useMemoryStore.getState().items),
+        );
+      } catch (err) {
+        console.warn('memory retrieval failed; sending without local context', err);
+      }
       return sendChatMessage({
         child_id: child.id,
         message: vars.text,
         conversation_id: conversationId ?? undefined,
         action: vars.action,
         action_query: vars.actionQuery,
-        memory_context: toMemoryContextLines(relevant),
+        memory_context: memoryContext,
       });
     },
     onSuccess: (response) => {

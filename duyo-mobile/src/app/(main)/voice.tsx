@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Square,
 } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,11 +17,13 @@ import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
 import { Chalkboard } from '@/components/chalkboard';
 import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { DuyoAvatar, type DuyoState } from '@/components/duyo-avatar';
+import { useMemoryConsent } from '@/hooks/use-memory-consent';
 import { useMicRecorder } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
 import { useVoiceSession } from '@/hooks/use-voice-session';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
+import { useMemoryStore } from '@/store/memory';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'responding' | 'error';
 
@@ -120,6 +122,19 @@ export default function VoiceScreen() {
   // Guards against a slow board reply landing after the child moved on.
   const turnSeqRef = useRef(0);
 
+  // Same "eslab qolaymi?" flow the text chat uses, so speaking a fact and
+  // typing it behave identically.
+  const offerMemoryConsent = useMemoryConsent();
+
+  // The memory store needs an active child before it will accept a write, and
+  // a child can reach voice without ever opening the chat tab — without this
+  // the first spoken memory would be rejected with "no active child".
+  // Idempotent: load() no-ops the cache clear when the child is unchanged.
+  useEffect(() => {
+    if (!child) return;
+    useMemoryStore.getState().load(child.id).catch(() => {});
+  }, [child]);
+
   const voice = useVoiceSession({
     onOutputTranscript: (text) =>
       setOutputTranscript((prev) => prev + text),
@@ -143,7 +158,7 @@ export default function VoiceScreen() {
       setCrisisLevel(level);
       pendingCrisisRef.current = level;
     },
-    onTurnComplete: () => {
+    onTurnComplete: (info) => {
       setPhase('idle');
       const pending = pendingCrisisRef.current;
       if (pending) {
@@ -158,6 +173,12 @@ export default function VoiceScreen() {
       const said = utteranceRef.current;
       if (!child) return;
       spokenTurnsRef.current += 1;
+
+      // Did the child just SAY something worth remembering? Offered before
+      // the board/puzzle branches below so a solvable question does not cost
+      // the child the prompt — the alert is modal, so it resolves first and
+      // the board is still there behind it.
+      offerMemoryConsent(info.memoryCandidate);
 
       // Did the child just ask something worth working through on the board?
       if (worthAsking(said)) {
