@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -9,7 +9,6 @@ import Animated, {
 import Svg, {
   Circle,
   Defs,
-  Ellipse,
   G,
   Path,
   RadialGradient,
@@ -28,7 +27,8 @@ import {
 
 const EDGE = 'rgba(160, 190, 255, 0.22)';
 const EDGE_ON = 'rgba(200, 220, 255, 0.85)';
-const LABEL = '#DCE6FA';
+/** Muted, the way Obsidian's labels sit under their dots. */
+const LABEL = '#A9B4CC';
 const DIM = 0.16;
 
 const MIN_ZOOM = 0.5;
@@ -43,8 +43,12 @@ function labelOf(node: { title: string; kind: GraphNode['kind'] }): string {
   return node.title;
 }
 
+/** Gradient ids have to be unique per colour, and colours arrive as hex. */
+const idFor = (colour: string, prefix: string) =>
+  `${prefix}-${colour.replace('#', '')}`;
+
 /** A four-pointed sparkle, centred on (x, y). Tags are drawn as stars rather
- *  than discs so a landmark never reads as one more note. */
+ *  than planets so a landmark never reads as one more note. */
 function sparkle(x: number, y: number, r: number): string {
   const w = r * 0.32;
   return (
@@ -55,14 +59,18 @@ function sparkle(x: number, y: number, r: number): string {
   );
 }
 
-/** Gradient ids have to be unique per colour, and colours arrive as hex. */
-const idFor = (colour: string, prefix: string) =>
-  `${prefix}-${colour.replace('#', '')}`;
+/** Stable per-note number, so a planet keeps its character (ring, tilt)
+ *  across every visit. */
+function seedOf(title: string): number {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
+  return h;
+}
 
 /**
  * The tap targets. They follow the simulation — a body IS its touch target,
- * so wherever physics carries a note, the finger finds it there. While the
- * system is asleep (which is the steady state) nothing here re-renders.
+ * so wherever physics carries a note, the finger finds it there, including
+ * mid-drift.
  */
 function TouchLayer({
   nodes,
@@ -115,9 +123,10 @@ interface Props {
  * `layoutGalaxy` still seeds the sky — most-linked note largest, colours from
  * #tags, sizes from links — but from there the map is a live force simulation
  * (`lib/graph-physics.ts`): bodies repel, [[links]] pull like springs, and the
- * whole system settles over a few seconds into stillness, exactly the
- * open-then-calm rhythm of Obsidian's graph view. The physics is
- * deterministic, so the same notebook still settles into the same sky.
+ * system settles over a few seconds into a slow ambient drift that never
+ * quite stops — the sky keeps breathing, and a wandering star tows its
+ * constellation along. The physics is deterministic, so the same notebook
+ * still settles into the same sky.
  *
  * A child can grab any body and drag it: its constellation stretches, follows,
  * and relaxes again on release. Grabs are told apart from canvas pans by what
@@ -165,8 +174,8 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     [galaxy, sim.tick],
   );
 
-  // Every distinct body colour, so one gradient is defined per colour rather
-  // than one per node.
+  // Every distinct body colour, so one planet gradient is defined per colour
+  // rather than one per node.
   const palette = useMemo(
     () => [...new Set((galaxy?.nodes ?? []).map((n) => n.colour))],
     [galaxy],
@@ -283,6 +292,62 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     setFocus(null);
   };
 
+  /** Which notebook the camera was last fitted to. Keyed by content, not by
+   *  object identity, so a refetch that changes nothing keeps the child's
+   *  pan/zoom instead of yanking the camera back. */
+  const fittedTo = useRef<string | null>(null);
+
+  // Obsidian opens its graph filled to the view, and that is most of what
+  // makes it feel like a map rather than a diagram floating in a void. Fit
+  // once per notebook — but measured off the SETTLED simulation, not the
+  // seeded layout: the seeds are spread over the whole canvas and the springs
+  // then pull everything into a much tighter shape, so a seed-time fit leaves
+  // the very emptiness it exists to remove. Waiting ~40 ticks (a second and
+  // change) also means the camera glides in as the sky finds its shape.
+  // After that the camera belongs to the child's fingers.
+  useEffect(() => {
+    if (!galaxy || galaxy.nodes.length === 0 || size.width === 0) return;
+    // Under reduce-motion the sim settles synchronously, so tick 1 is final.
+    if (!sim.reduceMotion && sim.tick < 40) return;
+    const key = `${size.width}x${size.height}:${galaxy.nodes
+      .map((n) => n.title)
+      .sort()
+      .join('|')}`;
+    if (fittedTo.current === key) return;
+    fittedTo.current = key;
+
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const n of galaxy.nodes) {
+      const p = sim.positionOf(n.title) ?? n;
+      x0 = Math.min(x0, p.x - n.r);
+      x1 = Math.max(x1, p.x + n.r);
+      y0 = Math.min(y0, p.y - n.r);
+      // Labels hang below their body and count as content.
+      y1 = Math.max(y1, p.y + n.r + 18);
+    }
+    // Room for the ambient drift (~50px of wander) and the floating chrome.
+    const PAD = 64;
+    const bw = Math.max(1, x1 - x0);
+    const bh = Math.max(1, y1 - y0);
+    const fit = Math.min((size.width - PAD) / bw, (size.height - PAD) / bh);
+    // A three-note sky must not zoom into cartoon-sized discs.
+    const s = Math.min(2.1, Math.max(MIN_ZOOM, fit));
+    const fx = -((x0 + x1) / 2 - size.width / 2) * s;
+    const fy = -((y0 + y1) / 2 - size.height / 2) * s;
+
+    scale.set(withTiming(s));
+    savedScale.set(s);
+    tx.set(withTiming(fx));
+    savedTx.set(fx);
+    ty.set(withTiming(fy));
+    savedTy.set(fy);
+    // sim is deliberately a fresh object each render; tick is its clock.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [galaxy, size, sim.tick, scale, savedScale, tx, ty, savedTx, savedTy]);
+
   // A tap opens; press-and-hold lights up the neighbourhood. Obsidian opens a
   // node on click too — making the first tap only "select" meant every note
   // cost two taps, which is the wrong trade on a phone.
@@ -327,78 +392,37 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
           >
             <Svg width={size.width} height={size.height}>
               <Defs>
-                {/* Nebula — two wide, soft clouds. Stacked radial gradients
-                    rather than a blur filter: blur is expensive on native and
-                    a gradient is exactly as convincing at this softness. */}
-                <RadialGradient id="nebula-a" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="#8200DB" stopOpacity={0.30} />
-                  <Stop offset="60%" stopColor="#5B21B6" stopOpacity={0.10} />
-                  <Stop offset="100%" stopColor="#3C0366" stopOpacity={0} />
-                </RadialGradient>
-                <RadialGradient id="nebula-b" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="#C6005C" stopOpacity={0.22} />
-                  <Stop offset="65%" stopColor="#510424" stopOpacity={0.08} />
-                  <Stop offset="100%" stopColor="#162456" stopOpacity={0} />
-                </RadialGradient>
-
-                {/* The centre star. */}
-                <RadialGradient id="sun-core" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={1} />
-                  <Stop offset="35%" stopColor="#DAB2FF" stopOpacity={0.95} />
-                  <Stop offset="75%" stopColor="#8200DB" stopOpacity={0.75} />
-                  <Stop offset="100%" stopColor="#3C0366" stopOpacity={0.15} />
+                {/* The sun — a warm core burning out to nothing. */}
+                <RadialGradient id="sun-core" cx="42%" cy="38%" r="65%">
+                  <Stop offset="0%" stopColor="#FFFDF2" stopOpacity={1} />
+                  <Stop offset="35%" stopColor="#FFE066" stopOpacity={1} />
+                  <Stop offset="75%" stopColor="#F59E0B" stopOpacity={1} />
+                  <Stop offset="100%" stopColor="#C2410C" stopOpacity={0.9} />
                 </RadialGradient>
                 <RadialGradient id="sun-glow" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="#C27AFF" stopOpacity={0.42} />
-                  <Stop offset="100%" stopColor="#8200DB" stopOpacity={0} />
+                  <Stop offset="0%" stopColor="#FFD86B" stopOpacity={0.4} />
+                  <Stop offset="55%" stopColor="#F59E0B" stopOpacity={0.14} />
+                  <Stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
                 </RadialGradient>
 
+                {/* One sphere per colour: an off-centre highlight is the whole
+                    trick that turns a flat disc into a planet. */}
                 {palette.map((colour) => (
                   <RadialGradient
-                    key={idFor(colour, 'body')}
-                    id={idFor(colour, 'body')}
-                    /* Lit from the upper-left, which is what makes a flat disc
-                       read as a sphere. */
+                    key={idFor(colour, 'planet')}
+                    id={idFor(colour, 'planet')}
                     cx="35%"
-                    cy="32%"
-                    r="72%"
+                    cy="30%"
+                    r="75%"
                   >
-                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.85} />
-                    <Stop offset="38%" stopColor={colour} stopOpacity={1} />
-                    <Stop offset="100%" stopColor="#0B1020" stopOpacity={0.92} />
-                  </RadialGradient>
-                ))}
-                {palette.map((colour) => (
-                  <RadialGradient
-                    key={idFor(colour, 'halo')}
-                    id={idFor(colour, 'halo')}
-                    cx="50%"
-                    cy="50%"
-                    r="50%"
-                  >
-                    <Stop offset="0%" stopColor={colour} stopOpacity={0.34} />
-                    <Stop offset="55%" stopColor={colour} stopOpacity={0.12} />
-                    <Stop offset="100%" stopColor={colour} stopOpacity={0} />
+                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.9} />
+                    <Stop offset="35%" stopColor={colour} stopOpacity={1} />
+                    <Stop offset="100%" stopColor="#0B1020" stopOpacity={0.94} />
                   </RadialGradient>
                 ))}
               </Defs>
 
-              {/* ── Deep space ─────────────────────────────────────────── */}
-              <Ellipse
-                cx={size.width * 0.24}
-                cy={size.height * 0.26}
-                rx={size.width * 0.62}
-                ry={size.height * 0.34}
-                fill="url(#nebula-a)"
-              />
-              <Ellipse
-                cx={size.width * 0.78}
-                cy={size.height * 0.74}
-                rx={size.width * 0.58}
-                ry={size.height * 0.30}
-                fill="url(#nebula-b)"
-              />
-
+              {/* ── Starfield ──────────────────────────────────────────── */}
               {stars.map((s, i) => (
                 <Circle
                   key={`s${i}`}
@@ -420,26 +444,17 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 // detaches from the dot it belongs to while the system moves.
                 const a = drawnAt(e.sourceTitle, e.x1, e.y1);
                 const b = drawnAt(e.targetTitle, e.x2, e.y2);
-                // A shallow arc, bowed perpendicular to the line — straight
-                // lines read as a diagram, curves as a web.
-                const mx = (a.x + b.x) / 2;
-                const my = (a.y + b.y) / 2;
-                const dx = b.x - a.x;
-                const dy = b.y - a.y;
-                const len = Math.sqrt(dx * dx + dy * dy) || 1;
-                const bow = Math.min(18, len * 0.12);
-                const bx = mx - (dy / len) * bow;
-                const by = my + (dx / len) * bow;
-                // A mention is something we inferred, not something the child
-                // typed — drawn thinner and dashed so the map never overstates
-                // how deliberate a connection was.
+                // Straight, hairline, faint — Obsidian's edges recede so the
+                // dots carry the picture. A mention is something we inferred,
+                // not something the child typed, so it is dashed and fainter
+                // still, never overstating how deliberate a connection was.
                 const guessed = e.kind === 'mention';
                 return (
                   <Path
                     key={`e${i}`}
-                    d={`M ${a.x} ${a.y} Q ${bx} ${by} ${b.x} ${b.y}`}
+                    d={`M ${a.x} ${a.y} L ${b.x} ${b.y}`}
                     stroke={lit ? EDGE_ON : EDGE}
-                    strokeWidth={guessed ? 1 : lit ? 1.6 : 1.1}
+                    strokeWidth={guessed ? 0.8 : lit ? 1.4 : 1}
                     strokeDasharray={guessed ? '4,4' : undefined}
                     strokeOpacity={(lit ? 1 : DIM) * (guessed ? 0.6 : 1)}
                     fill="none"
@@ -447,46 +462,54 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 );
               })}
 
-              {/* ── Bodies ─────────────────────────────────────────────── */}
+              {/* ── Bodies. A little solar system: the hub is the sun, every
+                  note is a planet with a lit hemisphere, and roughly a third
+                  of them carry a Saturn ring — decided by the note's name, so
+                  a planet keeps its character forever. Drawn smaller than
+                  their physics radius (`n.r` still spaces the simulation and
+                  the touch targets), which is what gives the graph its air. */}
               {liveNodes.map((n) => {
                 const a = alpha(n.title);
                 const { x, y } = n;
 
                 if (n.ring === 0) {
+                  const rd = Math.max(8, n.r * 0.72);
                   return (
                     <G key={`n-${n.title}`} opacity={a}>
-                      <Circle cx={x} cy={y} r={n.r * 2.6} fill="url(#sun-glow)" />
-                      <Circle cx={x} cy={y} r={n.r} fill="url(#sun-core)" />
+                      <Circle cx={x} cy={y} r={rd * 2.5} fill="url(#sun-glow)" />
+                      <Circle cx={x} cy={y} r={rd} fill="url(#sun-core)" />
                     </G>
                   );
                 }
 
+                const rd = Math.max(4, n.r * 0.62);
+
+                // A #tag joins notes but is not one — a sparkle, never a
+                // planet, so a landmark cannot be mistaken for a note.
                 if (n.kind === 'tag') {
                   return (
-                    <G key={`n-${n.title}`} opacity={a}>
-                      <Circle
-                        cx={x}
-                        cy={y}
-                        r={n.r * 2.2}
-                        fill={`url(#${idFor(n.colour, 'halo')})`}
-                      />
-                      <Path d={sparkle(x, y, n.r * 1.5)} fill={n.colour} />
-                    </G>
+                    <Path
+                      key={`n-${n.title}`}
+                      d={sparkle(x, y, rd * 1.4)}
+                      fill={n.colour}
+                      opacity={a}
+                    />
                   );
                 }
 
-                // Not written yet — an outline with nothing inside it, so the
-                // map shows the child where a note is missing.
+                // Not written yet — a ghost planet: outline only, waiting to
+                // be born the day the child writes it.
                 if (n.kind === 'unwritten') {
                   return (
                     <Circle
                       key={`n-${n.title}`}
                       cx={x}
                       cy={y}
-                      r={n.r}
-                      fill="none"
+                      r={rd}
+                      fill={UNFORMED}
+                      fillOpacity={0.18}
                       stroke={UNFORMED}
-                      strokeWidth={1.4}
+                      strokeWidth={1.2}
                       strokeDasharray="3,3"
                       opacity={a}
                     />
@@ -494,23 +517,50 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 }
 
                 const lit = focus === n.title;
+                const seed = seedOf(n.title);
+                const ringed = seed % 3 === 0;
+                const tilt = -24 + (seed % 5) * 10;
+                const rx = rd * 1.95;
+                const ry = rd * 0.62;
+                const ringW = Math.max(1.4, rd * 0.26);
+
                 return (
                   <G key={`n-${n.title}`} opacity={a}>
+                    {/* Ring, far half — slips behind the planet. In SVG's
+                        y-down plane sweep=1 arcs above the midline. */}
+                    {ringed && (
+                      <G transform={`translate(${x}, ${y}) rotate(${tilt})`}>
+                        <Path
+                          d={`M ${-rx} 0 A ${rx} ${ry} 0 0 1 ${rx} 0`}
+                          stroke={n.colour}
+                          strokeOpacity={0.4}
+                          strokeWidth={ringW}
+                          fill="none"
+                        />
+                      </G>
+                    )}
                     <Circle
                       cx={x}
                       cy={y}
-                      r={n.r * 2.5}
-                      fill={`url(#${idFor(n.colour, 'halo')})`}
+                      r={rd}
+                      fill={`url(#${idFor(n.colour, 'planet')})`}
+                      stroke={lit ? '#FFFFFF' : 'none'}
+                      strokeWidth={lit ? 1.6 : 0}
+                      strokeOpacity={0.9}
                     />
-                    <Circle
-                      cx={x}
-                      cy={y}
-                      r={n.r}
-                      fill={`url(#${idFor(n.colour, 'body')})`}
-                      stroke={lit ? '#FFFFFF' : n.colour}
-                      strokeWidth={lit ? 2 : 0.8}
-                      strokeOpacity={lit ? 0.9 : 0.5}
-                    />
+                    {/* Ring, near half — crosses in front. */}
+                    {ringed && (
+                      <G transform={`translate(${x}, ${y}) rotate(${tilt})`}>
+                        <Path
+                          d={`M ${-rx} 0 A ${rx} ${ry} 0 0 0 ${rx} 0`}
+                          stroke={n.colour}
+                          strokeOpacity={0.85}
+                          strokeWidth={ringW}
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </G>
+                    )}
                   </G>
                 );
               })}
@@ -520,12 +570,17 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 <SvgText
                   key={`t-${n.title}`}
                   x={n.x}
-                  y={n.y + n.r + (n.ring === 0 ? 18 : 14)}
-                  fill={n.ring === 0 ? '#F2E9FF' : LABEL}
-                  fontSize={n.ring === 0 ? 12 : 11}
+                  y={
+                    n.y +
+                    (n.ring === 0
+                      ? Math.max(8, n.r * 0.72) + 15
+                      : Math.max(4, n.r * 0.62) + 13)
+                  }
+                  fill={n.ring === 0 ? '#FFE9B8' : LABEL}
+                  fontSize={n.ring === 0 ? 11 : 10}
                   fontWeight={n.ring === 0 ? 'bold' : 'normal'}
                   textAnchor="middle"
-                  opacity={alpha(n.title)}
+                  opacity={alpha(n.title) * 0.9}
                 >
                   {n.title.length > 14 ? `${n.title.slice(0, 13)}…` : n.title}
                 </SvgText>
