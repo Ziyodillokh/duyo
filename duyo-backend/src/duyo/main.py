@@ -1,5 +1,7 @@
 """DUYO Backend — FastAPI application entrypoint."""
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -11,13 +13,14 @@ from duyo import __version__
 from duyo.api.v1 import api_v1
 from duyo.core.config import get_settings
 from duyo.crisis.router import router as crisis_router
+from duyo.crisis.semantic import warm_anchors
 
 log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Startup / shutdown — currently a no-op (Redis/DB connections are lazy)."""
+    """Startup / shutdown. DB and Redis connections stay lazy."""
     settings = get_settings()
     log.info("DUYO backend starting up (v%s, env=%s)", __version__, settings.app_env)
     if settings.otp_demo_code:
@@ -29,7 +32,20 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             "Clear OTP_DEMO_CODE to turn it off.",
             settings.otp_demo_code,
         )
+
+    # Crisis Layer 3's anchor embeddings: 217 sequential embedding calls, about
+    # a minute. Started here, in the background, because doing it on the first
+    # chat turn is exactly what broke chat — see crisis/semantic.py. Not
+    # awaited: the app must accept traffic immediately, and Layers 1 and 2
+    # screen every message meanwhile.
+    warm_task = asyncio.create_task(warm_anchors())
+
     yield
+
+    if not warm_task.done():
+        warm_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await warm_task
     log.info("DUYO backend shutting down")
 
 
