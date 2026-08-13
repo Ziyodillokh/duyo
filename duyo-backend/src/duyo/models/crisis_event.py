@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import ENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -75,7 +75,12 @@ class CrisisEvent(Base, UUIDPK, TimestampMixin):
     layer: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # JSONB list of {keyword, category, language} from Layer 1, or {confidence, reasoning} from Layer 2.
-    matches: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
+    # JSONB on Postgres; plain JSON elsewhere so SQLite-backed API tests can
+    # create this table (models/child.py and models/goal.py do the same).
+    # Identical column type in production.
+    matches: Mapped[list[dict] | None] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=True
+    )
 
     parent_notified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     parent_notified_at: Mapped[datetime | None] = mapped_column(

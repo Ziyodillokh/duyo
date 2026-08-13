@@ -106,6 +106,9 @@ extend-immutable-calls = [
 # alongside Latin — every "ambiguous" character it names is a character it
 # exists to normalise. RUF003 too: the comments spell out which glyph is which.
 "src/duyo/services/goal_matching.py" = ["RUF001", "RUF003"]
+# Title trimming strips the dash characters a child may have typed (– —),
+# so the pattern has to name them.
+"src/duyo/services/conversations.py" = ["RUF001"]
 "tests/services/test_goal_matching.py" = ["RUF001"]
 # Same reason: the puzzle explanations are read by a child on the chalkboard,
 # so they use × and ² rather than ASCII stand-ins.

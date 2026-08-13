@@ -114,6 +114,12 @@ class ChatRequest(BaseModel):
     child_id: UUID
     message: str = Field(min_length=1, max_length=2000)
     conversation_id: UUID | None = None  # null → create new conversation
+    #: Files a NEW conversation into a project as it is created, so a chat
+    #: started from inside a project belongs to it from its first message and
+    #: picks up the project's standing instructions immediately. Ignored when
+    #: `conversation_id` names an existing conversation — that one already has
+    #: a project, and moving it is what PATCH is for.
+    project_id: UUID | None = None
     action: Literal["web_search"] | None = None
     action_query: str | None = Field(default=None, max_length=2000)
     # Short facts the DEVICE selected from the child's own encrypted local

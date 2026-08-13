@@ -27,6 +27,7 @@ from duyo.models.mood import MoodEntry, MoodValue
 from duyo.models.note import ChildNote
 from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
+from duyo.models.project import Project
 from duyo.models.psychology_chunk import PsychologyChunk
 from duyo.models.puzzle import PuzzleAttempt
 from duyo.models.report import Report
@@ -86,6 +87,7 @@ __all__ = [
     "PeerMessage",
     "PeerModerationState",
     "PeerReport",
+    "Project",
     "PsychologyChunk",
     "PuzzleAttempt",
     "Report",

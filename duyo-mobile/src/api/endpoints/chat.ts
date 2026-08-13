@@ -34,6 +34,11 @@ export interface ChatRequest {
   child_id: string;
   message: string;
   conversation_id?: string;
+  /**
+   * Files a NEW conversation into a project as it is created. Ignored when
+   * `conversation_id` names an existing one — moving that is a PATCH.
+   */
+  project_id?: string;
   action?: 'web_search';
   action_query?: string;
   /**

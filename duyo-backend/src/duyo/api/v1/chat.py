@@ -24,6 +24,7 @@ from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel, highest
 from duyo.models.feedback import FeedbackRating, MessageFeedback
 from duyo.models.message import Message, MessageRole
+from duyo.models.project import Project
 from duyo.models.user import User
 from duyo.psychology.retriever import retrieve_for_chat as retrieve_psych_for_chat
 from duyo.schemas.chat import (
@@ -51,6 +52,7 @@ from duyo.schemas.chat import (
     TranslateRequest,
     TranslateResponse,
 )
+from duyo.services.conversations import build_project_context, title_from_message
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini import (
     GeminiReply,
@@ -170,6 +172,24 @@ _ORANGE_TEMPLATE = (
     "DUYO: {name} bola xabarida tashvishli signallar bor. "
     "24 soat ichida bola bilan suhbat o'tkazing. Maslahat: 1142"
 )
+
+
+async def _project_context(db: AsyncSession, project_id: UUID | None) -> str | None:
+    """The project's standing instructions, as a prompt block.
+
+    Fails safe: a missing or unreadable project costs the block, never the
+    reply — the same contract every other context builder here follows.
+    """
+    if project_id is None:
+        return None
+    try:
+        project = await db.scalar(select(Project).where(Project.id == project_id))
+    except Exception:
+        log.exception("project_context_fetch_failed project=%s", project_id)
+        return None
+    if project is None:
+        return None
+    return build_project_context(project.name, project.instructions)
 
 
 async def _dispatch_parent_alert(parent_phone: str, child_name: str, level: CrisisLevel) -> None:
@@ -384,10 +404,41 @@ async def chat_turn(
             )
 
     if conv is None:
-        conv = Conversation(child_id=child.id)
+        # A project id arrives from the client, so it is verified as THIS
+        # child's own before it is stored — otherwise a conversation could be
+        # filed into another family's project, and that project's standing
+        # instructions would then be fed into this child's prompt. An unknown
+        # id is dropped rather than rejected: the chat itself is still valid.
+        project_id = payload.project_id
+        if project_id is not None:
+            owned = await db.scalar(
+                select(Project.id).where(
+                    Project.id == project_id, Project.child_id == child.id
+                )
+            )
+            if owned is None:
+                log.warning(
+                    "chat unknown project_id=%s child=%s — starting ungrouped",
+                    project_id, child.id,
+                )
+                project_id = None
+
+        # Titled from the opening message, at creation — so a conversation is
+        # never briefly nameless in the history list. Derived, not generated:
+        # see services/conversations.py on why an LLM call here would be the
+        # wrong trade.
+        conv = Conversation(
+            child_id=child.id,
+            title=title_from_message(payload.message),
+            project_id=project_id,
+        )
         db.add(conv)
         await db.flush()
     else:
+        # A conversation that predates titling, or one opened with something
+        # unnameable, gets a title from the first message that produces one.
+        if not conv.title:
+            conv.title = title_from_message(payload.message)
         # Fetch last N messages (chronological after reverse) for multi-turn context
         max_msgs = get_settings().conversation_history_max_messages
         prior = (
@@ -569,6 +620,9 @@ async def chat_turn(
         # services/memory_candidates.py's module docstring. Pure function
         # over payload.memory_context; no DB read, nothing persisted.
         build_local_memory_context(payload.memory_context),
+        # Standing instructions the child wrote once for this project, so they
+        # do not have to repeat them at the top of every chat inside it.
+        await _project_context(db, conv.project_id),
     ]
     personalization_context = "\n\n".join(b for b in _context_blocks if b) or None
     # Sequential on purpose: these share one AsyncSession, which is not safe

@@ -1,8 +1,23 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Mic, Send, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import {
+  History,
+  Mic,
+  Send,
+  SquarePen,
+  ThumbsDown,
+  ThumbsUp,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -59,6 +74,8 @@ export default function ChatScreen() {
   const child = useChildStore((s) => s.child);
   const messages = useChatStore((s) => s.messages);
   const conversationId = useChatStore((s) => s.conversationId);
+  const projectId = useChatStore((s) => s.projectId);
+  const loadingHistory = useChatStore((s) => s.loadingHistory);
   const hydrated = useChatStore((s) => s.hydrated);
   const setActiveChild = useChatStore((s) => s.setActiveChild);
   const setConversationId = useChatStore((s) => s.setConversationId);
@@ -73,7 +90,12 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!child || !hydrated) return;
     setActiveChild(child.id);
-    if (useChatStore.getState().messages.length === 0) {
+    const state = useChatStore.getState();
+    // The greeting seeds an EMPTY new chat only. A conversation opened from
+    // the history list is about to be filled from the server, and greeting a
+    // child at the top of a conversation they had last week reads as DUYO
+    // having forgotten it.
+    if (state.messages.length === 0 && !state.conversationId) {
       appendMessage(GREETING_TEMPLATE(child.name));
     }
     // Local encrypted memory for THIS child — see store/memory.ts. Loaded
@@ -82,6 +104,14 @@ export default function ChatScreen() {
     // without local context, never a blocked chat.
     useMemoryStore.getState().load(child.id).catch(() => {});
   }, [child, hydrated, setActiveChild, appendMessage]);
+
+  // Fill a conversation opened from the history list. `loadingHistory` is set
+  // by openConversation, so this fires once per open and never on a chat the
+  // child is already in the middle of.
+  useEffect(() => {
+    if (!child || !conversationId || !loadingHistory) return;
+    void useChatStore.getState().loadConversation(child.id, conversationId);
+  }, [child, conversationId, loadingHistory]);
 
   // Shared with the voice screen so both surfaces prompt, screen and store
   // identically — see hooks/use-memory-consent.ts.
@@ -135,6 +165,10 @@ export default function ChatScreen() {
         child_id: child.id,
         message: vars.text,
         conversation_id: conversationId ?? undefined,
+        // Only meaningful when a NEW conversation is being created — the
+        // server ignores it otherwise. This is what files a chat started
+        // from inside a project into that project from its first message.
+        project_id: conversationId ? undefined : projectId ?? undefined,
         action: vars.action,
         action_query: vars.actionQuery,
         memory_context: memoryContext,
@@ -210,6 +244,13 @@ export default function ChatScreen() {
     [child],
   );
 
+  const handleNewChat = useCallback(() => {
+    if (!child) return;
+    useChatStore.getState().startNewConversation();
+    appendMessage(GREETING_TEMPLATE(child.name));
+    setPuzzle(null);
+  }, [child, appendMessage]);
+
   const showSuggestions =
     messages.length === 1 && messages[0]?.id === GREETING_ID;
 
@@ -251,22 +292,31 @@ export default function ChatScreen() {
             </Text>
           </View>
         </View>
-        <View
-          className={`px-3 py-1.5 rounded-md border ${
-            limitReached
-              ? 'border-destructive bg-destructive/10'
-              : 'border-neon-blue/20'
-          }`}
+        <Pressable
+          onPress={handleNewChat}
+          accessibilityRole="button"
+          accessibilityLabel="Yangi suhbat"
+          className="w-10 h-10 items-center justify-center rounded-md"
+          style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
         >
-          <Text
-            className={`text-xs font-medium ${
-              limitReached ? 'text-destructive' : 'text-foreground dark:text-dark-text'
-            }`}
-          >
-            {todayCount}/{DAILY_LIMIT} suhbat
-          </Text>
-        </View>
+          <SquarePen size={18} color="#60A5FA" />
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/(main)/history')}
+          accessibilityRole="button"
+          accessibilityLabel="Suhbatlar tarixi"
+          className="w-10 h-10 items-center justify-center rounded-md"
+          style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+        >
+          <History size={18} color="#60A5FA" />
+        </Pressable>
       </View>
+
+      {loadingHistory && (
+        <View className="items-center py-3">
+          <ActivityIndicator color="#60A5FA" />
+        </View>
+      )}
 
       <KeyboardAvoidingView className="flex-1 bg-card dark:bg-dark-surface">
         <FlatList

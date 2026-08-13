@@ -32,6 +32,9 @@ export default function MainLayout() {
       <Stack.Screen name="avatar-customization" />
       <Stack.Screen name="library" />
       <Stack.Screen name="peer-chat" />
+      <Stack.Screen name="history" />
+      <Stack.Screen name="projects" />
+      <Stack.Screen name="project-detail" />
       <Stack.Screen name="library-item" />
       <Stack.Screen name="inventory" />
       <Stack.Screen name="dtm" />

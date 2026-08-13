@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { type ChatSource, type QuickReply } from '@/api/endpoints/chat';
+import { listConversationMessages } from '@/api/endpoints/conversations';
 import { type CrisisLevel } from '@/api/types';
 import { asyncStorage } from '@/lib/async-storage';
 
@@ -20,13 +21,23 @@ interface ChatState {
   // changes (rare in Bosqich B beta) the conversation is reset.
   childId: string | null;
   conversationId: string | null;
+  /** Project a NEW conversation should be filed into, if started from one. */
+  projectId: string | null;
   messages: ChatMessage[];
+  /** True while a conversation opened from the history list is loading. */
+  loadingHistory: boolean;
   hydrated: boolean;
   setActiveChild: (id: string) => void;
   setConversationId: (id: string) => void;
   appendMessage: (message: ChatMessage) => void;
   clearQuickReplies: (messageId: string) => void;
   clearConversation: () => void;
+  /** Begin a fresh chat, optionally inside a project. */
+  startNewConversation: (projectId?: string | null) => void;
+  /** Resume a conversation from the history list. */
+  openConversation: (conversationId: string) => void;
+  /** Fetch the opened conversation's messages from the server. */
+  loadConversation: (childId: string, conversationId: string) => Promise<void>;
   setHydrated: (hydrated: boolean) => void;
 }
 
@@ -35,11 +46,13 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       childId: null,
       conversationId: null,
+      projectId: null,
       messages: [],
+      loadingHistory: false,
       hydrated: false,
       setActiveChild: (id) => {
         if (get().childId === id) return;
-        set({ childId: id, conversationId: null, messages: [] });
+        set({ childId: id, conversationId: null, projectId: null, messages: [] });
       },
       setConversationId: (id) => set({ conversationId: id }),
       appendMessage: (message) =>
@@ -51,7 +64,45 @@ export const useChatStore = create<ChatState>()(
           ),
         })),
       clearConversation: () =>
-        set({ conversationId: null, messages: [] }),
+        set({ conversationId: null, projectId: null, messages: [] }),
+
+      startNewConversation: (projectId = null) =>
+        set({ conversationId: null, projectId, messages: [] }),
+
+      // Two steps on purpose: this clears the screen synchronously so the
+      // previous conversation is never briefly visible under the new title,
+      // and the chat screen then calls loadConversation to fill it.
+      openConversation: (conversationId) =>
+        set({
+          conversationId,
+          projectId: null,
+          messages: [],
+          loadingHistory: true,
+        }),
+
+      loadConversation: async (childId, conversationId) => {
+        set({ loadingHistory: true });
+        try {
+          const rows = await listConversationMessages(childId, conversationId);
+          // Ignore a slow load whose conversation is no longer the open one —
+          // a child who taps two rows quickly must not end up with the first
+          // one's messages under the second one's title.
+          if (get().conversationId !== conversationId) return;
+          set({
+            messages: rows.map((m) => ({
+              id: m.id,
+              role: m.role === 'child' ? 'child' : 'assistant',
+              content: m.content,
+              timestamp: new Date(m.created_at).getTime(),
+            })),
+          });
+        } finally {
+          if (get().conversationId === conversationId) {
+            set({ loadingHistory: false });
+          }
+        }
+      },
+
       setHydrated: (hydrated) => set({ hydrated }),
     }),
     {
@@ -60,6 +111,7 @@ export const useChatStore = create<ChatState>()(
       partialize: (state) => ({
         childId: state.childId,
         conversationId: state.conversationId,
+        projectId: state.projectId,
         messages: state.messages,
       }),
       onRehydrateStorage: () => (state) => {

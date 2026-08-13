@@ -47,5 +47,8 @@ def test_neither_endpoint_rejects_an_unknown_conversation():
     ):
         block = _resolve_block(source, "conversation_id is not None")
         assert not re.search(r"Conversation not found|conversation not found", block)
-        # ...and a new conversation is created instead.
-        assert "Conversation(child_id=child.id)" in source
+        # ...and a new conversation is created instead. Matched loosely on
+        # purpose: the constructor gained a title and a project and is now
+        # spread over several lines, and this test is about the behaviour, not
+        # the formatting.
+        assert re.search(r"Conversation\(\s*child_id=child\.id", source)
