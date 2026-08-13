@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import {
-  History,
+  Menu,
   Mic,
   Send,
   SquarePen,
@@ -31,12 +31,14 @@ import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
+import { ChatDrawer } from '@/components/chat/chat-drawer';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
 import { selectRelevantMemories, toMemoryContextLines } from '@/lib/memory-retrieval';
 import { type ChatMessage, useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
 import { useMemoryStore } from '@/store/memory';
+import { useIsDark } from '@/store/theme';
 
 interface AxiosErrorShape {
   response?: { data?: { detail?: string } };
@@ -86,6 +88,8 @@ export default function ChatScreen() {
   // failed request just clears the highlight rather than blocking the chat.
   const [ratings, setRatings] = useState<Record<string, FeedbackRating>>({});
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const isDark = useIsDark();
 
   useEffect(() => {
     if (!child || !hydrated) return;
@@ -246,10 +250,16 @@ export default function ChatScreen() {
 
   const handleNewChat = useCallback(() => {
     if (!child) return;
+    // Reset the mutation, not just the messages. A request still in flight
+    // keeps `isPending` true, and the typing indicator is driven by it — so
+    // starting a fresh chat while one was stuck left the new, empty chat
+    // showing DUYO permanently "typing" and looked like the button had done
+    // nothing at all.
+    send.reset();
     useChatStore.getState().startNewConversation();
     appendMessage(GREETING_TEMPLATE(child.name));
     setPuzzle(null);
-  }, [child, appendMessage]);
+  }, [child, appendMessage, send]);
 
   const showSuggestions =
     messages.length === 1 && messages[0]?.id === GREETING_ID;
@@ -279,12 +289,29 @@ export default function ChatScreen() {
       className="flex-1 bg-card dark:bg-dark-surface"
       edges={['top']}
     >
-      <View className="bg-card dark:bg-dark-surface border-b border-neon-blue/20 px-4 py-3 flex-row items-center gap-3">
-        <View className="w-16 h-16">
-          <MascotImage size={64} glow="cosmic" />
+      {/* Header: menu — identity — new chat. The two unlabelled icons that
+          used to sit here moved into the drawer, where they have names. */}
+      <View className="bg-card dark:bg-dark-surface border-b border-neon-blue/20 px-2 py-2 flex-row items-center gap-2">
+        <Pressable
+          onPress={() => setDrawerOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Menyu"
+          hitSlop={8}
+          className="w-10 h-10 items-center justify-center"
+        >
+          <Menu size={22} color={isDark ? '#E0E7FF' : '#102033'} />
+        </Pressable>
+
+        <View className="w-11 h-11">
+          <MascotImage size={44} glow="cosmic" />
         </View>
         <View className="flex-1">
-          <Text className="font-bold text-base text-foreground dark:text-dark-text">DUYO</Text>
+          <Text
+            className="font-bold text-base text-foreground dark:text-dark-text"
+            numberOfLines={1}
+          >
+            DUYO
+          </Text>
           <View className="flex-row items-center gap-2">
             <View className="w-2 h-2 rounded-full bg-neon-green" />
             <Text className="text-xs text-muted-foreground dark:text-dark-muted">
@@ -292,25 +319,23 @@ export default function ChatScreen() {
             </Text>
           </View>
         </View>
+
         <Pressable
           onPress={handleNewChat}
           accessibilityRole="button"
           accessibilityLabel="Yangi suhbat"
-          className="w-10 h-10 items-center justify-center rounded-md"
-          style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+          hitSlop={8}
+          className="w-10 h-10 items-center justify-center"
         >
-          <SquarePen size={18} color="#60A5FA" />
-        </Pressable>
-        <Pressable
-          onPress={() => router.push('/(main)/history')}
-          accessibilityRole="button"
-          accessibilityLabel="Suhbatlar tarixi"
-          className="w-10 h-10 items-center justify-center rounded-md"
-          style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
-        >
-          <History size={18} color="#60A5FA" />
+          <SquarePen size={20} color="#60A5FA" />
         </Pressable>
       </View>
+
+      <ChatDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onNewChat={handleNewChat}
+      />
 
       {loadingHistory && (
         <View className="items-center py-3">

@@ -11,6 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
 from duyo.api.deps import get_current_user, get_db
 from duyo.billing.limits import check_daily_message_limit
@@ -18,6 +19,7 @@ from duyo.core.config import get_settings
 from duyo.crisis.detector import CrisisCategory as L1Category
 from duyo.crisis.detector import KeywordCrisisDetector
 from duyo.crisis.router import get_detector
+from duyo.crisis.semantic import Layer3Result
 from duyo.crisis.semantic import classify as classify_l3
 from duyo.models.child import AgeSegment, ChildProfile
 from duyo.models.conversation import Conversation
@@ -53,7 +55,7 @@ from duyo.schemas.chat import (
     TranslateResponse,
 )
 from duyo.services.conversations import build_project_context, title_from_message
-from duyo.services.crisis_l2 import classify
+from duyo.services.crisis_l2 import Layer2Result, classify
 from duyo.services.gemini import (
     GeminiReply,
     chat_with_web_search,
@@ -163,6 +165,35 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _NO_AUTO_PARENT_CATEGORIES = {L1Category.ABUSE_VICTIM, L1Category.NEGLECT}
+
+# ---------------------------------------------------------------------------
+# Deadlines
+#
+# Nothing that waits on a network call may wait forever. The google-genai
+# client has no default timeout, so a single unanswered request hung the whole
+# chat turn: nginx logged `POST /v1/chat 499 rt:68.4` — the client gave up
+# after 60s and the handler was still waiting, which is also why the backend
+# never logged the turn at all (it logs on completion).
+#
+# Every phase now has a budget, and blowing one costs that phase, never the
+# reply. The child always gets an answer.
+# ---------------------------------------------------------------------------
+
+#: Crisis screening. Fast classifiers; past this the Layer 1 keyword result
+#: stands on its own, which is the same fail-safe those layers already use
+#: internally. Never raised to "wait longer" — a slow classifier must not
+#: delay a child's reply, and L1 has already run.
+_CRISIS_BUDGET_S = 12.0
+
+#: The reply itself, including retrieval and a grounded generation. Sized to
+#: sit under the mobile client's 60s ceiling with room for the phases around
+#: it, so the SERVER decides to fall back rather than the client giving up.
+_REPLY_BUDGET_S = 42.0
+
+#: The optional memory suggestion. Smallest budget of the three: it feeds a
+#: prompt the child can be offered later, and is never worth a wait.
+_MEMORY_BUDGET_S = 8.0
+
 
 _RED_TEMPLATE = (
     "DUYO XAVF: {name} bola jiddiy xavf signal berdi. "
@@ -363,7 +394,15 @@ async def chat_turn(
     timings: dict[str, int] = {}
 
     def _mark(phase: str, since: float) -> float:
-        timings[phase] = int((time.perf_counter() - since) * 1000)
+        elapsed = int((time.perf_counter() - since) * 1000)
+        timings[phase] = elapsed
+        # Emitted AS THE PHASE ENDS, not only in the summary line at the end.
+        # A turn that never finishes never reaches the summary, which is
+        # exactly the turn worth diagnosing — the last phase logged is then
+        # the one before whatever is stuck.
+        log.warning(
+            "chat_phase child=%s phase=%s ms=%d", child.id, phase, elapsed
+        )
         return time.perf_counter()
 
     # 1b. Enforce the subscription daily message limit (Concept §12.1).
@@ -472,10 +511,24 @@ async def chat_turn(
     # The safety property is unchanged and is asserted in tests: the final
     # level is never below any individual layer's.
     _phase = time.perf_counter()
-    l2, l3 = await asyncio.gather(
-        classify(payload.message, l1_level),
-        classify_l3(payload.message, l1_level),
-    )
+    try:
+        l2, l3 = await asyncio.wait_for(
+            asyncio.gather(
+                classify(payload.message, l1_level),
+                classify_l3(payload.message, l1_level),
+            ),
+            timeout=_CRISIS_BUDGET_S,
+        )
+    except TimeoutError:
+        # Layer 1 already ran locally and is authoritative on its own; both
+        # deeper layers document exactly this fallback. Escalate-only means a
+        # timeout can only ever LOSE an escalation, never cause a downgrade.
+        log.warning("chat crisis screening timed out child=%s — Layer 1 stands", child.id)
+        l2 = Layer2Result(level=l1_level, confidence=0.0, reasoning="timeout", latency_ms=0)
+        l3 = Layer3Result(
+            level=l1_level, confidence=0.0, category=None,
+            closest_phrase=None, latency_ms=0,
+        )
     final_level = highest(l1_level, l2.level, l3.level)
     _phase = _mark("crisis_l2_l3", _phase)
 
@@ -728,7 +781,34 @@ async def chat_turn(
     )
     db.add(assistant_msg)
     conv.message_count = (conv.message_count or 0) + 2
-    await db.flush()
+    try:
+        await db.flush()
+    except StaleDataError:
+        # The conversation row disappeared while this turn was in flight —
+        # the child deleted it from the history list, which is easy to do
+        # during a slow turn and is not an error on their part. Production hit
+        # this on a 68-second turn.
+        #
+        # The reply itself is real and already generated; losing it to a 500
+        # because its folder went away would be the wrong trade. Roll back the
+        # doomed writes and answer anyway, unpersisted.
+        log.warning(
+            "chat conversation vanished mid-turn conv=%s child=%s — answering unpersisted",
+            conv.id, child.id,
+        )
+        await db.rollback()
+        return ChatResponse(
+            conversation_id=conv.id,
+            message_id=assistant_msg.id,
+            reply=reply.text,
+            crisis_level=final_level,
+            model=reply.model,
+            latency_ms=reply.latency_ms,
+            source=source,
+            quick_replies=quick_replies,
+            images=images,
+            memory_candidate=None,
+        )
 
     # 11. Collect the personal-memory candidate started before the reply was
     #     built. Same "child's own words, extractor only suggests" philosophy

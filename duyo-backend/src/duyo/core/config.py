@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     gemini_live_output_sample_rate: int = 24_000
     gemini_temperature: float = 0.7
     gemini_max_output_tokens: int = 2000
+    #: Hard ceiling on ONE Gemini HTTP request, in milliseconds.
+    #:
+    #: The SDK has no default, so an unanswered request waits forever and the
+    #: whole chat turn waits with it — nginx logged `POST /v1/chat 499
+    #: rt:68.4` while the handler was still blocked. Sized to sit under the
+    #: mobile client's own 60s ceiling so the SERVER decides to fall back,
+    #: rather than the child watching a spinner until the app gives up.
+    gemini_request_timeout_ms: int = 30_000
     gemini_thinking_budget_flash: int = 0  # Flash thinking off, Pro always-on
 
     # Personal-memory candidate extraction (local-first memory — see

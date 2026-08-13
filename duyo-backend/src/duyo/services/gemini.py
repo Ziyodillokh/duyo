@@ -43,10 +43,29 @@ class GeminiReply:
 
 @lru_cache
 def get_client() -> genai.Client:
+    """The shared Gemini client — with a REQUEST TIMEOUT.
+
+    google-genai defaults to no timeout, so a request the API never answers
+    waits forever, and everything awaiting it waits with it. That is not
+    hypothetical here: chat turns hung past 60 seconds and nginx logged
+    `POST /v1/chat 499 rt:68.4` — the child gave up, the handler was still
+    waiting, and because the endpoint logs on completion it left no trace of
+    itself in the backend log at all.
+
+    Every caller in this codebase already fails safe on an exception (a crisis
+    layer keeps the previous level, a chat turn answers with LLM_UNAVAILABLE),
+    so turning a hang into a timeout turns an unbounded wait into a path all
+    of them already handle.
+    """
     settings = get_settings()
     if not settings.google_api_key:
         raise RuntimeError("GOOGLE_API_KEY is not set")
-    return genai.Client(api_key=settings.google_api_key)
+    return genai.Client(
+        api_key=settings.google_api_key,
+        http_options=types.HttpOptions(
+            timeout=settings.gemini_request_timeout_ms,
+        ),
+    )
 
 
 def _build_contents(

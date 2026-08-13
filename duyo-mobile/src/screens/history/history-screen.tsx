@@ -5,7 +5,6 @@ import {
   FolderPlus,
   MessageSquare,
   MoreVertical,
-  Plus,
   Search,
 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
@@ -83,11 +82,6 @@ export default function HistoryScreen() {
     router.push('/(main)/(tabs)/chat');
   };
 
-  const startNewChat = () => {
-    useChatStore.getState().startNewConversation();
-    router.push('/(main)/(tabs)/chat');
-  };
-
   const confirmDelete = (conv: ConversationSummary) =>
     Alert.alert(
       'Suhbatni o‘chirish',
@@ -153,18 +147,10 @@ export default function HistoryScreen() {
           </Pressable>
         </View>
 
-        <View className="px-5 pb-2 gap-3">
-          <Pressable
-            onPress={startNewChat}
-            accessibilityRole="button"
-            accessibilityLabel="Yangi suhbat"
-            className="flex-row items-center justify-center gap-2 rounded-xl bg-neon-blue active:opacity-80"
-            style={{ height: 46 }}
-          >
-            <Plus size={18} color="#FFFFFF" />
-            <Text className="text-base font-bold text-white">Yangi suhbat</Text>
-          </Pressable>
-
+        {/* Search only. "Yangi suhbat" lives in the chat drawer now — at the
+            top of this list it competed with the list itself, and the child
+            arrives here to FIND a conversation, not to leave for a new one. */}
+        <View className="px-5 pb-2">
           <View
             className="flex-row items-center gap-2 rounded-xl border border-neon-blue/20 px-3"
             style={{
