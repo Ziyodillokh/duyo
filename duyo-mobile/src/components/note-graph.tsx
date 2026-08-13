@@ -8,7 +8,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, {
   Circle,
+  ClipPath,
   Defs,
+  Ellipse,
   G,
   Path,
   RadialGradient,
@@ -22,6 +24,7 @@ import {
   layoutGalaxy,
   starField,
   UNFORMED,
+  UNTAGGED,
   type OrbitedNode,
 } from '@/lib/galaxy-layout';
 
@@ -43,9 +46,25 @@ function labelOf(node: { title: string; kind: GraphNode['kind'] }): string {
   return node.title;
 }
 
-/** Gradient ids have to be unique per colour, and colours arrive as hex. */
-const idFor = (colour: string, prefix: string) =>
-  `${prefix}-${colour.replace('#', '')}`;
+/**
+ * The eight planets a note can be, each with the one or two features a child
+ * recognises it by: Mercury's craters, Earth's continents, Jupiter's bands
+ * and spot, Saturn's ring. Which planet a note becomes is a hash of its
+ * title, so a note keeps its planet forever. Gradient stops are
+ * light → base → limb.
+ */
+const PLANET_TYPES = [
+  { key: 'mercury', stops: ['#E7EAEF', '#9FA6B2', '#454C59'] },
+  { key: 'venus', stops: ['#FFF3D6', '#E8C27A', '#7A5A2B'] },
+  { key: 'earth', stops: ['#9CD3FF', '#2E7CD6', '#0B2B66'] },
+  { key: 'mars', stops: ['#FFC9A3', '#D1603D', '#5C1F10'] },
+  { key: 'jupiter', stops: ['#FFE9C7', '#D8A05C', '#6B3E1D'] },
+  { key: 'saturn', stops: ['#FFF0C4', '#E3C580', '#77602A'] },
+  { key: 'uranus', stops: ['#E5FBFC', '#9BE0E5', '#2E6E74'] },
+  { key: 'neptune', stops: ['#A9C0FF', '#3B5BD6', '#14245F'] },
+] as const;
+
+type PlanetKey = (typeof PLANET_TYPES)[number]['key'];
 
 /** A four-pointed sparkle, centred on (x, y). Tags are drawn as stars rather
  *  than planets so a landmark never reads as one more note. */
@@ -59,12 +78,191 @@ function sparkle(x: number, y: number, r: number): string {
   );
 }
 
-/** Stable per-note number, so a planet keeps its character (ring, tilt)
- *  across every visit. */
+/** Stable per-note number, so a planet keeps its character across visits. */
 function seedOf(title: string): number {
   let h = 0;
   for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
   return h;
+}
+
+/** The two halves of a planetary ring. In SVG's y-down plane sweep=1 arcs
+ *  above the midline — the far side — so `back` goes behind the sphere and
+ *  `front` crosses over it. */
+function ringHalves(
+  x: number,
+  y: number,
+  tilt: number,
+  rx: number,
+  ry: number,
+  w: number,
+  colour: string,
+) {
+  const transform = `translate(${x}, ${y}) rotate(${tilt})`;
+  return {
+    back: (
+      <G transform={transform}>
+        <Path
+          d={`M ${-rx} 0 A ${rx} ${ry} 0 0 1 ${rx} 0`}
+          stroke={colour}
+          strokeOpacity={0.4}
+          strokeWidth={w}
+          fill="none"
+        />
+      </G>
+    ),
+    front: (
+      <G transform={transform}>
+        <Path
+          d={`M ${-rx} 0 A ${rx} ${ry} 0 0 0 ${rx} 0`}
+          stroke={colour}
+          strokeOpacity={0.85}
+          strokeWidth={w}
+          strokeLinecap="round"
+          fill="none"
+        />
+      </G>
+    ),
+  };
+}
+
+/** The surface details that make a planet nameable at a glance, drawn in
+ *  absolute coordinates and clipped to the sphere by the caller. */
+function planetFeatures(key: PlanetKey, x: number, y: number, R: number) {
+  switch (key) {
+    case 'mercury':
+      return (
+        <>
+          <Circle cx={x - 0.3 * R} cy={y - 0.2 * R} r={0.16 * R} fill="rgba(20,26,40,0.32)" />
+          <Circle cx={x + 0.25 * R} cy={y + 0.12 * R} r={0.12 * R} fill="rgba(20,26,40,0.28)" />
+          <Circle cx={x - 0.05 * R} cy={y + 0.38 * R} r={0.1 * R} fill="rgba(20,26,40,0.28)" />
+        </>
+      );
+    case 'venus':
+      return (
+        <>
+          <Path
+            d={`M ${x - 0.8 * R} ${y - 0.15 * R} Q ${x} ${y - 0.45 * R} ${x + 0.8 * R} ${y - 0.05 * R}`}
+            stroke="rgba(255,255,255,0.35)"
+            strokeWidth={0.1 * R}
+            fill="none"
+          />
+          <Path
+            d={`M ${x - 0.75 * R} ${y + 0.32 * R} Q ${x} ${y + 0.05 * R} ${x + 0.78 * R} ${y + 0.36 * R}`}
+            stroke="rgba(122,90,43,0.4)"
+            strokeWidth={0.09 * R}
+            fill="none"
+          />
+        </>
+      );
+    case 'earth':
+      return (
+        <>
+          <G transform={`rotate(-20 ${x - 0.2 * R} ${y - 0.1 * R})`}>
+            <Ellipse
+              cx={x - 0.2 * R}
+              cy={y - 0.1 * R}
+              rx={0.42 * R}
+              ry={0.22 * R}
+              fill="#3FA654"
+            />
+          </G>
+          <G transform={`rotate(15 ${x + 0.32 * R} ${y + 0.3 * R})`}>
+            <Ellipse
+              cx={x + 0.32 * R}
+              cy={y + 0.3 * R}
+              rx={0.26 * R}
+              ry={0.14 * R}
+              fill="#3FA654"
+            />
+          </G>
+          <Ellipse cx={x} cy={y - 0.82 * R} rx={0.4 * R} ry={0.16 * R} fill="rgba(241,247,255,0.9)" />
+        </>
+      );
+    case 'mars':
+      return (
+        <>
+          <G transform={`rotate(-10 ${x - 0.15 * R} ${y + 0.12 * R})`}>
+            <Ellipse
+              cx={x - 0.15 * R}
+              cy={y + 0.12 * R}
+              rx={0.45 * R}
+              ry={0.2 * R}
+              fill="rgba(60,20,8,0.28)"
+            />
+          </G>
+          <Ellipse
+            cx={x + 0.3 * R}
+            cy={y - 0.28 * R}
+            rx={0.2 * R}
+            ry={0.12 * R}
+            fill="rgba(60,20,8,0.24)"
+          />
+          <Ellipse cx={x} cy={y - 0.78 * R} rx={0.35 * R} ry={0.14 * R} fill="rgba(255,255,255,0.85)" />
+        </>
+      );
+    case 'jupiter':
+    case 'saturn': {
+      const soft = key === 'saturn' ? 0.16 : 0.32;
+      return (
+        <>
+          <Path
+            d={`M ${x - R} ${y - 0.34 * R} Q ${x} ${y - 0.26 * R} ${x + R} ${y - 0.34 * R}`}
+            stroke={`rgba(120,66,28,${soft})`}
+            strokeWidth={0.2 * R}
+            fill="none"
+          />
+          <Path
+            d={`M ${x - R} ${y - 0.04 * R} Q ${x} ${y + 0.04 * R} ${x + R} ${y - 0.04 * R}`}
+            stroke={`rgba(255,255,255,${soft * 0.8})`}
+            strokeWidth={0.18 * R}
+            fill="none"
+          />
+          <Path
+            d={`M ${x - R} ${y + 0.3 * R} Q ${x} ${y + 0.38 * R} ${x + R} ${y + 0.3 * R}`}
+            stroke={`rgba(120,66,28,${soft * 0.9})`}
+            strokeWidth={0.16 * R}
+            fill="none"
+          />
+          {key === 'jupiter' && (
+            <Ellipse
+              cx={x + 0.34 * R}
+              cy={y + 0.4 * R}
+              rx={0.18 * R}
+              ry={0.11 * R}
+              fill="rgba(195,74,54,0.9)"
+            />
+          )}
+        </>
+      );
+    }
+    case 'uranus':
+      return (
+        <Path
+          d={`M ${x - 0.7 * R} ${y - 0.1 * R} Q ${x} ${y - 0.24 * R} ${x + 0.7 * R} ${y - 0.08 * R}`}
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth={0.12 * R}
+          fill="none"
+        />
+      );
+    case 'neptune':
+      return (
+        <>
+          <Path
+            d={`M ${x - 0.7 * R} ${y - 0.12 * R} Q ${x} ${y - 0.28 * R} ${x + 0.7 * R} ${y - 0.1 * R}`}
+            stroke="rgba(255,255,255,0.3)"
+            strokeWidth={0.12 * R}
+            fill="none"
+          />
+          <Ellipse
+            cx={x - 0.3 * R}
+            cy={y + 0.26 * R}
+            rx={0.16 * R}
+            ry={0.1 * R}
+            fill="rgba(10,16,60,0.5)"
+          />
+        </>
+      );
+  }
 }
 
 /**
@@ -172,13 +370,6 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     // sim.tick is the physics clock: each step must rebuild, same step must not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [galaxy, sim.tick],
-  );
-
-  // Every distinct body colour, so one planet gradient is defined per colour
-  // rather than one per node.
-  const palette = useMemo(
-    () => [...new Set((galaxy?.nodes ?? []).map((n) => n.colour))],
-    [galaxy],
   );
 
   // Which titles are one hop from the focused note.
@@ -405,19 +596,20 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   <Stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
                 </RadialGradient>
 
-                {/* One sphere per colour: an off-centre highlight is the whole
-                    trick that turns a flat disc into a planet. */}
-                {palette.map((colour) => (
+                {/* One sphere per planet: an off-centre highlight is the
+                    trick that turns a flat disc into a globe, and each
+                    archetype keeps its own daylight, base and limb colours. */}
+                {PLANET_TYPES.map((p) => (
                   <RadialGradient
-                    key={idFor(colour, 'planet')}
-                    id={idFor(colour, 'planet')}
+                    key={`pg-${p.key}`}
+                    id={`pg-${p.key}`}
                     cx="35%"
                     cy="30%"
                     r="75%"
                   >
-                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.9} />
-                    <Stop offset="35%" stopColor={colour} stopOpacity={1} />
-                    <Stop offset="100%" stopColor="#0B1020" stopOpacity={0.94} />
+                    <Stop offset="0%" stopColor={p.stops[0]} stopOpacity={1} />
+                    <Stop offset="42%" stopColor={p.stops[1]} stopOpacity={1} />
+                    <Stop offset="100%" stopColor={p.stops[2]} stopOpacity={1} />
                   </RadialGradient>
                 ))}
               </Defs>
@@ -482,7 +674,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   );
                 }
 
-                const rd = Math.max(4, n.r * 0.62);
+                const rd = Math.max(5.5, n.r * 0.74);
 
                 // A #tag joins notes but is not one — a sparkle, never a
                 // planet, so a landmark cannot be mistaken for a note.
@@ -518,54 +710,49 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
 
                 const lit = focus === n.title;
                 const seed = seedOf(n.title);
-                const ringed = seed % 3 === 0;
-                const tilt = -24 + (seed % 5) * 10;
-                const rx = rd * 1.95;
-                const ry = rd * 0.62;
-                const ringW = Math.max(1.4, rd * 0.26);
+                const planet = PLANET_TYPES[seed % PLANET_TYPES.length];
+                const clipId = `pc-${seed.toString(36)}`;
+
+                // Only the truly ringed worlds carry one — a ring IS Saturn's
+                // (and, tipped on its side, Uranus's) identity.
+                const ring =
+                  planet.key === 'saturn'
+                    ? ringHalves(x, y, -18, rd * 1.95, rd * 0.62, Math.max(1.4, rd * 0.26), '#D9C08A')
+                    : planet.key === 'uranus'
+                      ? ringHalves(x, y, -76, rd * 1.7, rd * 0.55, Math.max(1, rd * 0.12), 'rgba(229,251,252,0.8)')
+                      : null;
 
                 return (
                   <G key={`n-${n.title}`} opacity={a}>
-                    {/* Ring, far half — slips behind the planet. In SVG's
-                        y-down plane sweep=1 arcs above the midline. */}
-                    {ringed && (
-                      <G transform={`translate(${x}, ${y}) rotate(${tilt})`}>
-                        <Path
-                          d={`M ${-rx} 0 A ${rx} ${ry} 0 0 1 ${rx} 0`}
-                          stroke={n.colour}
-                          strokeOpacity={0.4}
-                          strokeWidth={ringW}
-                          fill="none"
-                        />
-                      </G>
-                    )}
+                    {ring?.back}
+                    <Defs>
+                      <ClipPath id={clipId}>
+                        <Circle cx={x} cy={y} r={rd} />
+                      </ClipPath>
+                    </Defs>
+                    <Circle cx={x} cy={y} r={rd} fill={`url(#pg-${planet.key})`} />
+                    <G clipPath={`url(#${clipId})`}>
+                      {planetFeatures(planet.key, x, y, rd)}
+                    </G>
+                    {/* Night side — a soft limb shadow lower-right, so the
+                        surface details still read as lying on a sphere. */}
                     <Circle
                       cx={x}
                       cy={y}
                       r={rd}
-                      fill={`url(#${idFor(n.colour, 'planet')})`}
-                      stroke={lit ? '#FFFFFF' : 'none'}
-                      strokeWidth={lit ? 1.6 : 0}
-                      strokeOpacity={0.9}
+                      fill="none"
+                      stroke={lit ? '#FFFFFF' : 'rgba(7, 11, 26, 0.55)'}
+                      strokeWidth={lit ? 1.6 : 1}
+                      strokeOpacity={lit ? 0.9 : 1}
                     />
-                    {/* Ring, near half — crosses in front. */}
-                    {ringed && (
-                      <G transform={`translate(${x}, ${y}) rotate(${tilt})`}>
-                        <Path
-                          d={`M ${-rx} 0 A ${rx} ${ry} 0 0 0 ${rx} 0`}
-                          stroke={n.colour}
-                          strokeOpacity={0.85}
-                          strokeWidth={ringW}
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </G>
-                    )}
+                    {ring?.front}
                   </G>
                 );
               })}
 
-              {/* ── Names ──────────────────────────────────────────────── */}
+              {/* ── Names. The tag's colour lives here now — the spheres wear
+                  their planet faces, so the label is what still says which
+                  collection a note belongs to. */}
               {liveNodes.map((n) => (
                 <SvgText
                   key={`t-${n.title}`}
@@ -574,9 +761,15 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                     n.y +
                     (n.ring === 0
                       ? Math.max(8, n.r * 0.72) + 15
-                      : Math.max(4, n.r * 0.62) + 13)
+                      : Math.max(5.5, n.r * 0.74) + 13)
                   }
-                  fill={n.ring === 0 ? '#FFE9B8' : LABEL}
+                  fill={
+                    n.ring === 0
+                      ? '#FFE9B8'
+                      : n.colour !== UNTAGGED
+                        ? n.colour
+                        : LABEL
+                  }
                   fontSize={n.ring === 0 ? 11 : 10}
                   fontWeight={n.ring === 0 ? 'bold' : 'normal'}
                   textAnchor="middle"
