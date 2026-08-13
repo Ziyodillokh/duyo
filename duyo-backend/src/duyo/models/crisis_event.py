@@ -20,6 +20,31 @@ class CrisisLevel(str, Enum):
     RED = "RED"          # imminent risk → immediate SMS + call
 
 
+#: Severity order, lowest first. Every detection layer is escalate-only, so
+#: combining layers is always "take the highest" — this is the one definition
+#: of what "highest" means.
+_SEVERITY: dict["CrisisLevel", int] = {
+    CrisisLevel.GREEN: 0,
+    CrisisLevel.YELLOW: 1,
+    CrisisLevel.ORANGE: 2,
+    CrisisLevel.RED: 3,
+}
+
+
+def severity(level: CrisisLevel) -> int:
+    """Rank for comparison. See `_SEVERITY`."""
+    return _SEVERITY[level]
+
+
+def highest(*levels: CrisisLevel) -> CrisisLevel:
+    """The most severe of `levels` — how independent layers are combined.
+
+    A downgrade is never possible through this function, which is the safety
+    property every layer's docstring promises individually.
+    """
+    return max(levels, key=severity)
+
+
 # CrisisLevel.name == .value (both uppercase) so the default mapping is fine,
 # but we still set create_type=False so SQLAlchemy doesn't try to recreate it.
 _crisis_level_enum = ENUM(

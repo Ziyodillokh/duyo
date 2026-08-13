@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/client';
+import { AI_TIMEOUT_MS, apiClient } from '@/api/client';
 import { type CrisisLevel } from '@/api/types';
 import { type MemoryCategory } from '@/lib/memory-db';
 
@@ -85,7 +85,12 @@ function normalizeLevel(raw: string): CrisisLevel {
 export async function sendChatMessage(
   request: ChatRequest,
 ): Promise<ChatResponse> {
-  const { data } = await apiClient.post<ChatResponseWire>('/chat', request);
+  // AI_TIMEOUT_MS, not the client default: a grounded reply takes far longer
+  // than ordinary CRUD, and the 15s default was cutting every single message
+  // off before the backend could answer. See api/client.ts.
+  const { data } = await apiClient.post<ChatResponseWire>('/chat', request, {
+    timeout: AI_TIMEOUT_MS,
+  });
   return {
     ...data,
     crisis_level: normalizeLevel(data.crisis_level),

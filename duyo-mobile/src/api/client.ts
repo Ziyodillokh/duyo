@@ -5,9 +5,30 @@ import { useLanguageStore } from '@/store/language';
 
 const DEFAULT_BASE_URL = 'https://api.duyo.uz/v1';
 
+/**
+ * Ordinary CRUD: fail fast, because a stuck request here is a bug, not work.
+ */
+const DEFAULT_TIMEOUT_MS = 15_000;
+
+/**
+ * Endpoints that wait on a language model.
+ *
+ * A chat turn runs crisis screening, retrieval and then a grounded Gemini
+ * generation; grounded generations alone routinely take 10-20 seconds, and
+ * the voice socket in the same app is logged at 15-75 seconds of model time.
+ * Under the 15-second default EVERY chat message was cut off by the client at
+ * exactly 15.0s — nginx recorded a wall of `POST /v1/chat 499 rt:14.9`, the
+ * backend never got to answer, and the child was told to check a connection
+ * that was working perfectly.
+ *
+ * 60s is chosen to sit above the slowest observed model turn with headroom,
+ * while still bounding a genuinely hung request.
+ */
+export const AI_TIMEOUT_MS = 60_000;
+
 export const apiClient = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_BASE_URL,
-  timeout: 15_000,
+  timeout: DEFAULT_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/client';
+import { AI_TIMEOUT_MS, apiClient } from '@/api/client';
 
 export interface BoardStep {
   expr: string; // one chalk line — the maths only
@@ -45,10 +45,13 @@ export async function solveOnBoard(
   question: string,
 ): Promise<BoardSolution | null> {
   try {
-    const { data } = await apiClient.post<BoardWire>('/chat/board', {
-      child_id: childId,
-      question,
-    });
+    const { data } = await apiClient.post<BoardWire>(
+      '/chat/board',
+      { child_id: childId, question },
+      // Another model call — see api/client.ts. Board turns are usually ~1s,
+      // but a slow one must degrade to "no board", not to a timeout error.
+      { timeout: AI_TIMEOUT_MS },
+    );
     if (!data.is_problem || !data.problem || !data.steps?.length) return null;
     const figure = data.figure;
     return {

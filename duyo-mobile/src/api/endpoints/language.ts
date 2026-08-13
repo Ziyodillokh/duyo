@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/client';
+import { AI_TIMEOUT_MS, apiClient } from '@/api/client';
 import { type AgeSegment } from '@/api/types';
 
 // Mirrors backend duyo.schemas.language — AI-generated practice exercises,
@@ -30,6 +30,9 @@ export async function getLanguageExercises(
   const { data } = await apiClient.post<LanguagePracticeResponse>(
     '/language/exercises',
     payload,
+    // Generates exercises with Gemini — see api/client.ts on why the 15s
+    // default is wrong for anything that waits on a model.
+    { timeout: AI_TIMEOUT_MS },
   );
   return data.questions;
 }

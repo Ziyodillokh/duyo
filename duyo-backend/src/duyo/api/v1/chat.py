@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+import time
 from dataclasses import replace as _dc_replace
 from datetime import UTC, datetime
 from uuid import UUID
@@ -20,7 +21,7 @@ from duyo.crisis.router import get_detector
 from duyo.crisis.semantic import classify as classify_l3
 from duyo.models.child import AgeSegment, ChildProfile
 from duyo.models.conversation import Conversation
-from duyo.models.crisis_event import CrisisEvent, CrisisLevel
+from duyo.models.crisis_event import CrisisEvent, CrisisLevel, highest
 from duyo.models.feedback import FeedbackRating, MessageFeedback
 from duyo.models.message import Message, MessageRole
 from duyo.models.user import User
@@ -330,6 +331,21 @@ async def chat_turn(
     if child is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Child not found")
 
+    # Phase timings for the whole turn.
+    #
+    # A chat turn chains crisis screening, retrieval and a grounded
+    # generation, and when the total crossed the mobile client's timeout the
+    # only evidence anywhere was `POST /v1/chat 499` in nginx — the backend
+    # logs nothing for a request the client abandoned, so there was no way to
+    # see WHICH phase had grown. One line per turn makes that a lookup
+    # instead of an investigation.
+    turn_started = time.perf_counter()
+    timings: dict[str, int] = {}
+
+    def _mark(phase: str, since: float) -> float:
+        timings[phase] = int((time.perf_counter() - since) * 1000)
+        return time.perf_counter()
+
     # 1b. Enforce the subscription daily message limit (Concept §12.1).
     #     Free tier = 20 child messages/day; paid tiers unlimited. Checked
     #     BEFORE any LLM call so an over-limit turn costs nothing.
@@ -392,14 +408,25 @@ async def chat_turn(
     l1 = detector.check(payload.message)
     l1_level = CrisisLevel(l1.level.value)
 
-    # 4. Crisis Layer 2 (Gemini classifier) — sequential for simplicity
-    l2 = await classify(payload.message, l1_level)
-
-    # 4b. Crisis Layer 3 (semantic/embedding classifier) — catches paraphrased
-    # or coded risk language that neither L1's substring match nor L2's
-    # single-pass judgement flagged. Escalate-only, same as L2.
-    l3 = await classify_l3(payload.message, l2.level)
-    final_level = l3.level  # already protected from downgrade at every layer
+    # 4. Crisis Layers 2 and 3, CONCURRENTLY.
+    #
+    # Both are escalate-only relative to Layer 1 — L2 clamps its answer to at
+    # least `l1_level`, and L3 does the same with whatever floor it is given —
+    # so running them in sequence bought nothing but latency: L3 only ever
+    # used L2's answer as a floor it could not go below, and taking the max of
+    # all three afterwards is the identical result. Chaining them cost a whole
+    # extra model round-trip inside a request that was already exceeding the
+    # client's timeout.
+    #
+    # The safety property is unchanged and is asserted in tests: the final
+    # level is never below any individual layer's.
+    _phase = time.perf_counter()
+    l2, l3 = await asyncio.gather(
+        classify(payload.message, l1_level),
+        classify_l3(payload.message, l1_level),
+    )
+    final_level = highest(l1_level, l2.level, l3.level)
+    _phase = _mark("crisis_l2_l3", _phase)
 
     # 5. Persist child message
     child_msg = Message(
@@ -544,6 +571,9 @@ async def chat_turn(
         build_local_memory_context(payload.memory_context),
     ]
     personalization_context = "\n\n".join(b for b in _context_blocks if b) or None
+    # Sequential on purpose: these share one AsyncSession, which is not safe
+    # for concurrent use. They are plain indexed reads, not the bottleneck.
+    _phase = _mark("context_blocks", _phase)
 
     # (0) Scripted intent — instant canned reply for common greetings/thanks,
     #     skipping the LLM entirely (cost saving). Only for GREEN, non-web-search
@@ -629,6 +659,8 @@ async def chat_turn(
             images = []
             quick_replies = []
 
+    _phase = _mark("reply", _phase)
+
     # 10. Persist assistant message
     assistant_msg = Message(
         conversation_id=conv.id,
@@ -667,6 +699,15 @@ async def chat_turn(
             memory_candidate = MemoryCandidateRead(
                 category=candidate.category, content=candidate.content,
             )
+    _mark("memory_candidate", _phase)
+
+    total_ms = int((time.perf_counter() - turn_started) * 1000)
+    # WARNING, not INFO: the app configures no logging, so INFO never reaches
+    # container output (see services/goals.py's note on the same problem).
+    log.warning(
+        "chat_turn_timing child=%s total_ms=%d phases=%s model=%s",
+        child.id, total_ms, timings, reply.model,
+    )
 
     return ChatResponse(
         conversation_id=conv.id,
