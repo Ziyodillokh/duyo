@@ -102,6 +102,11 @@ extend-immutable-calls = [
 # Uzbek keyboard produces (ʻ U+02BB, ʼ U+02BC, ‘ ’) — naming them IS the point.
 "src/duyo/services/social.py" = ["RUF001"]
 "tests/services/test_handles.py" = ["RUF001"]
+# The goal matcher folds those same apostrophe glyphs, and tokenizes Cyrillic
+# alongside Latin — every "ambiguous" character it names is a character it
+# exists to normalise. RUF003 too: the comments spell out which glyph is which.
+"src/duyo/services/goal_matching.py" = ["RUF001", "RUF003"]
+"tests/services/test_goal_matching.py" = ["RUF001"]
 # Same reason: the puzzle explanations are read by a child on the chalkboard,
 # so they use × and ² rather than ASCII stand-ins.
 "src/duyo/services/puzzles.py" = ["RUF001"]

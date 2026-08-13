@@ -15,6 +15,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
@@ -46,6 +47,7 @@ from duyo.schemas.social import (
 from duyo.services.social import (
     HandleError,
     canonical_pair,
+    find_friendship,
     find_goal_mates,
     generate_handle,
     get_or_create_settings,
@@ -61,6 +63,11 @@ router = APIRouter(prefix="/social", tags=["social"])
 #: vulnerable minority, and a cap makes that economically useless.
 _MAX_CONNECTIONS = 10
 _MAX_PENDING_OUT = 5
+
+#: Messages returned per request. The window follows the END of the thread
+#: (see list_messages), so this bounds the payload without ever hiding the
+#: part of the conversation the children are actually having.
+_MESSAGE_PAGE = 100
 
 
 async def _peer_card(session: AsyncSession, child_id: UUID) -> PeerCard:
@@ -180,9 +187,11 @@ async def goal_mates(
 
     mates = await find_goal_mates(db, child)
     out: list[GoalMateRead] = []
-    for peer, peer_settings, match_key in mates:
-        # The shared goal is named from the CATALOGUE key, never from either
-        # child's free-typed title.
+    for peer, peer_settings, entry in mates:
+        # The shared goal is named from the CATALOGUE TITLE, never from either
+        # child's free-typed title. It used to be derived from the key, so a
+        # child read "Umumiy maqsad: Book otkan kunlar" where a human had
+        # already written "Abdulla Qodiriy — O'tkan Kunlar".
         out.append(
             GoalMateRead(
                 peer=PeerCard(
@@ -190,8 +199,8 @@ async def goal_mates(
                     display_name=peer_settings.display_name,
                     age_segment=peer.age_segment,
                 ),
-                match_key=match_key,
-                shared_goal=match_key.replace("-", " ").replace("_", " ").capitalize(),
+                match_key=entry.match_key,
+                shared_goal=entry.title,
             )
         )
     return out
@@ -223,8 +232,17 @@ async def send_friend_request(
 
     # The peer must be a current, legitimate suggestion — not an id someone
     # typed. This is what makes peer targeting impossible.
-    allowed = {p.id for p, _s, _k in await find_goal_mates(db, child, limit=50)}
-    if payload.peer_child_id not in allowed:
+    #
+    # Computed ONCE and reused for the match_key below. It used to run twice —
+    # two multi-join queries plus the edge scan — and the second call could
+    # legitimately return a different set than the first, so the key recorded
+    # on the edge did not have to be the one the check passed on.
+    mates = await find_goal_mates(db, child, limit=50)
+    shared = next(
+        (entry for peer, _s, entry in mates if peer.id == payload.peer_child_id),
+        None,
+    )
+    if shared is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Peer not available")
 
     existing = (
@@ -248,25 +266,35 @@ async def send_friend_request(
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many pending requests")
 
     low, high = canonical_pair(child.id, payload.peer_child_id)
-    match_key = next(
-        (k for p, _s, k in await find_goal_mates(db, child, limit=50)
-         if p.id == payload.peer_child_id),
-        None,
-    )
     edge = Friendship(
         child_low_id=low,
         child_high_id=high,
         requested_by_id=child.id,
         status=FriendshipStatus.PENDING,
-        match_key=match_key,
+        match_key=shared.match_key,
     )
     db.add(edge)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Both children tapped "Do'stlashish" on each other at the same time.
+        # find_goal_mates cleared both — neither edge existed yet — and the
+        # canonical pair means both INSERTs target the same row, so the loser
+        # hit uq_friendship_pair and the child saw a 500. Two children liking
+        # each other simultaneously is the happy path, not an error: adopt the
+        # row that won.
+        await db.rollback()
+        existing_edge = await find_friendship(db, child.id, payload.peer_child_id)
+        if existing_edge is None:
+            raise
+        edge = existing_edge
     return FriendshipRead(
         id=edge.id,
         peer=await _peer_card(db, payload.peer_child_id),
         status=edge.status,
-        incoming=False,
+        # Not hardcoded False: on the race path above the surviving row may be
+        # the PEER's request, which this child now needs to accept.
+        incoming=edge.requested_by_id != child.id,
         match_key=edge.match_key,
         created_at=edge.created_at,
     )
@@ -414,7 +442,15 @@ async def list_messages(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[PeerMessageRead]:
-    """Paged on `seq`, the only orderable key — UUIDs are not and created_at ties."""
+    """Paged on `seq`, the only orderable key — UUIDs are not and created_at ties.
+
+    Returns the NEWEST page, not the oldest. Ordering ascending and taking the
+    first 100 meant a thread froze permanently once it passed 100 delivered
+    messages: the client polls with the default after_seq=0, so it kept
+    re-fetching the same first 100 and no message sent after that was ever
+    visible to anyone. Descending-then-reversed keeps the same ascending
+    result shape while making the window follow the conversation.
+    """
     child = await _get_owned_child(child_id, current_user, db)
     edge = await _get_edge(child, friendship_id, db)
 
@@ -427,10 +463,11 @@ async def list_messages(
                 # Blocked and redacted messages never reach any client.
                 PeerMessage.moderation_state == PeerModerationState.DELIVERED,
             )
-            .order_by(PeerMessage.seq)
-            .limit(100)
+            .order_by(PeerMessage.seq.desc())
+            .limit(_MESSAGE_PAGE)
         )
     ).scalars().all()
+    rows = list(reversed(rows))
 
     return [
         PeerMessageRead(
@@ -481,6 +518,12 @@ async def send_message(
     await db.flush()
 
     if not verdict.allowed:
+        # COMMIT before raising. get_db rolls back on any exception, and
+        # HTTPException is one — so every blocked message was discarded and
+        # moderation_state='blocked' could never appear in the table at all.
+        # The row IS the safety record: what a child tried to send, and why it
+        # was stopped, is exactly what a reviewer needs to see.
+        await db.commit()
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Bu xabar yuborilmadi. Xavfsizlik uchun shaxsiy ma'lumot "

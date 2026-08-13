@@ -27,14 +27,20 @@ def _client(payload: str):
 
 
 class _Session:
-    def __init__(self, existing=None):
+    def __init__(self, existing=None, child_age: int | None = 12):
         self._existing = existing or []
+        self._child_age = child_age
         self.added: list = []
         self.committed = False
 
     async def execute(self, _stmt):
         rows = self._existing
         return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: rows))
+
+    async def scalar(self, _stmt):
+        """Only ever asked for the child's age, to apply the catalogue's own
+        age band when resolving a match_key (services/goal_matching.py)."""
+        return self._child_age
 
     def add(self, obj):
         self.added.append(obj)

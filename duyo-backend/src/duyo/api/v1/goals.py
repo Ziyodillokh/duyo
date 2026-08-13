@@ -26,6 +26,7 @@ from duyo.models.goal import (
     GoalSource,
     GoalStatus,
 )
+from duyo.models.social import ChildSocialSettings
 from duyo.models.user import User
 from duyo.schemas.goal import (
     GoalCatalogRead,
@@ -36,6 +37,8 @@ from duyo.schemas.goal import (
     GoalSignalRead,
     GoalUpdate,
 )
+from duyo.services.goal_matching import resolve_match_key
+from duyo.services.social import MAX_AGE_GAP
 
 router = APIRouter(tags=["goals"])
 
@@ -86,16 +89,31 @@ async def create_goal(
         )
         if known is None:
             match_key = None
-        else:
-            existing = await db.scalar(
-                select(ChildGoal).where(
-                    ChildGoal.child_id == child.id,
-                    ChildGoal.match_key == match_key,
-                    ChildGoal.status == GoalStatus.ACTIVE,
-                )
+
+    # No key from the picker? Try to recognise the child's own wording.
+    #
+    # Without this, only a goal chosen from the catalogue chips could ever
+    # match anyone: production had three discoverable children each with a
+    # Naruto goal, invisible to one another because two of them had typed it
+    # instead of tapping it. resolve_match_key can only ever return a key a
+    # human already published, so this widens WHO gets matched, never WHAT
+    # they are matched over. See services/goal_matching.py.
+    if not match_key:
+        match_key = await resolve_match_key(db, payload.title, age=child.age)
+
+    if match_key:
+        existing = await db.scalar(
+            select(ChildGoal).where(
+                ChildGoal.child_id == child.id,
+                ChildGoal.match_key == match_key,
+                ChildGoal.status == GoalStatus.ACTIVE,
             )
-            if existing is not None:
-                return existing  # idempotent: re-stating a goal is not an error
+        )
+        if existing is not None:
+            # Idempotent: re-stating a goal is not an error. Also stops an
+            # auto-resolved key colliding with the partial unique index on
+            # (child_id, match_key) WHERE status='active'.
+            return existing
 
     goal = ChildGoal(
         child_id=child.id,
@@ -263,7 +281,13 @@ async def goal_catalog(
     _current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[GoalCatalog]:
-    stmt = select(GoalCatalog).where(GoalCatalog.active.is_(True))
+    # `matchable` as well as `active`: tapping a chip attaches its key, and an
+    # unreviewed key is exactly what the publish gate exists to keep off the
+    # social surface. Offering it in the picker routed around that gate.
+    stmt = select(GoalCatalog).where(
+        GoalCatalog.active.is_(True),
+        GoalCatalog.matchable.is_(True),
+    )
     if kind:
         stmt = stmt.where(GoalCatalog.kind == kind)
     if age is not None:
@@ -287,6 +311,13 @@ async def goal_signal(
     Counts only children whose goal maps to a catalogue entry a human marked
     `matchable`, and only above `_SIGNAL_FLOOR`, so no count can point at one
     identifiable child.
+
+    Counts EXACTLY the population `find_goal_mates` draws from — same
+    discoverability, suspension and age-band filters. It used to count every
+    child in the database with the key, so the goals screen could tell a child
+    "5 ta bola ham shu maqsadda" directly above a Maqsaddoshlar section
+    reading "Hozircha maqsaddosh topilmadi". Both numbers were correct about
+    different populations, and the child could only read that as broken.
     """
     child = await _get_owned_child(child_id, current_user, db)
 
@@ -294,6 +325,9 @@ async def goal_signal(
         select(ChildGoal.match_key).where(
             ChildGoal.child_id == child.id,
             ChildGoal.status == GoalStatus.ACTIVE,
+            # Confirmed only, matching find_goal_mates: a goal DUYO merely
+            # guessed from conversation must not start reporting on peers.
+            ChildGoal.confirmed_at.is_not(None),
             ChildGoal.match_key.is_not(None),
         )
     )
@@ -308,6 +342,11 @@ async def goal_signal(
             func.count(func.distinct(ChildGoal.child_id)),
         )
         .join(GoalCatalog, GoalCatalog.match_key == ChildGoal.match_key)
+        .join(ChildProfile, ChildProfile.id == ChildGoal.child_id)
+        .join(
+            ChildSocialSettings,
+            ChildSocialSettings.child_id == ChildGoal.child_id,
+        )
         .where(
             ChildGoal.match_key.in_(keys),
             ChildGoal.child_id != child.id,
@@ -315,6 +354,11 @@ async def goal_signal(
             ChildGoal.confirmed_at.is_not(None),
             GoalCatalog.matchable.is_(True),
             GoalCatalog.active.is_(True),
+            ChildSocialSettings.discoverable.is_(True),
+            ChildSocialSettings.suspended_at.is_(None),
+            ChildProfile.age_segment == child.age_segment,
+            ChildProfile.age >= child.age - MAX_AGE_GAP,
+            ChildProfile.age <= child.age + MAX_AGE_GAP,
         )
         .group_by(ChildGoal.match_key, GoalCatalog.title)
     )

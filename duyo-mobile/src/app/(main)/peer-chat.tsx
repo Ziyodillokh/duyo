@@ -97,21 +97,32 @@ export default function PeerChatScreen() {
     });
   };
 
+  const submitReport = (reason: string) =>
+    reportMutation.mutate(
+      { friendshipId, reason },
+      { onSuccess: () => router.back() },
+    );
+
+  // Fixed reasons rather than a free-text box, for two reasons: a child in
+  // distress should not have to compose a sentence, and a free field on this
+  // screen would be one more unscreened channel between two children.
+  // Previously no reason was sent at all, so every report reached review as
+  // "something happened" with nothing to triage on.
   const confirmReport = () =>
     Alert.alert(
       'Shikoyat qilish',
-      "Bu suhbat to'xtatiladi va tekshiruvga yuboriladi. Davom etaylikmi?",
+      "Nima bo'ldi? Suhbat to'xtatiladi va tekshiruvga yuboriladi.",
       [
-        { text: 'Bekor qilish', style: 'cancel' },
         {
-          text: 'Shikoyat qilish',
-          style: 'destructive',
-          onPress: () =>
-            reportMutation.mutate(
-              { friendshipId },
-              { onSuccess: () => router.back() },
-            ),
+          text: 'Qo\'pol gapirdi yoki xafa qildi',
+          onPress: () => submitReport('rude_or_upsetting'),
         },
+        {
+          text: "Shaxsiy ma'lumot so'radi",
+          onPress: () => submitReport('asked_for_personal_info'),
+        },
+        { text: 'Boshqa sabab', onPress: () => submitReport('other') },
+        { text: 'Bekor qilish', style: 'cancel' },
       ],
     );
 

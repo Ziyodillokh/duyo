@@ -84,6 +84,28 @@ export function handleRejectionMessage(err: unknown): string | null {
   return null;
 }
 
+/**
+ * Why a friend request failed, in words a child can act on.
+ *
+ * The server answers these deliberately — a connection cap, too many requests
+ * still waiting, a suspended account, a peer who is no longer suggestable —
+ * and every one of them used to surface as "Biroz keyin urinib ko'ring",
+ * which tells a child to keep retrying something that will never succeed.
+ */
+export function friendRequestErrorMessage(err: unknown): string {
+  const status = (err as { response?: { status?: number } }).response?.status;
+  switch (status) {
+    case 429:
+      return "Hozircha yangi do'st qo'sha olmaysan — avvalgi so'rovlaringga javob kelsin yoki ro'yxatingda joy bo'shasin.";
+    case 403:
+      return "Hozir maqsaddoshlar bo'limi sen uchun vaqtincha yopiq.";
+    case 404:
+      return "Bu do'st taklifi endi mavjud emas. Ro'yxatni yangilab ko'r.";
+    default:
+      return "So'rov yuborilmadi. Internetni tekshirib, qayta urinib ko'r.";
+  }
+}
+
 export async function listGoalMates(childId: string): Promise<GoalMate[]> {
   const { data } = await apiClient.get<GoalMate[]>(
     `/social/${childId}/goal-mates`,

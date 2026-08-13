@@ -34,6 +34,7 @@ from sqlalchemy import select
 
 from duyo.core.config import get_settings
 from duyo.core.database import get_session_factory
+from duyo.models.child import ChildProfile
 from duyo.models.goal import (
     ChildGoal,
     ChildGoalEvent,
@@ -43,6 +44,7 @@ from duyo.models.goal import (
 )
 from duyo.prompts import INSIGHT_EXTRACT_PROMPT
 from duyo.services.gemini import get_client
+from duyo.services.goal_matching import resolve_match_key
 from duyo.services.style_profile import merge_style_signal
 
 # structlog, not stdlib logging: the app configures no logging at all, so a
@@ -172,13 +174,31 @@ async def _persist_goal(child_id: UUID, parsed: dict[str, Any]) -> None:
             except ValueError:
                 kind = GoalKind.OTHER
 
+            # Needed only to apply the catalogue's age band below.
+            child_age = await session.scalar(
+                select(ChildProfile.age).where(ChildProfile.id == child_id)
+            )
+
+            # Map the child's wording onto a published catalogue entry, if one
+            # clearly fits. The key alone connects nobody: find_goal_mates
+            # requires confirmed_at IS NOT NULL on BOTH sides, and an inferred
+            # goal lands unconfirmed below — so this only takes effect once
+            # the child has said yes to the goal in the Maqsadlar tab.
+            match_key = None
+            try:
+                match_key = await resolve_match_key(
+                    session, parsed["title"], age=child_age
+                )
+            except Exception:
+                log.exception("goal_match_key_resolve_failed", child=str(child_id))
+
             unit_label = parsed["unit_label"]
             session.add(
                 ChildGoal(
                     child_id=child_id,
                     kind=kind,
                     title=parsed["title"],
-                    match_key=None,  # catalogue mapping is a curation step
+                    match_key=match_key,
                     status=GoalStatus.ACTIVE,
                     source=GoalSource.INFERRED,
                     confirmed_at=None,  # the child confirms before DUYO uses it

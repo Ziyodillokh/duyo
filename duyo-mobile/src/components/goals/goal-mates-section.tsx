@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import {
   Check,
+  Clock,
   MessageSquare,
   Pencil,
   UserPlus,
@@ -10,7 +11,11 @@ import {
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 
-import type { Friendship, GoalMate } from '@/api/endpoints/social';
+import {
+  friendRequestErrorMessage,
+  type Friendship,
+  type GoalMate,
+} from '@/api/endpoints/social';
 import { HandleEditor } from '@/components/goals/handle-editor';
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import {
@@ -97,12 +102,26 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
 
   const handleConnect = (mate: GoalMate) =>
     sendRequest.mutate(mate.peer.child_id, {
-      onError: () =>
-        Alert.alert(
-          'Yuborilmadi',
-          "So'rov yuborilmadi. Biroz keyin urinib ko'ring.",
-        ),
+      // The server distinguishes a connection cap, a pending-request cap, a
+      // suspension and a stale suggestion; collapsing all four into "try
+      // again later" told a child to keep retrying something that cannot
+      // succeed. See friendRequestErrorMessage.
+      onError: (err) => Alert.alert('Yuborilmadi', friendRequestErrorMessage(err)),
     });
+
+  const handleStopBeingDiscoverable = () =>
+    Alert.alert(
+      "Ko'rinishni o'chirish",
+      "Yangi maqsaddoshlar seni topa olmaydi. Hozirgi do'stlaring va suhbatlaring saqlanib qoladi.",
+      [
+        { text: 'Bekor qilish', style: 'cancel' },
+        {
+          text: "O'chirish",
+          style: 'destructive',
+          onPress: () => updateSettings.mutate({ discoverable: false }),
+        },
+      ],
+    );
 
   return (
     <>
@@ -243,6 +262,28 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
         </DarkCard>
       ))}
 
+      {/* Requests this child has SENT and is waiting on.
+          Without this the child taps "Do'stlashish", the suggestion card
+          vanishes — the backend drops anyone with an edge from the
+          suggestions — and nothing anywhere says a request went out. The
+          "Yuborildi" pill on the suggestion card could never be reached for
+          the same reason. */}
+      {outgoing.map((f) => (
+        <DarkCard key={f.id}>
+          <Row title={f.peer.display_name} subtitle="Javobini kutyapmiz">
+            <View
+              className="rounded-md items-center justify-center flex-row gap-2 px-4"
+              style={{ height: 40, backgroundColor: 'rgba(148,163,184,0.15)' }}
+            >
+              <Clock size={15} color="#94A3B8" />
+              <Text className="text-sm font-medium" style={{ color: '#94A3B8' }}>
+                Yuborildi
+              </Text>
+            </View>
+          </Row>
+        </DarkCard>
+      ))}
+
       {/* Suggestions */}
       {discoverable && matesQuery.isLoading && (
         <View className="items-center" style={{ padding: 20 }}>
@@ -287,17 +328,39 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           );
         })}
 
-      {discoverable && !matesQuery.isLoading && mates.length === 0 && !accepted.length && (
-        <DarkCard className="items-center">
-          <Text className="text-4xl">🔍</Text>
-          <Text className="text-base font-bold text-foreground dark:text-dark-text mt-2 text-center">
-            Hozircha maqsaddosh topilmadi
+      {discoverable &&
+        !matesQuery.isLoading &&
+        mates.length === 0 &&
+        !accepted.length &&
+        !outgoing.length &&
+        !incoming.length && (
+          <DarkCard className="items-center">
+            <Text className="text-4xl">🔍</Text>
+            <Text className="text-base font-bold text-foreground dark:text-dark-text mt-2 text-center">
+              Hozircha maqsaddosh topilmadi
+            </Text>
+            <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+              Maqsad qo'shsang, xuddi shu maqsaddagi tengdoshlaring bu yerda
+              paydo bo'ladi
+            </Text>
+          </DarkCard>
+        )}
+
+      {/* The opt-in card promises "Xohlagan paytda o'chirib qo'yasan", and
+          that card disappears the moment the child opts in — so until now the
+          app made a promise it gave no way to keep. */}
+      {discoverable && (
+        <Pressable
+          onPress={handleStopBeingDiscoverable}
+          disabled={updateSettings.isPending}
+          accessibilityRole="button"
+          accessibilityLabel="Maqsaddoshlarga ko'rinishni o'chirish"
+          className="items-center py-3"
+        >
+          <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+            Maqsaddoshlarga ko'rinishni o'chirish
           </Text>
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
-            Maqsad qo'shsang, xuddi shu maqsaddagi tengdoshlaring bu yerda
-            paydo bo'ladi
-          </Text>
-        </DarkCard>
+        </Pressable>
       )}
     </>
   );

@@ -25,6 +25,7 @@ from enum import Enum
 from uuid import UUID
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Float,
@@ -90,7 +91,12 @@ class GoalCatalog(Base, UUIDPK, TimestampMixin):
     # Structured target, e.g. {"subject": "fizika", "grade": 6} — fed straight
     # into the textbook retriever so the goal actually steers help, not just
     # small talk.
-    target_ref: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # JSONB on Postgres; plain JSON elsewhere so the SQLite-backed API
+    # tests can create this table (models/child.py does the same for
+    # `interests`). Identical column type in production.
+    target_ref: Mapped[dict | None] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=True
+    )
     age_min: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
     age_max: Mapped[int] = mapped_column(Integer, nullable=False, default=16)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -128,7 +134,12 @@ class ChildGoal(Base, UUIDPK, TimestampMixin):
     # The child's own words — personalizes DUYO's replies. NEVER a match key,
     # NEVER shown to another child.
     title: Mapped[str] = mapped_column(String(160), nullable=False)
-    target_ref: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # JSONB on Postgres; plain JSON elsewhere so the SQLite-backed API
+    # tests can create this table (models/child.py does the same for
+    # `interests`). Identical column type in production.
+    target_ref: Mapped[dict | None] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=True
+    )
     # SET NULL, not CASCADE: retiring a catalogue entry must make the goal
     # undiscoverable, never delete the child's goal.
     match_key: Mapped[str | None] = mapped_column(

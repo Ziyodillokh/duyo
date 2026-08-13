@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from duyo.crisis.detector import KeywordCrisisDetector
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisLevel
-from duyo.models.goal import ChildGoal, GoalStatus
+from duyo.models.goal import ChildGoal, GoalCatalog, GoalStatus
 from duyo.models.social import ChildSocialSettings, Friendship
 
 log = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ def suggest_handles(count: int = 6) -> list[str]:
 #: Peers must be within one year of each other AND in the same age segment.
 #: Cross-segment matching is forbidden: the 13/14 boundary is precisely the
 #: seam an adult posing as a child would aim for.
-_MAX_AGE_GAP = 1
+MAX_AGE_GAP = 1
 
 _MESSAGE_MAX = 500
 
@@ -129,17 +129,29 @@ async def find_friendship(
 
 async def find_goal_mates(
     session: AsyncSession, child: ChildProfile, limit: int = 20
-) -> list[tuple[ChildProfile, ChildSocialSettings, str]]:
-    """Children sharing an active goal key, within the same age band.
+) -> list[tuple[ChildProfile, ChildSocialSettings, GoalCatalog]]:
+    """Children sharing a PUBLISHED goal key, within the same age band.
 
-    Returns (peer, peer_settings, match_key). Excludes anyone already connected,
-    declined or blocked — a blocked pair must never resurface as a suggestion.
+    Returns (peer, peer_settings, catalogue entry). Excludes anyone already
+    connected, declined or blocked — a blocked pair must never resurface as a
+    suggestion.
+
+    The catalogue row is returned rather than the bare key so callers can name
+    the shared goal the way a human wrote it; deriving a label from the key
+    ("book_otkan_kunlar" → "Book otkan kunlar") is what children were being
+    shown before.
     """
+    # Both sides must be CONFIRMED. The peer side was already checked; the
+    # caller's was not, which was harmless only while inferred goals could
+    # never carry a key. They can now (services/goal_matching.py), so without
+    # this a goal DUYO merely guessed from conversation — and the child never
+    # agreed to — would start introducing them to strangers.
     my_keys = (
         await session.execute(
             select(ChildGoal.match_key).where(
                 ChildGoal.child_id == child.id,
                 ChildGoal.status == GoalStatus.ACTIVE,
+                ChildGoal.confirmed_at.is_not(None),
                 ChildGoal.match_key.is_not(None),
             )
         )
@@ -163,33 +175,42 @@ async def find_goal_mates(
     excluded.add(child.id)
 
     rows = await session.execute(
-        select(ChildProfile, ChildSocialSettings, ChildGoal.match_key)
+        select(ChildProfile, ChildSocialSettings, GoalCatalog)
         .join(ChildGoal, ChildGoal.child_id == ChildProfile.id)
         .join(ChildSocialSettings, ChildSocialSettings.child_id == ChildProfile.id)
+        .join(GoalCatalog, GoalCatalog.match_key == ChildGoal.match_key)
         .where(
             ChildGoal.match_key.in_(keys),
             ChildGoal.status == GoalStatus.ACTIVE,
             ChildGoal.confirmed_at.is_not(None),
+            # The publish gate. models/goal.py calls `matchable` the thing
+            # that makes a goal "discoverable to other children", and it was
+            # enforced on the anonymous count (goal_signal) but NOT here, on
+            # the surface that actually introduces two children by name. A
+            # catalogue row added later defaults to matchable=False and still
+            # produced live suggestions; a retired one kept producing them.
+            GoalCatalog.matchable.is_(True),
+            GoalCatalog.active.is_(True),
             ChildProfile.id.not_in(excluded),
             ChildSocialSettings.discoverable.is_(True),
             ChildSocialSettings.suspended_at.is_(None),
             # Same segment AND within one year.
             ChildProfile.age_segment == child.age_segment,
             and_(
-                ChildProfile.age >= child.age - _MAX_AGE_GAP,
-                ChildProfile.age <= child.age + _MAX_AGE_GAP,
+                ChildProfile.age >= child.age - MAX_AGE_GAP,
+                ChildProfile.age <= child.age + MAX_AGE_GAP,
             ),
         )
         .limit(limit)
     )
 
     seen: set[UUID] = set()
-    out: list[tuple[ChildProfile, ChildSocialSettings, str]] = []
-    for peer, peer_settings, match_key in rows.all():
+    out: list[tuple[ChildProfile, ChildSocialSettings, GoalCatalog]] = []
+    for peer, peer_settings, entry in rows.all():
         if peer.id in seen:
             continue
         seen.add(peer.id)
-        out.append((peer, peer_settings, match_key))
+        out.append((peer, peer_settings, entry))
     return out
 
 
