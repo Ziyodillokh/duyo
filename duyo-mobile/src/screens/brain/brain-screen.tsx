@@ -1,6 +1,15 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Eye, List, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Eye,
+  List,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,6 +38,7 @@ import {
   type GraphNode,
   type NoteSort,
 } from '@/api/endpoints/notes';
+import { BrainClusterCard } from '@/components/brain-cluster-card';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import {
   extractEmbeds,
@@ -57,6 +67,21 @@ const SORT_LABEL: Record<NoteSort, string> = {
 // An unclosed [[ before the caret means the child is picking a link target.
 const OPEN_LINK = /\[\[([^\[\]]*)$/;
 
+/**
+ * Where cluster cards sit over the map. Six slots along the edges, filled
+ * biggest-cluster-first, because gravity keeps the stars gathered in the
+ * middle and the edges are the only place a card does not cover the thing it
+ * describes. Percentages, so the arrangement survives every screen height.
+ */
+const CLUSTER_SLOTS = [
+  { top: 8, left: 10 },
+  { top: 8, right: 10 },
+  { top: '34%', left: 10 },
+  { top: '34%', right: 10 },
+  { bottom: 104, left: 10 },
+  { bottom: 104, right: 10 },
+] as const;
+
 export default function BrainScreen() {
   const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
@@ -68,6 +93,7 @@ export default function BrainScreen() {
   const [body, setBody] = useState('');
   const [preview, setPreview] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [sort, setSort] = useState<NoteSort>('updated');
   const [peek, setPeek] = useState<string | null>(null);
@@ -84,7 +110,7 @@ export default function BrainScreen() {
   // renderer's INLINE (components/markdown-note.tsx): a tag needs a leading
   // boundary, so "#FF0000" mid-sentence or a markdown "# heading" is not one.
   const hasTag = useMemo(
-    () => /(?:^|\s)#[^\s#.,;:!?()[\]{}'"]{1,40}/.test(body),
+    () => /(?:^|\s)#(?!\d+(?:\s|$))[^\s#.,;:!?()[\]{}'"]{1,40}/.test(body),
     [body],
   );
 
@@ -281,6 +307,47 @@ export default function BrainScreen() {
     setBody((prev) => prev.replace(OPEN_LINK, `[[${linkTitle}]]`));
   };
 
+  /**
+   * The tag clusters, counted off the graph the map is already drawing —
+   * a tag edge names the note filed under it, so the numbers come free
+   * rather than from one request per tag.
+   *
+   * "Links" counts connections that stay INSIDE the cluster, which is the
+   * number worth showing: it says how woven this collection is, where a
+   * count of every edge touching it would mostly measure its size again.
+   */
+  const clusters = useMemo(() => {
+    const edges = graph.data?.edges ?? [];
+    const known = new Set(tags.data ?? []);
+    const members = new Map<string, Set<string>>();
+    for (const e of edges) {
+      if (e.kind !== 'tag') continue;
+      // A tag edge runs between the tag node and the note; whichever end is
+      // the tag names the cluster.
+      const tag = known.has(e.source) ? e.source : e.target;
+      if (!known.has(tag)) continue;
+      const note = tag === e.source ? e.target : e.source;
+      let inside = members.get(tag);
+      if (!inside) {
+        inside = new Set<string>();
+        members.set(tag, inside);
+      }
+      inside.add(note);
+    }
+    return (tags.data ?? [])
+      .map((tag) => {
+        const inside = members.get(tag) ?? new Set<string>();
+        let links = 0;
+        for (const e of edges) {
+          if (e.kind === 'tag') continue;
+          if (inside.has(e.source) && inside.has(e.target)) links++;
+        }
+        return { tag, colour: colourForTag(tag), notes: inside.size, links };
+      })
+      .sort((a, b) => b.notes - a.notes)
+      .slice(0, CLUSTER_SLOTS.length);
+  }, [graph.data?.edges, tags.data]);
+
   const cardBg = isDark ? '#132340' : '#FFFFFF';
   // The note editor/preview is its own header mode; 'home' and 'map' share
   // the plain "Miya" header with a "+" instead of the back/preview/trash row.
@@ -306,77 +373,149 @@ export default function BrainScreen() {
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <KeyboardAvoidingView className="flex-1">
-          {/* Header */}
-          <View className="flex-row items-center gap-2 px-6 py-4">
-            {screen.kind !== 'home' && (
-              <Pressable
-                onPress={() => setScreen(editingNote ? { kind: 'map' } : { kind: 'home' })}
-                accessibilityRole="button"
-                accessibilityLabel={editingNote ? 'Xaritaga qaytish' : 'Bosh sahifaga qaytish'}
-                className="w-10 h-10 items-center justify-center"
+          {/* Header. The map gets its own: a wordmark between two bordered
+              controls, and search folded behind a button so the sky keeps the
+              whole screen until it is asked for. */}
+          {screen.kind === 'map' ? (
+            <View className="flex-row items-center gap-2 px-4 py-3">
+              <MapButton
+                Icon={ArrowLeft}
+                label="Bosh sahifaga qaytish"
+                onPress={() => setScreen({ kind: 'home' })}
+              />
+              <Text
+                className="flex-1 text-center text-[15px] font-bold"
+                style={{ color: '#E8EEFF', letterSpacing: 4 }}
               >
-                <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
-              </Pressable>
-            )}
+                DUYO MIYA
+              </Text>
+              <MapButton
+                Icon={Search}
+                label="Qidirish"
+                on={searchOpen}
+                onPress={() => {
+                  setSearchOpen((v) => !v);
+                  if (searchOpen) setQuery('');
+                }}
+              />
+              <MapButton Icon={Plus} label="Yangi qayd" onPress={() => startNew()} />
+            </View>
+          ) : screen.kind === 'home' ? (
+            <View className="flex-row items-center gap-2 px-4 py-3">
+              <MapButton
+                Icon={Search}
+                label="Qidirish"
+                onPress={() => {
+                  setScreen({ kind: 'map' });
+                  setSearchOpen(true);
+                }}
+              />
+              <Text
+                className="flex-1 text-center text-[15px] font-bold"
+                style={{ color: '#E8EEFF', letterSpacing: 4 }}
+              >
+                DUYO MIYA
+              </Text>
+              <MapButton Icon={Plus} label="Yangi qayd" onPress={() => startNew()} />
+            </View>
+          ) : (
+          <View className="flex-row items-center gap-2 px-6 py-4">
+            <Pressable
+              onPress={() => setScreen({ kind: 'map' })}
+              accessibilityRole="button"
+              accessibilityLabel="Xaritaga qaytish"
+              className="w-10 h-10 items-center justify-center"
+            >
+              <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            </Pressable>
             <Text className="text-xl font-bold text-foreground dark:text-dark-text flex-1">
-              {editingNote ? (preview ? title || 'Qayd' : 'Tahrir') : 'Miya'}
+              {preview ? title || 'Qayd' : 'Tahrir'}
             </Text>
 
-            {editingNote ? (
-              <View className="flex-row items-center gap-1">
-                <Pressable
-                  onPress={() => setPreview((p) => !p)}
-                  accessibilityRole="button"
-                  accessibilityLabel={preview ? 'Tahrirlash' : "Ko'rish"}
-                  className="w-10 h-10 items-center justify-center rounded-md"
-                  style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
-                >
-                  {preview ? (
-                    <Pencil size={18} color="#60A5FA" />
-                  ) : (
-                    <Eye size={18} color="#60A5FA" />
-                  )}
-                </Pressable>
-                {screen.kind === 'note' && (
-                  <Pressable
-                    onPress={() => remove.mutate(screen.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Qaydni o'chirish"
-                    className="w-10 h-10 items-center justify-center"
-                  >
-                    <Trash2 size={18} color="#FB64B6" />
-                  </Pressable>
-                )}
-              </View>
-            ) : (
+            <View className="flex-row items-center gap-1">
               <Pressable
-                onPress={() => startNew()}
+                onPress={() => setPreview((p) => !p)}
                 accessibilityRole="button"
-                accessibilityLabel="Yangi qayd"
+                accessibilityLabel={preview ? 'Tahrirlash' : "Ko'rish"}
                 className="w-10 h-10 items-center justify-center rounded-md"
                 style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
               >
-                <Plus size={20} color="#60A5FA" />
+                {preview ? (
+                  <Pencil size={18} color="#60A5FA" />
+                ) : (
+                  <Eye size={18} color="#60A5FA" />
+                )}
               </Pressable>
-            )}
+              {screen.kind === 'note' && (
+                <Pressable
+                  onPress={() => remove.mutate(screen.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Qaydni o'chirish"
+                  className="w-10 h-10 items-center justify-center"
+                >
+                  <Trash2 size={18} color="#FB64B6" />
+                </Pressable>
+              )}
+            </View>
           </View>
+          )}
 
           {screen.kind === 'home' ? (
-            <BrainHome
-              childId={childId}
-              notes={notes.data ?? []}
-              tags={tags.data ?? []}
-              graphNodes={graph.data?.nodes ?? []}
-              graphEdges={graph.data?.edges ?? []}
-              cardBg={cardBg}
-              onNewNote={() => startNew()}
-              onStartNote={(t) => startNew(t)}
-              onOpenTag={(t) => {
-                setActiveTag(t);
-                setScreen({ kind: 'map' });
-              }}
-              onExploreGraph={() => setScreen({ kind: 'map' })}
-            />
+            <View className="flex-1">
+              <BrainHome
+                childId={childId}
+                notes={notes.data ?? []}
+                tags={tags.data ?? []}
+                graphNodes={graph.data?.nodes ?? []}
+                graphEdges={graph.data?.edges ?? []}
+                clusters={clusters}
+                cardBg={cardBg}
+                onNewNote={() => startNew()}
+                onStartNote={(t) => startNew(t)}
+                onOpenTag={(t) => {
+                  setActiveTag(t);
+                  setScreen({ kind: 'map' });
+                }}
+                onExploreGraph={() => setScreen({ kind: 'map' })}
+              />
+
+              {/* Quick capture — the centred orb from the reference design.
+                  Floats over the dashboard, above the tab bar, so a thought
+                  is one thumb-press from being written down wherever the
+                  child has scrolled to. */}
+              <View
+                className="absolute left-0 right-0 items-center"
+                style={{ bottom: 14, pointerEvents: 'box-none' }}
+              >
+                <Pressable
+                  onPress={() => startNew()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tezkor qayd"
+                  className="items-center justify-center active:opacity-80"
+                  style={{
+                    width: 62,
+                    height: 62,
+                    borderRadius: 31,
+                    borderWidth: 2,
+                    borderColor: '#C27AFF',
+                    backgroundColor: 'rgba(130, 0, 219, 0.35)',
+                    shadowColor: '#C27AFF',
+                    shadowOpacity: 0.55,
+                    shadowRadius: 16,
+                    shadowOffset: { width: 0, height: 0 },
+                    elevation: 8,
+                  }}
+                >
+                  <Plus size={26} color="#E8EEFF" />
+                </Pressable>
+                <Text
+                  className="text-[9px] font-bold mt-1"
+                  style={{ color: '#8FA3C8', letterSpacing: 2 }}
+                >
+                  TEZKOR QAYD
+                </Text>
+              </View>
+            </View>
           ) : editingNote ? (
             <ScrollView contentContainerStyle={{ padding: 24, gap: 14, paddingBottom: 140 }}>
               {preview ? (
@@ -667,27 +806,50 @@ export default function BrainScreen() {
                 />
               )}
 
+              {/* The clusters, pinned to the edges of the sky. */}
+              {clusters.map((c, i) => (
+                <BrainClusterCard
+                  key={c.tag}
+                  cluster={c}
+                  active={activeTag === c.tag}
+                  onPress={() => setActiveTag(activeTag === c.tag ? null : c.tag)}
+                  onLongPress={() => {
+                    setRenaming(c.tag);
+                    setRenameTo(c.tag);
+                  }}
+                  position={CLUSTER_SLOTS[i]}
+                />
+              ))}
+
               {/* Floating chrome, pinned to the top of the map. */}
               <View
                 className="absolute left-0 right-0 top-0"
                 style={{ paddingHorizontal: 16, paddingTop: 4, gap: 8, pointerEvents: 'box-none' }}
               >
-                <View
-                  className="flex-row items-center rounded-md gap-2 border border-neon-blue/20"
-                  style={{ backgroundColor: cardBg, paddingHorizontal: 14, height: 42 }}
-                >
-                  <Search size={17} color="#94A3B8" />
-                  <TextInput
-                    value={query}
-                    onChangeText={setQuery}
-                    placeholder="Qaydlardan qidirish…"
-                    placeholderTextColor="#94A3B8"
-                    accessibilityLabel="Qaydlardan qidirish"
-                    className="flex-1 text-base text-foreground dark:text-dark-text"
-                  />
-                </View>
+                {searchOpen && (
+                  <View
+                    className="flex-row items-center rounded-md gap-2 border border-neon-blue/20"
+                    style={{ backgroundColor: cardBg, paddingHorizontal: 14, height: 42 }}
+                  >
+                    <Search size={17} color="#94A3B8" />
+                    <TextInput
+                      value={query}
+                      onChangeText={setQuery}
+                      placeholder="Qaydlardan qidirish…"
+                      placeholderTextColor="#94A3B8"
+                      accessibilityLabel="Qaydlardan qidirish"
+                      autoFocus
+                      className="flex-1 text-base text-foreground dark:text-dark-text"
+                    />
+                  </View>
+                )}
 
-                {!!tags.data?.length && (
+                {/* There are only six card slots. With more tags than that,
+                    the chip row stays so the ones that missed a slot are still
+                    reachable — a filter you cannot reach is a filter you have
+                    lost. Below that threshold the cards say everything and the
+                    row would only repeat them. */}
+                {(tags.data?.length ?? 0) > CLUSTER_SLOTS.length && (
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -697,7 +859,7 @@ export default function BrainScreen() {
                         tag's star and everything filed under it carries on the
                         map. The filter row is therefore also the legend, and a
                         child reads the colours by using them. */}
-                    {tags.data.map((t) => {
+                    {(tags.data ?? []).map((t) => {
                       const on = activeTag === t;
                       const colour = colourForTag(t);
                       return (
@@ -941,5 +1103,40 @@ export default function BrainScreen() {
         </Pressable>
       )}
     </View>
+  );
+}
+
+/**
+ * A control in the map's header: an outlined square, lit when its mode is on.
+ * The map has no surface of its own to sit a plain icon on — the sky runs
+ * edge to edge — so each control brings its own border to stay legible over
+ * whatever drifts behind it.
+ */
+function MapButton({
+  Icon,
+  label,
+  onPress,
+  on = false,
+}: {
+  Icon: LucideIcon;
+  label: string;
+  onPress: () => void;
+  on?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: on }}
+      className="w-10 h-10 items-center justify-center rounded-xl active:opacity-70"
+      style={{
+        borderWidth: 1,
+        borderColor: on ? '#60A5FA' : 'rgba(150, 180, 255, 0.22)',
+        backgroundColor: on ? 'rgba(96, 165, 250, 0.18)' : 'rgba(11, 16, 32, 0.55)',
+      }}
+    >
+      <Icon size={18} color={on ? '#60A5FA' : '#DCE6FA'} />
+    </Pressable>
   );
 }

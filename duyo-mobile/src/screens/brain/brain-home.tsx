@@ -1,25 +1,38 @@
 import { useRouter } from 'expo-router';
 import { useQueries } from '@tanstack/react-query';
-import {
-  Mic,
-  Network,
-  Plus,
-  ScanLine,
-  Sparkles,
-  Target,
-} from 'lucide-react-native';
+import { Mic, Plus, ScanLine, Sparkles, Target } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { listNotes, type GraphNode, type NoteListItem } from '@/api/endpoints/notes';
+import {
+  listNotes,
+  type GraphEdge,
+  type GraphNode,
+  type NoteListItem,
+} from '@/api/endpoints/notes';
+import {
+  BrainClusterCard,
+  type ClusterStats,
+} from '@/components/brain-cluster-card';
+import { FocusTimerCard } from '@/components/brain/focus-timer-card';
+import { InsightsCard } from '@/components/brain/insights-card';
+import {
+  KnowledgePulseCard,
+  type PulseDay,
+} from '@/components/brain/knowledge-pulse-card';
+import { NoteGraph } from '@/components/note-graph';
+import { summarizeGraph } from '@/lib/brain-insights';
 import { colourForTag } from '@/lib/galaxy-layout';
+import { WEEK_DAY_LABELS } from '@/lib/weekly-activity';
 
 interface BrainHomeProps {
   childId: string;
   notes: NoteListItem[];
   tags: string[];
   graphNodes: GraphNode[];
-  graphEdges: { source: string; target: string }[];
+  graphEdges: GraphEdge[];
+  /** Computed once in brain-screen — the map's edge cards use the same list. */
+  clusters: ClusterStats[];
   cardBg: string;
   onNewNote: () => void;
   /** Prefills the title so the child lands straight in the editor for it. */
@@ -28,14 +41,20 @@ interface BrainHomeProps {
   onExploreGraph: () => void;
 }
 
-function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
+const HERO_HEIGHT = 330;
+
+/** Where cluster cards sit over the hero — corners, because gravity keeps the
+ *  drifting stars gathered in the middle. */
+const HERO_SLOTS = [
+  { top: 10, left: 10 },
+  { top: 10, right: 10 },
+  { bottom: 10, left: 10 },
+  { bottom: 10, right: 10 },
+] as const;
+
+/** Monday-based index for the weekly strip: Monday → 0 … Sunday → 6. */
+function weekIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
 }
 
 export default function BrainHome({
@@ -44,6 +63,7 @@ export default function BrainHome({
   tags,
   graphNodes,
   graphEdges,
+  clusters,
   cardBg,
   onNewNote,
   onStartNote,
@@ -51,11 +71,6 @@ export default function BrainHome({
   onExploreGraph,
 }: BrainHomeProps) {
   const router = useRouter();
-
-  const updatedToday = useMemo(
-    () => notes.filter((n) => isToday(n.updated_at)).length,
-    [notes],
-  );
 
   // "Connectivity" — a real, honest number: how many of the child's actual
   // notes have at least one link, out of all their actual notes. Not an
@@ -67,12 +82,34 @@ export default function BrainHome({
     return Math.round((linked / written.length) * 100);
   }, [graphNodes]);
 
-  // A note the child has [[linked]] to from somewhere but never written —
-  // the graph already knows this; nothing here is guessed or generated.
-  const unwritten = useMemo(
-    () => graphNodes.find((n) => n.kind === 'note' && !n.exists) ?? null,
-    [graphNodes],
+  // This week's activity, bucketed by weekday from when each note was last
+  // touched. `updated_at` is the only date the list endpoint carries, so the
+  // strip honestly shows "days you worked on notes", not "notes created".
+  const week = useMemo(() => {
+    const now = new Date();
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    monday.setDate(monday.getDate() - weekIndex(now));
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    for (const n of notes) {
+      const d = new Date(n.updated_at);
+      if (d >= monday && d <= now) counts[weekIndex(d)]++;
+    }
+    const today = weekIndex(now);
+    const days: PulseDay[] = WEEK_DAY_LABELS.map((label, i) => ({
+      label,
+      count: counts[i],
+      isToday: i === today,
+      isFuture: i > today,
+    }));
+    return { days, total: counts.reduce((a, b) => a + b, 0) };
+  }, [notes]);
+
+  const summary = useMemo(
+    () => summarizeGraph(graphNodes, graphEdges, tags),
+    [graphNodes, graphEdges, tags],
   );
+
+  const hasSky = graphNodes.some((n) => n.kind !== 'tag');
 
   // Real per-tag counts. Small, bounded list (children don't accumulate
   // hundreds of tags), same parallel-query shape brain-screen.tsx already
@@ -86,38 +123,77 @@ export default function BrainHome({
   });
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, gap: 14, paddingBottom: 48 }}>
-      {/* Today */}
-      <View
-        className="rounded-2xl border border-neon-purple/25 flex-row items-center"
-        style={{ backgroundColor: cardBg, padding: 18 }}
-      >
-        <View className="flex-1 pr-3">
-          <Text className="text-xs font-bold tracking-wide text-dark-heading dark:text-dark-heading">
-            BUGUNGI FOKUS
-          </Text>
-          <Text className="text-lg font-bold text-foreground dark:text-dark-text mt-1">
-            G'oyalarni bog'la.{'\n'}Bilim qur.
-          </Text>
-          <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-2">
-            {notes.length} ta qayd · {updatedToday} ta bugun yangilandi
-          </Text>
-        </View>
-        <View className="items-center justify-center">
+    <ScrollView
+      contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 14, paddingBottom: 150 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* ── The sky itself, live. The same simulation as the full map — the
+          stars drift here too — behind a tap-through into the real thing.
+          The overlay Pressable deliberately swallows the map's own gestures:
+          a preview that pans and zooms would fight the page scroll. */}
+      {hasSky ? (
+        <View
+          className="rounded-2xl overflow-hidden"
+          style={{
+            height: HERO_HEIGHT,
+            borderWidth: 1,
+            borderColor: 'rgba(150, 180, 255, 0.18)',
+            backgroundColor: '#070B1A',
+          }}
+        >
+          <NoteGraph
+            nodes={graphNodes}
+            edges={graphEdges}
+            onSelect={() => onExploreGraph()}
+            height={HERO_HEIGHT}
+          />
+          <Pressable
+            onPress={onExploreGraph}
+            accessibilityRole="button"
+            accessibilityLabel="Bilim xaritasini ochish"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          {clusters.slice(0, HERO_SLOTS.length).map((c, i) => (
+            <BrainClusterCard
+              key={c.tag}
+              cluster={c}
+              active={false}
+              onPress={() => onOpenTag(c.tag)}
+              onLongPress={() => onOpenTag(c.tag)}
+              position={HERO_SLOTS[i]}
+            />
+          ))}
           <View
-            className="items-center justify-center rounded-full border-2 border-neon-blue"
-            style={{ width: 74, height: 74 }}
+            className="absolute self-center rounded-full px-3 py-1.5"
+            style={{ bottom: 10, backgroundColor: 'rgba(11, 16, 32, 0.72)' }}
           >
-            <Text className="text-xl font-bold text-neon-blue">
-              {pulse === null ? '—' : pulse}
+            <Text className="text-[11px]" style={{ color: '#8FA3C8' }}>
+              Xaritani ochish →
             </Text>
-            <Text className="text-[9px] text-dark-muted">{pulse === null ? '' : '%'}</Text>
           </View>
-          <Text className="text-[10px] text-muted-foreground dark:text-dark-muted mt-1 text-center">
-            bog'langan{'\n'}qaydlar
-          </Text>
         </View>
-      </View>
+      ) : (
+        <Pressable
+          onPress={onNewNote}
+          accessibilityRole="button"
+          accessibilityLabel="Birinchi qaydni yozish"
+          className="rounded-2xl items-center justify-center active:opacity-80"
+          style={{
+            height: 180,
+            borderWidth: 1,
+            borderColor: 'rgba(150, 180, 255, 0.18)',
+            backgroundColor: 'rgba(11, 16, 32, 0.72)',
+          }}
+        >
+          <Sparkles size={22} color="#C27AFF" />
+          <Text className="text-sm mt-2" style={{ color: '#E8EEFF' }}>
+            Osmoningiz hali bo'sh
+          </Text>
+          <Text className="text-xs mt-1" style={{ color: '#8FA3C8' }}>
+            Birinchi qaydni yozing — birinchi yulduz yonadi
+          </Text>
+        </Pressable>
+      )}
 
       {/* Quick actions */}
       <View className="flex-row justify-between">
@@ -137,39 +213,20 @@ export default function BrainHome({
         />
       </View>
 
-      {/* Graph card */}
-      <View
-        className="rounded-2xl border border-neon-blue/20"
-        style={{ backgroundColor: cardBg, padding: 18 }}
-      >
-        <Text className="text-xs font-bold tracking-wide text-dark-heading dark:text-dark-heading mb-1">
-          BILIM GRAFIGI
-        </Text>
-        <View className="flex-row items-center gap-4 mt-1">
-          <View
-            className="items-center justify-center rounded-full"
-            style={{ width: 54, height: 54, backgroundColor: 'rgba(96,165,250,0.14)' }}
-          >
-            <Network size={26} color="#60A5FA" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-base font-bold text-foreground dark:text-dark-text">
-              Bilimingiz o'sib bormoqda
-            </Text>
-            <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-0.5">
-              {graphNodes.filter((n) => n.kind !== 'tag').length} tugun · {graphEdges.length} bog'lanish
-            </Text>
-          </View>
+      <InsightsCard
+        summary={summary}
+        onExplore={onExploreGraph}
+        onStartNote={onStartNote}
+        onNewNote={onNewNote}
+      />
+
+      <View className="flex-row" style={{ gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <FocusTimerCard />
         </View>
-        <Pressable
-          onPress={onExploreGraph}
-          accessibilityRole="button"
-          accessibilityLabel="Bilim grafigini ochish"
-          className="rounded-md items-center justify-center mt-4 active:opacity-70"
-          style={{ height: 42, backgroundColor: 'rgba(96,165,250,0.15)' }}
-        >
-          <Text className="text-sm text-neon-blue">Xaritani ochish →</Text>
-        </Pressable>
+        <View style={{ flex: 1 }}>
+          <KnowledgePulseCard pulse={pulse} days={week.days} weekTotal={week.total} />
+        </View>
       </View>
 
       {/* Collections */}
@@ -227,33 +284,6 @@ export default function BrainHome({
           )}
         </View>
       </View>
-
-      {/* Real, graph-derived suggestion — never a fabricated "AI insight". */}
-      {unwritten && (
-        <View
-          className="rounded-2xl border border-neon-yellow/25"
-          style={{ backgroundColor: cardBg, padding: 16 }}
-        >
-          <View className="flex-row items-center gap-2 mb-1">
-            <Sparkles size={14} color="#FDC700" />
-            <Text className="text-xs font-bold tracking-wide" style={{ color: '#FDC700' }}>
-              TAVSIYA
-            </Text>
-          </View>
-          <Text className="text-sm text-foreground dark:text-dark-text">
-            "{unwritten.title}" ga boshqa qaydlardan bog'langansiz, lekin u hali yozilmagan.
-          </Text>
-          <Pressable
-            onPress={() => onStartNote(unwritten.title)}
-            accessibilityRole="button"
-            accessibilityLabel={`${unwritten.title} qaydini yozishni boshlash`}
-            className="rounded-md self-start px-3 py-2 mt-3 active:opacity-70"
-            style={{ backgroundColor: 'rgba(253,199,0,0.16)' }}
-          >
-            <Text className="text-xs" style={{ color: '#FDC700' }}>Yozishni boshlash</Text>
-          </Pressable>
-        </View>
-      )}
     </ScrollView>
   );
 }
