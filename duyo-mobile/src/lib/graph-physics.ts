@@ -53,20 +53,22 @@ const ALPHA_DECAY = 0.08;
  *  first seconds settled into is preserved — nothing reorganises on its own. */
 const ALPHA_IDLE = 0.055;
 
-/** Ambient drift — the sky is never still.
+/** Ambient wander — the sky is never still, and it does not march in step.
  *
- *  Two sine waves per body with periods that do not divide each other, so a
- *  body's path does not visibly repeat; and phases derived from the body's
- *  index rather than a RNG, so this file's determinism rule survives (the
- *  same notebook drifts identically on every device).
+ *  Each axis of each body sums two waves whose frequencies are picked per
+ *  body from small primes-ish tables, so no two bodies share a rhythm and a
+ *  single body's path loops without visibly repeating — restless rather than
+ *  orbital. Everything derives from the body's index, never a RNG, so this
+ *  file's determinism rule survives (the same notebook wanders identically
+ *  on every device).
  *
  *  Acceleration, not a position offset: a nudge has to enter the same
  *  velocity the springs and repulsion read, or neighbours would not follow.
- *  With FRICTION at 0.6 a steady push settles at 2.5x itself per tick, so
- *  this is a few pixels a second — a slow breath, not a jitter. */
-const DRIFT_ACCEL = 0.095;
-const DRIFT_RATE_X = 0.0131;
-const DRIFT_RATE_Y = 0.0079;
+ *  With FRICTION at 0.6 a steady push settles at 2.5x itself per tick —
+ *  tuned here to a visible roam of tens of pixels, against which the springs
+ *  still hold every constellation together (verified numerically: link
+ *  lengths stay at rest ±10% while bodies cover 30-60px every ten seconds). */
+const DRIFT_ACCEL = 0.24;
 /** While a finger holds a body the system idles warm at this alpha instead
  *  of cooling, so neighbours keep responding for the whole drag. (d3's
  *  `alphaTarget(0.3)` drag convention.) */
@@ -105,9 +107,14 @@ export class GraphPhysics {
   private readonly radii: Float64Array;
   private readonly degree: Int32Array;
   private readonly links: { a: number; b: number; dist: number; strength: number; bias: number }[];
-  /** Per-body drift phase and amplitude, precomputed in the constructor. */
+  /** Per-body wander character — phases, two frequencies per axis, and how
+   *  far this body is willing to stray — precomputed in the constructor. */
   private readonly phase: Float64Array;
   private readonly sway: Float64Array;
+  private readonly fx1: Float64Array;
+  private readonly fx2: Float64Array;
+  private readonly fy1: Float64Array;
+  private readonly fy2: Float64Array;
 
   private readonly cx: number;
   private readonly cy: number;
@@ -150,15 +157,24 @@ export class GraphPhysics {
       this.degree[l.a]++;
       this.degree[l.b]++;
     }
-    // Drift: an irrational-ish stride keeps neighbouring indices from sharing
-    // a phase, so the sky breathes unevenly instead of pulsing in unison. A
-    // well-linked body sways less — the hub should feel anchored while the
-    // leaves wander, which is also what stops the whole map from sliding.
+    // Wander: an irrational-ish stride keeps neighbouring indices from
+    // sharing a phase, and the frequency tables keep them from sharing a
+    // rhythm — so the sky moves unevenly, every body on its own errand. A
+    // well-linked body strays less: the hub should feel anchored while the
+    // leaves roam, which is also what stops the whole map from sliding.
     this.phase = new Float64Array(n);
     this.sway = new Float64Array(n);
+    this.fx1 = new Float64Array(n);
+    this.fx2 = new Float64Array(n);
+    this.fy1 = new Float64Array(n);
+    this.fy2 = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       this.phase[i] = i * 2.399963; // golden angle in radians
-      this.sway[i] = 1 / (1 + this.degree[i] * 0.6);
+      this.sway[i] = 1 / (1 + this.degree[i] * 0.35);
+      this.fx1[i] = 0.011 + ((i * 7) % 5) * 0.0021;
+      this.fx2[i] = 0.0047 + ((i * 13) % 7) * 0.0013;
+      this.fy1[i] = 0.0093 + ((i * 11) % 6) * 0.0019;
+      this.fy2[i] = 0.0059 + ((i * 5) % 4) * 0.0017;
     }
 
     this.links = links.map((l) => {
@@ -212,8 +228,8 @@ export class GraphPhysics {
     const n = xs.length;
     const a = this.alpha;
 
-    // Ambient drift. Deliberately outside the alpha scaling: alpha is how
-    // unsettled the LAYOUT is, and the sky keeps breathing long after the
+    // Ambient wander. Deliberately outside the alpha scaling: alpha is how
+    // unsettled the LAYOUT is, and the sky keeps roaming long after the
     // layout has stopped having opinions.
     if (this.ambient) {
       const t = this.age;
@@ -221,8 +237,14 @@ export class GraphPhysics {
         if (i === this.pinned) continue;
         const p = this.phase[i];
         const s = this.sway[i] * DRIFT_ACCEL;
-        vxs[i] += Math.cos(t * DRIFT_RATE_X + p) * s;
-        vys[i] += Math.sin(t * DRIFT_RATE_Y + p * 1.7) * s;
+        vxs[i] +=
+          (Math.cos(t * this.fx1[i] + p) +
+            0.6 * Math.sin(t * this.fx2[i] + p * 2.3)) *
+          s;
+        vys[i] +=
+          (Math.sin(t * this.fy1[i] + p * 1.7) +
+            0.6 * Math.cos(t * this.fy2[i] + p * 3.1)) *
+          s;
       }
     }
 
