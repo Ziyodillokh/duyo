@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
 import type { Galaxy } from '@/lib/galaxy-layout';
@@ -35,10 +36,12 @@ export interface GraphSim {
 /**
  * The brain map's live physics, as a hook.
  *
- * Owns the simulation loop the way Obsidian's graph view runs it: warm after
- * anything changes, asleep once settled, re-warmed by a drag. Positions live
- * in typed arrays inside `GraphPhysics`; `tick` is the only React state, so a
- * physics step costs exactly one render and nothing re-mounts.
+ * Owns the simulation loop: hot after anything changes, idling warm forever
+ * after, hot again under a finger. The sky never stops moving, so this loop
+ * runs for as long as the map is on screen and is parked when it is not.
+ * Positions live in typed arrays inside `GraphPhysics`; `tick` is the only
+ * React state, so a physics step costs exactly one render and nothing
+ * re-mounts.
  *
  * Node positions survive a data refetch: when the galaxy is rebuilt (a note
  * was added, a link changed), every body that still exists starts from where
@@ -46,14 +49,27 @@ export interface GraphSim {
  * stays "their" sky instead of reshuffling on every save.
  *
  * Under the OS "reduce motion" setting the same physics still decides the
- * layout — it just runs to rest synchronously and renders only the settled
- * sky. Constant ambient movement is exactly what that setting exists to turn
- * off, and dragging is disabled with it: a drag's whole feedback is motion.
+ * layout — it runs to rest synchronously, with the drift retired, and renders
+ * only the settled sky. Constant ambient movement is exactly what that
+ * setting exists to turn off, and dragging is disabled with it: a drag's
+ * whole feedback is motion.
  */
 export function useGraphSim(galaxy: Galaxy | null): GraphSim {
   const [tick, setTick] = useState(0);
   const [resting, setResting] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [focused, setFocused] = useState(true);
+
+  // The sky never settles, so nothing else would ever stop this loop. A tab
+  // the child has navigated away from stays mounted, and a physics step per
+  // frame behind another screen is battery spent on something nobody is
+  // looking at.
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
 
   /** Where each body was last drawn, so a rebuilt galaxy keeps the sky. */
   const lastSeen = useRef(new Map<string, { x: number; y: number }>());
@@ -127,7 +143,7 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
   }, [built, reduceMotion]);
 
   useEffect(() => {
-    if (!built || resting || reduceMotion) return;
+    if (!built || resting || reduceMotion || !focused) return;
     let frame: number | null = null;
     let last = 0;
 
@@ -137,6 +153,8 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
         if (built.sim.tick()) {
           setTick((t) => t + 1);
         } else {
+          // Only reachable with drift retired (reduce motion); a breathing
+          // sky never reports itself done.
           setResting(true);
           return;
         }
@@ -148,7 +166,7 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
     return () => {
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [built, resting, reduceMotion]);
+  }, [built, resting, reduceMotion, focused]);
 
   // Fresh object every render on purpose: consumers key their memoisation on
   // it, and a stable identity here would let a memo keep drawing a sky the

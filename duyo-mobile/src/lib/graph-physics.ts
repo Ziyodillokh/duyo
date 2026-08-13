@@ -4,11 +4,16 @@
  *
  * This is d3-force's velocity-Verlet scheme reimplemented small: every tick,
  * bodies repel each other, links pull their endpoints together like springs,
- * a gentle gravity draws everything toward the canvas centre, and the whole
- * system cools down (`alpha` decays) until it falls asleep. Grabbing a body
- * pins it to the finger and re-heats the system, so its neighbourhood
+ * and a gentle gravity draws everything toward the canvas centre. Grabbing a
+ * body pins it to the finger and re-heats the system, so its neighbourhood
  * reorganises around the drag and settles again on release — which is
  * exactly the motion Obsidian users know.
+ *
+ * Unlike d3, the system never stops. `alpha` cools to a floor rather than to
+ * zero and every body carries a slow drift, so the sky keeps breathing:
+ * bodies wander, their links tug the neighbours along, and repulsion opens
+ * room ahead of them. The layout still settles in the first seconds — the
+ * drift is small enough to sway the sky, never to rearrange it.
  *
  * Deliberately deterministic: no randomness anywhere, so the same notebook
  * settles into the same sky on every device. The only "noise" is an
@@ -32,11 +37,36 @@ export interface SimLink {
   b: number;
 }
 
-/** How cool the system must get before it stops ticking. */
+/** How cool the system must get before it stops ticking. Only reachable once
+ *  ambient drift is off (see `settleSync`) — a live sky never gets there. */
 const ALPHA_MIN = 0.001;
-/** Cooling rate per tick. ~90 ticks from 1 to asleep — a few seconds of
- *  settling at TICK_FPS, which is the Obsidian feel: a burst, then stillness. */
+/** Cooling rate per tick. ~90 ticks from 1 to idle — a few seconds of
+ *  settling, the burst you see when the map opens. */
 const ALPHA_DECAY = 0.08;
+
+/** The floor the system cools to instead of stopping.
+ *
+ *  Structural forces stay awake at this alpha, which is what makes the drift
+ *  below read as one connected sky rather than as bodies sliding
+ *  independently: when a note wanders, its springs carry the neighbours with
+ *  it and repulsion opens a path ahead of it. Low enough that the layout the
+ *  first seconds settled into is preserved — nothing reorganises on its own. */
+const ALPHA_IDLE = 0.055;
+
+/** Ambient drift — the sky is never still.
+ *
+ *  Two sine waves per body with periods that do not divide each other, so a
+ *  body's path does not visibly repeat; and phases derived from the body's
+ *  index rather than a RNG, so this file's determinism rule survives (the
+ *  same notebook drifts identically on every device).
+ *
+ *  Acceleration, not a position offset: a nudge has to enter the same
+ *  velocity the springs and repulsion read, or neighbours would not follow.
+ *  With FRICTION at 0.6 a steady push settles at 2.5x itself per tick, so
+ *  this is a few pixels a second — a slow breath, not a jitter. */
+const DRIFT_ACCEL = 0.095;
+const DRIFT_RATE_X = 0.0131;
+const DRIFT_RATE_Y = 0.0079;
 /** While a finger holds a body the system idles warm at this alpha instead
  *  of cooling, so neighbours keep responding for the whole drag. (d3's
  *  `alphaTarget(0.3)` drag convention.) */
@@ -75,13 +105,22 @@ export class GraphPhysics {
   private readonly radii: Float64Array;
   private readonly degree: Int32Array;
   private readonly links: { a: number; b: number; dist: number; strength: number; bias: number }[];
+  /** Per-body drift phase and amplitude, precomputed in the constructor. */
+  private readonly phase: Float64Array;
+  private readonly sway: Float64Array;
 
   private readonly cx: number;
   private readonly cy: number;
   private readonly centralIndex: number;
 
+  /** Ticks elapsed — the clock the drift waves are read at. Frame-counted,
+   *  not wall-clock, for the same reason the rest of the step is: a dropped
+   *  frame should slow the sky, never teleport it. */
+  private age = 0;
+  private ambient = true;
+
   private alpha = 1;
-  private alphaTarget = 0;
+  private alphaTarget = ALPHA_IDLE;
   /** Index of the finger-held body, or -1. */
   private pinned = -1;
   private pinX = 0;
@@ -111,6 +150,17 @@ export class GraphPhysics {
       this.degree[l.a]++;
       this.degree[l.b]++;
     }
+    // Drift: an irrational-ish stride keeps neighbouring indices from sharing
+    // a phase, so the sky breathes unevenly instead of pulsing in unison. A
+    // well-linked body sways less — the hub should feel anchored while the
+    // leaves wander, which is also what stops the whole map from sliding.
+    this.phase = new Float64Array(n);
+    this.sway = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      this.phase[i] = i * 2.399963; // golden angle in radians
+      this.sway[i] = 1 / (1 + this.degree[i] * 0.6);
+    }
+
     this.links = links.map((l) => {
       const da = Math.max(1, this.degree[l.a]);
       const db = Math.max(1, this.degree[l.b]);
@@ -148,17 +198,33 @@ export class GraphPhysics {
 
   release(): void {
     this.pinned = -1;
-    this.alphaTarget = 0;
+    this.alphaTarget = this.ambient ? ALPHA_IDLE : 0;
   }
 
-  /** One physics step. Returns false once the system is asleep. */
+  /** One physics step. Returns false once the system is asleep — which only
+   *  happens with ambient drift turned off. */
   tick(): boolean {
     this.alpha += (this.alphaTarget - this.alpha) * ALPHA_DECAY;
     if (this.alpha < ALPHA_MIN && this.pinned < 0) return false;
+    this.age++;
 
     const { xs, ys, vxs, vys, charge, links } = this;
     const n = xs.length;
     const a = this.alpha;
+
+    // Ambient drift. Deliberately outside the alpha scaling: alpha is how
+    // unsettled the LAYOUT is, and the sky keeps breathing long after the
+    // layout has stopped having opinions.
+    if (this.ambient) {
+      const t = this.age;
+      for (let i = 0; i < n; i++) {
+        if (i === this.pinned) continue;
+        const p = this.phase[i];
+        const s = this.sway[i] * DRIFT_ACCEL;
+        vxs[i] += Math.cos(t * DRIFT_RATE_X + p) * s;
+        vys[i] += Math.sin(t * DRIFT_RATE_Y + p * 1.7) * s;
+      }
+    }
 
     // Gravity toward the centre.
     for (let i = 0; i < n; i++) {
@@ -249,8 +315,14 @@ export class GraphPhysics {
   }
 
   /** Run to rest right now — the "reduce motion" path renders only the
-   *  settled sky, with no animation in between. */
+   *  settled sky, with no animation in between.
+   *
+   *  Retires the drift for good on this instance: constant ambient movement is
+   *  the exact thing that setting exists to turn off, so a sim that has been
+   *  settled once must never start breathing again. */
   settleSync(maxTicks = 300): void {
+    this.ambient = false;
+    this.alphaTarget = 0;
     for (let t = 0; t < maxTicks && this.tick(); t++) {
       /* tick */
     }
