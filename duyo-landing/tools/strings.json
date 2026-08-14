@@ -1,0 +1,738 @@
+[
+ {
+  "where": "head/title",
+  "text": "DUYO — bolalar uchun xavfsiz AI hamroh | Ilovani yuklab oling"
+ },
+ {
+  "where": "body/a",
+  "text": "Asosiy kontentga o'tish"
+ },
+ {
+  "where": "a/span",
+  "text": "DUYO"
+ },
+ {
+  "where": "li/a",
+  "text": "Imkoniyatlar"
+ },
+ {
+  "where": "li/a",
+  "text": "Xavfsizlik"
+ },
+ {
+  "where": "li/a",
+  "text": "Ota-onalar uchun"
+ },
+ {
+  "where": "li/a",
+  "text": "Narxlar"
+ },
+ {
+  "where": "li/a",
+  "text": "FAQ"
+ },
+ {
+  "where": "button/span",
+  "text": "UZ"
+ },
+ {
+  "where": "button/span",
+  "text": "O'zbekcha"
+ },
+ {
+  "where": "button/span",
+  "text": "Русский"
+ },
+ {
+  "where": "button/span",
+  "text": "English"
+ },
+ {
+  "where": "div/a",
+  "text": "Yuklab olish"
+ },
+ {
+  "where": "div/span",
+  "text": "O'zbek tilida · 7-16 yosh"
+ },
+ {
+  "where": "div/h1",
+  "text": "'ni yuklab oling"
+ },
+ {
+  "where": "div/p",
+  "text": "Bolangiz uchun xavfsiz AI hamroh — suhbatlashadi, o'rgatadi va qo'llab-quvvatlaydi. iPhone va Android'da bepul boshlang."
+ },
+ {
+  "where": "span/span",
+  "text": "Download on the"
+ },
+ {
+  "where": "span/span",
+  "text": "App Store"
+ },
+ {
+  "where": "span/span",
+  "text": "GET IT ON"
+ },
+ {
+  "where": "span/span",
+  "text": "Google Play"
+ },
+ {
+  "where": "div/a",
+  "text": "APK faylni yuklab olish (Android)"
+ },
+ {
+  "where": "div/span",
+  "text": "v1.0.0 · 125 MB · Android 8.0+"
+ },
+ {
+  "where": "ul/li",
+  "text": "Reklama yo'q"
+ },
+ {
+  "where": "ul/li",
+  "text": "Ota-ona nazorati"
+ },
+ {
+  "where": "ul/li",
+  "text": "Ma'lumotlar himoyalangan"
+ },
+ {
+  "where": "div/h2",
+  "text": "Mos keluvchi platformalar"
+ },
+ {
+  "where": "div/p",
+  "text": "Istagan qurilmangizga DUYO ilovasini rasmiy do‘konlar orqali oson yuklab oling"
+ },
+ {
+  "where": "article/h3",
+  "text": "iPhone va iPad"
+ },
+ {
+  "where": "article/p",
+  "text": "iOS 15.0+ · 180 MB"
+ },
+ {
+  "where": "article/p",
+  "text": "Apple smartfonlari va planshetlari uchun to‘liq optimallashtirilgan. Barcha funksiyalar va ovozli suhbat qo‘llab-quvvatlanadi."
+ },
+ {
+  "where": "article/a",
+  "text": "App Store’dan yuklab olish"
+ },
+ {
+  "where": "article/p",
+  "text": "Sizning qurilmangiz uchun tavsiya etiladi"
+ },
+ {
+  "where": "article/h3",
+  "text": "Android"
+ },
+ {
+  "where": "article/p",
+  "text": "Android 8.0+ · 125 MB"
+ },
+ {
+  "where": "article/p",
+  "text": "Google Play do‘konidan bepul va xavfsiz o‘rnatish. Barcha Android telefon va planshetlariga moslashgan."
+ },
+ {
+  "where": "article/a",
+  "text": "Google Play’dan olish"
+ },
+ {
+  "where": "article/h3",
+  "text": "To‘g‘ridan-to‘g‘ri APK"
+ },
+ {
+  "where": "article/p",
+  "text": "v1.0.0 · 125 MB"
+ },
+ {
+  "where": "article/p",
+  "text": "Google Play mavjud bo‘lmagan qurilmalar uchun rasmiy APK fayl. O‘rnatishdan oldin “Noma’lum manbalar” ruxsatini yoqing."
+ },
+ {
+  "where": "article/a",
+  "text": "APK yuklab olish"
+ },
+ {
+  "where": "article/p",
+  "text": "Faqat rasmiy sayt orqali yuklab oling"
+ },
+ {
+  "where": "div/h2",
+  "text": "3 oddiy qadamda boshlang"
+ },
+ {
+  "where": "div/p",
+  "text": "Bolangiz DUYO bilan bir necha daqiqada foydalanishni boshlashi mumkin"
+ },
+ {
+  "where": "li/h3",
+  "text": "Ilovani yuklab oling"
+ },
+ {
+  "where": "li/h3",
+  "text": "Telefon raqami bilan ro'yxatdan o'ting"
+ },
+ {
+  "where": "li/h3",
+  "text": "Bolangiz uchun DUYO avatarini yarating"
+ },
+ {
+  "where": "div/h2",
+  "text": "Ilovada nima bor?"
+ },
+ {
+  "where": "div/p",
+  "text": "O'yin, o'quv va suhbat — barchasi bitta xavfsiz ilovada"
+ },
+ {
+  "where": "li/h3",
+  "text": "Jonli suhbat (AI hamroh)"
+ },
+ {
+  "where": "li/p",
+  "text": "Bolangiz uchun mos suhbatdosh: kayfiyatini tushunadi, savollariga javob beradi va har doim iliq munosabatda bo'ladi."
+ },
+ {
+  "where": "li/h3",
+  "text": "She'r va ertaklar kutubxonasi"
+ },
+ {
+  "where": "li/p",
+  "text": "O'zbek xalq ertaklari, mashhur she'rlar va audio versiyalar. Har bir asar bolaning yoshiga qarab tanlanadi."
+ },
+ {
+  "where": "li/h3",
+  "text": "Dars yordami va til o'yinlari"
+ },
+ {
+  "where": "li/p",
+  "text": "Uy vazifalarini bajarishda yordam, ingliz va rus tillarini o'rganish uchun qiziqarli o'yinlar."
+ },
+ {
+  "where": "li/h3",
+  "text": "Tamagochi holati"
+ },
+ {
+  "where": "li/p",
+  "text": "Energiya, o'rganish, quvonch va sog'liq ko'rsatkichlari orqali bolada mas'uliyat hissi shakllanadi."
+ },
+ {
+  "where": "li/h3",
+  "text": "XP, level va kunlik seriya"
+ },
+ {
+  "where": "li/p",
+  "text": "Kunlik vazifalarni bajarganda XP to'planadi, yangi darajalar va yutuqlar ochiladi."
+ },
+ {
+  "where": "li/h3",
+  "text": "Avatar va aksessuarlar do'koni"
+ },
+ {
+  "where": "li/p",
+  "text": "To'plangan ballarga DUYO avatariga shlyapa, ko'zoynak va fon aksessuarlarini sotib olish mumkin."
+ },
+ {
+  "where": "div/h2",
+  "text": "Ota-onalar uchun tinchlik"
+ },
+ {
+  "where": "div/p",
+  "text": "Biz bolalarning virtual dunyoda butunlay xavfsiz bo'lishini ta'minlaymiz. DUYO maxsus modalliklar orqali nazorat va yuqori darajadagi himoyani taqdim etadi."
+ },
+ {
+  "where": "li/span",
+  "text": "3 darajali xavfsizlik tizimi va krizisni aniqlash"
+ },
+ {
+  "where": "li/span",
+  "text": "10 kunlik ota-ona hisoboti"
+ },
+ {
+  "where": "li/span",
+  "text": "Reklama va begonalar bilan aloqa yo'q"
+ },
+ {
+  "where": "li/span",
+  "text": "Suhbatlar maxfiy va himoyalangan"
+ },
+ {
+  "where": "div/a",
+  "text": "Ota-ona panelini ko'rish"
+ },
+ {
+  "where": "div/h2",
+  "text": "Yosh guruhlari uchun moslangan"
+ },
+ {
+  "where": "div/p",
+  "text": "Har bir yosh davrining psixologik xususiyatlarini hisobga olgan holda turli darajadagi muloqot"
+ },
+ {
+  "where": "div/h3",
+  "text": "Junior (7-10 yosh)"
+ },
+ {
+  "where": "div/p",
+  "text": "Kichik yoshdagi bolalar uchun sodda va tasvirli o'yin-suhbatlar, ertaklar va xavfsiz qo'llab-quvvatlash."
+ },
+ {
+  "where": "div/h3",
+  "text": "Explorer (11-13 yosh)"
+ },
+ {
+  "where": "div/p",
+  "text": "Darslarga ko'maklashuvchi tizimlar, qiziqarli til o'yinlari va ijodiy rivojlanish uchun loyihalar."
+ },
+ {
+  "where": "div/h3",
+  "text": "Companion (14-16 yosh)"
+ },
+ {
+  "where": "div/p",
+  "text": "Kattaroq yoshdagilar uchun ishonchli suhbatdosh, tahliliy o'rganish, kelajak maqsadlarida bevosita yordamchi."
+ },
+ {
+  "where": "div/h2",
+  "text": "Tizim talablari"
+ },
+ {
+  "where": "div/p",
+  "text": "DUYO ilovasining muammosiz ishlashi uchun zarur bo'lgan minimal parametrlar"
+ },
+ {
+  "where": "table/caption",
+  "text": "DUYO ilovasi uchun platformalar bo'yicha minimal tizim talablari"
+ },
+ {
+  "where": "tr/th",
+  "text": "Platforma"
+ },
+ {
+  "where": "tr/th",
+  "text": "Tizim talabi"
+ },
+ {
+  "where": "tr/th",
+  "text": "Xotira"
+ },
+ {
+  "where": "tr/th",
+  "text": "Tarmoq"
+ },
+ {
+  "where": "span/span",
+  "text": "iOS (Apple)"
+ },
+ {
+  "where": "tr/td",
+  "text": "iOS 15.0 yoki undan yuqori"
+ },
+ {
+  "where": "tr/td",
+  "text": "~180 MB bo'sh joy"
+ },
+ {
+  "where": "tr/td",
+  "text": "Internet zarur"
+ },
+ {
+  "where": "tr/td",
+  "text": "Android 8.0 yoki undan yuqori"
+ },
+ {
+  "where": "tr/td",
+  "text": "~150 MB bo'sh joy"
+ },
+ {
+  "where": "div/p",
+  "text": "* Offline rejimda cheklangan funksiyalar ishlaydi — saqlangan she'r, ertak va oldingi suhbatlar mavjud bo'ladi."
+ },
+ {
+  "where": "div/h2",
+  "text": "Narxlar va obuna shartlari"
+ },
+ {
+  "where": "div/p",
+  "text": "O'zingizga qulay rejani tanlang — istalgan vaqtda o'zgartirish yoki bekor qilish mumkin"
+ },
+ {
+  "where": "article/h3",
+  "text": "Tanish — Bepul"
+ },
+ {
+  "where": "article/p",
+  "text": "Sinab ko'rish uchun asosiy funksiyalar"
+ },
+ {
+  "where": "p/span",
+  "text": "so'm"
+ },
+ {
+  "where": "div/p",
+  "text": "doimiy bepul"
+ },
+ {
+  "where": "li/span",
+  "text": "1 til (o'zbek)"
+ },
+ {
+  "where": "li/span",
+  "text": "Kuniga 20 daqiqa muloqot"
+ },
+ {
+  "where": "li/span",
+  "text": "Cheklangan kutubxona"
+ },
+ {
+  "where": "article/a",
+  "text": "Boshlash"
+ },
+ {
+  "where": "article/span",
+  "text": "Ommabop"
+ },
+ {
+  "where": "article/h3",
+  "text": "Do'st"
+ },
+ {
+  "where": "article/p",
+  "text": "Kundalik ta'lim uchun eng maqbul reja"
+ },
+ {
+  "where": "p/span",
+  "text": "/oy"
+ },
+ {
+  "where": "div/p",
+  "text": "yoki 290 000 so'm/yil — 2 oy sovg'a"
+ },
+ {
+  "where": "li/span",
+  "text": "3 til (o'zbek, rus, ingliz)"
+ },
+ {
+  "where": "li/span",
+  "text": "Kuniga 30 ta AI suhbat"
+ },
+ {
+  "where": "li/span",
+  "text": "To'liq kutubxona va dars yordami"
+ },
+ {
+  "where": "li/span",
+  "text": "Gamifikatsiya va yutuqlar"
+ },
+ {
+  "where": "article/a",
+  "text": "Obuna bo'lish"
+ },
+ {
+  "where": "article/h3",
+  "text": "Hamroh"
+ },
+ {
+  "where": "article/p",
+  "text": "Butun oila uchun to'liq imkoniyatlar"
+ },
+ {
+  "where": "div/p",
+  "text": "yoki 590 000 so'm/yil"
+ },
+ {
+  "where": "li/span",
+  "text": "Kuniga 200 ta AI suhbat"
+ },
+ {
+  "where": "li/span",
+  "text": "Ovozli suhbat"
+ },
+ {
+  "where": "li/span",
+  "text": "2 ta bola uchun alohida profil"
+ },
+ {
+  "where": "li/span",
+  "text": "Premium kontent va aksessuarlar"
+ },
+ {
+  "where": "div/p",
+  "text": "Qulay to'lov usullari"
+ },
+ {
+  "where": "div/h2",
+  "text": "Ko'p so'raladigan savollar"
+ },
+ {
+  "where": "div/p",
+  "text": "Sizni qiziqtirgan savollarga batafsil javoblar"
+ },
+ {
+  "where": "button/span",
+  "text": "DUYO bepulmi?"
+ },
+ {
+  "where": "div/p",
+  "text": "Ha, DUYO'ning asosiy funksiyalari bepul. Bepul rejada kuniga 20 daqiqa davomida suhbatlashish va kutubxonaning bir qismidan foydalanish mumkin. Cheksizroq muloqot, qo'shimcha tillar va dars yordami uchun \"Do'st\" yoki \"Hamroh\" obunasini tanlashingiz mumkin."
+ },
+ {
+  "where": "button/span",
+  "text": "Bolam necha yoshdan foydalanishi mumkin?"
+ },
+ {
+  "where": "div/p",
+  "text": "DUYO 7 yoshdan 16 yoshgacha bo'lgan bolalar uchun mo'ljallangan. Ro'yxatdan o'tishda yosh ko'rsatiladi va ilova avtomatik ravishda uchta uslubdan birini tanlaydi: Junior (7-10), Explorer (11-13) yoki Companion (14-16)."
+ },
+ {
+  "where": "button/span",
+  "text": "Ma'lumotlar qayerda saqlanadi?"
+ },
+ {
+  "where": "div/p",
+  "text": "Barcha ma'lumotlar shifrlangan holda saqlanadi va uchinchi shaxslarga berilmaydi. Biz bolalar ma'lumotlarini reklama maqsadida ishlatmaymiz — ilovada reklama umuman yo'q."
+ },
+ {
+  "where": "button/span",
+  "text": "Ota-ona suhbatlarni ko'ra oladimi?"
+ },
+ {
+  "where": "div/p",
+  "text": "Ota-ona panelida har 10 kunda umumlashtirilgan hisobot ko'rsatiladi: faollik, kayfiyat tendensiyasi va muhokama qilingan mavzular. Bolaning ishonchini saqlash uchun suhbatlar so'zma-so'z ko'rsatilmaydi, ammo xavf belgilari aniqlansa, ota-ona darhol xabardor qilinadi."
+ },
+ {
+  "where": "button/span",
+  "text": "Internetsiz ishlaydimi?"
+ },
+ {
+  "where": "div/p",
+  "text": "AI suhbat uchun internet zarur. Ammo oldindan yuklab olingan she'rlar, ertaklar va suhbat tarixi offline rejimda ham mavjud bo'ladi."
+ },
+ {
+  "where": "button/span",
+  "text": "Obunani qanday bekor qilaman?"
+ },
+ {
+  "where": "div/p",
+  "text": "Obunani istalgan vaqtda ilovaning \"Obuna\" bo'limidan bir marta bosish bilan bekor qilish mumkin. To'lov qilingan davr oxirigacha barcha imkoniyatlar saqlanib qoladi."
+ },
+ {
+  "where": "div/p",
+  "text": "Javobini topa olmadingizmi? Ilovani bepul o'rnatib, o'zingiz sinab ko'ring —"
+ },
+ {
+  "where": "p/a",
+  "text": "DUYO'ni yuklab olish"
+ },
+ {
+  "where": "div/h2",
+  "text": "Bugun DUYO bilan tanishing"
+ },
+ {
+  "where": "div/p",
+  "text": "Bolangiz uchun xavfsiz sun'iy intellekt muhitini bepul sinab ko'ring va natijalarni 10 kun ichida kuzating."
+ },
+ {
+  "where": "div/span",
+  "text": "QR kodni telefon kamerasi bilan skanerlab, DUYO ilovasini yuklab oling"
+ },
+ {
+  "where": "div/p",
+  "text": "Foydalanish to'liq bepul, ro'yxatdan o'tish oddiy"
+ },
+ {
+  "where": "div/h2",
+  "text": "Sayt osti ma'lumotlari"
+ },
+ {
+  "where": "div/p",
+  "text": "7-16 yoshdagi bolalar uchun xavfsiz AI hamroh. O'zbek tilida yaratilgan, ota-onalar nazorati ostida."
+ },
+ {
+  "where": "nav/h3",
+  "text": "Mahsulot"
+ },
+ {
+  "where": "li/a",
+  "text": "Yosh guruhlari"
+ },
+ {
+  "where": "li/a",
+  "text": "Xavfsizlik tizimi"
+ },
+ {
+  "where": "li/a",
+  "text": "Ota-ona paneli"
+ },
+ {
+  "where": "li/a",
+  "text": "Maxfiylik siyosati"
+ },
+ {
+  "where": "li/a",
+  "text": "Foydali maslahatlar"
+ },
+ {
+  "where": "nav/h3",
+  "text": "Kompaniya"
+ },
+ {
+  "where": "li/a",
+  "text": "Biz haqimizda"
+ },
+ {
+  "where": "li/a",
+  "text": "Yangiliklar"
+ },
+ {
+  "where": "li/a",
+  "text": "Karyera"
+ },
+ {
+  "where": "li/a",
+  "text": "Hamkorlik"
+ },
+ {
+  "where": "nav/h3",
+  "text": "Yordam"
+ },
+ {
+  "where": "li/a",
+  "text": "Savol-javob"
+ },
+ {
+  "where": "li/a",
+  "text": "Aloqa markazi"
+ },
+ {
+  "where": "li/a",
+  "text": "Texnik yordam"
+ },
+ {
+  "where": "li/a",
+  "text": "Qo'llanma"
+ },
+ {
+  "where": "a/span",
+  "text": "info@duyo.uz"
+ },
+ {
+  "where": "a/span",
+  "text": "@duyo_uz"
+ },
+ {
+  "where": "div/a",
+  "text": "Foydalanish shartlari"
+ },
+ {
+  "where": "div/span",
+  "text": "XRR. Barcha huquqlar himoyalangan."
+ },
+ {
+  "where": "@meta:description",
+  "text": "DUYO — 7-16 yoshdagi bolalar uchun xavfsiz AI hamroh: suhbatlashadi, o'rgatadi va qo'llab-quvvatlaydi. iPhone va Android uchun bepul yuklab oling."
+ },
+ {
+  "where": "@meta:og:title",
+  "text": "DUYO — bolalar uchun xavfsiz AI hamroh"
+ },
+ {
+  "where": "@meta:og:description",
+  "text": "7-16 yoshdagi bolalar uchun AI hamroh. Ota-ona nazorati, reklama yo'q, o'zbek tilida. iPhone va Android'da bepul boshlang."
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO — asosiy navigatsiya"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO — bosh sahifa"
+ },
+ {
+  "where": "@aria-label",
+  "text": "Asosiy menyu"
+ },
+ {
+  "where": "@aria-label",
+  "text": "Interfeys tilini tanlash"
+ },
+ {
+  "where": "@aria-label",
+  "text": "Menyuni ochish"
+ },
+ {
+  "where": "@aria-label",
+  "text": "Mobil menyu"
+ },
+ {
+  "where": "@alt",
+  "text": "DUYO ilovasi iPhone va Android telefonlarida: suhbat ekrani va bosh sahifa"
+ },
+ {
+  "where": "@alt",
+  "text": "Ota-ona paneli — bolalar faoliyati tahlili"
+ },
+ {
+  "where": "@aria-label",
+  "text": "Qabul qilinadigan to'lov usullari"
+ },
+ {
+  "where": "@alt",
+  "text": "Click"
+ },
+ {
+  "where": "@alt",
+  "text": "Payme"
+ },
+ {
+  "where": "@alt",
+  "text": "Uzcard"
+ },
+ {
+  "where": "@alt",
+  "text": "Humo"
+ },
+ {
+  "where": "@alt",
+  "text": "Visa"
+ },
+ {
+  "where": "@alt",
+  "text": "Mastercard"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO ilovasini App Store'dan yuklab olish"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO ilovasini Google Play'dan yuklab olish"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO — bosh sahifaga qaytish"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO Telegram kanali"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO Instagram sahifasi"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO YouTube kanali"
+ },
+ {
+  "where": "@aria-label",
+  "text": "DUYO Facebook sahifasi"
+ }
+]

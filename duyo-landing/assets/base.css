@@ -1,0 +1,751 @@
+/* ==========================================================================
+   DUYO — Sotuv sayti (landing)
+   base.css — dizayn tokenlari, reset, tipografiya va umumiy komponentlar
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Tokenlar
+   -------------------------------------------------------------------------- */
+:root {
+  /* Brend ranglari */
+  --blue: #2563eb;
+  --blue-600: #1d4ed8;
+  --blue-700: #1e40af;
+  --blue-050: #eff5ff;
+  --navy: #102033;
+  --navy-800: #1a2c44;
+  --yellow: #ffc700;
+  --yellow-050: #fff8e0;
+  --sky: #f4f8ff;
+  --green: #22c55e;
+  --green-050: #e9fbf0;
+  --warning: #facc15;
+  --red: #ef4444;
+
+  /* Neytral */
+  --white: #ffffff;
+  --border: #e6edf7;
+  --border-strong: #d6e2f5;
+  --text: #102033;
+  --muted: #64748b;
+  --muted-light: #8b9ab1;
+
+  /* Radiuslar */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Soyalar */
+  --sh-xs: 0 1px 2px rgba(16, 32, 51, 0.06);
+  --sh-sm: 0 2px 8px rgba(37, 99, 235, 0.06);
+  --sh-md: 0 8px 24px rgba(37, 99, 235, 0.08);
+  --sh-lg: 0 18px 44px rgba(37, 99, 235, 0.12);
+  --sh-xl: 0 30px 70px rgba(16, 32, 51, 0.18);
+
+  /* Layout */
+  --container: 1200px;
+  --gutter: 24px;
+  --nav-h: 72px;
+
+  /* O'tishlar */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 0.16s var(--ease);
+  --t: 0.24s var(--ease);
+  --t-slow: 0.45s var(--ease);
+
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   2. Reset
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--nav-h) + 16px);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.625;
+  color: var(--text);
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+body.is-locked {
+  overflow: hidden;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  background: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 200;
+  padding: 12px 20px;
+  background: var(--blue);
+  color: #fff;
+  border-radius: var(--r-sm);
+  font-weight: 600;
+  transition: top var(--t);
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   3. Tipografiya
+   -------------------------------------------------------------------------- */
+.h1,
+h1 {
+  font-size: clamp(30px, 3.2vw, 44px);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.h2 {
+  font-size: clamp(24px, 2.5vw, 34px);
+  line-height: 1.22;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.h3 {
+  font-size: clamp(17px, 1.35vw, 19px);
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.h4 {
+  font-size: 17px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.lead {
+  font-size: clamp(14px, 1.05vw, 15px);
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.small {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.caption {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------------------------
+   4. Layout
+   -------------------------------------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.section {
+  position: relative;
+  padding-block: clamp(48px, 4.6vw, 76px);
+}
+
+.section--tint {
+  background: var(--sky);
+}
+
+.section--dark {
+  background: var(--navy);
+  color: #fff;
+}
+
+.section--dark .lead,
+.section--dark .muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.section-head {
+  max-width: 640px;
+  margin: 0 auto clamp(28px, 2.8vw, 42px);
+  text-align: center;
+}
+
+.section-head .lead {
+  margin-top: 10px;
+}
+
+.grid {
+  display: grid;
+  gap: 24px;
+}
+
+.grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* --------------------------------------------------------------------------
+   5. Tugmalar
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 24px;
+  border-radius: var(--r-sm);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  transition: background var(--t), color var(--t), border-color var(--t),
+    box-shadow var(--t), transform var(--t-fast);
+}
+
+.btn svg {
+  flex: none;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn--primary {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
+}
+
+.btn--primary:hover {
+  background: var(--blue-600);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.3);
+}
+
+.btn--outline {
+  background: #fff;
+  color: var(--blue);
+  border: 1.5px solid var(--border-strong);
+}
+
+.btn--outline:hover {
+  border-color: var(--blue);
+  background: var(--blue-050);
+}
+
+.btn--dark {
+  background: var(--navy);
+  color: #fff;
+}
+
+.btn--dark:hover {
+  background: var(--navy-800);
+}
+
+.btn--white {
+  background: #fff;
+  color: var(--navy);
+}
+
+.btn--white:hover {
+  background: #eef4ff;
+}
+
+.btn--ghost-light {
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.btn--ghost-light:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn--pill {
+  border-radius: var(--r-pill);
+}
+
+.btn--lg {
+  min-height: 56px;
+  padding: 16px 30px;
+  font-size: 16px;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--link {
+  min-height: 0;
+  padding: 0;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: rgba(37, 99, 235, 0.35);
+}
+
+.btn--link:hover {
+  text-decoration-color: var(--blue);
+}
+
+/* Do'kon badge'lari (App Store / Google Play) */
+.store-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 56px;
+  padding: 9px 20px 9px 17px;
+  border-radius: var(--r-sm);
+  background: var(--navy);
+  color: #fff;
+  transition: transform var(--t-fast), box-shadow var(--t), background var(--t);
+}
+
+.store-badge:hover {
+  background: #1b3050;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(16, 32, 51, 0.22);
+}
+
+.store-badge svg {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.store-badge__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.store-badge__top {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0.78;
+}
+
+.store-badge__name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.store-badge--light {
+  background: #fff;
+  color: var(--navy);
+}
+
+.store-badge--light:hover {
+  background: #eef4ff;
+}
+
+.store-badge--sm {
+  min-height: 44px;
+  padding: 7px 16px 7px 13px;
+  gap: 9px;
+}
+
+.store-badge--sm svg {
+  width: 19px;
+  height: 19px;
+}
+
+.store-badge--sm .store-badge__top {
+  font-size: 9px;
+}
+
+.store-badge--sm .store-badge__name {
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------------------
+   6. Kartochka, chip, ikonka
+   -------------------------------------------------------------------------- */
+.card {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  transition: transform var(--t), box-shadow var(--t), border-color var(--t);
+}
+
+.card--hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: var(--sh-lg);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  background: var(--blue-050);
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.chip--yellow {
+  background: var(--yellow-050);
+  color: #8a6a00;
+}
+
+.chip--green {
+  background: var(--green-050);
+  color: #16794a;
+}
+
+.chip--dark {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.icon-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--blue-050);
+  color: var(--blue);
+  flex: none;
+}
+
+.icon-tile--yellow {
+  background: var(--yellow-050);
+  color: #b58600;
+}
+
+.icon-tile--green {
+  background: var(--green-050);
+  color: #15a75b;
+}
+
+.icon-tile--navy {
+  background: rgba(37, 99, 235, 0.12);
+  color: #7fb0ff;
+}
+
+.icon-tile--lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   7. Qurilma maketlari (telefon / noutbuk)
+   -------------------------------------------------------------------------- */
+.device {
+  position: relative;
+  width: 264px;
+  flex: none;
+  padding: 10px;
+  border-radius: 42px;
+  background: linear-gradient(160deg, #24374f 0%, #102033 60%);
+  box-shadow: var(--sh-xl), inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+}
+
+.device--yellow {
+  background: linear-gradient(160deg, #ffd94a 0%, #ffc700 60%);
+  box-shadow: 0 30px 70px rgba(191, 145, 0, 0.28),
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.5);
+}
+
+.device--sm {
+  width: 208px;
+  padding: 8px;
+  border-radius: 34px;
+}
+
+.device__screen {
+  position: relative;
+  aspect-ratio: 390 / 780;
+  border-radius: 33px;
+  overflow: hidden;
+  background: var(--sky);
+  isolation: isolate;
+}
+
+.device--sm .device__screen {
+  border-radius: 27px;
+}
+
+.device__notch {
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 74px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  background: #102033;
+  z-index: 5;
+}
+
+.device--sm .device__notch {
+  width: 58px;
+  height: 16px;
+  top: 7px;
+}
+
+.laptop {
+  width: 100%;
+  max-width: 520px;
+}
+
+.laptop__lid {
+  padding: 12px 12px 12px;
+  border-radius: 16px 16px 4px 4px;
+  background: linear-gradient(160deg, #2c3e57 0%, #16283e 100%);
+  box-shadow: var(--sh-xl), inset 0 0 0 1.5px rgba(255, 255, 255, 0.1);
+}
+
+.laptop__screen {
+  aspect-ratio: 16 / 10.2;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f6f9ff;
+}
+
+.laptop__base {
+  height: 13px;
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(180deg, #2c3e57 0%, #1b2c42 100%);
+  margin-inline: -18px;
+  position: relative;
+}
+
+.laptop__base::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 84px;
+  height: 5px;
+  border-radius: 0 0 6px 6px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* --------------------------------------------------------------------------
+   8. Dekorativ elementlar
+   -------------------------------------------------------------------------- */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sparkle {
+  position: absolute;
+  pointer-events: none;
+  color: var(--yellow);
+  opacity: 0.9;
+}
+
+/* --------------------------------------------------------------------------
+   9. Animatsiya (scroll reveal)
+   -------------------------------------------------------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   10. Umumiy responsiv
+   -------------------------------------------------------------------------- */
+@media (max-width: 1060px) {
+  .grid--3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --gutter: 20px;
+  }
+
+  .grid--3,
+  .grid--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 22px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. Telefon ekraniga haqiqiy skrinshot qo'yish
+   `assets/img/` ga fayl qo'yilsa avtomatik ko'rinadi, bo'lmasa chizilgan
+   maket qoladi (img onerror bilan o'zini o'chiradi).
+   Tavsiya etilgan o'lcham: 390x844 (yoki 1170x2532 — 3x)
+   -------------------------------------------------------------------------- */
+.device__shot {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+/* Bayroqlar (til tanlagich) */
+.flag {
+  width: 20px;
+  height: 14px;
+  flex: none;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(16, 32, 51, 0.12) inset;
+}
+
+/* Brend logotipi: assets/img/logo.png bo'lsa o'sha, bo'lmasa chizilgan avatar */
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
