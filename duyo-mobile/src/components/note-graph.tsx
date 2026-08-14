@@ -85,6 +85,47 @@ function seedOf(title: string): number {
   return h;
 }
 
+/** Deterministic 0..1 from an integer — mulberry32's mixing step. Meteors
+ *  are timed off the simulation clock, so even they replay identically. */
+function rand01(seed: number): number {
+  let t = (seed + 0x6d2b79f5) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/** A shooting star every ~11 seconds, each with its own moment, path and
+ *  length. Returns null between meteors. */
+const METEOR_PERIOD = 320;
+const METEOR_LIFE = 26;
+function meteorAt(tick: number, w: number, h: number) {
+  const m = Math.floor(tick / METEOR_PERIOD);
+  // Each meteor waits a different slice of its window before flying.
+  const delay = Math.floor(rand01(m * 7919 + 13) * (METEOR_PERIOD - METEOR_LIFE - 30));
+  const p = (tick % METEOR_PERIOD) - delay;
+  if (p < 0 || p >= METEOR_LIFE) return null;
+
+  const sx = rand01(m * 104729 + 7) * w;
+  const sy = rand01(m * 130363 + 3) * h * 0.55;
+  const toRight = rand01(m * 15485863 + 1) < 0.5;
+  const run = (0.3 + 0.25 * rand01(m * 6151 + 9)) * w * (toRight ? 1 : -1);
+  const fall = 0.14 * h + 0.1 * h * rand01(m * 3571 + 5);
+
+  const t = p / METEOR_LIFE;
+  const hx = sx + run * t;
+  const hy = sy + fall * t;
+  const tailT = Math.max(0, t - 0.22);
+  // Bright near the head, gone by the tail; fades in fast, out slow.
+  const fade = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+  return {
+    hx,
+    hy,
+    tx: sx + run * tailT,
+    ty: sy + fall * tailT,
+    fade,
+  };
+}
+
 /** The two halves of a planetary ring. In SVG's y-down plane sweep=1 arcs
  *  above the midline — the far side — so `back` goes behind the sphere and
  *  `front` crosses over it. */
@@ -348,8 +389,18 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     [nodes, edges, size],
   );
 
+  // Twice the canvas in every direction, so panning or pinching out never
+  // reveals a bare gradient at the edges — at MIN_ZOOM the visible region is
+  // exactly the doubled field.
   const stars = useMemo(
-    () => (size.width > 0 ? starField(size.width, size.height) : []),
+    () =>
+      size.width > 0
+        ? starField(size.width * 2, size.height * 2, 170).map((s) => ({
+            ...s,
+            x: s.x - size.width / 2,
+            y: s.y - size.height / 2,
+          }))
+        : [],
     [size],
   );
 
@@ -625,6 +676,28 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   opacity={s.o * (focus ? 0.45 : 1)}
                 />
               ))}
+
+              {/* ── A shooting star, now and then. Timed off the simulation
+                  clock, so it only flies while the sky itself is alive —
+                  reduce-motion never sees one. */}
+              {!sim.reduceMotion &&
+                !focus &&
+                (() => {
+                  const met = meteorAt(sim.tick, size.width, size.height);
+                  if (!met) return null;
+                  return (
+                    <G opacity={met.fade}>
+                      <Path
+                        d={`M ${met.tx} ${met.ty} L ${met.hx} ${met.hy}`}
+                        stroke="rgba(255,255,255,0.85)"
+                        strokeWidth={1.4}
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+                      <Circle cx={met.hx} cy={met.hy} r={1.8} fill="#FFFFFF" />
+                    </G>
+                  );
+                })()}
 
               {/* ── Constellations ─────────────────────────────────────── */}
               {galaxy.edges.map((e, i) => {

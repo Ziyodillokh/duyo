@@ -69,6 +69,18 @@ const ALPHA_IDLE = 0.055;
  *  still hold every constellation together (verified numerically: link
  *  lengths stay at rest ±10% while bodies cover 30-60px every ten seconds). */
 const DRIFT_ACCEL = 0.24;
+
+/** Home anchoring — what keeps the restlessness from becoming migration.
+ *
+ *  Once the opening settle is done, every body remembers where it landed and
+ *  is pulled gently back toward that home while it wanders. Force balance
+ *  puts the roam radius near DRIFT_ACCEL/HOME_PULL ≈ 60px — alive, but the
+ *  sky can never walk itself off the screen the way pure drift plus weak
+ *  centre gravity allowed over long minutes. Dragging a body re-homes it
+ *  where the child dropped it: their arrangement is the new truth. */
+const HOME_PULL = 0.004;
+/** The tick homes are recorded on — just after the opening settle. */
+const HOME_TICK = 45;
 /** While a finger holds a body the system idles warm at this alpha instead
  *  of cooling, so neighbours keep responding for the whole drag. (d3's
  *  `alphaTarget(0.3)` drag convention.) */
@@ -115,6 +127,10 @@ export class GraphPhysics {
   private readonly fx2: Float64Array;
   private readonly fy1: Float64Array;
   private readonly fy2: Float64Array;
+  /** Where each body belongs, captured at HOME_TICK. */
+  private readonly homeX: Float64Array;
+  private readonly homeY: Float64Array;
+  private homesSet = false;
 
   private readonly cx: number;
   private readonly cy: number;
@@ -168,6 +184,8 @@ export class GraphPhysics {
     this.fx2 = new Float64Array(n);
     this.fy1 = new Float64Array(n);
     this.fy2 = new Float64Array(n);
+    this.homeX = new Float64Array(n);
+    this.homeY = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       this.phase[i] = i * 2.399963; // golden angle in radians
       this.sway[i] = 1 / (1 + this.degree[i] * 0.35);
@@ -213,6 +231,11 @@ export class GraphPhysics {
   }
 
   release(): void {
+    // Wherever the child dropped it is where it now belongs.
+    if (this.pinned >= 0 && this.homesSet) {
+      this.homeX[this.pinned] = this.xs[this.pinned];
+      this.homeY[this.pinned] = this.ys[this.pinned];
+    }
     this.pinned = -1;
     this.alphaTarget = this.ambient ? ALPHA_IDLE : 0;
   }
@@ -232,6 +255,13 @@ export class GraphPhysics {
     // unsettled the LAYOUT is, and the sky keeps roaming long after the
     // layout has stopped having opinions.
     if (this.ambient) {
+      if (!this.homesSet && this.age >= HOME_TICK) {
+        this.homesSet = true;
+        for (let i = 0; i < n; i++) {
+          this.homeX[i] = xs[i];
+          this.homeY[i] = ys[i];
+        }
+      }
       const t = this.age;
       for (let i = 0; i < n; i++) {
         if (i === this.pinned) continue;
@@ -245,6 +275,10 @@ export class GraphPhysics {
           (Math.sin(t * this.fy1[i] + p * 1.7) +
             0.6 * Math.cos(t * this.fy2[i] + p * 3.1)) *
           s;
+        if (this.homesSet) {
+          vxs[i] += (this.homeX[i] - xs[i]) * HOME_PULL;
+          vys[i] += (this.homeY[i] - ys[i]) * HOME_PULL;
+        }
       }
     }
 
