@@ -29,10 +29,16 @@ import {
 } from '@/lib/galaxy-layout';
 
 const EDGE = 'rgba(160, 190, 255, 0.22)';
-const EDGE_ON = 'rgba(200, 220, 255, 0.85)';
+const EDGE_ON = 'rgba(200, 220, 255, 0.9)';
+/** The soft halo under a selected constellation's edges. */
+const EDGE_GLOW = 'rgba(160, 200, 255, 0.18)';
 /** Muted, the way Obsidian's labels sit under their dots. */
 const LABEL = '#A9B4CC';
-const DIM = 0.16;
+/** How far outsiders fade while a constellation is selected. Bodies keep a
+ *  third of their light — the child asked to still watch the whole sky
+ *  mingle — while edges drop to barely-there. */
+const DIM = 0.3;
+const EDGE_DIM = 0.45;
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
@@ -590,15 +596,21 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [galaxy, size, sim.tick, scale, savedScale, tx, ty, savedTx, savedTy]);
 
-  // A tap opens; press-and-hold lights up the neighbourhood. Obsidian opens a
-  // node on click too — making the first tap only "select" meant every note
-  // cost two taps, which is the wrong trade on a phone.
+  // The first tap SELECTS: the planet's constellation lights up and the rest
+  // of the sky fades to a murmur, exactly Obsidian's click-to-highlight. A
+  // second tap on the same planet opens it, so a decided child still pays
+  // only one extra tap and an exploring one gets to look before leaping.
+  // Press-and-hold keeps toggling the highlight directly.
   const tap = useCallback(
     (node: OrbitedNode) => {
       if (Date.now() - panEndedAt.current < 250) return;
+      if (focus !== node.title) {
+        setFocus(node.title);
+        return;
+      }
       onSelect(node);
     },
-    [onSelect],
+    [onSelect, focus],
   );
   const hold = useCallback(
     (node: OrbitedNode) => setFocus((f) => (f === node.title ? null : node.title)),
@@ -679,14 +691,15 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
 
               {/* ── A shooting star, now and then. Timed off the simulation
                   clock, so it only flies while the sky itself is alive —
-                  reduce-motion never sees one. */}
+                  reduce-motion never sees one. It keeps flying at half
+                  light while a constellation is selected: the sky must not
+                  hold its breath just because the child is looking. */}
               {!sim.reduceMotion &&
-                !focus &&
                 (() => {
                   const met = meteorAt(sim.tick, size.width, size.height);
                   if (!met) return null;
                   return (
-                    <G opacity={met.fade}>
+                    <G opacity={met.fade * (focus ? 0.5 : 1)}>
                       <Path
                         d={`M ${met.tx} ${met.ty} L ${met.hx} ${met.hy}`}
                         stroke="rgba(255,255,255,0.85)"
@@ -699,33 +712,75 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   );
                 })()}
 
-              {/* ── Constellations ─────────────────────────────────────── */}
-              {galaxy.edges.map((e, i) => {
-                const lit =
-                  !neighbours ||
-                  (neighbours.has(e.sourceTitle.toLowerCase()) &&
-                    neighbours.has(e.targetTitle.toLowerCase()));
-                // Endpoints follow the bodies they join, so a line never
-                // detaches from the dot it belongs to while the system moves.
-                const a = drawnAt(e.sourceTitle, e.x1, e.y1);
-                const b = drawnAt(e.targetTitle, e.x2, e.y2);
-                // Straight, hairline, faint — Obsidian's edges recede so the
-                // dots carry the picture. A mention is something we inferred,
-                // not something the child typed, so it is dashed and fainter
-                // still, never overstating how deliberate a connection was.
-                const guessed = e.kind === 'mention';
+              {/* ── Constellations. With nothing selected, every edge is a
+                  faint hairline — Obsidian's lines recede so the dots carry
+                  the picture. Selecting a planet splits the sky: its own
+                  edges rise on top with a soft glow, everyone else's stay as
+                  barely-there threads, and a mention is dashed in either
+                  world so the map never overstates how deliberate a
+                  connection was. Lit edges render after dim ones on purpose:
+                  the selection must never pass underneath a stranger. */}
+              {(() => {
+                const isLit = (e: (typeof galaxy.edges)[number]) =>
+                  !!neighbours &&
+                  neighbours.has(e.sourceTitle.toLowerCase()) &&
+                  neighbours.has(e.targetTitle.toLowerCase());
+                const renderEdge = (
+                  e: (typeof galaxy.edges)[number],
+                  i: number,
+                  lit: boolean,
+                ) => {
+                  // Endpoints follow the bodies they join, so a line never
+                  // detaches from the dot it belongs to while the system
+                  // moves.
+                  const a = drawnAt(e.sourceTitle, e.x1, e.y1);
+                  const b = drawnAt(e.targetTitle, e.x2, e.y2);
+                  const guessed = e.kind === 'mention';
+                  const d = `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+                  if (lit) {
+                    return (
+                      <G key={`e${i}`}>
+                        <Path
+                          d={d}
+                          stroke={EDGE_GLOW}
+                          strokeWidth={guessed ? 3.4 : 4.6}
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                        <Path
+                          d={d}
+                          stroke={EDGE_ON}
+                          strokeWidth={guessed ? 1.2 : 1.8}
+                          strokeDasharray={guessed ? '4,4' : undefined}
+                          strokeOpacity={guessed ? 0.75 : 1}
+                          fill="none"
+                        />
+                      </G>
+                    );
+                  }
+                  return (
+                    <Path
+                      key={`e${i}`}
+                      d={d}
+                      stroke={EDGE}
+                      strokeWidth={guessed ? 0.8 : 1}
+                      strokeDasharray={guessed ? '4,4' : undefined}
+                      strokeOpacity={(neighbours ? EDGE_DIM : 1) * (guessed ? 0.6 : 1)}
+                      fill="none"
+                    />
+                  );
+                };
                 return (
-                  <Path
-                    key={`e${i}`}
-                    d={`M ${a.x} ${a.y} L ${b.x} ${b.y}`}
-                    stroke={lit ? EDGE_ON : EDGE}
-                    strokeWidth={guessed ? 0.8 : lit ? 1.4 : 1}
-                    strokeDasharray={guessed ? '4,4' : undefined}
-                    strokeOpacity={(lit ? 1 : DIM) * (guessed ? 0.6 : 1)}
-                    fill="none"
-                  />
+                  <>
+                    {galaxy.edges.map((e, i) =>
+                      isLit(e) ? null : renderEdge(e, i, false),
+                    )}
+                    {galaxy.edges.map((e, i) =>
+                      isLit(e) ? renderEdge(e, i, true) : null,
+                    )}
+                  </>
                 );
-              })}
+              })()}
 
               {/* ── Bodies. A little solar system: the hub is the sun, every
                   note is a planet with a lit hemisphere, and roughly a third
