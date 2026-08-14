@@ -1,0 +1,80 @@
+name: Deploy landing
+
+# duyo.uz — sotuv sayti. Build tizimi yo'q (sof HTML/CSS/JS), shuning uchun
+# deploy = rsync. Chiqadigan joy: /opt/duyo/landing (admin uchun /opt/duyo/admin
+# ishlatilgani kabi — nginx konteyneri shu papkani :ro qilib ulaydi).
+#
+# Deploydan oldin APK versiyasi/hajmi index.html ga muhrlanadi: yuklab olish
+# havolasi doimiy manzilga qaraydi (build-apk.yml uni yangilab turadi), lekin
+# yonidagi "v1.0.0 · 125 MB" yozuvi matn — u eskirmasligi uchun har deployda
+# jonli version.json dan yangilanadi.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "duyo-landing/**"
+      - ".github/workflows/deploy-landing.yml"
+  # Yangi APK chiqqanda versiya yozuvini yangilash uchun qo'lda ham yuritiladi.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-landing-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Stamp APK version + deploy landing
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Tarmoq nosozligi deploy'ni to'xtatmasin: yorliq eskirgan bo'lib qolsa
+      # ham sayt chiqishi kerak, havolaning o'zi baribir to'g'ri.
+      - name: Stamp live APK version + size
+        continue-on-error: true
+        run: python duyo-landing/tools/stamp_apk_meta.py
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # tools/ — deploy vositasi, saytning bir qismi emas.
+      - name: Rsync duyo-landing → /opt/duyo/landing
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          $SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mkdir -p /opt/duyo/landing'
+          rsync -avz --delete --no-perms \
+            --exclude='tools/' --exclude='*.md' \
+            -e "$SSH" \
+            duyo-landing/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/landing/
+
+      - name: Smoke test (duyo.uz served, with retry)
+        run: |
+          set -e
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 https://duyo.uz/ || echo 000)
+            body=$(curl -sS --max-time 10 https://duyo.uz/ || true)
+            if [ "$code" = "200" ] && printf '%s' "$body" | grep -q 'sec-hero'; then
+              echo "  ✓ duyo.uz serving the landing (attempt $i)"
+              exit 0
+            fi
+            echo "  … attempt $i got $code (landing markup not detected), retrying in 5s"
+            sleep 5
+          done
+          echo "  ✗ duyo.uz is not serving the landing."
+          echo "    Fayllar /opt/duyo/landing ga chiqdi, lekin nginx hali o'sha"
+          echo "    papkani duyo.uz uchun root qilib ko'rsatmayapti —"
+          echo "    duyo-docs/runbooks/landing-nginx.md ga qarang."
+          exit 1
