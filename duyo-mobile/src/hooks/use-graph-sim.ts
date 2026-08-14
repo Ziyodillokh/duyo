@@ -5,6 +5,51 @@ import { AccessibilityInfo } from 'react-native';
 import type { Galaxy } from '@/lib/galaxy-layout';
 import { GraphPhysics } from '@/lib/graph-physics';
 
+/** Stable per-title number for the scatter order. */
+function hashOf(title: string): number {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/**
+ * Deterministic scattered homes. The galaxy layout groups by connectivity —
+ * linked notes ring their hub — but the sky is asked to read as ONE mixed
+ * field, connected and unconnected planets shuffled together, with the
+ * threads almost invisible until a selection reveals them. So bodies land on
+ * an even golden-angle spiral in title-hash order: coverage is uniform, the
+ * order is effectively random, and the same notebook scatters the same way
+ * on every device. The hub stays at the centre — it is the sun.
+ */
+function scatterSeeds(
+  galaxy: Galaxy,
+  centralIndex: number,
+): { x: number; y: number }[] {
+  const { nodes, cx, cy } = galaxy;
+  const order = nodes
+    .map((n, i) => ({ i, h: hashOf(n.title) }))
+    .sort((a, b) => a.h - b.h || a.i - b.i);
+  const pos = new Array<{ x: number; y: number }>(nodes.length);
+  const rx = cx * 0.82;
+  const ry = cy * 0.8;
+  const count = Math.max(1, nodes.length - (centralIndex >= 0 ? 1 : 0));
+  let rank = 0;
+  for (const { i } of order) {
+    if (i === centralIndex) {
+      pos[i] = { x: cx, y: cy };
+      continue;
+    }
+    const u = (rank + 0.5) / count;
+    const th = rank * 2.399963; // golden angle
+    pos[i] = {
+      x: cx + Math.cos(th) * rx * Math.sqrt(u),
+      y: cy + Math.sin(th) * ry * Math.sqrt(u),
+    };
+    rank++;
+  }
+  return pos;
+}
+
 /** Frames per second while the simulation is warm.
  *
  *  Not 60: unlike a game, the sky only moves in bursts — a few seconds after
@@ -100,9 +145,12 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
     const index = new Map<string, number>();
     galaxy.nodes.forEach((n, i) => index.set(n.title.toLowerCase(), i));
 
-    const bodies = galaxy.nodes.map((n) => {
+    const centralSeed = galaxy.nodes.findIndex((n) => n.ring === 0);
+    const scattered = scatterSeeds(galaxy, centralSeed);
+    const bodies = galaxy.nodes.map((n, i) => {
       const seen = lastSeen.current.get(n.title.toLowerCase());
-      return { x: seen?.x ?? n.x, y: seen?.y ?? n.y, r: n.r };
+      const seed = seen ?? scattered[i];
+      return { x: seed.x, y: seed.y, r: n.r };
     });
     const links = galaxy.edges
       .map((e) => ({

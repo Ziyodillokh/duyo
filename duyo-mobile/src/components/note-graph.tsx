@@ -28,17 +28,23 @@ import {
   type OrbitedNode,
 } from '@/lib/galaxy-layout';
 
-const EDGE = 'rgba(160, 190, 255, 0.22)';
+/** As close to invisible as a line can be and still be findable — the
+ *  threads are a secret the selection reveals. */
+const EDGE = 'rgba(160, 190, 255, 0.10)';
 const EDGE_ON = 'rgba(200, 220, 255, 0.9)';
 /** The soft halo under a selected constellation's edges. */
 const EDGE_GLOW = 'rgba(160, 200, 255, 0.18)';
+/** Neon rings: cyan for the planets joined to the selection, gold for the
+ *  selected planet itself. */
+const NEON_LINKED = '#22D3EE';
+const NEON_SELECTED = '#FDC700';
 /** Muted, the way Obsidian's labels sit under their dots. */
 const LABEL = '#A9B4CC';
 /** How far outsiders fade while a constellation is selected. Bodies keep a
  *  third of their light — the child asked to still watch the whole sky
  *  mingle — while edges drop to barely-there. */
 const DIM = 0.3;
-const EDGE_DIM = 0.45;
+const EDGE_DIM = 0.5;
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
@@ -791,6 +797,35 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
               {liveNodes.map((n) => {
                 const a = alpha(n.title);
                 const { x, y } = n;
+                // The neon verdicts: gold for the chosen planet, cyan for
+                // everyone joined to it — the connected suddenly wear a
+                // different light while the sky keeps wandering around them.
+                const selected = focus === n.title;
+                const linked =
+                  !!focus && !selected && !!neighbours?.has(n.title.toLowerCase());
+                const neonRings = (r: number) =>
+                  selected || linked ? (
+                    <>
+                      <Circle
+                        cx={x}
+                        cy={y}
+                        r={r + 5}
+                        fill="none"
+                        stroke={selected ? NEON_SELECTED : NEON_LINKED}
+                        strokeOpacity={0.22}
+                        strokeWidth={5}
+                      />
+                      <Circle
+                        cx={x}
+                        cy={y}
+                        r={r + 3}
+                        fill="none"
+                        stroke={selected ? NEON_SELECTED : NEON_LINKED}
+                        strokeOpacity={0.95}
+                        strokeWidth={1.7}
+                      />
+                    </>
+                  ) : null;
 
                 if (n.ring === 0) {
                   const rd = Math.max(8, n.r * 0.72);
@@ -798,6 +833,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                     <G key={`n-${n.title}`} opacity={a}>
                       <Circle cx={x} cy={y} r={rd * 2.5} fill="url(#sun-glow)" />
                       <Circle cx={x} cy={y} r={rd} fill="url(#sun-core)" />
+                      {neonRings(rd)}
                     </G>
                   );
                 }
@@ -836,7 +872,6 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   );
                 }
 
-                const lit = focus === n.title;
                 const seed = seedOf(n.title);
                 const planet = PLANET_TYPES[seed % PLANET_TYPES.length];
                 const clipId = `pc-${seed.toString(36)}`;
@@ -869,11 +904,11 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                       cy={y}
                       r={rd}
                       fill="none"
-                      stroke={lit ? '#FFFFFF' : 'rgba(7, 11, 26, 0.55)'}
-                      strokeWidth={lit ? 1.6 : 1}
-                      strokeOpacity={lit ? 0.9 : 1}
+                      stroke="rgba(7, 11, 26, 0.55)"
+                      strokeWidth={1}
                     />
                     {ring?.front}
+                    {neonRings(rd)}
                   </G>
                 );
               })}

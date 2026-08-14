@@ -95,9 +95,15 @@ const CHARGE = 44;
  *  shoving each other off the canvas. */
 const REPEL_MAX_D2 = 420 * 420;
 
-/** Springs. Rest length leaves room for two bodies plus a label. */
-const LINK_BASE = 66;
-const LINK_STRENGTH = 0.9;
+/** Springs. Rest length is wherever the two bodies were SEEDED apart
+ *  (clamped), not a fixed short leash: the sky deliberately scatters linked
+ *  and unlinked notes into one mixed field (see use-graph-sim scatterSeeds),
+ *  and a clustering spring would spend every tick undoing that. What remains
+ *  of the spring is coupling — drag one body and its constellation still
+ *  leans after it, wander still sways neighbours together. */
+const LINK_MIN = 70;
+const LINK_MAX = 460;
+const LINK_STRENGTH = 0.35;
 
 /** Gravity toward the canvas centre. The most-linked body is pulled harder,
  *  which is what keeps the "sun" of the child's system near the middle
@@ -198,10 +204,14 @@ export class GraphPhysics {
     this.links = links.map((l) => {
       const da = Math.max(1, this.degree[l.a]);
       const db = Math.max(1, this.degree[l.b]);
+      const seedDist = Math.hypot(
+        bodies[l.b].x - bodies[l.a].x,
+        bodies[l.b].y - bodies[l.a].y,
+      );
       return {
         a: l.a,
         b: l.b,
-        dist: LINK_BASE + 0.7 * (bodies[l.a].r + bodies[l.b].r),
+        dist: Math.min(LINK_MAX, Math.max(LINK_MIN, seedDist)),
         // d3's defaults: a spring weakens on high-degree nodes so a hub is
         // not torn apart, and the lighter-connected end does most of the
         // moving.
