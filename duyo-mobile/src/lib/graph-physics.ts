@@ -70,17 +70,18 @@ const ALPHA_IDLE = 0.055;
  *  lengths stay at rest ±10% while bodies cover 30-60px every ten seconds). */
 const DRIFT_ACCEL = 0.24;
 
-/** Home anchoring — what keeps the restlessness from becoming migration.
+/** Swarm cohesion — everyone is drawn to everyone, linked or not.
  *
- *  Once the opening settle is done, every body remembers where it landed and
- *  is pulled gently back toward that home while it wanders. Force balance
- *  puts the roam radius near DRIFT_ACCEL/HOME_PULL ≈ 60px — alive, but the
- *  sky can never walk itself off the screen the way pure drift plus weak
- *  centre gravity allowed over long minutes. Dragging a body re-homes it
- *  where the child dropped it: their arrangement is the new truth. */
-const HOME_PULL = 0.004;
-/** The tick homes are recorded on — just after the opening settle. */
-const HOME_TICK = 45;
+ *  A uniform pairwise pull between every pair of bodies is mathematically
+ *  the same as pulling each body toward the swarm's centroid, so that is
+ *  how it is computed (O(n) instead of O(n²)). Against short-range
+ *  repulsion this settles the sky into one close-knit cloud; against the
+ *  wander it lets bodies trade places inside that cloud instead of
+ *  oscillating around fixed homes — the mixing the child asked for. The
+ *  centroid itself is walked toward the canvas centre by CENTER_PULL, so
+ *  the cloud as a whole can never migrate off screen. */
+const COHESION = 0.0035;
+const CENTER_PULL = 0.0009;
 /** While a finger holds a body the system idles warm at this alpha instead
  *  of cooling, so neighbours keep responding for the whole drag. (d3's
  *  `alphaTarget(0.3)` drag convention.) */
@@ -96,14 +97,13 @@ const CHARGE = 44;
 const REPEL_MAX_D2 = 420 * 420;
 
 /** Springs. Rest length is wherever the two bodies were SEEDED apart
- *  (clamped), not a fixed short leash: the sky deliberately scatters linked
- *  and unlinked notes into one mixed field (see use-graph-sim scatterSeeds),
- *  and a clustering spring would spend every tick undoing that. What remains
- *  of the spring is coupling — drag one body and its constellation still
- *  leans after it, wander still sways neighbours together. */
+ *  (clamped), and the strength is barely there: layout belongs to cohesion,
+ *  repulsion and the wander now — links must not regroup the mixed cloud.
+ *  What survives of the spring is a whisper of coupling, felt most when a
+ *  body is dragged and its constellation leans after it. */
 const LINK_MIN = 70;
-const LINK_MAX = 460;
-const LINK_STRENGTH = 0.35;
+const LINK_MAX = 300;
+const LINK_STRENGTH = 0.12;
 
 /** Gravity toward the canvas centre. The most-linked body is pulled harder,
  *  which is what keeps the "sun" of the child's system near the middle
@@ -113,7 +113,7 @@ const CENTRAL_GRAVITY = 0.11;
 
 /** Overlap separation — not a d3 default, but labels under 11pt bodies stop
  *  being readable the moment two discs merge, so overlaps get pushed apart. */
-const COLLIDE_PAD = 3;
+const COLLIDE_PAD = 8;
 const COLLIDE_STRENGTH = 0.7;
 
 export class GraphPhysics {
@@ -133,10 +133,6 @@ export class GraphPhysics {
   private readonly fx2: Float64Array;
   private readonly fy1: Float64Array;
   private readonly fy2: Float64Array;
-  /** Where each body belongs, captured at HOME_TICK. */
-  private readonly homeX: Float64Array;
-  private readonly homeY: Float64Array;
-  private homesSet = false;
 
   private readonly cx: number;
   private readonly cy: number;
@@ -190,8 +186,6 @@ export class GraphPhysics {
     this.fx2 = new Float64Array(n);
     this.fy1 = new Float64Array(n);
     this.fy2 = new Float64Array(n);
-    this.homeX = new Float64Array(n);
-    this.homeY = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       this.phase[i] = i * 2.399963; // golden angle in radians
       this.sway[i] = 1 / (1 + this.degree[i] * 0.35);
@@ -241,11 +235,6 @@ export class GraphPhysics {
   }
 
   release(): void {
-    // Wherever the child dropped it is where it now belongs.
-    if (this.pinned >= 0 && this.homesSet) {
-      this.homeX[this.pinned] = this.xs[this.pinned];
-      this.homeY[this.pinned] = this.ys[this.pinned];
-    }
     this.pinned = -1;
     this.alphaTarget = this.ambient ? ALPHA_IDLE : 0;
   }
@@ -261,17 +250,19 @@ export class GraphPhysics {
     const n = xs.length;
     const a = this.alpha;
 
-    // Ambient wander. Deliberately outside the alpha scaling: alpha is how
-    // unsettled the LAYOUT is, and the sky keeps roaming long after the
-    // layout has stopped having opinions.
+    // Ambient wander plus swarm cohesion. Deliberately outside the alpha
+    // scaling: alpha is how unsettled the LAYOUT is, and the sky keeps
+    // roaming and regrouping long after the layout has stopped having
+    // opinions.
     if (this.ambient) {
-      if (!this.homesSet && this.age >= HOME_TICK) {
-        this.homesSet = true;
-        for (let i = 0; i < n; i++) {
-          this.homeX[i] = xs[i];
-          this.homeY[i] = ys[i];
-        }
+      let mx = 0;
+      let my = 0;
+      for (let i = 0; i < n; i++) {
+        mx += xs[i];
+        my += ys[i];
       }
+      mx /= n;
+      my /= n;
       const t = this.age;
       for (let i = 0; i < n; i++) {
         if (i === this.pinned) continue;
@@ -285,10 +276,10 @@ export class GraphPhysics {
           (Math.sin(t * this.fy1[i] + p * 1.7) +
             0.6 * Math.cos(t * this.fy2[i] + p * 3.1)) *
           s;
-        if (this.homesSet) {
-          vxs[i] += (this.homeX[i] - xs[i]) * HOME_PULL;
-          vys[i] += (this.homeY[i] - ys[i]) * HOME_PULL;
-        }
+        // Everyone toward everyone (via the centroid), and the flock as a
+        // whole toward the canvas centre.
+        vxs[i] += (mx - xs[i]) * COHESION + (this.cx - xs[i]) * CENTER_PULL;
+        vys[i] += (my - ys[i]) * COHESION + (this.cy - ys[i]) * CENTER_PULL;
       }
     }
 

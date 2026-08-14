@@ -31,13 +31,13 @@ import {
 /** As close to invisible as a line can be and still be findable — the
  *  threads are a secret the selection reveals. */
 const EDGE = 'rgba(160, 190, 255, 0.10)';
-const EDGE_ON = 'rgba(200, 220, 255, 0.9)';
-/** The soft halo under a selected constellation's edges. */
-const EDGE_GLOW = 'rgba(160, 200, 255, 0.18)';
-/** Neon rings: cyan for the planets joined to the selection, gold for the
- *  selected planet itself. */
-const NEON_LINKED = '#22D3EE';
-const NEON_SELECTED = '#FDC700';
+/** A selected constellation's threads burn neon green — the one moment the
+ *  wiring is meant to be unmissable. */
+const EDGE_ON = '#3BFF7E';
+const EDGE_GLOW = 'rgba(59, 255, 126, 0.22)';
+/** Neon rings: green for the chosen planet, red for everyone joined to it. */
+const NEON_SELECTED = '#3BFF7E';
+const NEON_LINKED = '#FF3B5C';
 /** Muted, the way Obsidian's labels sit under their dots. */
 const LABEL = '#A9B4CC';
 /** How far outsiders fade while a constellation is selected. Bodies keep a

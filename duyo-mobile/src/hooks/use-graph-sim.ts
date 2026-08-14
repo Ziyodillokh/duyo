@@ -30,8 +30,11 @@ function scatterSeeds(
     .map((n, i) => ({ i, h: hashOf(n.title) }))
     .sort((a, b) => a.h - b.h || a.i - b.i);
   const pos = new Array<{ x: number; y: number }>(nodes.length);
-  const rx = cx * 0.82;
-  const ry = cy * 0.8;
+  // A tight cloud, not a full-canvas spread — cohesion holds the swarm close
+  // and the seeds should already agree with it.
+  const reach = Math.min(cx, cy) * 0.68;
+  const rx = reach;
+  const ry = reach * 1.15;
   const count = Math.max(1, nodes.length - (centralIndex >= 0 ? 1 : 0));
   let rank = 0;
   for (const { i } of order) {
