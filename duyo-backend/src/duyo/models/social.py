@@ -168,6 +168,12 @@ class PeerMessage(Base, UUIDPK, TimestampMixin):
     read_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Set when a safety admin has worked this row in the peer-flag queue.
+    # Mirrors CrisisEvent so both queues behave identically.
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     def __repr__(self) -> str:
         return f"<PeerMessage seq={self.seq} {self.moderation_state.value}>"

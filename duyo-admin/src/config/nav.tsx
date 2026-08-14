@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   ShieldAlert,
+  MessagesSquare,
   Users,
   Bot,
   Database,
@@ -31,6 +32,7 @@ export const NAV: NavSection[] = [
     items: [
       { key: "dashboard", path: "/", icon: LayoutDashboard },
       { key: "safety", path: "/safety", icon: ShieldAlert },
+      { key: "peerSafety", path: "/peer-safety", icon: MessagesSquare },
       { key: "users", path: "/users", icon: Users },
     ],
   },

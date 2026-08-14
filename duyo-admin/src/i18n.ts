@@ -6,6 +6,7 @@ const uz = {
   nav: {
     dashboard: "Boshqaruv paneli",
     safety: "Xavfsizlik markazi",
+    peerSafety: "Tengdoshlar xavfsizligi",
     users: "Foydalanuvchilar va oilalar",
     ai: "AI boshqaruvi",
     rag: "RAG bilim bazasi",
@@ -37,6 +38,7 @@ const ru = {
   nav: {
     dashboard: "Панель управления",
     safety: "Центр безопасности",
+    peerSafety: "Безопасность сверстников",
     users: "Пользователи и семьи",
     ai: "Управление ИИ",
     rag: "База знаний RAG",
@@ -68,6 +70,7 @@ const en = {
   nav: {
     dashboard: "Dashboard",
     safety: "Safety Center",
+    peerSafety: "Peer Safety",
     users: "Users & Families",
     ai: "AI Management",
     rag: "RAG Knowledge Base",

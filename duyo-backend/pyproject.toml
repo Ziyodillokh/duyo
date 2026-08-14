@@ -120,6 +120,12 @@ extend-immutable-calls = [
 # whole point of the explanation.
 "src/duyo/crisis/*" = ["RUF001", "RUF002", "RUF003"]
 "tests/test_crisis_detector.py" = ["RUF001", "RUF002", "RUF003"]
+# The peer-harm detector matches Russian and Uzbek verbatim for the same
+# reason, and its docstring names the apostrophe glyphs (ʻ U+02BB, ʼ U+02BC)
+# it relies on `_normalize` to fold. The test suite asserts each of those
+# glyphs is caught, so it must contain them literally.
+"src/duyo/services/peer_harm.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/test_peer_harm.py" = ["RUF001", "RUF002", "RUF003"]
 # Sample Russian-language lesson vocabulary — genuine Cyrillic content, not a
 # typo risk.
 "scripts/seed_language_content.py" = ["RUF001"]

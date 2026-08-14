@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { SafetyCenter } from "@/pages/SafetyCenter";
+import { PeerSafety } from "@/pages/PeerSafety";
 import { Users } from "@/pages/Users";
 import { AiManagement } from "@/pages/AiManagement";
 import { RagKnowledge } from "@/pages/RagKnowledge";
@@ -23,6 +24,7 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/safety" element={<SafetyCenter />} />
+          <Route path="/peer-safety" element={<PeerSafety />} />
           <Route path="/users" element={<Users />} />
           <Route path="/ai" element={<AiManagement />} />
           <Route path="/rag" element={<RagKnowledge />} />

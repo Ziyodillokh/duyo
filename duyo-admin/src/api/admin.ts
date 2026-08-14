@@ -37,6 +37,49 @@ export interface CrisisEventRow {
   created_at: string;
 }
 
+/**
+ * A message the peer-harm filter stopped before delivery.
+ *
+ * The body is included on purpose: the message never reached the recipient,
+ * so this is an incident record rather than a private conversation.
+ */
+export interface PeerFlagRow {
+  id: string;
+  friendship_id: string;
+  sender_child_id: string | null;
+  body: string;
+  moderation_reason: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+}
+
+/**
+ * A child asking an adult for help about another child.
+ *
+ * Deliberately carries NO message text — reading the conversation is a
+ * separate call (`peerReportContext`) that the backend audits as
+ * `read_conversation`, so it stays a decision someone made rather than a
+ * side effect of opening the queue.
+ */
+export interface PeerReportRow {
+  id: string;
+  reporter_child_id: string;
+  reported_child_id: string;
+  friendship_id: string | null;
+  reason: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+}
+
+export interface PeerContextMessage {
+  sender_child_id: string | null;
+  body: string;
+  moderation_state: "delivered" | "blocked" | "redacted";
+  created_at: string;
+}
+
 export interface DashboardSummary {
   children: number;
   parents: number;
@@ -282,6 +325,16 @@ export const adminApi = {
     api.post<CrisisEventRow>(`/admin/safety/events/${id}/notify-parent`, {}),
   safetyReview: (id: string) =>
     api.post<CrisisEventRow>(`/admin/safety/events/${id}/review`, {}),
+  peerFlags: (unreviewedOnly = true) =>
+    api.get<PeerFlagRow[]>(`/admin/safety/peer-flags?unreviewed_only=${unreviewedOnly}`),
+  peerFlagReview: (id: string) =>
+    api.post<PeerFlagRow>(`/admin/safety/peer-flags/${id}/review`, {}),
+  peerReports: (unreviewedOnly = true) =>
+    api.get<PeerReportRow[]>(`/admin/safety/peer-reports?unreviewed_only=${unreviewedOnly}`),
+  peerReportContext: (id: string) =>
+    api.get<PeerContextMessage[]>(`/admin/safety/peer-reports/${id}/context`),
+  peerReportReview: (id: string) =>
+    api.post<PeerReportRow>(`/admin/safety/peer-reports/${id}/review`, {}),
   payments: (limit = 100) => api.get<PaymentRow[]>(`/admin/monetization/payments?limit=${limit}`),
   paymentsSummary: () =>
     api.get<{ by_state: Record<string, number>; by_provider: Record<string, number>; revenue: number }>(

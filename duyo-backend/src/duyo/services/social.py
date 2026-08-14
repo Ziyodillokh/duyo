@@ -21,6 +21,7 @@ from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisLevel
 from duyo.models.goal import ChildGoal, GoalCatalog, GoalStatus
 from duyo.models.social import ChildSocialSettings, Friendship
+from duyo.services.peer_harm import check_peer_harm
 
 log = logging.getLogger(__name__)
 
@@ -245,21 +246,39 @@ class MessageVerdict:
 def screen_peer_message(body: str, detector: KeywordCrisisDetector) -> MessageVerdict:
     """Decide whether one child's message may reach another.
 
-    Two independent checks:
+    Three independent checks:
 
-    1. Contact-detail exchange — blocked outright.
-    2. The existing Layer-1 crisis detector. NOTE what this does and does not
-       do: it detects the AUTHOR's distress (suicidal, self-harm, violence,
-       abuse). It has NO category for sexual content, grooming or solicitation,
-       so it is a floor, not a complete safety net. A dedicated peer-harm
-       detector is required before this ships to children who are not the
-       team's own.
+    1. Peer harm (`services.peer_harm`): sexual content, grooming, threats,
+       degradation, and offline-meeting requests. Asks whether the SENDER is a
+       danger to the recipient.
+    2. Contact-detail exchange — blocked outright.
+    3. The Layer-1 crisis detector, which asks the opposite question of (1):
+       whether the AUTHOR is in distress. Both must run — they catch different
+       people, and only one of them is the person who needs help.
+
+    Every check blocks, so the order decides nothing except the RECORDED
+    REASON — and that is what a safety reviewer acts on, so the most specific
+    one has to win. Peer harm is therefore first:
+
+    - `uchrash` is already in `_CONTACT_PATTERNS`, so meeting requests used to
+      be filed as `contact_info`, which reads as "shared a phone number".
+    - A threat is also a crisis violence keyword, so it used to be filed as
+      `crisis_RED` — routing attention to the child doing the threatening.
+
+    Neither mislabelling changed what the recipient saw. Both changed what the
+    adult reading the queue believed had happened.
     """
     text = body.strip()
     if not text:
         return MessageVerdict(False, "empty")
     if len(text) > _MESSAGE_MAX:
         return MessageVerdict(False, "too_long")
+
+    harm = check_peer_harm(text)
+    if harm.blocked:
+        # `reason` is what lands in PeerMessage.moderation_reason and what the
+        # admin queue filters on — see api/v1/admin.py `/safety/peer-flags`.
+        return MessageVerdict(False, harm.reason)
 
     for pattern in _CONTACT_PATTERNS:
         if pattern.search(text):

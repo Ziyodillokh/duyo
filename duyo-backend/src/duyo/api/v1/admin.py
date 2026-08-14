@@ -23,6 +23,7 @@ from duyo.models.admin import AdminRole, AdminUser, AuditLog
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message
+from duyo.models.social import PeerMessage, PeerModerationState, PeerReport
 from duyo.models.subscription import Subscription
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
@@ -154,6 +155,200 @@ async def review_crisis(
     return CrisisEventRow.model_validate(event)
 
 
+# ---- Peer safety (Safety Officer only) ----
+#
+# Two separate queues, because they carry different evidence and different
+# privacy weight:
+#
+#   /safety/peer-flags   — messages the filter STOPPED. Never delivered, so
+#                          the body is an incident record and is shown.
+#   /safety/peer-reports — a child asking an adult for help. The report itself
+#                          carries no message text; reading the conversation is
+#                          a separate, separately-audited call (`/context`), so
+#                          that opening a list can never quietly become reading
+#                          two children's private chat.
+#
+# Before this existed, `PeerMessage.moderation_reason` was written on every
+# block and read by nobody, and a child who filed a report reached no one.
+
+
+class PeerFlagRow(BaseModel):
+    id: UUID
+    friendship_id: UUID
+    sender_child_id: UUID | None
+    # Shown deliberately: this message was blocked before delivery.
+    body: str
+    moderation_reason: str | None
+    reviewed_at: datetime | None
+    reviewed_by: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PeerReportRow(BaseModel):
+    id: UUID
+    reporter_child_id: UUID
+    reported_child_id: UUID
+    friendship_id: UUID | None
+    reason: str | None
+    reviewed_at: datetime | None
+    reviewed_by: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PeerContextMessage(BaseModel):
+    sender_child_id: UUID | None
+    body: str
+    moderation_state: PeerModerationState
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/safety/peer-flags", response_model=list[PeerFlagRow])
+async def list_peer_flags(
+    request: Request,
+    unreviewed_only: bool = True,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> list[PeerFlagRow]:
+    """Messages the peer-harm filter blocked, newest first.
+
+    Defaults to unreviewed only: a queue whose default view is "everything
+    ever" is one where new items are invisible among the handled ones.
+    """
+    stmt = (
+        select(PeerMessage)
+        .where(PeerMessage.moderation_state == PeerModerationState.BLOCKED)
+        .order_by(PeerMessage.created_at.desc())
+        .limit(min(limit, 200))
+    )
+    if unreviewed_only:
+        stmt = stmt.where(PeerMessage.reviewed_at.is_(None))
+    rows = (await db.scalars(stmt)).all()
+    await record_audit(
+        db, admin, action="view", module="safety",
+        target=f"peer_flags(unreviewed={unreviewed_only})",
+        meta={"count": len(rows)}, request=request,
+    )
+    return [PeerFlagRow.model_validate(r) for r in rows]
+
+
+@router.post("/safety/peer-flags/{message_id}/review", response_model=PeerFlagRow)
+async def review_peer_flag(
+    message_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> PeerFlagRow:
+    """Mark one blocked message as handled by the current safety admin."""
+    row = await db.scalar(select(PeerMessage).where(PeerMessage.id == message_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Xabar topilmadi")
+    row.reviewed_at = datetime.now(row.created_at.tzinfo)
+    row.reviewed_by = admin.email
+    await db.flush()
+    await record_audit(
+        db, admin, action="review", module="safety",
+        target=f"peer_flag:{message_id}", request=request,
+    )
+    return PeerFlagRow.model_validate(row)
+
+
+@router.get("/safety/peer-reports", response_model=list[PeerReportRow])
+async def list_peer_reports(
+    request: Request,
+    unreviewed_only: bool = True,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> list[PeerReportRow]:
+    """Reports children filed about other children, newest first."""
+    stmt = (
+        select(PeerReport)
+        .order_by(PeerReport.created_at.desc())
+        .limit(min(limit, 200))
+    )
+    if unreviewed_only:
+        stmt = stmt.where(PeerReport.reviewed_at.is_(None))
+    rows = (await db.scalars(stmt)).all()
+    await record_audit(
+        db, admin, action="view", module="safety",
+        target=f"peer_reports(unreviewed={unreviewed_only})",
+        meta={"count": len(rows)}, request=request,
+    )
+    return [PeerReportRow.model_validate(r) for r in rows]
+
+
+@router.get(
+    "/safety/peer-reports/{report_id}/context",
+    response_model=list[PeerContextMessage],
+)
+async def peer_report_context(
+    report_id: UUID,
+    request: Request,
+    limit: int = 30,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> list[PeerContextMessage]:
+    """The recent messages in the reported friendship, oldest-last.
+
+    A separate endpoint from the report list, and audited separately, because
+    this is the call that reads two children's delivered private conversation.
+    A report without it is unactionable ("child A dislikes child B"), but it
+    should be a decision a named admin makes and the audit log records — not
+    something that happens merely because a queue page was opened.
+    """
+    report = await db.scalar(select(PeerReport).where(PeerReport.id == report_id))
+    if report is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Shikoyat topilmadi")
+    if report.friendship_id is None:
+        return []
+
+    rows = (
+        await db.scalars(
+            select(PeerMessage)
+            .where(PeerMessage.friendship_id == report.friendship_id)
+            .order_by(PeerMessage.seq.desc())
+            .limit(min(limit, 100))
+        )
+    ).all()
+    await record_audit(
+        db, admin, action="read_conversation", module="safety",
+        target=f"peer_report:{report_id}",
+        meta={"friendship_id": str(report.friendship_id), "count": len(rows)},
+        request=request,
+    )
+    # Fetched newest-first so the LIMIT takes the most recent messages, then
+    # reversed so the reviewer reads the exchange in the order it happened.
+    return [PeerContextMessage.model_validate(r) for r in reversed(rows)]
+
+
+@router.post("/safety/peer-reports/{report_id}/review", response_model=PeerReportRow)
+async def review_peer_report(
+    report_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> PeerReportRow:
+    """Mark one child-filed report as handled."""
+    report = await db.scalar(select(PeerReport).where(PeerReport.id == report_id))
+    if report is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Shikoyat topilmadi")
+    report.reviewed_at = datetime.now(report.created_at.tzinfo)
+    report.reviewed_by = admin.email
+    await db.flush()
+    await record_audit(
+        db, admin, action="review", module="safety",
+        target=f"peer_report:{report_id}", request=request,
+    )
+    return PeerReportRow.model_validate(report)
+
+
 # ---- Stats (any admin) ----
 @router.get("/safety/summary")
 async def safety_summary(
@@ -164,6 +359,23 @@ async def safety_summary(
     counts = {level.value: 0 for level in CrisisLevel}
     for level, n in (await db.execute(stmt)).all():
         counts[level.value if hasattr(level, "value") else str(level)] = n
+
+    # The two peer queues ride along here so the dashboard can show a badge.
+    # Without a visible count, an outstanding report is indistinguishable from
+    # no reports at all — which is how the old build lost every one of them.
+    counts["peer_flags_unreviewed"] = await db.scalar(
+        select(func.count())
+        .select_from(PeerMessage)
+        .where(
+            PeerMessage.moderation_state == PeerModerationState.BLOCKED,
+            PeerMessage.reviewed_at.is_(None),
+        )
+    ) or 0
+    counts["peer_reports_unreviewed"] = await db.scalar(
+        select(func.count())
+        .select_from(PeerReport)
+        .where(PeerReport.reviewed_at.is_(None))
+    ) or 0
     return counts
 
 
