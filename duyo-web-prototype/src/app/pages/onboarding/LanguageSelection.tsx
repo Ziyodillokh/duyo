@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { DuyoAvatar } from '../../components/duyo/DuyoAvatar';
+import { DuyoLogo } from '../../components/duyo/DuyoLogo';
 
 type Language = 'uz' | 'ru' | 'en';
 
@@ -24,7 +24,7 @@ export const LanguageSelection: React.FC = () => {
   return (
     <div className="h-screen w-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-primary/5 to-accent/10">
       <div className="w-full max-w-md flex flex-col items-center gap-8">
-        <DuyoAvatar size="lg" state="happy" />
+        <DuyoLogo className="h-40" />
         <h1 className="text-2xl font-bold text-foreground">Tilni tanlang</h1>
 
         <div className="w-full flex flex-col gap-3">

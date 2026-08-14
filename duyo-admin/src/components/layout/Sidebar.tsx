@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ShieldCheck } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { NAV } from "@/config/nav";
 import { cn } from "@/lib/utils";
 
@@ -10,9 +10,7 @@ export function Sidebar() {
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-surface">
       {/* Brand */}
       <div className="flex h-16 items-center gap-2 border-b border-line px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-duyo-blue text-white">
-          <ShieldCheck size={18} />
-        </div>
+        <BrandMark className="h-9 w-9" />
         <div className="leading-tight">
           <div className="text-sm font-bold text-ink">DUYO</div>
           <div className="text-[11px] text-muted">Admin Panel</div>

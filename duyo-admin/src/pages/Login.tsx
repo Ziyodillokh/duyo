@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/auth/AuthContext";
 import { ApiError } from "@/api/client";
 
@@ -30,9 +31,7 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="card w-full max-w-md p-8">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-duyo-blue text-white">
-            <ShieldCheck size={20} />
-          </div>
+          <BrandMark className="h-12 w-12" />
           <div>
             <div className="text-lg font-bold text-ink">DUYO Admin</div>
             <div className="text-xs text-muted">Ichki boshqaruv paneli</div>
