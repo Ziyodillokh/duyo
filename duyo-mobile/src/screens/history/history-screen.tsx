@@ -30,7 +30,7 @@ import {
   useProjects,
   useRenameConversation,
 } from '@/hooks/use-history';
-import { groupConversations } from '@/lib/history-groups';
+import { groupConversations, shortWhen } from '@/lib/history-groups';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
@@ -267,24 +267,36 @@ function ConversationRow({
       style={{ padding: 14 }}
     >
       <View className="flex-row items-start gap-3">
+        {/* 38 / radius 12 / 12%-tint is the icon tile used by every row in
+            this area — projects, history, and the drawer — so the three read
+            as one surface rather than three screens built at different times. */}
         <View
-          className="rounded-md items-center justify-center"
+          className="items-center justify-center"
           style={{
-            width: 34,
-            height: 34,
+            width: 38,
+            height: 38,
+            borderRadius: 12,
             backgroundColor: 'rgba(96,165,250,0.12)',
           }}
         >
-          <MessageSquare size={16} color="#60A5FA" />
+          <MessageSquare size={17} color="#60A5FA" />
         </View>
 
         <View className="flex-1">
-          <Text
-            className="text-base font-medium text-foreground dark:text-dark-text"
-            numberOfLines={1}
-          >
-            {conversation.title}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text
+              className="text-base font-medium text-foreground dark:text-dark-text flex-1"
+              numberOfLines={1}
+            >
+              {conversation.title}
+            </Text>
+            <Text
+              className="text-xs text-muted-foreground dark:text-dark-muted"
+              style={{ fontVariant: ['tabular-nums'] }}
+            >
+              {shortWhen(conversation.updated_at)}
+            </Text>
+          </View>
           {!!conversation.preview && (
             <Text
               className="text-sm text-muted-foreground dark:text-dark-muted mt-0.5"

@@ -1,6 +1,7 @@
 import { Stack, router } from 'expo-router';
 import { useEffect } from 'react';
 
+import { MemoryConsentSheet } from '@/components/memory/memory-consent-sheet';
 import { useAuthStore } from '@/store/auth';
 
 export default function MainLayout() {
@@ -21,7 +22,8 @@ export default function MainLayout() {
   }, [hydrated, isAuthenticated]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="voice" />
       <Stack.Screen name="settings" />
@@ -51,6 +53,11 @@ export default function MainLayout() {
           animation: 'slide_from_bottom',
         }}
       />
-    </Stack>
+      </Stack>
+
+      {/* Mounted once, above every screen: the chat and voice surfaces both
+          raise the same sheet rather than each rendering their own. */}
+      <MemoryConsentSheet />
+    </>
   );
 }

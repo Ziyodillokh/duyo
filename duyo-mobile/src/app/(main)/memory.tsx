@@ -25,6 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  MEMORY_CATEGORY_COLOURS,
   MEMORY_CATEGORY_ICONS,
   MEMORY_CATEGORY_LABELS,
 } from '@/lib/memory-categories';
@@ -274,6 +275,7 @@ export default function MemoryScreen() {
                   key={c}
                   label={`${MEMORY_CATEGORY_LABELS[c]} (${counts[c]})`}
                   active={filter === c}
+                  accent={MEMORY_CATEGORY_COLOURS[c]}
                   onPress={() => setFilter(c)}
                 />
               ))}
@@ -343,22 +345,39 @@ function CategoryChip({
   label,
   active,
   onPress,
+  accent = '#60A5FA',
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
+  /** The category's own colour, so the filter row matches the cards below. */
+  accent?: string;
 }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
-      className={`px-3 py-1.5 rounded-2xl border mr-2 ${
-        active ? 'bg-neon-blue border-neon-blue' : 'border-neon-blue/30'
-      }`}
+      className="flex-row items-center gap-1.5 rounded-full mr-2 active:opacity-80"
+      style={{
+        paddingHorizontal: 13,
+        paddingVertical: 7,
+        borderWidth: 1,
+        borderColor: active ? accent : `${accent}44`,
+        backgroundColor: active ? accent : `${accent}12`,
+      }}
     >
+      <View
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: active ? '#0A1628' : accent,
+        }}
+      />
       <Text
-        className={`text-sm font-medium ${active ? 'text-white' : 'text-foreground dark:text-dark-text'}`}
+        className="text-sm font-medium"
+        style={{ color: active ? '#0A1628' : accent }}
       >
         {label}
       </Text>
@@ -405,17 +424,30 @@ function MemoryCard({
     }
   };
 
+  // One accent per category, so a long list is scannable by colour before it
+  // is read — see lib/memory-categories.ts.
+  const accent = MEMORY_CATEGORY_COLOURS[memory.category] ?? '#60A5FA';
+
   return (
     <View
-      className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface"
-      style={{ padding: 16 }}
+      className="rounded-xl bg-card dark:bg-dark-surface"
+      style={{
+        padding: 16,
+        borderWidth: 1,
+        borderColor: `${accent}33`,
+        borderLeftWidth: 3,
+        borderLeftColor: accent,
+      }}
     >
       <View className="flex-row items-center gap-2 mb-2">
-        <Icon size={16} color="#60A5FA" />
-        <Text className="text-xs font-medium text-neon-blue">
+        <Icon size={15} color={accent} />
+        <Text className="text-xs font-semibold" style={{ color: accent }}>
           {MEMORY_CATEGORY_LABELS[memory.category]}
         </Text>
         <View className="flex-1" />
+        {/* hitSlop 14 around a 16px icon clears the 44px minimum tap target.
+            At the previous 8 these two sat ~32px apart, close enough that a
+            child aiming for the pencil could delete the memory instead. */}
         {!editing && (
           <Pressable
             onPress={() => {
@@ -424,7 +456,8 @@ function MemoryCard({
             }}
             accessibilityRole="button"
             accessibilityLabel="Tahrirlash"
-            hitSlop={8}
+            hitSlop={14}
+            className="active:opacity-60"
           >
             <Pencil size={16} color="#94A3B8" />
           </Pressable>
@@ -433,7 +466,9 @@ function MemoryCard({
           onPress={onDelete}
           accessibilityRole="button"
           accessibilityLabel="O'chirish"
-          hitSlop={8}
+          hitSlop={14}
+          className="active:opacity-60"
+          style={{ marginLeft: 6 }}
         >
           <Trash2 size={16} color="#94A3B8" />
         </Pressable>
@@ -526,6 +561,7 @@ function AddMemoryForm({
               key={c}
               label={MEMORY_CATEGORY_LABELS[c]}
               active={category === c}
+              accent={MEMORY_CATEGORY_COLOURS[c]}
               onPress={() => setCategory(c)}
             />
           ))}

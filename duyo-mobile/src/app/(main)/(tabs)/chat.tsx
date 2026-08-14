@@ -313,21 +313,34 @@ export default function ChatScreen() {
             DUYO
           </Text>
           <View className="flex-row items-center gap-2">
-            <View className="w-2 h-2 rounded-full bg-neon-green" />
+            {/* The dot carries the same state as the words beside it, so the
+                status reads at a glance without being parsed. */}
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: send.isPending ? '#FDC700' : '#05DF72',
+              }}
+            />
             <Text className="text-xs text-muted-foreground dark:text-dark-muted">
               {send.isPending ? "O'ylayapti..." : 'Xursand'}
             </Text>
           </View>
         </View>
 
+        {/* Tinted, unlike the plain menu glyph on the left: this one performs
+            an action rather than opening navigation, and a child reported not
+            realising it was tappable at all. */}
         <Pressable
           onPress={handleNewChat}
           accessibilityRole="button"
           accessibilityLabel="Yangi suhbat"
           hitSlop={8}
-          className="w-10 h-10 items-center justify-center"
+          className="w-10 h-10 items-center justify-center rounded-full active:opacity-70"
+          style={{ backgroundColor: 'rgba(96,165,250,0.14)' }}
         >
-          <SquarePen size={20} color="#60A5FA" />
+          <SquarePen size={19} color="#60A5FA" />
         </Pressable>
       </View>
 

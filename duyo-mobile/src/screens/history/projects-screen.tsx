@@ -253,14 +253,15 @@ function ProjectRow({
     >
       <View className="flex-row items-center gap-3">
         <View
-          className="rounded-md items-center justify-center"
+          className="items-center justify-center"
           style={{
             width: 38,
             height: 38,
+            borderRadius: 12,
             backgroundColor: `${project.colour ?? '#60A5FA'}22`,
           }}
         >
-          <Folder size={18} color={project.colour ?? '#60A5FA'} />
+          <Folder size={17} color={project.colour ?? '#60A5FA'} />
         </View>
 
         <View className="flex-1">
