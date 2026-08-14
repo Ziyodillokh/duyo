@@ -244,3 +244,42 @@ def test_result_is_immutable() -> None:
     result = check_peer_harm("send nudes")
     with pytest.raises(Exception):
         result.category = None  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# What the sender is told. A filter whose stated reason does not match what
+# the child did is one they learn to treat as noise — but explaining a
+# grooming block teaches evasion to the person it exists to stop.
+# ---------------------------------------------------------------------------
+
+def test_policy_refusals_state_the_rule() -> None:
+    from duyo.api.v1.social import _refusal_text
+
+    assert "uchrashish" in _refusal_text("peer_harm_meeting")
+    assert "telefon raqami" in _refusal_text("contact_info")
+    assert "tahdid" in _refusal_text("peer_harm_threat")
+
+
+def test_judgement_refusals_reveal_nothing() -> None:
+    """Sexual and grooming blocks must not describe what was detected."""
+    from duyo.api.v1.social import _REFUSAL_DEFAULT, _refusal_text
+
+    for reason in ("peer_harm_sexual", "peer_harm_grooming"):
+        assert _refusal_text(reason) == _REFUSAL_DEFAULT, reason
+
+
+def test_crisis_and_unknown_reasons_fall_through_to_an_offer_to_talk() -> None:
+    from duyo.api.v1.social import _REFUSAL_DEFAULT, _refusal_text
+
+    assert _refusal_text("crisis_RED") == _REFUSAL_DEFAULT
+    assert _refusal_text(None) == _REFUSAL_DEFAULT
+    assert _refusal_text("something_new") == _REFUSAL_DEFAULT
+
+
+def test_every_blocking_reason_produces_some_text() -> None:
+    """A new category must never yield an empty refusal."""
+    from duyo.api.v1.social import _refusal_text
+    from duyo.services.peer_harm import PeerHarmCategory
+
+    for category in PeerHarmCategory:
+        assert _refusal_text(f"peer_harm_{category.value}").strip()

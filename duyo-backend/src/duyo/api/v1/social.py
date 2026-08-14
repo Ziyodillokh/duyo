@@ -70,6 +70,63 @@ _MAX_PENDING_OUT = 5
 _MESSAGE_PAGE = 100
 
 
+#: What the SENDER is told when their message is not delivered.
+#:
+#: Every refusal used to say "you may not exchange personal information",
+#: which was true when contact details were the only thing being blocked. Now
+#: that peer-harm screening also runs, that text reaches a child who asked to
+#: meet up and a child who threatened someone — and a filter whose stated
+#: reason does not match what the child did is one they learn to treat as
+#: random noise and route around.
+#:
+#: Two rules shape these strings:
+#:
+#: 1. Where the rule is a POLICY, state it plainly. "Do not arrange to meet in
+#:    person" is a rule a child can follow, and saying it is fairer than a
+#:    vague refusal that reads as an accusation.
+#: 2. Where the block is a JUDGEMENT about intent (grooming, sexual content),
+#:    say nothing specific. Naming the signal teaches whoever tripped it what
+#:    to avoid next time, and the person most motivated to learn that is the
+#:    one this exists to stop.
+#:
+#: The recipient is told nothing in any case.
+_REFUSAL_DEFAULT = (
+    "Bu xabar yuborilmadi. Xohlasang, DUYO bilan gaplashamiz."
+)
+
+_REFUSALS: dict[str, str] = {
+    "contact_info": (
+        "Bu xabar yuborilmadi. Xavfsizlik uchun telefon raqami, manzil yoki "
+        "boshqa ilovadagi profilni almashish mumkin emas."
+    ),
+    "peer_harm_meeting": (
+        "Bu xabar yuborilmadi. DUYO orqali tanishgan bilan haqiqiy hayotda "
+        "uchrashishga kelishish mumkin emas — bu qoida hamma uchun bir xil."
+    ),
+    "peer_harm_threat": (
+        "Bu xabar yuborilmadi. Boshqa bolaga tahdid qilish mumkin emas. "
+        "Agar kimdir seni xafa qilayotgan bo'lsa, DUYO bilan gaplash."
+    ),
+    "peer_harm_degradation": (
+        "Bu xabar yuborilmadi. Bunday so'zlar boshqa bolani jiddiy "
+        "ranjitadi. Xohlasang, nima bo'lganini DUYO bilan gaplashamiz."
+    ),
+    "too_long": "Xabar juda uzun. Qisqaroq yozib ko'r.",
+    "empty": "Xabar bo'sh.",
+}
+
+
+def _refusal_text(reason: str | None) -> str:
+    """Explain a refusal to the sender without teaching evasion.
+
+    `peer_harm_sexual` and `peer_harm_grooming` are absent from the table on
+    purpose — they fall through to the neutral default. Crisis reasons fall
+    through too: the author may be the one in trouble, and the right response
+    is an offer to talk, not an explanation of what was matched.
+    """
+    return _REFUSALS.get(reason or "", _REFUSAL_DEFAULT)
+
+
 async def _peer_card(session: AsyncSession, child_id: UUID) -> PeerCard:
     row = await session.execute(
         select(ChildProfile, ChildSocialSettings)
@@ -525,9 +582,7 @@ async def send_message(
         # was stopped, is exactly what a reviewer needs to see.
         await db.commit()
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Bu xabar yuborilmadi. Xavfsizlik uchun shaxsiy ma'lumot "
-            "almashish mumkin emas. Xohlasang, DUYO bilan gaplashamiz.",
+            status.HTTP_422_UNPROCESSABLE_ENTITY, _refusal_text(verdict.reason)
         )
 
     return PeerMessageRead(
