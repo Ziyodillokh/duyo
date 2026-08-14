@@ -19,14 +19,3 @@ export function Placeholder({ navKey, phase }: { navKey: string; phase: string }
     </div>
   );
 }
-
-
-export function Placexolder({ navkey, phasy}: {navkey: string, phase:string}){
-  const {t} =useTranslation();
-  return (
-    <div>
-      <PageHeader title={t(`nav.${navkeys}`)}/>
-      
-    </div>
-  )
-}
