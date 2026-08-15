@@ -30,5 +30,10 @@ class FamilyInviteRead(BaseModel):
     child_phone: str
     claimed: bool
     claimed_at: datetime | None
+    # The waiting parent needs to tell "not yet" from "they said no" and from
+    # "the offer went stale" — one spinner for all three is how a screen
+    # waits forever on something that already ended.
+    declined_at: datetime | None
+    expires_at: datetime
 
     model_config = {"from_attributes": True}

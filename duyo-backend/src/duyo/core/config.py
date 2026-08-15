@@ -94,7 +94,11 @@ class Settings(BaseSettings):
     otp_demo_allow_in_production: bool = False
     eskiz_email: str = ""
     eskiz_password: str = ""
-    eskiz_from: str = "DUYO"
+    # Eskiz's shared system sender. An alphanumeric sender name (e.g. "DUYO")
+    # has to be registered and approved in the Eskiz cabinet first; this
+    # account has no such nickname, and an unapproved sender is rejected at
+    # send time with no SMS delivered. Default to the one that works.
+    eskiz_from: str = "4546"
     # Dev stub — when no real Eskiz creds, OTP is logged instead of sent.
     # In production this is False and missing creds will fail loudly.
     sms_stub_enabled: bool = True
@@ -141,6 +145,36 @@ class Settings(BaseSettings):
                 "number would accept that one code. Set "
                 "OTP_DEMO_ALLOW_IN_PRODUCTION=true to accept that during the "
                 "pilot, or clear OTP_DEMO_CODE."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _guard_sms_stub(self) -> "Settings":
+        """Production must not run on the SMS stub.
+
+        The stub's send() returns True, so every caller believes it worked:
+        logins would hand out codes nobody receives, and crisis alerts would
+        be recorded as delivered while reaching no parent at all. The failure
+        has no symptom, which is exactly why it has to be caught at boot —
+        the deploy is health-gated and rolls back, so a misconfigured release
+        fails visibly instead of silently swallowing every message.
+
+        Deliberately not applied to staging/development, where the stub is
+        the point.
+        """
+        if self.app_env != "production":
+            return self
+        if self.sms_stub_enabled:
+            raise ValueError(
+                "SMS_STUB_ENABLED is true while APP_ENV=production. No SMS "
+                "would be delivered — logins and crisis alerts would both be "
+                "silently discarded. Set SMS_STUB_ENABLED=false."
+            )
+        if not (self.eskiz_email and self.eskiz_password):
+            raise ValueError(
+                "ESKIZ_EMAIL/ESKIZ_PASSWORD are missing while "
+                "APP_ENV=production. The app would fall back to the SMS stub "
+                "and silently discard every login code and crisis alert."
             )
         return self
 

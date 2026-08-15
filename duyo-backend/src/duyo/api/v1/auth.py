@@ -15,22 +15,25 @@ from duyo.models.user import User
 from duyo.schemas.auth import (
     OTPRequest,
     OTPVerify,
+    PendingFamilyInvite,
     RefreshRequest,
     TokenResponse,
 )
 from duyo.services.otp import OTPInvalid, OTPRateLimited, demo_code, issue, verify
-from duyo.services.sms import get_sms_provider
+from duyo.services.sms import get_sms_provider, otp_message
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _build_token_response(user_id: str, linked_child_name: str | None = None) -> TokenResponse:
+def _build_token_response(
+    user_id: str, pending_family_invite: PendingFamilyInvite | None = None
+) -> TokenResponse:
     settings = get_settings()
     return TokenResponse(
         access_token=create_token(user_id, "access"),
         refresh_token=create_token(user_id, "refresh"),
         expires_in=settings.jwt_access_token_expire_minutes * 60,
-        linked_child_name=linked_child_name,
+        pending_family_invite=pending_family_invite,
     )
 
 
@@ -48,14 +51,11 @@ async def send_otp(payload: OTPRequest) -> dict[str, str]:
     if demo_code():
         return {"status": "demo", "phone": payload.phone, "demo_code": demo_code()}
 
-    # Eskiz only delivers text that matches a template its moderators approved;
-    # anything else is rejected at send time. This string is that template
-    # verbatim ("DUYO ilovasiga kirish uchun tasdiqlash kodi: %d (5 daqiqa amal
-    # qiladi.)") — do not reword it without re-submitting the template, or
-    # every login SMS stops arriving.
+    # Body comes from services/sms.py, which holds the Eskiz-approved wording
+    # for every message the app sends. Eskiz rejects anything off-template, so
+    # rewording it there (or here) stops every login SMS from arriving.
     sms = get_sms_provider()
-    message = f"DUYO ilovasiga kirish uchun tasdiqlash kodi: {code} (5 daqiqa amal qiladi.)"
-    sent = await sms.send(payload.phone, message)
+    sent = await sms.send(payload.phone, otp_message(code))
     if not sent:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
@@ -94,30 +94,49 @@ async def verify_otp(
         )
     user.last_login_at = datetime.now(UTC)
 
-    # A parent may have invited this exact phone number before it ever logged
-    # in. Claim the oldest still-open invite for it now, while we know for
-    # certain this phone just proved it's real — create_child reads the claim
-    # to attach the new account to that parent instead of starting a fresh,
-    # unlinked family.
-    linked_child_name: str | None = None
-    invite = await db.scalar(
-        select(FamilyInvite).where(
+    # Someone may have invited this phone into their family. Surface that as
+    # an OFFER only — accepting it is a separate, deliberate act by this
+    # account (POST /v1/family/invite/accept).
+    #
+    # This used to link right here, which was a hole: `child_phone` is an
+    # arbitrary number typed by whoever invited, the invitee's only signal is
+    # an ordinary-looking login SMS, and the reward for typing a stranger's
+    # number was becoming the recorded parent of their profile — their chat
+    # history, their safety reports, and the crisis alerts that should have
+    # reached the real parent. Consent is what closes that.
+    #
+    # Newest-first: create_invite re-sends the OTP each time, and Redis keeps
+    # only the latest code per phone, so the newest offer is provably the one
+    # whose code was just answered.
+    pending = await db.scalar(
+        select(FamilyInvite)
+        .where(
             FamilyInvite.child_phone == payload.phone,
             FamilyInvite.claimed.is_(False),
-        ).order_by(FamilyInvite.created_at)
+            FamilyInvite.declined_at.is_(None),
+            FamilyInvite.expires_at > datetime.now(UTC),
+        )
+        .order_by(FamilyInvite.created_at.desc())
     )
-    if invite is not None:
-        invite.claimed = True
-        invite.claimed_by_user_id = user.id
-        invite.claimed_at = datetime.now(UTC)
-        linked_child_name = invite.child_name
+    pending_invite: PendingFamilyInvite | None = None
+    if pending is not None:
+        inviter_phone = await db.scalar(select(User.phone).where(User.id == pending.parent_id))
+        # Never offer a link the invitee cannot judge: the inviter's number is
+        # how they tell a parent they know from a stranger who typed theirs.
+        if inviter_phone:
+            pending_invite = PendingFamilyInvite(
+                id=pending.id,
+                child_name=pending.child_name,
+                from_phone=inviter_phone,
+                expires_at=pending.expires_at,
+            )
 
     # Commit here rather than leaning on get_db's teardown: that commit runs
     # after the response is built, so a failure there would hand the app a
     # token for an account that was never stored.
     await db.commit()
 
-    return _build_token_response(str(user.id), linked_child_name=linked_child_name)
+    return _build_token_response(str(user.id), pending_family_invite=pending_invite)
 
 
 @router.post("/refresh", response_model=TokenResponse)

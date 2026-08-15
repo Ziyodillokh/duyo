@@ -76,7 +76,7 @@ from duyo.services.personalization import (
     build_style_context,
 )
 from duyo.services.scripted import match_scripted
-from duyo.services.sms import get_sms_provider
+from duyo.services.sms import crisis_message, get_sms_provider
 from duyo.textbook.retriever import RagRetrieval, retrieve_for_chat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -196,14 +196,9 @@ _REPLY_BUDGET_S = 42.0
 _MEMORY_BUDGET_S = 8.0
 
 
-_RED_TEMPLATE = (
-    "DUYO XAVF: {name} bola jiddiy xavf signal berdi. "
-    "Iltimos DARHOL bog'laning. Ishonch telefon: 1142"
-)
-_ORANGE_TEMPLATE = (
-    "DUYO: {name} bola xabarida tashvishli signallar bor. "
-    "24 soat ichida bola bilan suhbat o'tkazing. Maslahat: 1142"
-)
+# Crisis SMS bodies come from services/sms.py — Eskiz rejects anything that
+# does not match its approved template, and a rejected parent alert fails
+# silently. Do not inline the text here again.
 
 
 async def _project_context(db: AsyncSession, project_id: UUID | None) -> str | None:
@@ -232,11 +227,19 @@ def _owned_by(user_id: UUID) -> ColumnElement[bool]:
 
 async def _dispatch_parent_alert(parent_phone: str, child_name: str, level: CrisisLevel) -> None:
     """Send SMS to the parent. Fire-and-forget — failures are logged."""
-    template = _RED_TEMPLATE if level == CrisisLevel.RED else _ORANGE_TEMPLATE
-    body = template.format(name=child_name)
+    body = crisis_message(child_name, red=level == CrisisLevel.RED)
     try:
         sms = get_sms_provider()
-        await sms.send(parent_phone, body)
+        accepted = await sms.send(parent_phone, body)
+        if not accepted:
+            # Provider answered 200 but did not queue it — an off-template
+            # body is the usual cause. Logging this as success is how a
+            # crisis alert goes missing with nothing to show for it.
+            log.error(
+                "Parent SMS REJECTED by provider: phone=%s level=%s child=%s body=%r",
+                parent_phone, level.value, child_name, body,
+            )
+            return
         log.info("Parent SMS dispatched: phone=%s level=%s child=%s", parent_phone, level.value, child_name)
     except Exception:
         log.exception("Parent SMS dispatch failed: phone=%s level=%s", parent_phone, level.value)

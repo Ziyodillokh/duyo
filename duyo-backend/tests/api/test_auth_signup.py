@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -31,14 +32,16 @@ def _run(coro):
 class _FakeSession:
     """Records statements and lifecycle calls.
 
-    scalar() answers by query target: a `select(User)` gets `user`, anything
-    else (verify_otp's FamilyInvite lookup) gets `invite` — default None, so
-    every pre-existing test keeps meaning "no pending invite" without having
-    to know that query exists.
+    scalar() answers by what the query selects, so a test only has to set the
+    pieces it cares about:
+      select(User)         -> user
+      select(User.phone)   -> inviter_phone   (the invite's inviter)
+      select(FamilyInvite) -> invite          (default None = no pending offer)
     """
 
     user: User | None
     invite: object | None = None
+    inviter_phone: str | None = "+998901234567"
     statements: list = field(default_factory=list)
     committed: int = 0
 
@@ -48,8 +51,12 @@ class _FakeSession:
 
     async def scalar(self, stmt, *_a, **_kw):
         self.statements.append(stmt)
-        entity = stmt.column_descriptions[0]["entity"]
-        return self.user if entity is User else self.invite
+        desc = stmt.column_descriptions[0]
+        if desc["entity"] is FamilyInvite:
+            return self.invite
+        if desc["entity"] is User and desc["name"] == "phone":
+            return self.inviter_phone
+        return self.user
 
     async def commit(self):
         self.committed += 1
@@ -122,7 +129,13 @@ def test_verify_500s_rather_than_issuing_a_token_for_a_missing_account():
     assert exc.value.status_code == 500
 
 
-# ── verify → claims a pending family invite ─────────────────────────────────
+# ── verify OFFERS a family invite, and must never link one ──────────────────
+#
+# Signing in must not join you to anyone's family. `child_phone` is a number
+# typed by whoever invited, so linking on a bare verify let any account become
+# the recorded parent of a stranger's profile — their chat history, their
+# safety reports, and the crisis alerts meant for the real parent — with the
+# victim seeing only an ordinary login SMS. These tests are that guarantee.
 
 def _pending_invite(parent_id=None, child_name="Aziza") -> FamilyInvite:
     invite = FamilyInvite(
@@ -130,13 +143,14 @@ def _pending_invite(parent_id=None, child_name="Aziza") -> FamilyInvite:
         child_phone="+998911112233", claimed=False,
     )
     invite.id = uuid4()
+    invite.expires_at = datetime.now(UTC) + timedelta(hours=24)
     return invite
 
 
-def test_verify_claims_a_pending_invite_for_this_phone():
+def test_verify_offers_a_pending_invite_without_linking_it():
     user = _existing_user("+998911112233")
     invite = _pending_invite(child_name="Bekzod")
-    db = _FakeSession(user=user, invite=invite)
+    db = _FakeSession(user=user, invite=invite, inviter_phone="+998901234567")
 
     tokens = _run(
         auth_module.verify_otp(
@@ -144,13 +158,19 @@ def test_verify_claims_a_pending_invite_for_this_phone():
         )
     )
 
-    assert tokens.linked_child_name == "Bekzod"
-    assert invite.claimed is True
-    assert invite.claimed_by_user_id == user.id
-    assert invite.claimed_at is not None
+    # Offered...
+    assert tokens.pending_family_invite is not None
+    assert tokens.pending_family_invite.child_name == "Bekzod"
+    # ...including WHO is asking, so the invitee can judge it.
+    assert tokens.pending_family_invite.from_phone == "+998901234567"
+
+    # ...but NOT accepted. Nothing is linked by signing in.
+    assert invite.claimed is False
+    assert invite.claimed_by_user_id is None
+    assert invite.claimed_at is None
 
 
-def test_verify_without_a_pending_invite_leaves_linked_child_name_unset():
+def test_verify_without_a_pending_invite_offers_nothing():
     user = _existing_user("+998911112233")
     db = _FakeSession(user=user, invite=None)
 
@@ -160,7 +180,21 @@ def test_verify_without_a_pending_invite_leaves_linked_child_name_unset():
         )
     )
 
-    assert tokens.linked_child_name is None
+    assert tokens.pending_family_invite is None
+
+
+def test_verify_does_not_offer_an_invite_whose_inviter_vanished():
+    """Without a number to show, the invitee cannot tell friend from stranger."""
+    user = _existing_user("+998911112233")
+    db = _FakeSession(user=user, invite=_pending_invite(), inviter_phone=None)
+
+    tokens = _run(
+        auth_module.verify_otp(
+            payload=OTPVerify(phone="+998911112233", code="00000"), db=db
+        )
+    )
+
+    assert tokens.pending_family_invite is None
 
 
 # ── send → what the tester is told ──────────────────────────────────────────

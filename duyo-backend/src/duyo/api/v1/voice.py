@@ -73,14 +73,9 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 log = logging.getLogger(__name__)
 
 
-_RED_TEMPLATE = (
-    "DUYO XAVF: {name} bola jiddiy xavf signal berdi. "
-    "Iltimos DARHOL bog'laning. Ishonch telefon: 1142"
-)
-_ORANGE_TEMPLATE = (
-    "DUYO: {name} bola xabarida tashvishli signallar bor. "
-    "24 soat ichida bola bilan suhbat o'tkazing. Maslahat: 1142"
-)
+# Crisis SMS bodies come from services/sms.py — Eskiz rejects anything that
+# does not match its approved template, and a rejected parent alert fails
+# silently. Do not inline the text here again.
 
 
 # Voice session factory is a FastAPI dependency so tests can swap it out
@@ -103,11 +98,18 @@ async def _authenticate(token: str, db: AsyncSession) -> User | None:
 
 
 async def _send_parent_sms(parent_phone: str, child_name: str, level: CrisisLevel) -> None:
-    template = _RED_TEMPLATE if level == CrisisLevel.RED else _ORANGE_TEMPLATE
-    body = template.format(name=child_name)
+    body = sms_module.crisis_message(child_name, red=level == CrisisLevel.RED)
     try:
         sms = sms_module.get_sms_provider()
-        await sms.send(parent_phone, body)
+        accepted = await sms.send(parent_phone, body)
+        if not accepted:
+            # See chat.py: a 200 with a non-"waiting" status means the
+            # provider took it and dropped it. Never log that as sent.
+            log.error(
+                "Voice parent SMS REJECTED by provider: phone=%s level=%s body=%r",
+                parent_phone, level.value, body,
+            )
+            return
         log.info("Voice parent SMS dispatched phone=%s level=%s", parent_phone, level.value)
     except Exception:
         log.exception("Voice parent SMS dispatch failed phone=%s", parent_phone)

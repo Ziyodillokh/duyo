@@ -84,12 +84,35 @@ const UZ = {
   'onboarding.childPhone.helper':
     "Bu raqamga kirish kodi yuboriladi. Farzandingiz shu kod bilan o'z qurilmasida ilovaga kiradi va sizning hisobingizga ulanadi",
 
-  // ── onboarding: family waiting (parent waits for the child to claim) ────
+  // ── onboarding: family waiting (parent waits for the child to accept) ───
   'onboarding.familyWaiting.title': 'Farzandingiz kutilmoqda',
   'onboarding.familyWaiting.subtitle':
-    "{name} kodni kiritishi bilan bu yerda avtomatik davom etadi",
+    "{name} kodni kiritib, taklifni tasdiqlashi kerak",
   'onboarding.familyWaiting.claimed':
-    "{name} kirdi va hozir profilini to'ldirmoqda...",
+    "{name} tasdiqladi va hozir profilini to'ldirmoqda...",
+  'onboarding.familyWaiting.endedTitle': 'Taklif yakunlandi',
+  'onboarding.familyWaiting.declined': '{name} taklifni rad etdi',
+  'onboarding.familyWaiting.expired':
+    "Taklif muddati tugadi. Raqamni tekshirib, qaytadan yuboring",
+  'onboarding.familyWaiting.changeNumber': "Raqamni o'zgartirish",
+  'onboarding.familyWaiting.helper':
+    "Raqam noto'g'ri bo'lsa, kod boshqa odamga ketadi va u tasdiqlamaydi. Raqamni tekshiring",
+
+  // ── onboarding: family consent (the invitee decides) ────────────────────
+  'onboarding.familyConsent.title': 'Sizni oilaga qo’shmoqchi',
+  'onboarding.familyConsent.subtitle':
+    'Bu raqam sizga tanishmi? Tanish bo’lmasa, rad eting',
+  'onboarding.familyConsent.fromLabel': 'Taklif qilmoqda:',
+  'onboarding.familyConsent.willCallYou': 'Sizni "{name}" deb belgilagan',
+  'onboarding.familyConsent.whatItMeans':
+    'Tasdiqlasangiz, bu raqam egasi sizning suhbatlaringiz haqidagi hisobotlarni ko’radi va xavfsizlik ogohlantirishlarini oladi',
+  'onboarding.familyConsent.accept': 'Ha, bu mening ota-onam',
+  'onboarding.familyConsent.decline': 'Yo’q, men bu odamni tanimayman',
+  'onboarding.familyConsent.declineTitle': 'Taklifni rad etasizmi?',
+  'onboarding.familyConsent.declineBody':
+    'Hech kim sizning hisobingizga bog’lanmaydi. Ilovadan mustaqil foydalanishingiz mumkin',
+  'onboarding.familyConsent.helper':
+    'Tanimagan raqamni hech qachon tasdiqlamang',
 
   // ── onboarding: age ─────────────────────────────────────────────────────
   'onboarding.age.title': 'Necha yoshdasiz?',
@@ -308,12 +331,35 @@ const RU: Record<TranslationKey, string> = {
   'onboarding.childPhone.helper':
     'На этот номер придёт код входа. Ваш ребёнок войдёт по нему на своём устройстве и подключится к вашему аккаунту',
 
-  // ── onboarding: family waiting (parent waits for the child to claim) ────
+  // ── onboarding: family waiting (parent waits for the child to accept) ───
   'onboarding.familyWaiting.title': 'Ждём вашего ребёнка',
   'onboarding.familyWaiting.subtitle':
-    'Как только {name} введёт код, всё продолжится здесь автоматически',
+    '{name} должен(на) ввести код и подтвердить приглашение',
   'onboarding.familyWaiting.claimed':
-    '{name} вошёл(ла) и сейчас заполняет свой профиль...',
+    '{name} подтвердил(а) и сейчас заполняет свой профиль...',
+  'onboarding.familyWaiting.endedTitle': 'Приглашение завершено',
+  'onboarding.familyWaiting.declined': '{name} отклонил(а) приглашение',
+  'onboarding.familyWaiting.expired':
+    'Срок приглашения истёк. Проверьте номер и отправьте снова',
+  'onboarding.familyWaiting.changeNumber': 'Изменить номер',
+  'onboarding.familyWaiting.helper':
+    'Если номер неверный, код уйдёт другому человеку и он его не подтвердит. Проверьте номер',
+
+  // ── onboarding: family consent (the invitee decides) ────────────────────
+  'onboarding.familyConsent.title': 'Вас хотят добавить в семью',
+  'onboarding.familyConsent.subtitle':
+    'Вам знаком этот номер? Если нет — отклоните',
+  'onboarding.familyConsent.fromLabel': 'Приглашает:',
+  'onboarding.familyConsent.willCallYou': 'Указал(а) вас как «{name}»',
+  'onboarding.familyConsent.whatItMeans':
+    'Если подтвердите, владелец этого номера будет видеть отчёты о ваших разговорах и получать предупреждения о безопасности',
+  'onboarding.familyConsent.accept': 'Да, это мой родитель',
+  'onboarding.familyConsent.decline': 'Нет, я не знаю этого человека',
+  'onboarding.familyConsent.declineTitle': 'Отклонить приглашение?',
+  'onboarding.familyConsent.declineBody':
+    'Никто не будет подключён к вашему аккаунту. Вы сможете пользоваться приложением самостоятельно',
+  'onboarding.familyConsent.helper':
+    'Никогда не подтверждайте незнакомый номер',
 
   // ── onboarding: age ─────────────────────────────────────────────────────
   'onboarding.age.title': 'Сколько тебе лет?',
@@ -532,12 +578,35 @@ const EN: Record<TranslationKey, string> = {
   'onboarding.childPhone.helper':
     "A login code will be sent to this number. Your child uses it to sign in on their own device and connect to your account",
 
-  // ── onboarding: family waiting (parent waits for the child to claim) ────
+  // ── onboarding: family waiting (parent waits for the child to accept) ───
   'onboarding.familyWaiting.title': 'Waiting for your child',
   'onboarding.familyWaiting.subtitle':
-    'This continues automatically as soon as {name} enters the code',
+    '{name} needs to enter the code and accept the invitation',
   'onboarding.familyWaiting.claimed':
-    '{name} signed in and is now filling in their profile...',
+    '{name} accepted and is now filling in their profile...',
+  'onboarding.familyWaiting.endedTitle': 'Invitation ended',
+  'onboarding.familyWaiting.declined': '{name} declined the invitation',
+  'onboarding.familyWaiting.expired':
+    'The invitation expired. Check the number and send it again',
+  'onboarding.familyWaiting.changeNumber': 'Change the number',
+  'onboarding.familyWaiting.helper':
+    'If the number is wrong the code goes to someone else, who will not accept it. Double-check it',
+
+  // ── onboarding: family consent (the invitee decides) ────────────────────
+  'onboarding.familyConsent.title': 'Someone wants to add you',
+  'onboarding.familyConsent.subtitle':
+    'Do you recognise this number? If not, decline',
+  'onboarding.familyConsent.fromLabel': 'Invitation from:',
+  'onboarding.familyConsent.willCallYou': 'They listed you as "{name}"',
+  'onboarding.familyConsent.whatItMeans':
+    'If you accept, the owner of this number will see reports about your conversations and receive safety alerts',
+  'onboarding.familyConsent.accept': 'Yes, this is my parent',
+  'onboarding.familyConsent.decline': "No, I don't know this person",
+  'onboarding.familyConsent.declineTitle': 'Decline the invitation?',
+  'onboarding.familyConsent.declineBody':
+    'Nobody will be connected to your account. You can keep using the app on your own',
+  'onboarding.familyConsent.helper':
+    'Never accept a number you do not recognise',
 
   // ── onboarding: age ─────────────────────────────────────────────────────
   'onboarding.age.title': 'How old are you?',

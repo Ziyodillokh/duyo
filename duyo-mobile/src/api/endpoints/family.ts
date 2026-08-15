@@ -7,6 +7,37 @@ export interface FamilyInviteWire {
   child_phone: string;
   claimed: boolean;
   claimed_at: string | null;
+  /** Set when the invitee refused. A waiting screen must not spin on this. */
+  declined_at: string | null;
+  expires_at: string;
+}
+
+/**
+ * An offer awaiting THIS account's decision — nothing is linked yet.
+ * Returned by /auth/otp/verify; `from_phone` is who is asking, which is how
+ * the invitee tells a parent they know from a stranger who typed their number.
+ */
+export interface PendingFamilyInviteWire {
+  id: string;
+  child_name: string;
+  from_phone: string;
+  expires_at: string;
+}
+
+/** Consent to being added to the inviting parent's family. */
+export async function acceptFamilyInvite(): Promise<FamilyInviteWire> {
+  const { data } = await apiClient.post<FamilyInviteWire>(
+    '/family/invite/accept',
+  );
+  return data;
+}
+
+/** Refuse the offer. It is never re-offered. */
+export async function declineFamilyInvite(): Promise<FamilyInviteWire> {
+  const { data } = await apiClient.post<FamilyInviteWire>(
+    '/family/invite/decline',
+  );
+  return data;
 }
 
 /** Records the child's phone and texts them a login code. */
