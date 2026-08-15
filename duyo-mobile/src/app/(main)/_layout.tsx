@@ -27,6 +27,7 @@ export default function MainLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="voice" />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="notifications" />
       <Stack.Screen name="settings-language" />
       <Stack.Screen name="settings-voice" />
       <Stack.Screen name="settings-privacy" />

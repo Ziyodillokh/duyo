@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
+  Bell,
   Crown,
   Flame,
   Settings as SettingsIcon,
@@ -20,6 +21,7 @@ import {
   useBallsHistory,
   useStreak,
 } from '@/hooks/use-gamification';
+import { useUnreadNotificationCount } from '@/hooks/use-notifications';
 import { buildWeeklyActivity } from '@/lib/weekly-activity';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
@@ -38,6 +40,8 @@ export default function ProfileScreen() {
   const streak = useStreak();
   const achievements = useAchievements();
   const history = useBallsHistory();
+  const unreadNotifications = useUnreadNotificationCount();
+  const unreadCount = unreadNotifications.data?.count ?? 0;
 
   const balance = balls.data?.balance ?? 0;
   const level = balls.data?.level ?? 1;
@@ -71,7 +75,30 @@ export default function ProfileScreen() {
           contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 96 }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-row justify-end">
+          <View className="flex-row justify-between">
+            <Pressable
+              onPress={() => router.push('/(main)/notifications')}
+              accessibilityRole="button"
+              accessibilityLabel="Bildirishnomalar"
+              className="w-10 h-10 rounded-md items-center justify-center bg-card dark:bg-dark-surface border border-neon-blue/20"
+            >
+              <Bell size={20} color="#94A3B8" />
+              {unreadCount > 0 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: '#FB64B6',
+                    borderWidth: 1.5,
+                    borderColor: isDark ? '#0A1628' : '#F4F8FF',
+                  }}
+                />
+              )}
+            </Pressable>
             <Pressable
               onPress={() => router.push('/(main)/settings')}
               accessibilityRole="button"

@@ -6,8 +6,9 @@ delivery (Eskiz SMS / push) is wired later; admin manages campaigns here.
 
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,3 +50,26 @@ class Campaign(Base, UUIDPK, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<Campaign {self.channel.value}:{self.title!r} {self.status.value}>"
+
+
+class NotificationRead(Base, UUIDPK, TimestampMixin):
+    """Marks one child as having read one sent campaign.
+
+    A Campaign is one row shared by every recipient, so per-child read state
+    can't live on it — this is the join. Absence of a row means unread.
+    """
+
+    __tablename__ = "notification_reads"
+    __table_args__ = (
+        UniqueConstraint("child_id", "campaign_id", name="uq_notification_read_child_campaign"),
+    )
+
+    child_id: Mapped[UUID] = mapped_column(
+        ForeignKey("child_profiles.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    campaign_id: Mapped[UUID] = mapped_column(
+        ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    read_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )

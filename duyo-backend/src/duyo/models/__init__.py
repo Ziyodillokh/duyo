@@ -25,7 +25,7 @@ from duyo.models.goal import (
 from duyo.models.message import Message, MessageRole
 from duyo.models.mood import MoodEntry, MoodValue
 from duyo.models.note import ChildNote
-from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus
+from duyo.models.notification import Campaign, CampaignChannel, CampaignStatus, NotificationRead
 from duyo.models.payment import Payment, PaymentProvider, PaymentState
 from duyo.models.project import Project
 from duyo.models.psychology_chunk import PsychologyChunk
@@ -81,6 +81,7 @@ __all__ = [
     "MessageRole",
     "MoodEntry",
     "MoodValue",
+    "NotificationRead",
     "Payment",
     "PaymentProvider",
     "PaymentState",

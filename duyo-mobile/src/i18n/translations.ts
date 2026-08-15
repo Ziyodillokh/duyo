@@ -137,6 +137,11 @@ const UZ = {
   'settings.logout': 'Chiqish',
   'settings.logoutConfirm': 'Hisobdan chiqishni xohlaysizmi?',
 
+  // ── notifications ────────────────────────────────────────────────────────
+  'notificationsScreen.title': 'Bildirishnomalar',
+  'notificationsScreen.emptyTitle': 'Hozircha bildirishnoma yo’q',
+  'notificationsScreen.emptySubtitle': 'Yangi bildirishnomalar shu yerda ko’rinadi',
+
   // ── settings: language ──────────────────────────────────────────────────
   'settings.languageScreen.subtitle': 'Ilova tilini tanlang',
   'settings.languageScreen.hintUz': 'Asosiy til',
@@ -340,6 +345,11 @@ const RU: Record<TranslationKey, string> = {
   'settings.logout': 'Выйти',
   'settings.logoutConfirm': 'Выйти из аккаунта?',
 
+  // ── notifications ────────────────────────────────────────────────────────
+  'notificationsScreen.title': 'Уведомления',
+  'notificationsScreen.emptyTitle': 'Пока нет уведомлений',
+  'notificationsScreen.emptySubtitle': 'Новые уведомления появятся здесь',
+
   // ── settings: language ──────────────────────────────────────────────────
   'settings.languageScreen.subtitle': 'Выберите язык приложения',
   'settings.languageScreen.hintUz': 'Узбекский',
@@ -542,6 +552,11 @@ const EN: Record<TranslationKey, string> = {
   'settings.help': 'Help',
   'settings.logout': 'Log out',
   'settings.logoutConfirm': 'Log out of your account?',
+
+  // ── notifications ────────────────────────────────────────────────────────
+  'notificationsScreen.title': 'Notifications',
+  'notificationsScreen.emptyTitle': 'No notifications yet',
+  'notificationsScreen.emptySubtitle': 'New notifications will show up here',
 
   // ── settings: language ──────────────────────────────────────────────────
   'settings.languageScreen.subtitle': 'Choose the app language',

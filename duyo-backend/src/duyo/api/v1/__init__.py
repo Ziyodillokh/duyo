@@ -16,6 +16,7 @@ from duyo.api.v1.language import router as language_router
 from duyo.api.v1.me import router as me_router
 from duyo.api.v1.mood import router as mood_router
 from duyo.api.v1.note import router as note_router
+from duyo.api.v1.notifications import router as notifications_router
 from duyo.api.v1.payments import router as payments_router
 from duyo.api.v1.puzzle import router as puzzle_router
 from duyo.api.v1.report import router as report_router
@@ -43,6 +44,7 @@ api_v1.include_router(tamagochi_router)
 api_v1.include_router(subscription_router)
 api_v1.include_router(mood_router)
 api_v1.include_router(note_router)
+api_v1.include_router(notifications_router)
 api_v1.include_router(payments_router)
 api_v1.include_router(puzzle_router)
 api_v1.include_router(report_router)
