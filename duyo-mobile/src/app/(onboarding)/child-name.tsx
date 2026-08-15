@@ -18,6 +18,7 @@ export default function ChildNameScreen() {
   const t = useT();
   const setPendingName = useOnboardingStore((s) => s.setPendingName);
   const persistedName = useOnboardingStore((s) => s.pendingName);
+  const userType = useOnboardingStore((s) => s.userType);
   const [name, setName] = useState(persistedName);
 
   const trimmedName = name.trim();
@@ -25,7 +26,13 @@ export default function ChildNameScreen() {
 
   const handleContinue = () => {
     setPendingName(trimmedName);
-    router.push('/(onboarding)/age');
+    // A parent naming their child doesn't also know the child's age — that
+    // question moves to the child's own device (see child-phone.tsx).
+    router.push(
+      userType === 'parent'
+        ? '/(onboarding)/child-phone'
+        : '/(onboarding)/age',
+    );
   };
 
   return (

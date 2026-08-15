@@ -61,6 +61,16 @@ class ChildProfile(Base, UUIDPK, TimestampMixin):
         nullable=False,
         index=True,
     )
+    # Set once the child claims their own account via a FamilyInvite (see
+    # models/family_invite.py) — a second, independent User the child logs
+    # into on their own device. Null means the family never linked one: the
+    # profile is still fully usable, just self-managed from the parent's own
+    # login the way every account worked before linking existed.
+    child_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     age: Mapped[int] = mapped_column(nullable=False)
     age_segment: Mapped[AgeSegment] = mapped_column(_age_segment_enum, nullable=False)
@@ -78,7 +88,11 @@ class ChildProfile(Base, UUIDPK, TimestampMixin):
     )
     mascot: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
-    parent: Mapped["User"] = relationship(back_populates="children")  # noqa: F821
+    # Explicit foreign_keys: child_user_id is a second FK to users.id, so
+    # SQLAlchemy can no longer infer which column this relationship follows.
+    parent: Mapped["User"] = relationship(  # noqa: F821
+        back_populates="children", foreign_keys=[parent_id],
+    )
     conversations: Mapped[list["Conversation"]] = relationship(  # noqa: F821
         back_populates="child",
         cascade="all, delete-orphan",

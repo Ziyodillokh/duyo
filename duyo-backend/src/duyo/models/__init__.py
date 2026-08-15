@@ -7,6 +7,7 @@ from duyo.models.child_style import ChildStyleProfile
 from duyo.models.content import ContentItem, ContentType, LicenseStatus, ReviewStatus
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
+from duyo.models.family_invite import FamilyInvite
 from duyo.models.feedback import FeedbackRating, MessageFeedback
 from duyo.models.gamification import (
     Avatar,
@@ -66,6 +67,7 @@ __all__ = [
     "Conversation",
     "CrisisEvent",
     "CrisisLevel",
+    "FamilyInvite",
     "FeedbackRating",
     "Friendship",
     "FriendshipStatus",

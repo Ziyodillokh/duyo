@@ -18,6 +18,7 @@ from fastapi import HTTPException
 
 from duyo.api.v1 import auth as auth_module
 from duyo.core.config import get_settings
+from duyo.models.family_invite import FamilyInvite
 from duyo.models.user import User
 from duyo.schemas.auth import OTPRequest, OTPVerify
 
@@ -28,9 +29,16 @@ def _run(coro):
 
 @dataclass
 class _FakeSession:
-    """Records statements and lifecycle calls; returns `user` from scalar()."""
+    """Records statements and lifecycle calls.
+
+    scalar() answers by query target: a `select(User)` gets `user`, anything
+    else (verify_otp's FamilyInvite lookup) gets `invite` — default None, so
+    every pre-existing test keeps meaning "no pending invite" without having
+    to know that query exists.
+    """
 
     user: User | None
+    invite: object | None = None
     statements: list = field(default_factory=list)
     committed: int = 0
 
@@ -40,7 +48,8 @@ class _FakeSession:
 
     async def scalar(self, stmt, *_a, **_kw):
         self.statements.append(stmt)
-        return self.user
+        entity = stmt.column_descriptions[0]["entity"]
+        return self.user if entity is User else self.invite
 
     async def commit(self):
         self.committed += 1
@@ -111,6 +120,47 @@ def test_verify_500s_rather_than_issuing_a_token_for_a_missing_account():
             )
         )
     assert exc.value.status_code == 500
+
+
+# ── verify → claims a pending family invite ─────────────────────────────────
+
+def _pending_invite(parent_id=None, child_name="Aziza") -> FamilyInvite:
+    invite = FamilyInvite(
+        parent_id=parent_id or uuid4(), child_name=child_name,
+        child_phone="+998911112233", claimed=False,
+    )
+    invite.id = uuid4()
+    return invite
+
+
+def test_verify_claims_a_pending_invite_for_this_phone():
+    user = _existing_user("+998911112233")
+    invite = _pending_invite(child_name="Bekzod")
+    db = _FakeSession(user=user, invite=invite)
+
+    tokens = _run(
+        auth_module.verify_otp(
+            payload=OTPVerify(phone="+998911112233", code="00000"), db=db
+        )
+    )
+
+    assert tokens.linked_child_name == "Bekzod"
+    assert invite.claimed is True
+    assert invite.claimed_by_user_id == user.id
+    assert invite.claimed_at is not None
+
+
+def test_verify_without_a_pending_invite_leaves_linked_child_name_unset():
+    user = _existing_user("+998911112233")
+    db = _FakeSession(user=user, invite=None)
+
+    tokens = _run(
+        auth_module.verify_otp(
+            payload=OTPVerify(phone="+998911112233", code="00000"), db=db
+        )
+    )
+
+    assert tokens.linked_child_name is None
 
 
 # ── send → what the tester is told ──────────────────────────────────────────

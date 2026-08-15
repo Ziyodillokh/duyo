@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -24,6 +24,7 @@ from duyo.crisis.semantic import classify as classify_l3
 from duyo.models.child import AgeSegment, ChildProfile
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel, highest
+from duyo.models.family_invite import FamilyInvite
 from duyo.models.feedback import FeedbackRating, MessageFeedback
 from duyo.models.message import Message, MessageRole
 from duyo.models.project import Project
@@ -223,6 +224,12 @@ async def _project_context(db: AsyncSession, project_id: UUID | None) -> str | N
     return build_project_context(project.name, project.instructions)
 
 
+def _owned_by(user_id: UUID) -> ColumnElement[bool]:
+    """True for a child this user can act as — either the parent who set the
+    profile up, or the child's own linked account (see FamilyInvite)."""
+    return (ChildProfile.parent_id == user_id) | (ChildProfile.child_user_id == user_id)
+
+
 async def _dispatch_parent_alert(parent_phone: str, child_name: str, level: CrisisLevel) -> None:
     """Send SMS to the parent. Fire-and-forget — failures are logged."""
     template = _RED_TEMPLATE if level == CrisisLevel.RED else _ORANGE_TEMPLATE
@@ -248,10 +255,21 @@ async def create_child(
     flow again. Each of those used to append another profile: production
     accumulated six copies of one child this way. Same parent, same name,
     same age is treated as the same child.
+
+    If this account was invited by a parent (FamilyInvite claimed at OTP
+    verify — see auth.verify_otp), the profile is attached to THAT parent
+    instead of to this account, and this account is recorded as its
+    `child_user_id` — the child is logging in on their own phone, not
+    sharing the parent's.
     """
+    invite = await db.scalar(
+        select(FamilyInvite).where(FamilyInvite.claimed_by_user_id == current_user.id)
+    )
+    owner_id = invite.parent_id if invite is not None else current_user.id
+
     existing = await db.scalar(
         select(ChildProfile).where(
-            ChildProfile.parent_id == current_user.id,
+            ChildProfile.parent_id == owner_id,
             func.lower(func.trim(ChildProfile.name)) == payload.name.lower(),
             ChildProfile.age == payload.age,
         )
@@ -262,11 +280,14 @@ async def create_child(
             existing.interests = payload.interests
         if payload.mascot:
             existing.mascot = payload.mascot
+        if invite is not None:
+            existing.child_user_id = current_user.id
         await db.commit()
         return existing
 
     child = ChildProfile(
-        parent_id=current_user.id,
+        parent_id=owner_id,
+        child_user_id=current_user.id if invite is not None else None,
         name=payload.name,
         age=payload.age,
         age_segment=AgeSegment.from_age(payload.age),
@@ -293,7 +314,7 @@ async def _get_owned_child(
     result = await db.execute(
         select(ChildProfile).where(
             ChildProfile.id == child_id,
-            ChildProfile.parent_id == current_user.id,
+            _owned_by(current_user.id),
         )
     )
     child = result.scalar_one_or_none()
@@ -309,7 +330,7 @@ async def list_children(
 ) -> list[ChildProfile]:
     result = await db.execute(
         select(ChildProfile)
-        .where(ChildProfile.parent_id == current_user.id)
+        .where(_owned_by(current_user.id))
         .order_by(ChildProfile.created_at)
     )
     return list(result.scalars().all())
@@ -376,7 +397,7 @@ async def chat_turn(
     child = await db.scalar(
         select(ChildProfile).where(
             ChildProfile.id == payload.child_id,
-            ChildProfile.parent_id == current_user.id,
+            _owned_by(current_user.id),
         )
     )
     if child is None:
@@ -603,19 +624,28 @@ async def chat_turn(
     )
 
     if should_notify_parent:
+        # The chatting account is the CHILD's own login once a family is
+        # linked (child_user_id), so the alert must go to the parent's
+        # phone specifically — never to whoever is holding the phone that's
+        # actually chatting, which for a linked child is the child.
+        parent_phone = (
+            current_user.phone if child.parent_id == current_user.id
+            else await db.scalar(select(User.phone).where(User.id == child.parent_id))
+        )
         now = datetime.now(UTC)
         for ce in crisis_events:
             ce.parent_notified = True
             ce.parent_notified_at = now
-        background_tasks.add_task(
-            _dispatch_parent_alert,
-            current_user.phone,
-            child.name,
-            final_level,
-        )
+        if parent_phone:
+            background_tasks.add_task(
+                _dispatch_parent_alert,
+                parent_phone,
+                child.name,
+                final_level,
+            )
         log.warning(
             "CRISIS dispatched level=%s child=%s msg=%s phone=%s",
-            final_level.value, child.id, child_msg.id, current_user.phone,
+            final_level.value, child.id, child_msg.id, parent_phone,
         )
     elif final_level in (CrisisLevel.ORANGE, CrisisLevel.RED):
         # ORANGE + abuse-only: skip parent, log for 3rd-party safety provider routing later

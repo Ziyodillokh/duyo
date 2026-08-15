@@ -14,6 +14,10 @@ export interface TokenResponseDto {
   refresh_token: string;
   token_type: string;
   expires_in: number;
+  /** Set only when this verify claimed a parent's pending FamilyInvite —
+   * the name the parent already gave this child, so onboarding can skip
+   * re-asking it. */
+  linked_child_name?: string | null;
 }
 
 export async function sendOtp(phone: string): Promise<SendOtpResponse> {

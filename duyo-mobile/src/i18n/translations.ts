@@ -75,6 +75,22 @@ const UZ = {
   'onboarding.name.helper':
     'Ismingiz faqat men bilan suhbatlarda ishlatiladi va xavfsiz saqlanadi',
 
+  // ── onboarding: child phone (parent invites the child) ──────────────────
+  'onboarding.childPhone.title': 'Farzandingizning raqami',
+  'onboarding.childPhone.subtitle':
+    "{name} ilovaga o'zi kirishi uchun telefon raqamini kiriting",
+  'onboarding.childPhone.label': 'Farzand telefon raqami',
+  'onboarding.childPhone.send': 'Kod yuborish',
+  'onboarding.childPhone.helper':
+    "Bu raqamga kirish kodi yuboriladi. Farzandingiz shu kod bilan o'z qurilmasida ilovaga kiradi va sizning hisobingizga ulanadi",
+
+  // ── onboarding: family waiting (parent waits for the child to claim) ────
+  'onboarding.familyWaiting.title': 'Farzandingiz kutilmoqda',
+  'onboarding.familyWaiting.subtitle':
+    "{name} kodni kiritishi bilan bu yerda avtomatik davom etadi",
+  'onboarding.familyWaiting.claimed':
+    "{name} kirdi va hozir profilini to'ldirmoqda...",
+
   // ── onboarding: age ─────────────────────────────────────────────────────
   'onboarding.age.title': 'Necha yoshdasiz?',
   'onboarding.age.subtitle': 'Bu men sizga mos kontentni taqdim etishimga yordam beradi',
@@ -283,6 +299,22 @@ const RU: Record<TranslationKey, string> = {
   'onboarding.name.helper':
     'Твоё имя используется только в разговорах со мной и хранится безопасно',
 
+  // ── onboarding: child phone (parent invites the child) ──────────────────
+  'onboarding.childPhone.title': 'Номер вашего ребёнка',
+  'onboarding.childPhone.subtitle':
+    'Введите номер телефона, чтобы {name} мог(ла) войти в приложение сам(а)',
+  'onboarding.childPhone.label': 'Телефон ребёнка',
+  'onboarding.childPhone.send': 'Отправить код',
+  'onboarding.childPhone.helper':
+    'На этот номер придёт код входа. Ваш ребёнок войдёт по нему на своём устройстве и подключится к вашему аккаунту',
+
+  // ── onboarding: family waiting (parent waits for the child to claim) ────
+  'onboarding.familyWaiting.title': 'Ждём вашего ребёнка',
+  'onboarding.familyWaiting.subtitle':
+    'Как только {name} введёт код, всё продолжится здесь автоматически',
+  'onboarding.familyWaiting.claimed':
+    '{name} вошёл(ла) и сейчас заполняет свой профиль...',
+
   // ── onboarding: age ─────────────────────────────────────────────────────
   'onboarding.age.title': 'Сколько тебе лет?',
   'onboarding.age.subtitle': 'Это поможет мне подобрать подходящий контент',
@@ -490,6 +522,22 @@ const EN: Record<TranslationKey, string> = {
   'onboarding.name.placeholder': 'For example: Aziza',
   'onboarding.name.helper':
     'Your name is only used in conversations with me and is stored securely',
+
+  // ── onboarding: child phone (parent invites the child) ──────────────────
+  'onboarding.childPhone.title': "Your child's phone number",
+  'onboarding.childPhone.subtitle':
+    "Enter a phone number so {name} can sign in on their own device",
+  'onboarding.childPhone.label': "Child's phone number",
+  'onboarding.childPhone.send': 'Send code',
+  'onboarding.childPhone.helper':
+    "A login code will be sent to this number. Your child uses it to sign in on their own device and connect to your account",
+
+  // ── onboarding: family waiting (parent waits for the child to claim) ────
+  'onboarding.familyWaiting.title': 'Waiting for your child',
+  'onboarding.familyWaiting.subtitle':
+    'This continues automatically as soon as {name} enters the code',
+  'onboarding.familyWaiting.claimed':
+    '{name} signed in and is now filling in their profile...',
 
   // ── onboarding: age ─────────────────────────────────────────────────────
   'onboarding.age.title': 'How old are you?',

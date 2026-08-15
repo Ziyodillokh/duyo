@@ -15,6 +15,7 @@ import pytest
 
 from duyo.api.v1 import chat as chat_module
 from duyo.models.child import AgeSegment, ChildProfile, Language
+from duyo.models.family_invite import FamilyInvite
 from duyo.schemas.chat import ChildCreate, ChildUpdate
 
 
@@ -24,12 +25,19 @@ def _run(coro):
 
 @dataclass
 class _FakeSession:
+    """scalar() answers by query target: `select(ChildProfile)` gets
+    `existing`, `select(FamilyInvite)` gets `invite` — default None, so every
+    pre-existing test keeps meaning "not a linked account" without needing to
+    know that lookup exists."""
+
     existing: ChildProfile | None = None
+    invite: FamilyInvite | None = None
     added: list = field(default_factory=list)
     committed: int = 0
 
-    async def scalar(self, *_a, **_kw):
-        return self.existing
+    async def scalar(self, stmt, *_a, **_kw):
+        entity = stmt.column_descriptions[0]["entity"]
+        return self.invite if entity is FamilyInvite else self.existing
 
     def add(self, obj):
         self.added.append(obj)
@@ -140,6 +148,57 @@ def test_a_sibling_is_not_a_duplicate():
     sibling = _create(db, ChildCreate(name="Bek", age=8), user=user)
     assert sibling.name == "Bek"
     assert db.added == [sibling]
+
+
+# ── linked child (claimed FamilyInvite) ─────────────────────────────────────
+
+def _claimed_invite(parent_id) -> FamilyInvite:
+    invite = FamilyInvite(
+        parent_id=parent_id, child_name="Aziza", child_phone="+998911112233",
+        claimed=True,
+    )
+    invite.id = uuid4()
+    return invite
+
+
+def test_linked_child_is_attached_to_the_inviting_parent_not_the_child_account():
+    """The child is logging in on their OWN phone — parent_id must be the
+    parent who invited them, not this account's own id."""
+    child_account = _FakeUser(id=uuid4())
+    parent_id = uuid4()
+    db = _FakeSession(existing=None, invite=_claimed_invite(parent_id))
+
+    child = _create(
+        db, ChildCreate(name="Aziza", age=12), user=child_account,
+    )
+
+    assert child.parent_id == parent_id
+    assert child.parent_id != child_account.id
+    assert child.child_user_id == child_account.id
+
+
+def test_unlinked_child_still_owns_itself_as_before():
+    """No claimed invite — legacy self-onboarding keeps working unchanged."""
+    user = _FakeUser(id=uuid4())
+    db = _FakeSession(existing=None, invite=None)
+
+    child = _create(db, ChildCreate(name="Aziza", age=12), user=user)
+
+    assert child.parent_id == user.id
+    assert child.child_user_id is None
+
+
+def test_repeat_create_on_a_linked_account_still_dedupes():
+    child_account = _FakeUser(id=uuid4())
+    parent_id = uuid4()
+    existing = _child(parent_id, "Aziza", 12)
+    db = _FakeSession(existing=existing, invite=_claimed_invite(parent_id))
+
+    again = _create(db, ChildCreate(name="Aziza", age=12), user=child_account)
+
+    assert again is existing
+    assert db.added == []
+    assert existing.child_user_id == child_account.id
 
 
 # ── update carries the same fields ──────────────────────────────────────────

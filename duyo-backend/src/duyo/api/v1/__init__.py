@@ -9,6 +9,7 @@ from duyo.api.v1.chat import router as chat_router
 from duyo.api.v1.content import router as content_router
 from duyo.api.v1.conversations import router as conversations_router
 from duyo.api.v1.dtm import router as dtm_router
+from duyo.api.v1.family import router as family_router
 from duyo.api.v1.gamification import router as gamification_router
 from duyo.api.v1.goals import router as goals_router
 from duyo.api.v1.health import router as health_router
@@ -35,6 +36,7 @@ api_v1.include_router(content_router)
 api_v1.include_router(dtm_router)
 api_v1.include_router(language_router)
 api_v1.include_router(voice_router)
+api_v1.include_router(family_router)
 api_v1.include_router(textbook_router)
 api_v1.include_router(gamification_router)
 api_v1.include_router(goals_router)

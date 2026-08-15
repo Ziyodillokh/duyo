@@ -45,6 +45,7 @@ export default function OtpScreen() {
   const setChild = useChildStore((s) => s.setChild);
   const setMascotVariant = useMascotStore((s) => s.setVariant);
   const userType = useOnboardingStore((s) => s.userType);
+  const setPendingName = useOnboardingStore((s) => s.setPendingName);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -76,9 +77,10 @@ export default function OtpScreen() {
       // Does this account already have a child? Signing in again — after a
       // reinstall, on a new phone, after logging out — must return the child
       // that exists, not walk onboarding and leave a second profile behind.
-      return listChildren();
+      const children = await listChildren();
+      return { children, linkedChildName: token.linked_child_name ?? null };
     },
-    onSuccess: (children) => {
+    onSuccess: ({ children, linkedChildName }) => {
       const existing = children[0];
       if (existing) {
         setChild(existing);
@@ -86,6 +88,14 @@ export default function OtpScreen() {
           setMascotVariant(existing.mascot);
         }
         router.replace('/(main)/(tabs)');
+        return;
+      }
+      if (linkedChildName) {
+        // A parent already sent this phone a code with the child's name
+        // attached — skip re-asking it and go straight to the child's own
+        // remaining answers (age, interests, avatar).
+        setPendingName(linkedChildName);
+        router.replace('/(onboarding)/age');
         return;
       }
       router.replace('/(onboarding)/child-name');

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { listChildren } from '@/api/endpoints/children';
+import { getFamilyInvite } from '@/api/endpoints/family';
 import { useT } from '@/i18n';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
@@ -41,6 +42,14 @@ export default function SplashScreen() {
           useMascotStore.getState().setVariant(existing.mascot);
         }
         router.replace('/(main)/(tabs)');
+        return;
+      }
+      // A parent who already sent their child a link code but closed the app
+      // before the child claimed it must land back on the waiting screen,
+      // not on "what's your name" — that question was already answered.
+      const invite = await getFamilyInvite().catch(() => null);
+      if (invite) {
+        router.replace('/(onboarding)/family-waiting');
         return;
       }
       router.replace('/(onboarding)/child-name');

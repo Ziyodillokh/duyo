@@ -132,7 +132,7 @@ async def voice_ws(
     child = await db.scalar(
         select(ChildProfile).where(
             ChildProfile.id == child_id,
-            ChildProfile.parent_id == user.id,
+            (ChildProfile.parent_id == user.id) | (ChildProfile.child_user_id == user.id),
         )
     )
     if child is None:
@@ -370,12 +370,20 @@ async def voice_ws(
     if should_notify:
         if crisis_row is not None:
             crisis_row.parent_notified = True
+        # `user` is the session holder, which for a linked child is the
+        # child's own login — the alert must reach the parent's phone
+        # specifically, resolved from the profile rather than the socket.
+        parent_phone = (
+            user.phone if child.parent_id == user.id
+            else await db.scalar(select(User.phone).where(User.id == child.parent_id))
+        )
         # Block turn_complete on SMS — child-safety dispatch must land before
         # we end the session. Stub is instant; Eskiz is ~200ms HTTP, dwarfed
         # by the voice turn itself.
-        await _send_parent_sms(
-            parent_phone=user.phone, child_name=child.name, level=final_level
-        )
+        if parent_phone:
+            await _send_parent_sms(
+                parent_phone=parent_phone, child_name=child.name, level=final_level
+            )
 
     # If Layer 2 escalated beyond what was streamed to the client, surface it now.
     if (

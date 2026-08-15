@@ -52,7 +52,7 @@ async def _owned_child(child_id: UUID, user: User, db: AsyncSession) -> ChildPro
     child = await db.scalar(
         select(ChildProfile).where(
             ChildProfile.id == child_id,
-            ChildProfile.parent_id == user.id,
+            (ChildProfile.parent_id == user.id) | (ChildProfile.child_user_id == user.id),
         )
     )
     if child is None:

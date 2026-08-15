@@ -39,6 +39,7 @@ class User(Base, UUIDPK, TimestampMixin):
 
     children: Mapped[list["ChildProfile"]] = relationship(  # noqa: F821
         back_populates="parent",
+        foreign_keys="ChildProfile.parent_id",
         cascade="all, delete-orphan",
         lazy="selectin",
     )

@@ -51,7 +51,7 @@ async def _owned_child(child_id: UUID, user: User, db: AsyncSession) -> ChildPro
     child = await db.scalar(
         select(ChildProfile).where(
             ChildProfile.id == child_id,
-            ChildProfile.parent_id == user.id,
+            (ChildProfile.parent_id == user.id) | (ChildProfile.child_user_id == user.id),
         )
     )
     if child is None:
@@ -63,7 +63,10 @@ async def _owned_note(note_id: UUID, user: User, db: AsyncSession) -> ChildNote:
     note = await db.scalar(
         select(ChildNote)
         .join(ChildProfile, ChildNote.child_id == ChildProfile.id)
-        .where(ChildNote.id == note_id, ChildProfile.parent_id == user.id)
+        .where(
+            ChildNote.id == note_id,
+            (ChildProfile.parent_id == user.id) | (ChildProfile.child_user_id == user.id),
+        )
     )
     if note is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")

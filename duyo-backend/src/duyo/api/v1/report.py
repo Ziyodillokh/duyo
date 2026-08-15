@@ -31,6 +31,13 @@ CACHE_TTL = timedelta(days=1)
 
 
 async def _owned_child(child_id: UUID, user: User, db: AsyncSession) -> ChildProfile:
+    """Parent-only, deliberately — not `_owned_by` from chat.py.
+
+    This report carries safety aggregates (concerning_count) meant for a
+    parent's oversight. Letting the child's own linked account read its own
+    surveillance data would defeat the point of collecting it — a child who
+    can see what trips "concerning" learns how to stop tripping it.
+    """
     child = await db.scalar(
         select(ChildProfile).where(
             ChildProfile.id == child_id,

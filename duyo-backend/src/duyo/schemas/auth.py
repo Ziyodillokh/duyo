@@ -64,6 +64,10 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # access token TTL in seconds
+    # Set only on the verify call that claims a parent's pending FamilyInvite
+    # for this phone — tells the client to skip re-asking the child's name
+    # (the parent already gave it) and go straight to the rest of onboarding.
+    linked_child_name: str | None = None
 
 
 class RefreshRequest(BaseModel):

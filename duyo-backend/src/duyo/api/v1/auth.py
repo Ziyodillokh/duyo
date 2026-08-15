@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from duyo.api.deps import get_db
 from duyo.core.config import get_settings
 from duyo.core.security import create_token, decode_token
+from duyo.models.family_invite import FamilyInvite
 from duyo.models.user import User
 from duyo.schemas.auth import (
     OTPRequest,
@@ -23,12 +24,13 @@ from duyo.services.sms import get_sms_provider
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _build_token_response(user_id: str) -> TokenResponse:
+def _build_token_response(user_id: str, linked_child_name: str | None = None) -> TokenResponse:
     settings = get_settings()
     return TokenResponse(
         access_token=create_token(user_id, "access"),
         refresh_token=create_token(user_id, "refresh"),
         expires_in=settings.jwt_access_token_expire_minutes * 60,
+        linked_child_name=linked_child_name,
     )
 
 
@@ -92,12 +94,30 @@ async def verify_otp(
         )
     user.last_login_at = datetime.now(UTC)
 
+    # A parent may have invited this exact phone number before it ever logged
+    # in. Claim the oldest still-open invite for it now, while we know for
+    # certain this phone just proved it's real — create_child reads the claim
+    # to attach the new account to that parent instead of starting a fresh,
+    # unlinked family.
+    linked_child_name: str | None = None
+    invite = await db.scalar(
+        select(FamilyInvite).where(
+            FamilyInvite.child_phone == payload.phone,
+            FamilyInvite.claimed.is_(False),
+        ).order_by(FamilyInvite.created_at)
+    )
+    if invite is not None:
+        invite.claimed = True
+        invite.claimed_by_user_id = user.id
+        invite.claimed_at = datetime.now(UTC)
+        linked_child_name = invite.child_name
+
     # Commit here rather than leaning on get_db's teardown: that commit runs
     # after the response is built, so a failure there would hand the app a
     # token for an account that was never stored.
     await db.commit()
 
-    return _build_token_response(str(user.id))
+    return _build_token_response(str(user.id), linked_child_name=linked_child_name)
 
 
 @router.post("/refresh", response_model=TokenResponse)
