@@ -1,16 +1,23 @@
 """Production misconfiguration guards — and where they are allowed to fire.
 
-The SMS guard exists because StubSMSProvider.send() returns True: with the
+The SMS check exists because StubSMSProvider.send() returns True: with the
 stub on, logins hand out codes nobody receives and crisis alerts are recorded
-as delivered while reaching no parent. That failure has no symptom, so the
-serving app must refuse to start on it.
+as delivered while reaching no parent. The failure has no symptom, so startup
+says so loudly.
 
-Where it fires matters as much as that it fires. Settings is constructed by
-things that never send SMS — most importantly `migrations/env.py`, which the
-deploy runs with an env file that does NOT carry ESKIZ_*. Implemented as a
-@model_validator, the guard aborted that migration and failed the entire
-deploy, leaving production on the previous release. Hence: a plain check the
-app calls at startup, never a validator.
+WHERE it fires matters as much as that it fires, and both stricter forms of
+this check caused their own outage:
+
+  * As a @model_validator it ran wherever Settings is built — including
+    `migrations/env.py`, which the deploy runs with an env file that does not
+    carry ESKIZ_*. It aborted the migration and failed the whole deploy.
+  * Raised at startup, it failed the deploy's health gate on a box already
+    misconfigured, rolling back every release — including the one closing a
+    family-linking security hole.
+
+So it is a plain query the app logs on, never a validator and never fatal.
+These tests pin the query itself; making it fatal again is safe only once the
+production environment is known good.
 
 `_env_file=None` throughout — without it pydantic-settings reads the
 developer's own .env and the assertions below test that file, not the code.

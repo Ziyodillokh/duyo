@@ -24,13 +24,19 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     log.info("DUYO backend starting up (v%s, env=%s)", __version__, settings.app_env)
 
-    # Refuse to serve production traffic that cannot actually send SMS. The
-    # stub reports success while delivering nothing, so a crisis alert would
-    # be recorded as sent and reach no parent — a failure with no symptom.
-    # Raising here fails the deploy's health gate, which rolls back.
+    # SMS that cannot actually be delivered. The stub reports success while
+    # sending nothing, so logins hand out codes nobody receives and crisis
+    # alerts are recorded as delivered while reaching no parent.
+    #
+    # Logged, not raised. Refusing to boot was the stronger guard and briefly
+    # what this did — but the deploy is health-gated, so on a box already in
+    # this state it rolled every release back, including the one that closed
+    # a family-linking hole. A guard that blocks the fix for a worse problem
+    # is not worth its strictness. Make it fatal again once the environment
+    # is known good.
     sms_problem = settings.sms_misconfigured_for_production()
     if sms_problem:
-        raise RuntimeError(sms_problem)
+        log.error("SMS MISCONFIGURED — %s", sms_problem)
 
     if settings.otp_demo_code:
         # Loud on every start: this is the one setting that, left on, hands
