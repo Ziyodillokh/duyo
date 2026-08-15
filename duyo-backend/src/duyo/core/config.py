@@ -148,35 +148,36 @@ class Settings(BaseSettings):
             )
         return self
 
-    @model_validator(mode="after")
-    def _guard_sms_stub(self) -> "Settings":
-        """Production must not run on the SMS stub.
+    def sms_misconfigured_for_production(self) -> str | None:
+        """Why real SMS would not be delivered in production, or None.
 
         The stub's send() returns True, so every caller believes it worked:
         logins would hand out codes nobody receives, and crisis alerts would
-        be recorded as delivered while reaching no parent at all. The failure
-        has no symptom, which is exactly why it has to be caught at boot —
-        the deploy is health-gated and rolls back, so a misconfigured release
-        fails visibly instead of silently swallowing every message.
+        be recorded as delivered while reaching no parent at all. That has no
+        symptom, so the serving app refuses to start on it (see main.lifespan)
+        and the health-gated deploy rolls back.
 
-        Deliberately not applied to staging/development, where the stub is
-        the point.
+        Deliberately a plain check rather than a @model_validator: Settings is
+        also constructed by things that never send SMS — most importantly
+        `migrations/env.py`, which the deploy runs with an env file that does
+        not carry ESKIZ_*. A validator there would abort the migration and
+        fail the whole deploy, which is exactly what it did once.
         """
         if self.app_env != "production":
-            return self
+            return None
         if self.sms_stub_enabled:
-            raise ValueError(
+            return (
                 "SMS_STUB_ENABLED is true while APP_ENV=production. No SMS "
                 "would be delivered — logins and crisis alerts would both be "
                 "silently discarded. Set SMS_STUB_ENABLED=false."
             )
         if not (self.eskiz_email and self.eskiz_password):
-            raise ValueError(
+            return (
                 "ESKIZ_EMAIL/ESKIZ_PASSWORD are missing while "
                 "APP_ENV=production. The app would fall back to the SMS stub "
                 "and silently discard every login code and crisis alert."
             )
-        return self
+        return None
 
 
 @lru_cache
