@@ -9,6 +9,7 @@ import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { SelectCard } from '@/components/v2/select-card';
 import { LANGUAGE_NAMES, translate } from '@/i18n';
 import { type Language, useLanguageStore } from '@/store/language';
+import { useOnboardingStore } from '@/store/onboarding';
 
 const LANGUAGE_OPTIONS: readonly Language[] = ['uz', 'ru', 'en'];
 
@@ -23,7 +24,11 @@ export default function LanguageScreen() {
 
   const handleContinue = () => {
     setLanguage(selected);
-    router.push('/(onboarding)/user-type');
+    // OTA-ONA BO'LIMI O'CHIRILGAN: "Siz kimsiz?" ekrani tashlab o'tiladi —
+    // ilova hozircha faqat bola uchun, hisob turi hamisha 'child'.
+    // router.push('/(onboarding)/user-type');
+    useOnboardingStore.getState().setUserType('child');
+    router.push('/(onboarding)/phone');
   };
 
   return (

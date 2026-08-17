@@ -43,8 +43,9 @@ export default function MainLayout() {
       <Stack.Screen name="dtm" />
       <Stack.Screen name="language-practice" />
       <Stack.Screen name="lesson-help" />
+      {/* OTA-ONA BO'LIMI O'CHIRILGAN — marshrut fayllari stub (redirect):
       <Stack.Screen name="parent-connection" />
-      <Stack.Screen name="parent-dashboard" />
+      <Stack.Screen name="parent-dashboard" /> */}
       <Stack.Screen name="subscription" />
       <Stack.Screen name="payment" />
       <Stack.Screen

@@ -17,7 +17,8 @@ import { useT } from '@/i18n';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useMascotStore } from '@/store/mascot';
-import { useOnboardingStore } from '@/store/onboarding';
+// OTA-ONA BO'LIMI O'CHIRILGAN — userType selektori bilan birga kommentda:
+// import { useOnboardingStore } from '@/store/onboarding';
 
 const PHONE_PREFIX = '+998';
 const OTP_LENGTH = 5;
@@ -44,7 +45,8 @@ export default function OtpScreen() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const setChild = useChildStore((s) => s.setChild);
   const setMascotVariant = useMascotStore((s) => s.setVariant);
-  const userType = useOnboardingStore((s) => s.userType);
+  // OTA-ONA BO'LIMI O'CHIRILGAN: rol endi doim 'child' (pastda).
+  // const userType = useOnboardingStore((s) => s.userType);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -69,9 +71,13 @@ export default function OtpScreen() {
 
       // Record who this account belongs to. Best-effort: the answer is a
       // nice-to-have, and failing it must not block a login.
-      if (userType) {
-        void updateMe({ role: userType }).catch(() => undefined);
-      }
+      // OTA-ONA BO'LIMI O'CHIRILGAN: rol doim 'child' — eski qurilmada
+      // saqlanib qolgan 'parent' qiymati ham hisobni ota-ona qilib
+      // belgilamasin.
+      // if (userType) {
+      //   void updateMe({ role: userType }).catch(() => undefined);
+      // }
+      void updateMe({ role: 'child' }).catch(() => undefined);
 
       // Does this account already have a child? Signing in again — after a
       // reinstall, on a new phone, after logging out — must return the child
@@ -80,20 +86,19 @@ export default function OtpScreen() {
       return { children, invite: token.pending_family_invite ?? null };
     },
     onSuccess: ({ children, invite }) => {
-      // An offer is answered before anything else, even by an account that
-      // already has a profile: a parent is waiting on the other end, and
-      // silently dropping them into the tabs leaves that parent staring at a
-      // spinner forever with no way to learn the answer was effectively "no".
-      if (invite) {
-        router.replace({
-          pathname: '/(onboarding)/family-consent',
-          params: {
-            childName: invite.child_name,
-            fromPhone: invite.from_phone,
-          },
-        });
-        return;
-      }
+      // OTA-ONA BO'LIMI O'CHIRILGAN: taklifga rozilik ekrani ishlamaydi —
+      // bola oddiy oqimda davom etadi. Asl tarmoq kommentda:
+      // if (invite) {
+      //   router.replace({
+      //     pathname: '/(onboarding)/family-consent',
+      //     params: {
+      //       childName: invite.child_name,
+      //       fromPhone: invite.from_phone,
+      //     },
+      //   });
+      //   return;
+      // }
+      void invite;
       const existing = children[0];
       if (existing) {
         setChild(existing);

@@ -11,7 +11,7 @@ import {
   Mic,
   Moon,
   Shield,
-  Users,
+  // Users, // OTA-ONA BO'LIMI O'CHIRILGAN — qatori bilan birga kommentda
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -151,8 +151,11 @@ export default function SettingsScreen() {
               Icon={Shield}
               label={t('settings.privacy')}
               showChevron
+              isLast
               onPress={() => router.push('/(main)/settings-privacy')}
             />
+            {/* OTA-ONA BO'LIMI O'CHIRILGAN — ilova hozircha faqat bola uchun.
+                Qatorning asl kodi:
             <SettingsRow
               Icon={Users}
               label={t('settings.parentLink')}
@@ -167,6 +170,7 @@ export default function SettingsScreen() {
               isLast
               onPress={() => router.push('/(main)/parent-connection')}
             />
+            */}
           </SettingsSection>
 
           <SettingsSection title={t('settings.section.subscription')}>
