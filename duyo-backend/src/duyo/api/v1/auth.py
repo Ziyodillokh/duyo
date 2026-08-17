@@ -1,7 +1,9 @@
 """Auth endpoints — SMS OTP login + JWT refresh."""
 
+import logging
 from datetime import UTC, datetime
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -20,8 +22,9 @@ from duyo.schemas.auth import (
     TokenResponse,
 )
 from duyo.services.otp import OTPInvalid, OTPRateLimited, demo_code, issue, verify
-from duyo.services.sms import get_sms_provider, otp_message
+from duyo.services.sms import SMSNumberRejected, get_sms_provider, otp_message
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -55,7 +58,23 @@ async def send_otp(payload: OTPRequest) -> dict[str, str]:
     # for every message the app sends. Eskiz rejects anything off-template, so
     # rewording it there (or here) stops every login SMS from arriving.
     sms = get_sms_provider()
-    sent = await sms.send(payload.phone, otp_message(code))
+    try:
+        sent = await sms.send(payload.phone, otp_message(code))
+    except SMSNumberRejected:
+        # The number itself is unreachable — a typo, not an outage. 422 so
+        # the app can say "check the number" rather than "try again later".
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Bu raqamga SMS yuborib bo'lmadi. Raqamni tekshiring.",
+        ) from None
+    except httpx.HTTPError as exc:
+        # Provider unreachable or erroring — that IS "try again later", and
+        # it must not fall through as a bare 500 with a stack trace.
+        log.warning("otp sms send failed: %s", exc)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail="SMS provider error",
+        ) from exc
     if not sent:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,

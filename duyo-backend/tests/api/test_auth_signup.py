@@ -79,13 +79,12 @@ def _existing_user(phone="+998901234567") -> User:
 
 # ── verify → account ────────────────────────────────────────────────────────
 
+
 def test_verify_creates_and_commits_the_account():
     user = _existing_user("+998911112233")
     db = _FakeSession(user=user)
     tokens = _run(
-        auth_module.verify_otp(
-            payload=OTPVerify(phone="+998911112233", code="00000"), db=db
-        )
+        auth_module.verify_otp(payload=OTPVerify(phone="+998911112233", code="00000"), db=db)
     )
     assert tokens.access_token
     assert tokens.refresh_token
@@ -108,11 +107,7 @@ def test_verify_records_the_login_time():
 def test_verify_rejects_a_wrong_code_without_writing():
     db = _FakeSession(user=_existing_user())
     with pytest.raises(HTTPException) as exc:
-        _run(
-            auth_module.verify_otp(
-                payload=OTPVerify(phone="+998901234567", code="11111"), db=db
-            )
-        )
+        _run(auth_module.verify_otp(payload=OTPVerify(phone="+998901234567", code="11111"), db=db))
     assert exc.value.status_code == 401
     assert db.committed == 0
 
@@ -121,11 +116,7 @@ def test_verify_500s_rather_than_issuing_a_token_for_a_missing_account():
     """If the row is not there after the insert, no token may be handed out."""
     db = _FakeSession(user=None)
     with pytest.raises(HTTPException) as exc:
-        _run(
-            auth_module.verify_otp(
-                payload=OTPVerify(phone="+998901234567", code="00000"), db=db
-            )
-        )
+        _run(auth_module.verify_otp(payload=OTPVerify(phone="+998901234567", code="00000"), db=db))
     assert exc.value.status_code == 500
 
 
@@ -137,10 +128,13 @@ def test_verify_500s_rather_than_issuing_a_token_for_a_missing_account():
 # safety reports, and the crisis alerts meant for the real parent — with the
 # victim seeing only an ordinary login SMS. These tests are that guarantee.
 
+
 def _pending_invite(parent_id=None, child_name="Aziza") -> FamilyInvite:
     invite = FamilyInvite(
-        parent_id=parent_id or uuid4(), child_name=child_name,
-        child_phone="+998911112233", claimed=False,
+        parent_id=parent_id or uuid4(),
+        child_name=child_name,
+        child_phone="+998911112233",
+        claimed=False,
     )
     invite.id = uuid4()
     invite.expires_at = datetime.now(UTC) + timedelta(hours=24)
@@ -153,9 +147,7 @@ def test_verify_offers_a_pending_invite_without_linking_it():
     db = _FakeSession(user=user, invite=invite, inviter_phone="+998901234567")
 
     tokens = _run(
-        auth_module.verify_otp(
-            payload=OTPVerify(phone="+998911112233", code="00000"), db=db
-        )
+        auth_module.verify_otp(payload=OTPVerify(phone="+998911112233", code="00000"), db=db)
     )
 
     # Offered...
@@ -175,9 +167,7 @@ def test_verify_without_a_pending_invite_offers_nothing():
     db = _FakeSession(user=user, invite=None)
 
     tokens = _run(
-        auth_module.verify_otp(
-            payload=OTPVerify(phone="+998911112233", code="00000"), db=db
-        )
+        auth_module.verify_otp(payload=OTPVerify(phone="+998911112233", code="00000"), db=db)
     )
 
     assert tokens.pending_family_invite is None
@@ -189,15 +179,14 @@ def test_verify_does_not_offer_an_invite_whose_inviter_vanished():
     db = _FakeSession(user=user, invite=_pending_invite(), inviter_phone=None)
 
     tokens = _run(
-        auth_module.verify_otp(
-            payload=OTPVerify(phone="+998911112233", code="00000"), db=db
-        )
+        auth_module.verify_otp(payload=OTPVerify(phone="+998911112233", code="00000"), db=db)
     )
 
     assert tokens.pending_family_invite is None
 
 
 # ── send → what the tester is told ──────────────────────────────────────────
+
 
 def test_send_hands_back_the_demo_code_instead_of_promising_an_sms():
     body = _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233")))
@@ -225,6 +214,45 @@ def test_send_uses_sms_when_the_bypass_is_off(monkeypatch):
     assert sent and "54321" in sent[0][1]
 
 
+def test_send_says_check_the_number_when_eskiz_refuses_the_destination(monkeypatch):
+    """ "Number is forbidden" is Eskiz vetting the number, not us failing —
+    a typo must read as 422 "check the number", never as a 500 with a
+    stack trace, which is what the raw HTTPStatusError produced."""
+    from duyo.services.sms import SMSNumberRejected
+
+    monkeypatch.setattr(get_settings(), "otp_demo_code", "")
+
+    class _Refuses:
+        async def send(self, _phone, _message):
+            raise SMSNumberRejected("Number is forbidden")
+
+    monkeypatch.setattr(auth_module, "get_sms_provider", lambda: _Refuses())
+    monkeypatch.setattr(auth_module, "issue", _async_returning("54321"))
+
+    with pytest.raises(HTTPException) as exc:
+        _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233")))
+    assert exc.value.status_code == 422
+    assert "raqam" in str(exc.value.detail).lower()
+
+
+def test_send_502s_when_the_provider_itself_errors(monkeypatch):
+    """A provider outage is "try again later" — 502, not an unhandled 500."""
+    import httpx
+
+    monkeypatch.setattr(get_settings(), "otp_demo_code", "")
+
+    class _Down:
+        async def send(self, _phone, _message):
+            raise httpx.ConnectError("boom")
+
+    monkeypatch.setattr(auth_module, "get_sms_provider", lambda: _Down())
+    monkeypatch.setattr(auth_module, "issue", _async_returning("54321"))
+
+    with pytest.raises(HTTPException) as exc:
+        _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233")))
+    assert exc.value.status_code == 502
+
+
 def _async_returning(value):
     async def _fn(*_a, **_kw):
         return value
@@ -233,6 +261,7 @@ def _async_returning(value):
 
 
 # ── phone shapes ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "raw",

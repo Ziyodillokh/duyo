@@ -19,6 +19,13 @@ from duyo.core.config import get_settings
 log = logging.getLogger(__name__)
 
 
+class SMSNumberRejected(Exception):
+    """Eskiz refused the destination itself ("Number is forbidden") — the
+    number is not a real reachable subscriber. Distinct from a provider
+    outage so callers can tell the user "check the number" instead of
+    "try again later"."""
+
+
 # ── Approved Eskiz templates ────────────────────────────────────────────────
 #
 # Eskiz delivers ONLY text that matches a template its moderators approved;
@@ -128,6 +135,17 @@ class EskizSMSProvider:
                     headers={"Authorization": f"Bearer {token}"},
                     data={"mobile_phone": eskiz_phone, "message": message, "from": self._sender},
                 )
+            # A 400 here is Eskiz vetting the DESTINATION, not our request:
+            # invalid, blocked or unallocated numbers come back as
+            # {"message": "Number is forbidden"}. That is the caller's user
+            # typing a wrong number, and must not surface as a 500.
+            if resp.status_code == 400:
+                try:
+                    detail = str(resp.json().get("message", ""))
+                except ValueError:
+                    detail = resp.text
+                if "forbidden" in detail.lower():
+                    raise SMSNumberRejected(detail)
             resp.raise_for_status()
             # A 200 does not mean delivered: an off-template message comes
             # back with a non-"waiting" status. Callers MUST check this — see
