@@ -18,6 +18,7 @@ import {
   type LanguageQuestion,
   type PracticeLanguage,
 } from '@/api/endpoints/language';
+import { FlagIcon } from '@/components/v2/flag-icon';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
 
@@ -26,14 +27,16 @@ type Stage = 'language-select' | 'quiz' | 'result';
 const FULL_SCREEN_BG = '#0A1628';
 const QUESTION_COUNT = 5;
 
+// Flags are drawn (components/v2/flag-icon), not emoji: the regional-
+// indicator glyphs render as bare "GB" / "RU" letters on Windows and on
+// Android builds without them.
 const LANGUAGES: ReadonlyArray<{
   key: PracticeLanguage;
   label: string;
-  emoji: string;
   color: string;
 }> = [
-  { key: 'en', label: 'Ingliz tili', emoji: '🇬🇧', color: '#60A5FA' },
-  { key: 'ru', label: 'Rus tili', emoji: '🇷🇺', color: '#FDC700' },
+  { key: 'en', label: 'Ingliz tili', color: '#60A5FA' },
+  { key: 'ru', label: 'Rus tili', color: '#FDC700' },
 ];
 
 export default function LanguagePracticeScreen() {
@@ -140,7 +143,7 @@ export default function LanguagePracticeScreen() {
                       backgroundColor: `${l.color}20`,
                     }}
                   >
-                    <Text className="text-2xl">{l.emoji}</Text>
+                    <FlagIcon code={l.key} width={30} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-base font-medium text-foreground dark:text-dark-text">
