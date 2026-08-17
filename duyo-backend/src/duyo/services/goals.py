@@ -45,6 +45,7 @@ from duyo.models.goal import (
 from duyo.prompts import INSIGHT_EXTRACT_PROMPT
 from duyo.services.gemini import get_client
 from duyo.services.goal_matching import resolve_match_key
+from duyo.services.goal_paths import decompose_goal_into_notes
 from duyo.services.style_profile import merge_style_signal
 
 # structlog, not stdlib logging: the app configures no logging at all, so a
@@ -124,9 +125,15 @@ def _as_int(value: object, *, ceiling: int) -> int | None:
     return number if 0 <= number <= ceiling else None
 
 
-async def _persist_goal(child_id: UUID, parsed: dict[str, Any]) -> None:
+async def _persist_goal(child_id: UUID, parsed: dict[str, Any]) -> tuple[UUID, str] | None:
     """DB half of goal capture — its own try/except so a failure here can
-    never take the style merge down with it (they run independently)."""
+    never take the style merge down with it (they run independently).
+
+    Returns (goal_id, title) only when a genuinely NEW goal was created, so
+    the caller can decompose it into a brain-map path. Returns None for a
+    progress update, a duplicate, the over-limit case, or any error — none of
+    which should trigger a fresh decomposition.
+    """
     try:
         session_factory = get_session_factory()
         async with session_factory() as session:
@@ -163,11 +170,11 @@ async def _persist_goal(child_id: UUID, parsed: dict[str, Any]) -> None:
                     await session.commit()
                     log.info("goal_progress_inferred", child=str(child_id),
                              goal=str(existing.id), unit=progress)
-                return
+                return None
 
             # A child with a dozen open goals does not need DUYO inventing more.
             if len(active) >= _MAX_ACTIVE_GOALS:
-                return
+                return None
 
             try:
                 kind = GoalKind(parsed["kind"])
@@ -193,24 +200,25 @@ async def _persist_goal(child_id: UUID, parsed: dict[str, Any]) -> None:
                 log.exception("goal_match_key_resolve_failed", child=str(child_id))
 
             unit_label = parsed["unit_label"]
-            session.add(
-                ChildGoal(
-                    child_id=child_id,
-                    kind=kind,
-                    title=parsed["title"],
-                    match_key=match_key,
-                    status=GoalStatus.ACTIVE,
-                    source=GoalSource.INFERRED,
-                    confirmed_at=None,  # the child confirms before DUYO uses it
-                    unit_label=str(unit_label)[:24] if unit_label else None,
-                    total_units=_as_int(parsed["total_units"], ceiling=100_000),
-                    current_unit=progress,
-                )
+            goal = ChildGoal(
+                child_id=child_id,
+                kind=kind,
+                title=parsed["title"],
+                match_key=match_key,
+                status=GoalStatus.ACTIVE,
+                source=GoalSource.INFERRED,
+                confirmed_at=None,  # the child confirms before DUYO uses it
+                unit_label=str(unit_label)[:24] if unit_label else None,
+                total_units=_as_int(parsed["total_units"], ceiling=100_000),
+                current_unit=progress,
             )
+            session.add(goal)
             await session.commit()
             log.info("goal_inferred", child=str(child_id), title=parsed["title"])
+            return goal.id, goal.title
     except Exception:
         log.exception("goal_persist_failed", child=str(child_id))
+    return None
 
 
 async def extract_child_insights(child_id: UUID, message: str) -> None:
@@ -238,4 +246,11 @@ async def extract_child_insights(child_id: UUID, message: str) -> None:
     parsed = _parse_goal(data)
     if parsed is None:
         return
-    await _persist_goal(child_id, parsed)
+    created = await _persist_goal(child_id, parsed)
+
+    # A genuinely new goal — break it into a path of linked notes in the
+    # child's brain map. Own try/except inside; a failure there leaves the goal
+    # un-mapped and never touches the goal row that was just saved.
+    if created is not None:
+        goal_id, goal_title = created
+        await decompose_goal_into_notes(child_id, goal_id, goal_title)

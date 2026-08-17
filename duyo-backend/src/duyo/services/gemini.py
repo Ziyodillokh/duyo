@@ -20,7 +20,12 @@ from google.genai import types
 
 from duyo.core.config import get_settings
 from duyo.models.child import AgeSegment
-from duyo.prompts import BOARD_PROMPT, LESSON_HELP_PROMPT, SYSTEM_PROMPTS
+from duyo.prompts import (
+    BOARD_PROMPT,
+    GOAL_DECOMPOSE_PROMPT,
+    LESSON_HELP_PROMPT,
+    SYSTEM_PROMPTS,
+)
 
 HistoryRole = Literal["user", "model"]
 
@@ -462,6 +467,50 @@ async def solve_lesson(
             }],
             "answer": "",
         }
+
+
+async def decompose_goal(
+    *,
+    goal_title: str,
+    age_segment: AgeSegment,
+) -> list[dict[str, str]]:
+    """Break a child's goal into an ordered path of 3-6 concrete steps.
+
+    Returns [{"title","detail"}, ...] — the steps that will become linked
+    notes in the child's brain map. Unlike solve_lesson this fails to an EMPTY
+    list, never a placeholder: a goal-path is written straight into the
+    child's private graph, so "nothing" is the correct output on any doubt or
+    error — a filler node the child never asked for is worse than no node.
+    """
+    if len(goal_title.strip()) < 3:
+        return []
+    settings = get_settings()
+    client = get_client()
+    try:
+        resp = await client.aio.models.generate_content(
+            model=settings.gemini_model_primary,
+            contents=f"Bolaning maqsadi: {goal_title}",
+            config=types.GenerateContentConfig(
+                system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{GOAL_DECOMPOSE_PROMPT}",
+                max_output_tokens=700,
+                temperature=0.4,  # a little room to phrase steps naturally
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=settings.gemini_thinking_budget_flash
+                ),
+                response_mime_type="application/json",
+            ),
+        )
+        data = json.loads((resp.text or "").strip())
+        steps = [
+            {"title": " ".join(str(s.get("title", "")).split())[:35],
+             "detail": str(s.get("detail", "")).strip()[:400]}
+            for s in (data.get("steps") or [])
+            if str(s.get("title", "")).strip() and str(s.get("detail", "")).strip()
+        ][:6]
+        return steps
+    except Exception:
+        # Fail to nothing — see the docstring. A goal simply stays un-mapped.
+        return []
 
 
 async def translate_text(*, text: str, target_lang: str) -> str:

@@ -239,6 +239,38 @@ INSIGHT_EXTRACT_PROMPT = (
 )
 
 
+# Goal → path decomposer. Given a goal the child stated, break it into a short,
+# ordered path of concrete steps that become linked notes in the child's brain
+# map (see services/goal_paths.py, services/gemini.py::decompose_goal). The
+# child's age-segment system prompt is prepended, so wording lands at the right
+# level. Output is child-facing text that goes straight into their private
+# graph — so it must be concrete, encouraging, and safe for a child to act on
+# alone: no steps that need money, travel, adult help framed as required, or
+# anything unsafe. When a goal is too vague to decompose honestly, return an
+# empty list rather than inventing filler.
+GOAL_DECOMPOSE_PROMPT = (
+    "Bolaning MAQSADI beriladi. Uni maqsadga eltuvchi QISQA, TARTIBLI yo'lга "
+    "ajrat — 3 tadan 6 tagacha aniq qadam. Har bir qadam bola O'ZI, yolg'iz "
+    "boshlab bajara oladigan, real va kichik bo'lsin.\n\n"
+    "QOIDALAR:\n"
+    "- Qadamlar TARTIBLI: 1-qadam eng birinchi, oxirgisi maqsadga eng yaqin.\n"
+    "- Har qadam aniq harakat bo'lsin (\"...ni o'rgan\", \"...ни yoz\", "
+    "\"har kuni 10 daqiqa...\"), umumiy gap emas (\"tirishqoq bo'l\" YO'Q).\n"
+    "- Bolaga mos: pul, safar yoki kattalarning yordamini SHART qilib qo'yma.\n"
+    "- Ohang iliq va dalda beruvchi, lekin qisqa.\n"
+    "- Agar maqsad juda noaniq bo'lsa yoki qadamga ajratib bo'lmasa — "
+    "steps ni bo'sh ro'yxat qaytar. Yolg'on to'ldiruv yozma.\n\n"
+    "title: qadamning qisqa nomi (35 belgigacha, tugun sifatida ko'rinadi).\n"
+    "detail: 1-2 gap, bola nima qilishini aniq aytadi.\n\n"
+    "FAQAT shu JSON:\n"
+    "{\n"
+    '  "steps": [\n'
+    '    {"title": "qisqa nom", "detail": "bir-ikki gap aniq harakat"}\n'
+    "  ]\n"
+    "}"
+)
+
+
 # Personal-memory candidate extractor — runs synchronously inside the chat
 # turn (see services/memory_candidates.py) and, unlike INSIGHT_EXTRACT_PROMPT,
 # its result is NEVER written to any database. It rides back in the HTTP

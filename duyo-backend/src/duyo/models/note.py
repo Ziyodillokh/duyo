@@ -9,12 +9,36 @@ grow ahead of the writing.
 Titles are unique per child so a link can resolve to exactly one note.
 """
 
+from enum import Enum
 from uuid import UUID
 
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column
 
 from duyo.models.base import UUIDPK, Base, TimestampMixin
+
+
+class NoteSource(str, Enum):
+    """Who wrote the note.
+
+    `manual` is the child's own hand. `goal_path` is a step DUYO generated
+    when it decomposed one of the child's goals into a path (see
+    services/goal_paths.py) — kept apart so the app can colour the goal
+    cluster distinctly and so re-running decomposition can find its own notes
+    instead of duplicating them.
+    """
+
+    MANUAL = "manual"
+    GOAL_PATH = "goal_path"
+
+
+_note_source_enum = ENUM(
+    NoteSource,
+    name="note_source",
+    create_type=False,
+    values_callable=lambda enum_cls: [e.value for e in enum_cls],
+)
 
 
 class ChildNote(Base, UUIDPK, TimestampMixin):
@@ -34,6 +58,16 @@ class ChildNote(Base, UUIDPK, TimestampMixin):
     # category shared by many notes, and letting a per-note colour override
     # it would make the tag legend lie. Null means "use the untagged grey".
     colour: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    source: Mapped[NoteSource] = mapped_column(
+        _note_source_enum, nullable=False, default=NoteSource.MANUAL,
+    )
+    # Set only on goal_path notes: which goal DUYO decomposed to produce this
+    # step. SET NULL rather than CASCADE so deleting a goal leaves the child's
+    # map intact — the steps stop being "a goal's steps" but the child's own
+    # graph is theirs to keep.
+    goal_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("child_goals.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
 
     def __repr__(self) -> str:
         return f"<ChildNote {self.title!r}>"

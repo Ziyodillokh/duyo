@@ -84,8 +84,20 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
+/**
+ * Tags whose colour is fixed, not hashed. `#maqsad` marks the step notes DUYO
+ * writes when it decomposes a goal (backend services/goal_paths.py) — that
+ * cluster should always read as the same DUYO gold on every device and never
+ * collide with a hash-coloured tag the child happened to make. The value
+ * matches the colour the backend stamps on those notes.
+ */
+const RESERVED_TAG_COLOURS: Record<string, string> = {
+  maqsad: '#FDC700', // goal path — DUYO gold
+};
+
 export function colourForTag(tag: string): string {
-  return PALETTE[hash(tag.toLowerCase().replace(/^#/, '')) % PALETTE.length];
+  const bare = tag.toLowerCase().replace(/^#/, '');
+  return RESERVED_TAG_COLOURS[bare] ?? PALETTE[hash(bare) % PALETTE.length];
 }
 
 /**
