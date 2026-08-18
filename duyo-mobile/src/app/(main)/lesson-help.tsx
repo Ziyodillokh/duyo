@@ -17,9 +17,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { DTM_SUBJECTS, type DTMSubject } from '@/mocks/dtm';
 import { useIsDark } from '@/store/theme';
 
@@ -30,7 +30,7 @@ interface MockSolutionStep {
   detail: string;
 }
 
-const MOCK_SOLUTION_STEPS: ReadonlyArray<MockSolutionStep> = [
+const MOCK_SOLUTION_STEPS: readonly MockSolutionStep[] = [
   {
     title: '1-bosqich: Tenglamani sodda qiling',
     detail: "Har ikkala tomonni umumiy maxraj orqali ko'paytirib chiqarib oling.",

@@ -9,8 +9,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
+import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { handleRejectionMessage } from '@/api/endpoints/social';
 import { useHandleSuggestions, useUpdateSocialSettings } from '@/hooks/use-social';
 import { useIsDark } from '@/store/theme';

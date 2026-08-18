@@ -1,11 +1,15 @@
-import { type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 import { Platform, View, type ViewStyle } from 'react-native';
 import { KeyboardAvoidingView as NativeKAV } from 'react-native-keyboard-controller';
+
+type Behavior = NonNullable<ComponentProps<typeof NativeKAV>['behavior']>;
 
 interface Props {
   children: ReactNode;
   className?: string;
   style?: ViewStyle;
+  /** Forwarded to the native view; ignored on web. */
+  behavior?: Behavior;
 }
 
 /**
@@ -19,7 +23,12 @@ interface Props {
  *
  * Web therefore gets a plain filling View; iOS/Android keep the real thing.
  */
-export function KeyboardAvoidingView({ children, className, style }: Props) {
+export function KeyboardAvoidingView({
+  children,
+  className,
+  style,
+  behavior = 'translate-with-padding',
+}: Props) {
   if (Platform.OS === 'web') {
     return (
       <View className={className} style={style}>
@@ -28,11 +37,7 @@ export function KeyboardAvoidingView({ children, className, style }: Props) {
     );
   }
   return (
-    <NativeKAV
-      behavior="translate-with-padding"
-      className={className}
-      style={style}
-    >
+    <NativeKAV behavior={behavior} className={className} style={style}>
       {children}
     </NativeKAV>
   );

@@ -12,10 +12,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { PeerMessage } from '@/api/endpoints/social';
+import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import {
   useBlockFriend,
   usePeerMessages,
@@ -205,10 +205,7 @@ export default function PeerChatScreen() {
           </Text>
         </View>
 
-        <KeyboardAvoidingView
-          behavior="translate-with-padding"
-          className="flex-1"
-        >
+        <KeyboardAvoidingView className="flex-1">
           {messagesQuery.isLoading ? (
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator color="#60A5FA" />

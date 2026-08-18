@@ -1,3 +1,4 @@
+import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import type { BillingPeriod, PaidTier } from '@/api/endpoints/subscription';
 import { usePlans, useSubscribe } from '@/hooks/use-subscription';
 import { useIsDark } from '@/store/theme';
@@ -14,7 +15,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type PaymentMethod = 'click' | 'payme' | 'card';
@@ -26,7 +26,7 @@ interface PaymentMethodOption {
   color: string;
 }
 
-const PAYMENT_METHODS: ReadonlyArray<PaymentMethodOption> = [
+const PAYMENT_METHODS: readonly PaymentMethodOption[] = [
   {
     key: 'click',
     label: 'Click',
