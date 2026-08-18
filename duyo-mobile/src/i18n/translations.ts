@@ -30,6 +30,13 @@ const UZ = {
   'common.noInternet.body': "Aloqani tekshiring va qayta urinib ko'ring.",
   'common.copyright': '© 2026 DUYO. Barcha huquqlar himoyalangan.',
 
+  // ── in-app update (direct-APK installs) ─────────────────────────────────
+  'update.title': 'Yangi versiya chiqdi',
+  'update.body':
+    "DUYO'ning yangilangan versiyasi tayyor. Hozir yuklab olib o'rnatasizmi?",
+  'update.download': 'Yuklab olish',
+  'update.later': 'Keyinroq',
+
   // ── splash ──────────────────────────────────────────────────────────────
   'splash.tagline': 'Sizning AI hamrohingiz',
   'splash.loadFailed': "Ma'lumotlarni yuklab bo'lmadi. Internetni tekshiring.",
@@ -281,6 +288,12 @@ const RU: Record<TranslationKey, string> = {
   'common.noInternet.body': 'Проверьте соединение и попробуйте снова.',
   'common.copyright': '© 2026 DUYO. Все права защищены.',
 
+  // ── in-app update (direct-APK installs) ─────────────────────────────────
+  'update.title': 'Вышла новая версия',
+  'update.body': 'Обновлённая версия DUYO готова. Скачать и установить сейчас?',
+  'update.download': 'Скачать',
+  'update.later': 'Позже',
+
   // ── splash ──────────────────────────────────────────────────────────────
   'splash.tagline': 'Ваш AI-компаньон',
   'splash.loadFailed': 'Не удалось загрузить данные. Проверьте интернет.',
@@ -531,6 +544,12 @@ const EN: Record<TranslationKey, string> = {
   'common.noInternet.title': 'No internet',
   'common.noInternet.body': 'Check your connection and try again.',
   'common.copyright': '© 2026 DUYO. All rights reserved.',
+
+  // ── in-app update (direct-APK installs) ─────────────────────────────────
+  'update.title': 'A new version is out',
+  'update.body': 'An updated version of DUYO is ready. Download and install it now?',
+  'update.download': 'Download',
+  'update.later': 'Later',
 
   // ── splash ──────────────────────────────────────────────────────────────
   'splash.tagline': 'Your AI companion',

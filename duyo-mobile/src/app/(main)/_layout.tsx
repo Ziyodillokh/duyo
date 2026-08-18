@@ -2,11 +2,15 @@ import { Stack, router } from 'expo-router';
 import { useEffect } from 'react';
 
 import { MemoryConsentSheet } from '@/components/memory/memory-consent-sheet';
+import { useAppUpdateCheck } from '@/hooks/use-app-update';
 import { useAuthStore } from '@/store/auth';
 
 export default function MainLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hydrated = useAuthStore((s) => s.hydrated);
+
+  // Direct-APK installs have no store to update them — offer new builds here.
+  useAppUpdateCheck();
 
   // The session can end mid-screen: the refresh token expires (30 days) or is
   // rejected, and the API client clears auth. Without this the child stays on
