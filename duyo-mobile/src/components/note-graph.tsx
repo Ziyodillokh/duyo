@@ -587,8 +587,11 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     const bw = Math.max(1, x1 - x0);
     const bh = Math.max(1, y1 - y0);
     const fit = Math.min((size.width - PAD) / bw, (size.height - PAD) / bh);
-    // A three-note sky must not zoom into cartoon-sized discs.
-    const s = Math.min(2.1, Math.max(MIN_ZOOM, fit));
+    // A three-note sky must not zoom into cartoon-sized discs — and labels
+    // are drawn in screen-constant font under a scaled canvas, so past ~1.4x
+    // a hub's name lands on top of the sun rather than under it. Verified on
+    // the dashboard hero with a one-note, one-tag, one-ghost notebook.
+    const s = Math.min(1.4, Math.max(MIN_ZOOM, fit));
     const fx = -((x0 + x1) / 2 - size.width / 2) * s;
     const fy = -((y0 + y1) / 2 - size.height / 2) * s;
 
