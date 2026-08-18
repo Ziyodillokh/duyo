@@ -82,12 +82,26 @@ async def create_goal(
 
     # An unknown match_key would 500 on the FK; drop it and keep the goal —
     # a goal the catalogue does not know is still a perfectly good goal.
+    #
+    # The key must also be one this child is ALLOWED to be matched over. The
+    # free-text path (resolve_match_key below) applies the entry's age band
+    # and the publish gate; the picker path used to skip both, so a client
+    # that sent `book_otkan_kunlar` (12-16) for a 9-year-old put that child
+    # in a 14+ peer group. Same rule, both doors: an entry outside the band
+    # or not matchable is treated exactly like an unknown key — the goal is
+    # kept, the key is not.
     match_key = payload.match_key
     if match_key:
-        known = await db.scalar(
-            select(GoalCatalog.match_key).where(GoalCatalog.match_key == match_key)
+        entry = await db.scalar(
+            select(GoalCatalog).where(
+                GoalCatalog.match_key == match_key,
+                GoalCatalog.active.is_(True),
+                GoalCatalog.matchable.is_(True),
+                GoalCatalog.age_min <= child.age,
+                GoalCatalog.age_max >= child.age,
+            )
         )
-        if known is None:
+        if entry is None:
             match_key = None
 
     # No key from the picker? Try to recognise the child's own wording.

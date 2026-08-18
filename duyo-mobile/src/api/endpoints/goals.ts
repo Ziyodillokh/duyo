@@ -47,6 +47,10 @@ export interface GoalCatalogEntry {
   kind: GoalKind;
   title: string;
   target_ref: Record<string, unknown> | null;
+  /** The age band this goal is published for; the server already filters
+   *  by the child's age, these are for showing "12–16" on a chip. */
+  age_min: number;
+  age_max: number;
 }
 
 export interface CreateGoalInput {
@@ -147,10 +151,14 @@ export async function fetchGoalSignal(childId: string): Promise<GoalSignal[]> {
 
 export async function fetchGoalCatalog(
   q?: string,
+  age?: number,
 ): Promise<GoalCatalogEntry[]> {
+  // `age` narrows the picker to what this child may actually be matched
+  // over — the server enforces the band on save regardless, so this only
+  // stops a chip from being shown and then silently not linking.
   try {
     const { data } = await apiClient.get<GoalCatalogEntry[]>('/goals/catalog', {
-      params: q ? { q } : undefined,
+      params: { ...(q ? { q } : {}), ...(age ? { age } : {}) },
     });
     return data;
   } catch {

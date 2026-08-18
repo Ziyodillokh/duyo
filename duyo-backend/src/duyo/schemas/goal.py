@@ -78,6 +78,11 @@ class GoalCatalogRead(BaseModel):
     kind: GoalKind
     title: str
     target_ref: dict | None
+    # The band this goal is published for. The picker filters server-side by
+    # the child's age, so a client should never see an entry it may not pick —
+    # but the band is returned anyway so the app can SAY "12-16" on a chip.
+    age_min: int
+    age_max: int
 
     model_config = {"from_attributes": True}
 

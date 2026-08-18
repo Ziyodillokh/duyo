@@ -64,8 +64,13 @@ def session():
 
 async def _catalog(session, key="test-naruto", *, matchable=True, active=True):
     entry = GoalCatalog(
-        match_key=key, kind=GoalKind.OTHER, title="Naruto animesi",
-        age_min=7, age_max=16, active=active, matchable=matchable,
+        match_key=key,
+        kind=GoalKind.OTHER,
+        title="Naruto animesi",
+        age_min=7,
+        age_max=16,
+        active=active,
+        matchable=matchable,
     )
     session.add(entry)
     await session.flush()
@@ -77,25 +82,35 @@ async def _child(session, name, age=14, *, discoverable=True, suspended=False):
     session.add(user)
     await session.flush()
     child = ChildProfile(
-        parent_id=user.id, name=name, age=age,
-        age_segment=AgeSegment.from_age(age), language=Language.UZ, interests=[],
+        parent_id=user.id,
+        name=name,
+        age=age,
+        age_segment=AgeSegment.from_age(age),
+        language=Language.UZ,
+        interests=[],
     )
     session.add(child)
     await session.flush()
-    session.add(ChildSocialSettings(
-        child_id=child.id, display_name=f"{name}-42",
-        discoverable=discoverable,
-        suspended_at=datetime.now(UTC) if suspended else None,
-    ))
+    session.add(
+        ChildSocialSettings(
+            child_id=child.id,
+            display_name=f"{name}-42",
+            discoverable=discoverable,
+            suspended_at=datetime.now(UTC) if suspended else None,
+        )
+    )
     await session.flush()
     return child
 
 
-async def _goal(session, child, key, *, confirmed=True, status=GoalStatus.ACTIVE,
-                title="Naruto"):
+async def _goal(session, child, key, *, confirmed=True, status=GoalStatus.ACTIVE, title="Naruto"):
     goal = ChildGoal(
-        child_id=child.id, kind=GoalKind.OTHER, title=title, match_key=key,
-        status=status, source=GoalSource.CHILD_STATED,
+        child_id=child.id,
+        kind=GoalKind.OTHER,
+        title=title,
+        match_key=key,
+        status=status,
+        source=GoalSource.CHILD_STATED,
         confirmed_at=datetime.now(UTC) if confirmed else None,
     )
     session.add(goal)
@@ -146,6 +161,7 @@ def test_an_unreviewed_catalogue_entry_never_matches(session):
     introduces two children by name — so a catalogue row added later, which
     defaults to matchable=False, produced live suggestions anyway.
     """
+
     async def scenario():
         entry = await _catalog(session, matchable=False)
         me = await _child(session, "Me")
@@ -175,6 +191,7 @@ def test_a_retired_catalogue_entry_never_matches(session):
 def test_an_unconfirmed_goal_of_MINE_does_not_match(session):
     """A goal DUYO guessed from conversation must not introduce the child to
     strangers before the child has agreed it is theirs."""
+
     async def scenario():
         entry = await _catalog(session)
         me = await _child(session, "Me")
@@ -244,9 +261,10 @@ def test_more_than_one_year_apart_never_matches(session):
 def test_across_the_age_segment_seam_never_matches(session):
     """13 and 14 are one year apart but in different segments — that boundary
     is exactly where an adult posing as a child would aim."""
+
     async def scenario():
         entry = await _catalog(session)
-        me = await _child(session, "Me", age=13)     # EXPLORER
+        me = await _child(session, "Me", age=13)  # EXPLORER
         peer = await _child(session, "Peer", age=14)  # COMPANION
         await _goal(session, me, entry.match_key)
         await _goal(session, peer, entry.match_key)
@@ -260,18 +278,27 @@ def test_across_the_age_segment_seam_never_matches(session):
 
 @pytest.mark.parametrize(
     "state",
-    [FriendshipStatus.PENDING, FriendshipStatus.ACCEPTED,
-     FriendshipStatus.DECLINED, FriendshipStatus.BLOCKED],
+    [
+        FriendshipStatus.PENDING,
+        FriendshipStatus.ACCEPTED,
+        FriendshipStatus.DECLINED,
+        FriendshipStatus.BLOCKED,
+    ],
 )
 def test_any_existing_edge_removes_the_peer_from_suggestions(session, state):
     """A blocked pair resurfacing as a suggestion would be the worst of these."""
+
     async def scenario():
         me, peer, _ = await _pair(session)
         low, high = sorted([me.id, peer.id], key=str)
-        session.add(Friendship(
-            child_low_id=low, child_high_id=high,
-            requested_by_id=me.id, status=state,
-        ))
+        session.add(
+            Friendship(
+                child_low_id=low,
+                child_high_id=high,
+                requested_by_id=me.id,
+                status=state,
+            )
+        )
         await session.flush()
         assert await find_goal_mates(session, me) == []
 
@@ -305,6 +332,7 @@ def test_a_child_never_matches_themselves(session):
 
 def test_no_key_no_match(session):
     """The production state before the fix: a freely typed goal with no key."""
+
     async def scenario():
         await _catalog(session)
         me = await _child(session, "Me")
@@ -327,6 +355,7 @@ def test_two_children_who_TYPED_the_same_goal_now_match(session):
     the catalogue picker and the other two had typed it. With resolution in
     the create path, typing it is enough.
     """
+
     async def scenario():
         entry = await _catalog(session)
         me = await _child(session, "Me")
@@ -349,6 +378,7 @@ def test_two_children_who_TYPED_the_same_goal_now_match(session):
 def test_resolution_respects_the_publish_gate_against_a_real_session(session):
     """The SQL filters, not just the scoring — an unpublished entry is
     invisible to resolution even when the words match exactly."""
+
     async def scenario():
         await _catalog(session, "secret", matchable=False)
         assert await resolve_match_key(session, "Naruto animesi", age=14) is None
@@ -359,9 +389,13 @@ def test_resolution_respects_the_publish_gate_against_a_real_session(session):
 def test_resolution_respects_the_age_band_against_a_real_session(session):
     async def scenario():
         entry = GoalCatalog(
-            match_key="exam_ielts", kind=GoalKind.EXAM,
+            match_key="exam_ielts",
+            kind=GoalKind.EXAM,
             title="IELTS imtihoniga tayyorgarlik",
-            age_min=14, age_max=16, active=True, matchable=True,
+            age_min=14,
+            age_max=16,
+            active=True,
+            matchable=True,
         )
         session.add(entry)
         await session.flush()
@@ -369,3 +403,78 @@ def test_resolution_respects_the_age_band_against_a_real_session(session):
         assert await resolve_match_key(session, "IELTS ga tayyorlanaman", age=15) == "exam_ielts"
 
     _run(scenario())
+
+
+# ── the picker path obeys the same age band as the free-text path ──────────
+#
+# resolve_match_key applies an entry's age band, so a 9-year-old TYPING
+# "O'tkan kunlarni o'qish" is (correctly) not filed under the 12-16 novel.
+# But a client could send that entry's match_key directly — the picker
+# does — and create_goal used to accept any known key, putting a 9-year-old
+# in a 14+ peer group. Both doors must apply the same rule.
+
+
+def _fetch_user(session, child):
+    return _run(session.get(User, child.parent_id))
+
+
+def test_picker_key_outside_the_childs_age_band_is_dropped(session):
+    from duyo.api.v1.goals import create_goal
+    from duyo.schemas.goal import GoalCreate
+
+    entry = _run(_catalog(session, "test-otkan"))
+    entry.age_min, entry.age_max = 12, 16
+    child = _run(_child(session, "Aziza", age=9))
+    _run(session.commit())
+
+    goal = _run(
+        create_goal(
+            child_id=child.id,
+            payload=GoalCreate(title="Otkan Kunlar", match_key="test-otkan"),
+            current_user=_fetch_user(session, child),
+            db=session,
+        )
+    )
+    # The goal itself survives — it is still a fine goal for her to have.
+    assert goal.title == "Otkan Kunlar"
+    # But she is NOT filed into the 12-16 peer group.
+    assert goal.match_key is None
+
+
+def test_picker_key_inside_the_band_is_kept(session):
+    from duyo.api.v1.goals import create_goal
+    from duyo.schemas.goal import GoalCreate
+
+    _run(_catalog(session, "test-otkan"))  # 7-16 by the helper's default
+    child = _run(_child(session, "Bekzod", age=14))
+    _run(session.commit())
+
+    goal = _run(
+        create_goal(
+            child_id=child.id,
+            payload=GoalCreate(title="Otkan Kunlar", match_key="test-otkan"),
+            current_user=_fetch_user(session, child),
+            db=session,
+        )
+    )
+    assert goal.match_key == "test-otkan"
+
+
+def test_picker_key_for_an_unpublished_entry_is_dropped(session):
+    """The publish gate is a second reason a known key may not be used."""
+    from duyo.api.v1.goals import create_goal
+    from duyo.schemas.goal import GoalCreate
+
+    _run(_catalog(session, "test-draft", matchable=False))
+    child = _run(_child(session, "Bekzod", age=14))
+    _run(session.commit())
+
+    goal = _run(
+        create_goal(
+            child_id=child.id,
+            payload=GoalCreate(title="Draft goal", match_key="test-draft"),
+            current_user=_fetch_user(session, child),
+            db=session,
+        )
+    )
+    assert goal.match_key is None

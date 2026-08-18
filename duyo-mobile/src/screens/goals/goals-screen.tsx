@@ -11,9 +11,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { fetchGoalCatalog, type Goal, type GoalCatalogEntry } from '@/api/endpoints/goals';
 import { GoalMatesSection } from '@/components/goals/goal-mates-section';
 import { DarkCard } from '@/components/v2/dark/dark-card';
@@ -38,7 +38,7 @@ import { useIsDark } from '@/store/theme';
  * is the one path that attaches a match_key; typing and just hitting "+"
  * still creates a perfectly good goal, only a private one.
  */
-function useCatalogSuggestions(query: string) {
+function useCatalogSuggestions(query: string, age: number | undefined) {
   const [results, setResults] = useState<GoalCatalogEntry[]>([]);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ function useCatalogSuggestions(query: string) {
     }
     let cancelled = false;
     const timer = setTimeout(() => {
-      fetchGoalCatalog(q).then((entries) => {
+      fetchGoalCatalog(q, age).then((entries) => {
         if (!cancelled) setResults(entries);
       });
     }, 300);
@@ -57,7 +57,7 @@ function useCatalogSuggestions(query: string) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, age]);
 
   return results;
 }
@@ -205,7 +205,7 @@ export default function GoalsScreen() {
   // Set only when the child taps a suggestion below; any further edit to the
   // text clears it, so a stale key never rides along with different words.
   const [picked, setPicked] = useState<GoalCatalogEntry | null>(null);
-  const suggestions = useCatalogSuggestions(picked ? '' : draft);
+  const suggestions = useCatalogSuggestions(picked ? '' : draft, child?.age);
 
   const goals = goalsQuery.data ?? [];
   const active = goals.filter((g) => g.status === 'active');
