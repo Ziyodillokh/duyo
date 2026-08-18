@@ -94,6 +94,30 @@ LLM_UNAVAILABLE = {
            "Try again in a couple of minutes, I'll be here."),
 }
 
+# What DUYO says when the model is down AND the child has just said something
+# that tripped the crisis detector. The generic apology above is exactly the
+# wrong sentence for that moment — "try again in a couple of minutes" to a
+# child in danger is abandonment. Every word here is a promise the child can
+# hold on to and a number they can call right now (1142: the national child
+# helpline). The parent alert goes out regardless; this is what the CHILD
+# sees.
+CRISIS_LLM_UNAVAILABLE = {
+    "uz": ("Men shu yerdaman va seni eshityapman. Sen yolg'iz emassan. "
+           "Hozir yaqiningdagi ishonchli katta odamga ayt — ota-onang, "
+           "o'qituvching yoki qarindoshing. Yoki bepul 1142 raqamiga "
+           "qo'ng'iroq qil, ular kechayu kunduz yordam beradi. "
+           "Men ham shu yerda qolaman — menga yozishda davom et."),
+    "ru": ("Я здесь и я тебя слышу. Ты не один. Прямо сейчас расскажи "
+           "взрослому, которому доверяешь — родителям, учителю или "
+           "родственнику. Или позвони бесплатно по номеру 1142, там "
+           "помогают днём и ночью. Я тоже никуда не денусь — продолжай "
+           "мне писать."),
+    "en": ("I'm here and I hear you. You are not alone. Right now, tell a "
+           "grown-up you trust — a parent, a teacher, a relative. Or call "
+           "1142 for free, they help day and night. I'm staying right here "
+           "too — keep writing to me."),
+}
+
 # Uzbek Cyrillic and Russian share most of an alphabet, but each has letters
 # the other never uses — the cheapest reliable way to tell them apart.
 _RUSSIAN_ONLY = set("щъыэё")          # щ ъ ы э ё
@@ -789,10 +813,16 @@ async def chat_turn(
                         source = _web_source(reply.sources)
         except Exception:
             log.exception("chat_llm_failed child=%s", child.id)
+            # A child in crisis must never be told to come back later — the
+            # detector already ran (final_level is decided above), so the
+            # outage reply can still hold them and hand them a number.
+            fallback = (
+                CRISIS_LLM_UNAVAILABLE
+                if final_level in (CrisisLevel.ORANGE, CrisisLevel.RED)
+                else LLM_UNAVAILABLE
+            )
             reply = GeminiReply(
-                text=LLM_UNAVAILABLE[
-                    _reply_language(payload.message, child.language.value)
-                ],
+                text=fallback[_reply_language(payload.message, child.language.value)],
                 model="fallback", latency_ms=0, tokens_in=0, tokens_out=0,
             )
             source = None

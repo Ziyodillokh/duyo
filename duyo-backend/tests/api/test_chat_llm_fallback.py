@@ -37,6 +37,46 @@ def test_fallback_never_claims_the_child_did_something_wrong():
             assert blame not in lowered
 
 
+# --- the crisis variant --------------------------------------------------------
+# The generic apology tells the child to come back in a couple of minutes.
+# Said to a child the detector has just flagged ORANGE or RED, that sentence
+# is abandonment. The crisis fallback must hold them and hand them a number.
+
+
+def test_every_language_has_a_crisis_fallback_line():
+    for lang in ("uz", "ru", "en"):
+        assert lang in mod.CRISIS_LLM_UNAVAILABLE
+        assert len(mod.CRISIS_LLM_UNAVAILABLE[lang]) > 60
+
+
+def test_crisis_fallback_gives_the_helpline_and_stays():
+    for text in mod.CRISIS_LLM_UNAVAILABLE.values():
+        # The national child helpline, reachable right now.
+        assert "1142" in text
+        # And no "come back later" — the one thing it must never say.
+        lowered = text.lower()
+        for later in (
+            "keyinroq",
+            "bir necha daqiqa",
+            "через пару минут",
+            "позже",
+            "couple of minutes",
+            "later",
+        ):
+            assert later not in lowered
+
+
+def test_crisis_fallback_points_at_a_trusted_adult():
+    checks = {
+        "uz": ("katta odam", "ota-ona"),
+        "ru": ("взросл", "родител"),
+        "en": ("grown-up", "parent"),
+    }
+    for lang, needles in checks.items():
+        lowered = mod.CRISIS_LLM_UNAVAILABLE[lang].lower()
+        assert any(n in lowered for n in needles), lang
+
+
 # --- which language to apologise in ------------------------------------------
 # The child is answered in the language they wrote in, not the one on their
 # profile. Getting this wrong reads to a bilingual child as not being listened
