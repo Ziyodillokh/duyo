@@ -182,9 +182,10 @@ PARENT_GUIDANCE_PROMPT = (
 # once — is worse than one that misses a few. Anything short of a clear
 # signal returns has_goal=false / style=null / empty lists.
 INSIGHT_EXTRACT_PROMPT = (
-    "Sen bolaning gapini o'qib, ikkita narsani aniqlaysan: (1) ANIQ MAQSAD "
+    "Sen bolaning gapini o'qib, uchta narsani aniqlaysan: (1) ANIQ MAQSAD "
     "bor-yo'qligi, (2) bu XABARNING o'zida bolaning muloqot uslubi yoki "
-    "qiziqishi haqida signal bor-yo'qligi.\n\n"
+    "qiziqishi haqida signal bor-yo'qligi, (3) bola mazmunan muhokama "
+    "qilayotgan O'QUV/QIZIQISH MAVZUSI bor-yo'qligi.\n\n"
     "=== 1) MAQSAD ===\n\n"
     "MAQSAD deb hisoblanadi (bola o'zi aytgan bo'lsa):\n"
     "- kitob o'qish niyati: \"O'tkan Kunlarni o'qimoqchiman\"\n"
@@ -220,6 +221,22 @@ INSIGHT_EXTRACT_PROMPT = (
     "ro'yxat.\n\n"
     "Bu KLINIK baho EMAS — shaxsiyat yoki tashxis so'zi ishlatma, faqat "
     "ohang/mavzu darajasidagi kuzatuv.\n\n"
+    "=== 3) MAVZU (bilim xaritasi uchun) ===\n\n"
+    "Bola shu xabarda biron o'quv yoki qiziqish mavzusini MAZMUNAN muhokama "
+    "qilgan bo'lsa — savol berdi, fakt aytdi, o'rganayotganini gapirdi — "
+    "mavzuni va shu xabardan chiqadigan 1-3 ta QISQA faktni yoz. Fakt — "
+    "bir gaplik, bolaga mos, aniq ma'lumot (bola aytgani yoki so'ragani).\n\n"
+    "MAVZU EMAS: his-tuyg'u, salomlashish, kundalik yumush, ilova haqidagi "
+    "so'rov, maqsad bayonoti (u 1-bo'limda yoziladi).\n\n"
+    "topic.title: 1-3 so'zli OT (masalan \"Dinozavrlar\", \"Quyosh sistemasi\").\n"
+    "topic.related: shu mavzuga yaqin 0-2 ta boshqa mavzu nomi.\n"
+    "topic.tag: bitta kichik harfli turkum so'zi (masalan \"kosmos\", \"tarix\").\n\n"
+    "SHUBHALANSANG — topic=null. Har mayda gapdan mavzu yasama.\n\n"
+    "ISTISNO — OCHIQ BUYRUQ: bola o'zi so'rasa (\"miyamga yoz\", \"eslab qol\", "
+    "\"xaritamga qo'shib qo'y\") — bu ENG KUCHLI signal va shubha qoidasi "
+    "qo'llanmaydi. Mavzu va faktlarni OLDINGI SUHBATDAN top (buyruq gapning "
+    "o'zi fakt emas) va topic'ni albatta qaytar. Oldingi suhbat berilmagan "
+    "yoki mutlaqo bo'sh bo'lsagina topic=null.\n\n"
     "FAQAT shu JSON:\n"
     "{\n"
     '  "has_goal": true,\n'
@@ -234,7 +251,13 @@ INSIGHT_EXTRACT_PROMPT = (
     '    "needs_encouragement": true|false yoki null,\n'
     '    "interests": [],\n'
     '    "avoid_topics": []\n'
-    "  }\n"
+    "  },\n"
+    '  "topic": {\n'
+    '    "title": "1-3 so\'zli mavzu nomi",\n'
+    '    "facts": ["bir gaplik fakt"],\n'
+    '    "related": [],\n'
+    '    "tag": "bitta so\'z"\n'
+    "  } yoki null\n"
     "}"
 )
 

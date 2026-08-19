@@ -25,7 +25,7 @@ from duyo.crisis.detector import KeywordCrisisDetector
 from duyo.crisis.router import get_detector
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
-from duyo.models.note import ChildNote
+from duyo.models.note import ChildNote, NoteSource
 from duyo.models.user import User
 from duyo.schemas.note import (
     BacklinkItem,
@@ -403,6 +403,12 @@ async def update_note(
         note.title = payload.title.strip()
     if payload.body is not None:
         note.body = payload.body
+        # The child taking the pen is the ownership hand-off: a DUYO-grown
+        # topic note they have rewritten must never be enriched again —
+        # "the child reads back exactly what they wrote" now applies to it.
+        # capture_topic already refuses to touch MANUAL notes.
+        if note.source is NoteSource.CHAT_TOPIC:
+            note.source = NoteSource.MANUAL
     # "colour" needs the field PRESENT/absent distinction, not just
     # None-checking: "" is a deliberate "clear it back to auto", which looks
     # identical to "omitted" once Pydantic has parsed both down to a value.

@@ -250,3 +250,37 @@ def test_another_parents_note_is_not_reachable(world, session_factory, detector)
     with pytest.raises(Exception) as exc:
         _run(mod.get_note(note.id, current_user=stranger, db=db))
     assert "404" in str(exc.value) or "not found" in str(exc.value).lower()
+
+
+def test_editing_a_duyo_topic_note_hands_ownership_to_the_child(world, detector):
+    """The child taking the pen is the hand-off: once they rewrite a
+    chat_topic note, it is THEIR writing — capture_topic refuses MANUAL
+    notes, so enrichment can never clobber the child's edits again."""
+    from duyo.models.note import ChildNote, NoteSource
+
+    db, user, child = world
+    created = _create(db, user, child, "Dinozavrlar", "• DUYO yozgan fakt", detector)
+    row = _run(db.get(ChildNote, created.id))
+    row.source = NoteSource.CHAT_TOPIC
+    _run(db.flush())
+
+    _run(
+        mod.update_note(
+            created.id, NoteUpdate(body="Endi bu mening yozuvim."),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    assert row.source is NoteSource.MANUAL
+
+    # A colour-only tweak is not taking the pen — ownership stays DUYO's.
+    created2 = _create(db, user, child, "Kosmos mavzusi", "• fakt", detector)
+    row2 = _run(db.get(ChildNote, created2.id))
+    row2.source = NoteSource.CHAT_TOPIC
+    _run(db.flush())
+    _run(
+        mod.update_note(
+            created2.id, NoteUpdate(colour="#FB64B6"),
+            current_user=user, db=db, detector=detector,
+        )
+    )
+    assert row2.source is NoteSource.CHAT_TOPIC

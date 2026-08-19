@@ -26,11 +26,15 @@ class NoteSource(str, Enum):
     when it decomposed one of the child's goals into a path (see
     services/goal_paths.py) — kept apart so the app can colour the goal
     cluster distinctly and so re-running decomposition can find its own notes
-    instead of duplicating them.
+    instead of duplicating them. `chat_topic` is a knowledge note DUYO grows
+    from conversation (services/topic_notes.py) — the ONLY kind DUYO is
+    allowed to edit later: a child's own writing is never touched, so "the
+    child reads back exactly what they wrote" stays true for manual notes.
     """
 
     MANUAL = "manual"
     GOAL_PATH = "goal_path"
+    CHAT_TOPIC = "chat_topic"
 
 
 _note_source_enum = ENUM(
@@ -43,6 +47,10 @@ _note_source_enum = ENUM(
 
 class ChildNote(Base, UUIDPK, TimestampMixin):
     __tablename__ = "child_notes"
+    # In Postgres this is actually a unique index on (child_id, lower(title))
+    # — migration 0033 — because links and topic-capture resolve titles
+    # case-insensitively. The exact-match declaration here only shapes the
+    # SQLite tables tests build with create_all.
     __table_args__ = (
         UniqueConstraint("child_id", "title", name="uq_note_child_title"),
     )

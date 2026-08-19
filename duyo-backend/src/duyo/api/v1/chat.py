@@ -688,7 +688,12 @@ async def chat_turn(
     # reply nothing; a goal lands unconfirmed so DUYO never acts on its own
     # guess, and a style trait only reaches the prompt once it has repeated.
     if final_level == CrisisLevel.GREEN:
-        background_tasks.add_task(extract_child_insights, child.id, payload.message)
+        # History rides along so an explicit "buni miyamga yozib qo'y" has a
+        # referent — the content the child wants saved is in the turns before
+        # the command, not in the command itself.
+        background_tasks.add_task(
+            extract_child_insights, child.id, payload.message, history
+        )
 
     # Personal-memory candidate for the LOCAL, on-device store (spec §4) —
     # started here and awaited at the very end, so its Gemini call overlaps
