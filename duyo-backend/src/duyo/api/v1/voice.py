@@ -63,6 +63,7 @@ from duyo.prompts import SYSTEM_PROMPTS
 from duyo.services import sms as sms_module
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini_live import GeminiVoiceSession
+from duyo.services.goals import extract_child_insights
 from duyo.services.memory_candidates import extract_memory_candidate
 from duyo.services.personalization import (
     build_goal_context,
@@ -70,6 +71,10 @@ from duyo.services.personalization import (
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+#: Keeps fire-and-forget insight tasks alive: asyncio holds tasks weakly, so
+#: a create_task with no reference can be garbage-collected before it runs.
+_INSIGHT_TASKS: set[asyncio.Task[None]] = set()
 log = logging.getLogger(__name__)
 
 
@@ -190,6 +195,9 @@ async def voice_ws(
         if _block:
             voice_prompt += f"\n\n{_block}"
 
+    # For the insight extractor at turn end — same (role, content) tuple shape
+    # chat.py hands it, so a spoken "buni miyamga yozib qo'y" has a referent.
+    insight_history: list[tuple[str, str]] = []
     if conversation_id is not None:
         max_msgs = get_settings().conversation_history_max_messages
         prior = (
@@ -200,6 +208,11 @@ async def voice_ws(
                 .limit(max_msgs)
             )
         ).all()
+        insight_history = [
+            ("user" if m.role == MessageRole.CHILD else "model", m.content)
+            for m in reversed(prior)
+            if m.content
+        ]
         history_lines = [
             f"{'Bola' if m.role == MessageRole.CHILD else 'DUYO'}: {m.content}"
             for m in reversed(prior)
@@ -361,6 +374,20 @@ async def voice_ws(
     db.add(assistant_msg)
     await db.flush()
     await db.commit()
+
+    # What the child said OUT LOUD feeds the brain map exactly like a typed
+    # message: goal capture, style signal and topic notes (see chat.py's
+    # add_task of extract_child_insights). A websocket has no BackgroundTasks,
+    # so it is a fire-and-forget asyncio task — referenced in _INSIGHT_TASKS
+    # because a bare create_task can be garbage-collected mid-flight. GREEN
+    # only, mirroring the text path: a crisis turn is handled by the crisis
+    # machinery, not mined for interests.
+    if final_level == CrisisLevel.GREEN and child_text.strip():
+        insight_task = asyncio.create_task(
+            extract_child_insights(child.id, child_text, insight_history)
+        )
+        _INSIGHT_TASKS.add(insight_task)
+        insight_task.add_done_callback(_INSIGHT_TASKS.discard)
 
     # Parent SMS — abuse-only ORANGE is NOT sent to the parent (TZ §9.6).
     categories = {m.category for m in final_matches}

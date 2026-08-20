@@ -512,3 +512,96 @@ def test_voice_extraction_failure_does_not_break_the_turn(
     )
     assert payload["type"] == "turn_complete"
     assert "memory_candidate" not in payload
+
+
+# ---------------------------------------------------------------------------
+# Brain-map feed: what the child says out loud reaches the insight extractor
+# ---------------------------------------------------------------------------
+
+
+def _drive_one_turn(configured_app, access_token, child, events):
+    factory = make_voice_session_factory(events)
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+    client = TestClient(configured_app)
+    with client.websocket_connect(
+        f"/v1/chat/voice?token={access_token}&child_id={child.id}"
+    ) as ws:
+        ws.send_bytes(b"AUDIO")
+        ws.send_text("END_TURN")
+        while True:
+            msg = ws.receive()
+            if msg.get("text"):
+                payload = json.loads(msg["text"])
+                if payload["type"] in ("turn_complete", "error"):
+                    break
+            elif msg.get("type") == "websocket.disconnect":
+                break
+
+
+def test_voice_green_turn_feeds_the_insight_extractor(
+    configured_app, db_session, access_token, user, child, monkeypatch
+):
+    """A spoken sentence must reach the brain map exactly like a typed one —
+    voice used to skip the extractor entirely, so nothing a child SAID ever
+    produced a topic note or a goal."""
+    from duyo.api.v1 import voice as voice_module
+
+    calls: list[tuple] = []
+
+    async def _noop():
+        return None
+
+    def _fake_extract(child_id, message, history=None):
+        # Recorded synchronously (when create_task's argument is built), so
+        # the assertion does not race the fire-and-forget task itself.
+        calls.append((child_id, message, list(history or [])))
+        return _noop()
+
+    monkeypatch.setattr(voice_module, "extract_child_insights", _fake_extract)
+
+    db_session.scalar_queue = [user, child]
+    _drive_one_turn(configured_app, access_token, child, [
+        LiveEvent(kind="input_tr", text="Dinozavrlar haqida bilmoqchiman", elapsed_ms=100),
+        LiveEvent(kind="output_tr", text="Ajoyib mavzu!", elapsed_ms=300),
+        LiveEvent(kind="turn_complete", elapsed_ms=500),
+    ])
+
+    assert len(calls) == 1
+    child_id, message, _history = calls[0]
+    assert child_id == child.id
+    assert message == "Dinozavrlar haqida bilmoqchiman"
+
+
+def test_voice_crisis_turn_is_not_mined_for_insights(
+    configured_app, db_session, access_token, user, child, monkeypatch
+):
+    """A crisis turn belongs to the crisis machinery — same GREEN-only gate
+    as the text path."""
+    from duyo.api.v1 import voice as voice_module
+
+    calls: list[tuple] = []
+
+    async def _noop():
+        return None
+
+    def _fake_extract(*args, **kwargs):
+        calls.append(args)
+        return _noop()
+
+    monkeypatch.setattr(voice_module, "extract_child_insights", _fake_extract)
+
+    class _FakeSmsProvider:
+        async def send(self, _phone, _message):
+            return True
+
+    monkeypatch.setattr(
+        voice_module.sms_module, "get_sms_provider", lambda: _FakeSmsProvider()
+    )
+
+    db_session.scalar_queue = [user, child]
+    _drive_one_turn(configured_app, access_token, child, [
+        LiveEvent(kind="input_tr", text="men o'zimni o'ldiraman", elapsed_ms=100),
+        LiveEvent(kind="turn_complete", elapsed_ms=500),
+    ])
+
+    assert calls == []
