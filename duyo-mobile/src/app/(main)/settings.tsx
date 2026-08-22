@@ -24,8 +24,8 @@ import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useLanguageStore } from '@/store/language';
 import { useMascotStore } from '@/store/mascot';
-import { useThemeStore } from '@/store/theme';
-import { useIsDark } from '@/store/theme';
+import { useThemeStore , useIsDark } from '@/store/theme';
+
 
 export default function SettingsScreen() {
   const t = useT();

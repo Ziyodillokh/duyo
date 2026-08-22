@@ -7,7 +7,7 @@ export interface DTMQuestion {
   id: string;
   subject: DTMSubject;
   text: string;
-  choices: ReadonlyArray<string>;
+  choices: readonly string[];
   correctIndex: number;
   explanation?: string;
 }
@@ -19,7 +19,7 @@ export interface DTMSubjectMeta {
   color: string;
 }
 
-export const DTM_SUBJECTS: ReadonlyArray<DTMSubjectMeta> = [
+export const DTM_SUBJECTS: readonly DTMSubjectMeta[] = [
   { key: 'math', label: 'Matematika', emoji: '🧮', color: '#60A5FA' },
   { key: 'physics', label: 'Fizika', emoji: '⚛️', color: '#FB64B6' },
   { key: 'chemistry', label: 'Kimyo', emoji: '🧪', color: '#05DF72' },
@@ -27,7 +27,7 @@ export const DTM_SUBJECTS: ReadonlyArray<DTMSubjectMeta> = [
   { key: 'history', label: 'Tarix', emoji: '🏛', color: '#FF8904' },
 ];
 
-export const DTM_QUESTIONS: ReadonlyArray<DTMQuestion> = [
+export const DTM_QUESTIONS: readonly DTMQuestion[] = [
   {
     id: 'm-1',
     subject: 'math',

@@ -6,7 +6,7 @@ interface TabItem<T extends string> {
 }
 
 interface TabsProps<T extends string> {
-  items: ReadonlyArray<TabItem<T>>;
+  items: readonly TabItem<T>[];
   active: T;
   onChange: (key: T) => void;
 }

@@ -104,7 +104,9 @@ export interface GraphSim {
  */
 export function useGraphSim(galaxy: Galaxy | null): GraphSim {
   const [tick, setTick] = useState(0);
-  const [resting, setResting] = useState(false);
+  // The built the loop has finished for. A NEW built is by definition not
+  // resting, so no reset-effect is needed — the derivation answers it.
+  const [restingFor, setRestingFor] = useState<object | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [focused, setFocused] = useState(true);
 
@@ -170,13 +172,16 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
       galaxy.cy,
       Math.max(0, centralIndex),
     );
+    // Under reduce-motion the sky is a still picture: settle right here,
+    // where the sim is born, so the first render already shows the settled
+    // layout — no effect, no extra tick, no one-frame flash of the seeds.
+    if (reduceMotion) sim.settleSync();
     return { sim, index, nodes: galaxy.nodes };
-  }, [galaxy]);
+  }, [galaxy, reduceMotion]);
 
-  // A new simulation starts warm; remember where the old one left its bodies.
+  // Remember where a retiring simulation left its bodies.
   useEffect(() => {
     if (!built) return;
-    setResting(false);
     return () => {
       const store = lastSeen.current;
       built.nodes.forEach((n, i) => {
@@ -185,13 +190,7 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
     };
   }, [built]);
 
-  // Reduce motion: skip the animation, keep the layout the physics chooses.
-  useEffect(() => {
-    if (!built || !reduceMotion) return;
-    built.sim.settleSync();
-    setResting(true);
-    setTick((t) => t + 1);
-  }, [built, reduceMotion]);
+  const resting = built !== null && restingFor === built;
 
   useEffect(() => {
     if (!built || resting || reduceMotion || !focused) return;
@@ -206,7 +205,7 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
         } else {
           // Only reachable with drift retired (reduce motion); a breathing
           // sky never reports itself done.
-          setResting(true);
+          setRestingFor(built);
           return;
         }
       }
@@ -246,7 +245,7 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
       });
       if (best < 0) return null;
       built.sim.pin(best, built.sim.xs[best], built.sim.ys[best]);
-      setResting(false);
+      setRestingFor(null);
       return built.nodes[best].title;
     },
     dragTo(x: number, y: number) {

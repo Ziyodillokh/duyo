@@ -30,11 +30,11 @@ const QUESTION_COUNT = 5;
 // Flags are drawn (components/v2/flag-icon), not emoji: the regional-
 // indicator glyphs render as bare "GB" / "RU" letters on Windows and on
 // Android builds without them.
-const LANGUAGES: ReadonlyArray<{
+const LANGUAGES: readonly {
   key: PracticeLanguage;
   label: string;
   color: string;
-}> = [
+}[] = [
   { key: 'en', label: 'Ingliz tili', color: '#60A5FA' },
   { key: 'ru', label: 'Rus tili', color: '#FDC700' },
 ];
@@ -46,7 +46,7 @@ export default function LanguagePracticeScreen() {
   const [questions, setQuestions] = useState<LanguageQuestion[]>([]);
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [answers, setAnswers] = useState<ReadonlyArray<number>>([]);
+  const [answers, setAnswers] = useState<readonly number[]>([]);
 
   const generate = useMutation({
     mutationFn: (language: PracticeLanguage) =>

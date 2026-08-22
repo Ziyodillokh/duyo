@@ -30,14 +30,14 @@ interface AvatarOption {
   isOwned?: boolean;
 }
 
-const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
+const TABS: readonly { key: TabKey; label: string }[] = [
   { key: 'body', label: 'Tana' },
   { key: 'color', label: 'Rang' },
   { key: 'accent', label: 'Aksent' },
   { key: 'face', label: 'Yuz' },
 ];
 
-const OPTIONS: Record<TabKey, ReadonlyArray<AvatarOption>> = {
+const OPTIONS: Record<TabKey, readonly AvatarOption[]> = {
   body: [
     { key: 'sphere', emoji: '⚪', label: 'Sharsimon', isOwned: true },
     { key: 'cube', emoji: '🟦', label: 'Kubik', isOwned: true },
@@ -79,17 +79,20 @@ export default function AvatarCustomizationScreen() {
   const avatar = useAvatar();
   const updateAvatar = useUpdateAvatar();
 
-  // Seed the editor from the saved avatar once it loads.
-  useEffect(() => {
-    if (avatar.data) {
-      setConfig({
-        body: avatar.data.body_shape,
-        color: avatar.data.primary_color,
-        accent: avatar.data.accent,
-        face: avatar.data.face_style,
-      });
-    }
-  }, [avatar.data]);
+  // Seed the editor from the saved avatar once it loads (and re-seed when a
+  // save refetches it). Render-phase adjustment rather than an effect: the
+  // seeded values appear in the same render the data arrives in, with no
+  // one-frame flash of the defaults.
+  const [seededFrom, setSeededFrom] = useState<typeof avatar.data>(undefined);
+  if (avatar.data && avatar.data !== seededFrom) {
+    setSeededFrom(avatar.data);
+    setConfig({
+      body: avatar.data.body_shape,
+      color: avatar.data.primary_color,
+      accent: avatar.data.accent,
+      face: avatar.data.face_style,
+    });
+  }
 
   const setOption = (key: string, isOwned: boolean | undefined, price?: number) => {
     if (isOwned) {

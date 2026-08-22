@@ -30,7 +30,7 @@ export interface CategoryMeta {
   color: string;
 }
 
-export const CATEGORIES: ReadonlyArray<CategoryMeta> = [
+export const CATEGORIES: readonly CategoryMeta[] = [
   { key: 'poems', label: "She'rlar", emoji: '📖', color: '#FDC700' },
   { key: 'stories', label: 'Ertaklar', emoji: '📚', color: '#FB64B6' },
   { key: 'lessons', label: 'Darslar', emoji: '🎓', color: '#60A5FA' },
@@ -67,7 +67,7 @@ export const DIFFICULTY_COLORS: Record<
   },
 };
 
-export const LIBRARY_ITEMS: ReadonlyArray<LibraryItem> = [
+export const LIBRARY_ITEMS: readonly LibraryItem[] = [
   // Poems
   {
     id: 'p-vatan',

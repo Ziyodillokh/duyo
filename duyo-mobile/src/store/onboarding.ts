@@ -9,12 +9,12 @@ interface OnboardingState {
   userType: UserType | null;
   pendingName: string;
   pendingAge: number | null;
-  pendingInterests: ReadonlyArray<string>;
+  pendingInterests: readonly string[];
   pendingAvatarConfig: Record<string, string>;
   setUserType: (userType: UserType) => void;
   setPendingName: (name: string) => void;
   setPendingAge: (age: number) => void;
-  setPendingInterests: (interests: ReadonlyArray<string>) => void;
+  setPendingInterests: (interests: readonly string[]) => void;
   setPendingAvatarConfig: (config: Record<string, string>) => void;
   reset: () => void;
 }
@@ -23,7 +23,7 @@ const EMPTY = {
   userType: null,
   pendingName: '',
   pendingAge: null,
-  pendingInterests: [] as ReadonlyArray<string>,
+  pendingInterests: [] as readonly string[],
   pendingAvatarConfig: {} as Record<string, string>,
 };
 

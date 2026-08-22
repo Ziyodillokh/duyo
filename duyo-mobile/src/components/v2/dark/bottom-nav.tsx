@@ -24,7 +24,7 @@ interface TabItem {
 // Position 3 of 5 IS the middle, so Maqsadlar lands centre with no reordering.
 // Kutubxona is not gone: it moved to a pushed screen at /(main)/library,
 // still reachable from every home card.
-const TABS: ReadonlyArray<TabItem> = [
+const TABS: readonly TabItem[] = [
   { key: 'home', label: 'Bosh sahifa', Icon: Home },
   { key: 'chat', label: 'Suhbat', Icon: MessageCircle },
   { key: 'goals', label: 'Maqsadlar', Icon: Target, emphasis: 'center' },

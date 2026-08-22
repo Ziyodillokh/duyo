@@ -124,7 +124,7 @@ interface Mood {
 
 // Five faces, matching the backend enum exactly. The previous three were a
 // local placeholder and one of them ("stress") did not exist server-side.
-const MOODS: ReadonlyArray<Mood> = [
+const MOODS: readonly Mood[] = [
   { key: 'great', emoji: '😄', label: 'Ajoyib' },
   { key: 'good', emoji: '🙂', label: 'Yaxshi' },
   { key: 'okay', emoji: '😐', label: "O'rtacha" },

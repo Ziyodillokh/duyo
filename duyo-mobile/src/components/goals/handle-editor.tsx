@@ -43,12 +43,17 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
   const suggestions = useHandleSuggestions(childId);
   const update = useUpdateSocialSettings(childId);
 
-  useEffect(() => {
+  // Reset when the sheet opens — done as React's render-phase adjustment
+  // (not an effect), so the reset lands in the same render that shows the
+  // sheet instead of one frame after it.
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
     if (visible) {
       setValue(current);
       setError(null);
     }
-  }, [visible, current]);
+  }
 
   const trimmed = value.trim();
   const canSave = trimmed.length >= 3 && trimmed !== current && !update.isPending;

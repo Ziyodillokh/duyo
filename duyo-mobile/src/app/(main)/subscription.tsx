@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const ALL_PLAN_BENEFITS: ReadonlyArray<string> = [
+const ALL_PLAN_BENEFITS: readonly string[] = [
   '7 kun bepul sinov',
   'Istalgan vaqt bekor qilish',
   'Xavfsiz to\'lov',

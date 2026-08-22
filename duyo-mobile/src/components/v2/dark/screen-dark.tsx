@@ -9,13 +9,13 @@ type DarkBackground = 'cosmic' | 'plain';
 
 interface ScreenDarkProps {
   children: ReactNode;
-  edges?: ReadonlyArray<'top' | 'bottom' | 'left' | 'right'>;
+  edges?: readonly ('top' | 'bottom' | 'left' | 'right')[];
   background?: DarkBackground;
 }
 
-const DARK_COSMIC: ReadonlyArray<string> = ['#3C0366', '#510424', '#162456'];
-const LIGHT_COSMIC: ReadonlyArray<string> = ['#EFE4FB', '#FCE7E7', '#E0E9FF'];
-const COSMIC_LOCATIONS: ReadonlyArray<number> = [0, 0.5, 1];
+const DARK_COSMIC: readonly string[] = ['#3C0366', '#510424', '#162456'];
+const LIGHT_COSMIC: readonly string[] = ['#EFE4FB', '#FCE7E7', '#E0E9FF'];
+const COSMIC_LOCATIONS: readonly number[] = [0, 0.5, 1];
 
 export function ScreenDark({
   children,

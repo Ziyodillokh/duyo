@@ -17,11 +17,11 @@ import { useIsDark } from '@/store/theme';
 
 // Emoji/label are static config; the percentage comes from the live
 // tamagochi metric of the same key (Concept §4).
-const STAT_CONFIG: ReadonlyArray<{
+const STAT_CONFIG: readonly {
   key: keyof TamagochiState;
   emoji: string;
   label: string;
-}> = [
+}[] = [
   { key: 'energy', emoji: '⚡', label: 'Energiya' },
   { key: 'learning', emoji: '🧠', label: "O'rganish" },
   { key: 'joy', emoji: '💖', label: 'Quvonch' },
@@ -40,7 +40,7 @@ interface ChildActionCard {
     | '/(main)/lesson-help';
 }
 
-const ACTION_CARDS: ReadonlyArray<ChildActionCard> = [
+const ACTION_CARDS: readonly ChildActionCard[] = [
   {
     key: 'chat',
     Icon: MessageCircle,

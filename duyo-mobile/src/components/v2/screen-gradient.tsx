@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface ScreenGradientProps {
   children: ReactNode;
-  edges?: ReadonlyArray<'top' | 'bottom' | 'left' | 'right'>;
+  edges?: readonly ('top' | 'bottom' | 'left' | 'right')[];
 }
 
 export function ScreenGradient({

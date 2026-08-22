@@ -38,15 +38,16 @@ import { useIsDark } from '@/store/theme';
  * is the one path that attaches a match_key; typing and just hitting "+"
  * still creates a perfectly good goal, only a private one.
  */
+const NO_SUGGESTIONS: GoalCatalogEntry[] = [];
+
 function useCatalogSuggestions(query: string, age: number | undefined) {
-  const [results, setResults] = useState<GoalCatalogEntry[]>([]);
+  const [results, setResults] = useState<GoalCatalogEntry[]>(NO_SUGGESTIONS);
+  const q = query.trim();
 
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setResults([]);
-      return;
-    }
+    // Under two characters nothing is fetched and the render below answers
+    // with the empty list directly — no synchronous setState needed.
+    if (q.length < 2) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       fetchGoalCatalog(q, age).then((entries) => {
@@ -57,9 +58,9 @@ function useCatalogSuggestions(query: string, age: number | undefined) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, age]);
+  }, [q, age]);
 
-  return results;
+  return q.length < 2 ? NO_SUGGESTIONS : results;
 }
 
 function GoalCard({

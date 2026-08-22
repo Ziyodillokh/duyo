@@ -23,7 +23,7 @@ export default function DTMScreen() {
   const [subject, setSubject] = useState<DTMSubject | null>(null);
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [answers, setAnswers] = useState<ReadonlyArray<number>>([]);
+  const [answers, setAnswers] = useState<readonly number[]>([]);
   const [secondsLeft, setSecondsLeft] = useState(TIMER_SECONDS_PER_QUESTION);
 
   const questions = useMemo(
@@ -40,6 +40,18 @@ export default function DTMScreen() {
     return () => clearInterval(id);
   }, [stage, secondsLeft]);
 
+  const handleNext = (answerIndex: number) => {
+    const newAnswers = [...answers, answerIndex];
+    setAnswers(newAnswers);
+    if (isLast) {
+      setStage('result');
+    } else {
+      setQIndex((i) => i + 1);
+      setSelected(null);
+      setSecondsLeft(TIMER_SECONDS_PER_QUESTION);
+    }
+  };
+
   useEffect(() => {
     if (stage === 'quiz' && secondsLeft <= 0 && selected === null) {
       handleNext(-1);
@@ -53,18 +65,6 @@ export default function DTMScreen() {
     setAnswers([]);
     setSelected(null);
     setSecondsLeft(TIMER_SECONDS_PER_QUESTION);
-  };
-
-  const handleNext = (answerIndex: number) => {
-    const newAnswers = [...answers, answerIndex];
-    setAnswers(newAnswers);
-    if (isLast) {
-      setStage('result');
-    } else {
-      setQIndex((i) => i + 1);
-      setSelected(null);
-      setSecondsLeft(TIMER_SECONDS_PER_QUESTION);
-    }
   };
 
   const correctCount = useMemo(

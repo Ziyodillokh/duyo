@@ -19,7 +19,7 @@ export interface InventoryCategoryMeta {
   label: string;
 }
 
-export const INVENTORY_CATEGORIES: ReadonlyArray<InventoryCategoryMeta> = [
+export const INVENTORY_CATEGORIES: readonly InventoryCategoryMeta[] = [
   { key: 'hats', emoji: '🎩', label: 'Shlyapalar' },
   { key: 'glasses', emoji: '👓', label: "Ko'zoynaklar" },
   { key: 'antennas', emoji: '📡', label: 'Antennalar' },
@@ -28,7 +28,7 @@ export const INVENTORY_CATEGORIES: ReadonlyArray<InventoryCategoryMeta> = [
 
 export const MOCK_BALANCE = 350;
 
-export const INVENTORY_ITEMS: ReadonlyArray<InventoryItem> = [
+export const INVENTORY_ITEMS: readonly InventoryItem[] = [
   // Hats
   { id: 'h-red', category: 'hats', name: 'Qizil shlyapa', emoji: '🎩' },
   { id: 'h-blue', category: 'hats', name: "Ko'k shlyapa", emoji: '🎩', price: 100 },

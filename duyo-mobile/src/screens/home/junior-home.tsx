@@ -14,12 +14,12 @@ import { useChildStore } from '@/store/child';
 
 // Emoji/label/color are static config; percent comes from the live tamagochi
 // metric of the matching key (Concept §4).
-const STAT_CONFIG: ReadonlyArray<{
+const STAT_CONFIG: readonly {
   key: keyof TamagochiState;
   emoji: string;
   label: string;
   color: 'gold' | 'blue' | 'pink' | 'green';
-}> = [
+}[] = [
   { key: 'energy', emoji: '⚡', label: 'Energiya', color: 'gold' },
   { key: 'learning', emoji: '🧠', label: "O'rganish", color: 'blue' },
   { key: 'joy', emoji: '💖', label: 'Quvonch', color: 'pink' },
@@ -34,7 +34,7 @@ interface ActionCard {
   href: '/(main)/(tabs)/chat' | '/(main)/library' | '/(main)/inventory';
 }
 
-const ACTION_CARDS: ReadonlyArray<ActionCard> = [
+const ACTION_CARDS: readonly ActionCard[] = [
   {
     key: 'chat',
     emoji: '🎨',
