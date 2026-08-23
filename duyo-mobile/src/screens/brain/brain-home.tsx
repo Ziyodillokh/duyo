@@ -1,331 +1,368 @@
-import { useRouter } from 'expo-router';
-import { useQueries } from '@tanstack/react-query';
-import { Mic, Plus, ScanLine, Sparkles, Target } from 'lucide-react-native';
+import {
+  ChevronRight,
+  ClipboardList,
+  Info,
+  Lightbulb,
+  Link2,
+  Plus,
+  StickyNote,
+  Target,
+} from 'lucide-react-native';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import {
-  listNotes,
   type GraphEdge,
   type GraphNode,
   type NoteListItem,
 } from '@/api/endpoints/notes';
-import {
-  BrainClusterCard,
-  type ClusterStats,
-} from '@/components/brain-cluster-card';
-import { FocusTimerCard } from '@/components/brain/focus-timer-card';
-import { InsightsCard } from '@/components/brain/insights-card';
-import {
-  KnowledgePulseCard,
-  type PulseDay,
-} from '@/components/brain/knowledge-pulse-card';
+import { type ClusterStats } from '@/components/brain-cluster-card';
+import { BrainBackdrop } from '@/components/brain-backdrop';
+import { GLASS, GlassCard, raised } from '@/components/brain/glass';
 import { NoteGraph } from '@/components/note-graph';
-import { summarizeGraph } from '@/lib/brain-insights';
-import { colourForTag } from '@/lib/galaxy-layout';
-import { WEEK_DAY_LABELS } from '@/lib/weekly-activity';
+import { useNavClearance } from '@/components/v2/dark/bottom-nav';
+import { noteTimeLabel } from '@/lib/note-time';
 
-interface BrainHomeProps {
+/**
+ * "2-Miyya" — the Miya landing page.
+ *
+ * One dark sky card on a light glass page, then the recent notes. Everything
+ * on it is real: the sky is the child's actual note graph, the connection
+ * count is their actual edges, and the list is their actual last-touched
+ * notes. There is no placeholder content anywhere on this screen, because a
+ * dashboard that shows invented numbers teaches children to ignore numbers.
+ */
+
+/** Minimum sky. Below this the planets crowd into an unreadable knot; the
+ *  layout would rather let the page be a hair tall on a tiny phone than show
+ *  a sky nobody can read. */
+const HERO_MIN = 240;
+
+/** How many notes the "So'nggi yozuvlar" card shows before "Barchasi". */
+const RECENT = 3;
+
+export interface BrainHomeProps {
   childId: string;
   notes: NoteListItem[];
   tags: string[];
   graphNodes: GraphNode[];
   graphEdges: GraphEdge[];
-  /** Computed once in brain-screen — the map's edge cards use the same list. */
   clusters: ClusterStats[];
   cardBg: string;
   onNewNote: () => void;
-  /** Prefills the title so the child lands straight in the editor for it. */
   onStartNote: (title: string) => void;
   onOpenTag: (tag: string) => void;
   onExploreGraph: () => void;
+  onOpenNote?: (id: string) => void;
 }
 
-const HERO_HEIGHT = 330;
-
-/** Where cluster cards sit over the hero — corners, because gravity keeps the
- *  drifting stars gathered in the middle. */
-const HERO_SLOTS = [
-  { top: 10, left: 10 },
-  { top: 10, right: 10 },
-  { bottom: 10, left: 10 },
-  { bottom: 10, right: 10 },
-] as const;
-
-/** Monday-based index for the weekly strip: Monday → 0 … Sunday → 6. */
-function weekIndex(d: Date): number {
-  return (d.getDay() + 6) % 7;
-}
+/** Icons cycle by position so a list of three is never three identical rows.
+ *  Keyed off the note's own id, so a note keeps its icon between visits —
+ *  a row that changes shape on every refresh reads as broken. */
+const ROW_ICONS = [ClipboardList, Lightbulb, Target, StickyNote] as const;
+const ROW_TINTS = ['#7C6CF5', '#F5B92B', '#F2568F', '#28BFA0'] as const;
 
 export default function BrainHome({
-  childId,
   notes,
-  tags,
   graphNodes,
   graphEdges,
   clusters,
-  cardBg,
   onNewNote,
-  onStartNote,
   onOpenTag,
   onExploreGraph,
+  onOpenNote,
 }: BrainHomeProps) {
-  const router = useRouter();
+  // The dock floats over this page rather than taking a strip of layout,
+  // so the space it covers has to be reserved here or the last note row
+  // sits under a live bar: unreadable, and tappable only by the bar.
+  const navClearance = useNavClearance();
+  // The headline number. Edges between two written notes — a link to a note
+  // that does not exist yet is a promise, not a connection, so counting it
+  // would inflate the one number this page leads with.
+  const connections = useMemo(() => {
+    const written = new Set(
+      graphNodes.filter((n) => n.kind === 'note' && n.exists).map((n) => n.title),
+    );
+    return graphEdges.filter(
+      (e) => written.has(e.source) && written.has(e.target),
+    ).length;
+  }, [graphNodes, graphEdges]);
 
-  // "Connectivity" — a real, honest number: how many of the child's actual
-  // notes have at least one link, out of all their actual notes. Not an
-  // invented "AI score" — every input is data the child produced.
-  const pulse = useMemo(() => {
-    const written = graphNodes.filter((n) => n.kind === 'note' && n.exists);
-    if (written.length === 0) return null;
-    const linked = written.filter((n) => n.links > 0).length;
-    return Math.round((linked / written.length) * 100);
+  // Colour per note, taken from the map so the dot beside a title is the same
+  // colour as that note's planet. The list is therefore a legend for the sky.
+  const colourOf = useMemo(() => {
+    const m = new Map<string, string>();
+    // `colour` is null for unwritten [[links]] and #tag nodes — they have no
+    // note behind them to have chosen one. Skip rather than store null so the
+    // caller's `?? blueSoft` fallback is the single place the default lives.
+    for (const n of graphNodes) {
+      if (n.colour) m.set(n.title.toLowerCase(), n.colour);
+    }
+    return m;
   }, [graphNodes]);
 
-  // This week's activity, bucketed by weekday from when each note was last
-  // touched. `updated_at` is the only date the list endpoint carries, so the
-  // strip honestly shows "days you worked on notes", not "notes created".
-  const week = useMemo(() => {
-    const now = new Date();
-    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    monday.setDate(monday.getDate() - weekIndex(now));
-    const counts = [0, 0, 0, 0, 0, 0, 0];
-    for (const n of notes) {
-      const d = new Date(n.updated_at);
-      if (d >= monday && d <= now) counts[weekIndex(d)]++;
-    }
-    const today = weekIndex(now);
-    const days: PulseDay[] = WEEK_DAY_LABELS.map((label, i) => ({
-      label,
-      count: counts[i],
-      isToday: i === today,
-      isFuture: i > today,
-    }));
-    return { days, total: counts.reduce((a, b) => a + b, 0) };
-  }, [notes]);
-
-  const summary = useMemo(
-    () => summarizeGraph(graphNodes, graphEdges, tags),
-    [graphNodes, graphEdges, tags],
+  const recent = useMemo(
+    () =>
+      [...notes]
+        .sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at))
+        .slice(0, RECENT),
+    [notes],
   );
 
   const hasSky = graphNodes.some((n) => n.kind !== 'tag');
 
-  // Real per-tag counts. Small, bounded list (children don't accumulate
-  // hundreds of tags), same parallel-query shape brain-screen.tsx already
-  // uses for embed lookups.
-  const tagCounts = useQueries({
-    queries: tags.map((tag) => ({
-      queryKey: ['notes', childId, tag, 'count'],
-      queryFn: () => listNotes(childId, tag),
-      enabled: !!childId,
-    })),
-  });
-
+  // No scroll. The whole page is exactly one screen on every phone, which is
+  // why the sky is `flex: 1` and everything else is its natural height: the
+  // sky absorbs whatever is left after the list and the dock's reserved
+  // strip, instead of the page being taller than the display and scrolling.
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 14, paddingBottom: 150 }}
-      showsVerticalScrollIndicator={false}
+    <View
+      style={{
+        flex: 1,
+        paddingHorizontal: 16,
+        paddingTop: 4,
+        paddingBottom: navClearance,
+        gap: 12,
+      }}
     >
-      {/* ── The sky itself, live. The same simulation as the full map — the
-          stars drift here too — behind a tap-through into the real thing.
-          The overlay Pressable deliberately swallows the map's own gestures:
-          a preview that pans and zooms would fight the page scroll. */}
-      {hasSky ? (
+      {/* ── The sky, as one dark card on the light page ─────────────────── */}
+      <View
+        style={[
+          {
+            flex: 1,
+            minHeight: HERO_MIN,
+            borderRadius: 30,
+            overflow: 'hidden',
+            backgroundColor: GLASS.sky,
+          },
+          raised('lg'),
+        ]}
+      >
+        {/* The nebula, inside the card. On the full map this is the page
+            ground; here it belongs to the card, so the shrunken sky keeps the
+            same backdrop instead of falling back to flat navy. */}
+        <BrainBackdrop />
+
+        {hasSky ? (
+          <View style={{ flex: 1 }}>
+            <NoteGraph
+              nodes={graphNodes}
+              edges={graphEdges}
+              onSelect={(n) => {
+                // Unwritten links and #tag nodes carry no id — tapping one
+                // opens the map instead of failing silently.
+                if (n.id) onOpenNote?.(n.id);
+                else onExploreGraph();
+              }}
+            />
+          </View>
+        ) : (
+          <Pressable
+            onPress={onNewNote}
+            accessibilityRole="button"
+            accessibilityLabel="Birinchi qaydni yozish"
+            className="flex-1 items-center justify-center active:opacity-80"
+          >
+            <Text className="text-base font-semibold" style={{ color: '#E8EEFF' }}>
+              Osmoningiz hali bo&lsquo;sh
+            </Text>
+            <Text className="text-[13px] mt-1.5" style={{ color: '#8FA3C8' }}>
+              Birinchi qaydni yozing — birinchi yulduz paydo bo&lsquo;ladi
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Title block. Absolute over the sky rather than above it, because
+            the card must read as ONE object — a header band would split it
+            into a label and a picture. */}
         <View
-          className="rounded-2xl overflow-hidden"
-          style={{
-            height: HERO_HEIGHT,
-            borderWidth: 1,
-            borderColor: 'rgba(150, 180, 255, 0.18)',
-            backgroundColor: '#070B1A',
-          }}
+          style={{ position: 'absolute', top: 22, left: 22, right: 22 }}
+          pointerEvents="box-none"
         >
-          <NoteGraph
-            nodes={graphNodes}
-            edges={graphEdges}
-            onSelect={() => onExploreGraph()}
-            height={HERO_HEIGHT}
-          />
+          <View className="flex-row items-start">
+            <View className="flex-1">
+              <Text
+                className="font-bold"
+                style={{ color: '#FFFFFF', fontSize: 27, letterSpacing: -0.5 }}
+              >
+                2-Miyya
+              </Text>
+              <Text className="text-[13px] mt-1" style={{ color: '#9FB3D4' }}>
+                Bilimlaringiz olami
+              </Text>
+            </View>
+            <Pressable
+              onPress={onExploreGraph}
+              accessibilityRole="button"
+              accessibilityLabel="Xaritani to&lsquo;liq ochish"
+              hitSlop={10}
+              className="items-center justify-center active:opacity-70"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                borderWidth: 1.5,
+                borderColor: 'rgba(255,255,255,0.55)',
+              }}
+            >
+              <Info size={17} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* The headline number, bottom-left; the new-note button, bottom-right.
+            Both sit over the sky's emptiest band. */}
+        <View
+          style={{
+            position: 'absolute',
+            left: 22,
+            right: 18,
+            bottom: 18,
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+          }}
+          pointerEvents="box-none"
+        >
           <Pressable
             onPress={onExploreGraph}
             accessibilityRole="button"
-            accessibilityLabel="Bilim xaritasini ochish"
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-          {clusters.slice(0, HERO_SLOTS.length).map((c, i) => (
-            <BrainClusterCard
-              key={c.tag}
-              cluster={c}
-              active={false}
-              onPress={() => onOpenTag(c.tag)}
-              onLongPress={() => onOpenTag(c.tag)}
-              position={HERO_SLOTS[i]}
-            />
-          ))}
-          <View
-            className="absolute self-center rounded-full px-3 py-1.5"
-            style={{ bottom: 10, backgroundColor: 'rgba(11, 16, 32, 0.72)' }}
+            accessibilityLabel={`${connections} bog'lanish — xaritani ochish`}
+            className="flex-1 active:opacity-70"
           >
-            <Text className="text-[11px]" style={{ color: '#8FA3C8' }}>
-              Xaritani ochish →
+            <Text
+              className="font-bold"
+              style={{
+                color: GLASS.blueSoft,
+                fontSize: 38,
+                lineHeight: 42,
+                letterSpacing: -1,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {connections}
             </Text>
-          </View>
-        </View>
-      ) : (
-        <Pressable
-          onPress={onNewNote}
-          accessibilityRole="button"
-          accessibilityLabel="Birinchi qaydni yozish"
-          className="rounded-2xl items-center justify-center active:opacity-80"
-          style={{
-            height: 180,
-            borderWidth: 1,
-            borderColor: 'rgba(150, 180, 255, 0.18)',
-            backgroundColor: 'rgba(11, 16, 32, 0.72)',
-          }}
-        >
-          <Sparkles size={22} color="#C27AFF" />
-          <Text className="text-sm mt-2" style={{ color: '#E8EEFF' }}>
-            Osmoningiz hali bo'sh
-          </Text>
-          <Text className="text-xs mt-1" style={{ color: '#8FA3C8' }}>
-            Birinchi qaydni yozing — birinchi yulduz yonadi
-          </Text>
-        </Pressable>
-      )}
+            <View className="flex-row items-center gap-1.5 mt-0.5">
+              <Link2 size={12} color="#8FA3C8" />
+              <Text className="text-[13px]" style={{ color: '#8FA3C8' }}>
+                Bog&lsquo;lanishlar
+              </Text>
+            </View>
+          </Pressable>
 
-      {/* Quick actions */}
-      <View className="flex-row justify-between">
-        <QuickAction icon={Plus} label="Yangi qayd" onPress={onNewNote} colour="#60A5FA" />
-        <QuickAction
-          icon={Mic}
-          label="Ovozli qayd"
-          onPress={() => router.push('/(main)/voice')}
-          colour="#FB64B6"
-        />
-        <QuickAction icon={ScanLine} label="Skanerlash" colour="#94A3B8" disabled note="tez orada" />
-        <QuickAction
-          icon={Target}
-          label="Yangi maqsad"
-          // The goals TAB is Maqsaddoshlar now; goal creation lives at my-goals.
-          onPress={() => router.push('/(main)/my-goals')}
-          colour="#FDC700"
-        />
-      </View>
-
-      <InsightsCard
-        summary={summary}
-        onExplore={onExploreGraph}
-        onStartNote={onStartNote}
-        onNewNote={onNewNote}
-      />
-
-      <View className="flex-row" style={{ gap: 12 }}>
-        <View style={{ flex: 1 }}>
-          <FocusTimerCard />
-        </View>
-        <View style={{ flex: 1 }}>
-          <KnowledgePulseCard pulse={pulse} days={week.days} weekTotal={week.total} />
+          <Pressable
+            onPress={onNewNote}
+            accessibilityRole="button"
+            accessibilityLabel="Yangi qayd"
+            className="items-center justify-center active:opacity-80"
+            style={[
+              {
+                width: 62,
+                height: 62,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.94)',
+              },
+              raised('md'),
+            ]}
+          >
+            <Plus size={27} color={GLASS.blue} strokeWidth={2.6} />
+          </Pressable>
         </View>
       </View>
 
-      {/* Collections */}
-      <View>
-        <View className="flex-row items-center justify-between mb-2 px-1">
-          <Text className="text-xs font-bold tracking-wide text-dark-heading dark:text-dark-heading">
-            TO'PLAMLARINGIZ
+      {/* ── Recent notes ────────────────────────────────────────────────── */}
+      {/* Natural height, so the sky above gets everything that is left. Every
+          size here is therefore load-bearing for "one screen, no scroll":
+          growing a row by 6px takes 18px off the sky. */}
+      <GlassCard style={{ padding: 12 }} radius={26}>
+        <View className="flex-row items-center justify-between px-1 mb-2.5">
+          <Text
+            className="text-[17px] font-bold"
+            style={{ color: GLASS.ink, letterSpacing: -0.2 }}
+          >
+            So&lsquo;nggi yozuvlar
           </Text>
-        </View>
-        <View
-          className="rounded-2xl border border-neon-blue/15 overflow-hidden"
-          style={{ backgroundColor: cardBg }}
-        >
           <Pressable
             onPress={onExploreGraph}
             accessibilityRole="button"
             accessibilityLabel="Barcha qaydlar"
-            className="flex-row items-center justify-between px-4 active:opacity-70"
-            style={{ paddingVertical: 14 }}
+            hitSlop={8}
+            className="flex-row items-center gap-1 active:opacity-70"
           >
-            <View className="flex-row items-center gap-3">
-              <Sparkles size={18} color="#60A5FA" />
-              <Text className="text-sm text-foreground dark:text-dark-text">Barcha qaydlar</Text>
-            </View>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">{notes.length}</Text>
+            <Text className="text-[14px] font-semibold" style={{ color: GLASS.blue }}>
+              Barchasi
+            </Text>
+            <ChevronRight size={15} color={GLASS.blue} strokeWidth={2.5} />
           </Pressable>
-          {tags.map((tag, i) => {
-            const colour = colourForTag(tag);
-            const count = tagCounts[i]?.data?.length;
-            return (
-              <Pressable
-                key={tag}
-                onPress={() => onOpenTag(tag)}
-                accessibilityRole="button"
-                accessibilityLabel={`#${tag} to'plami`}
-                className="flex-row items-center justify-between px-4 active:opacity-70 border-t border-neon-blue/10"
-                style={{ paddingVertical: 14 }}
-              >
-                <View className="flex-row items-center gap-3">
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colour }} />
-                  <Text className="text-sm text-foreground dark:text-dark-text">#{tag}</Text>
-                </View>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  {count ?? '…'}
-                </Text>
-              </Pressable>
-            );
-          })}
-          {tags.length === 0 && (
-            <View className="px-4" style={{ paddingVertical: 14 }}>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-                Hali teg yo'q — qaydga #teg qo'shsangiz, shu yerda to'plam bo'lib chiqadi.
-              </Text>
-            </View>
-          )}
         </View>
-      </View>
-    </ScrollView>
-  );
-}
 
-function QuickAction({
-  icon: Icon,
-  label,
-  onPress,
-  colour,
-  disabled,
-  note,
-}: {
-  icon: typeof Plus;
-  label: string;
-  onPress?: () => void;
-  colour: string;
-  disabled?: boolean;
-  note?: string;
-}) {
-  return (
-    <Pressable
-      onPress={disabled ? undefined : onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={disabled ? { disabled: true } : undefined}
-      className="items-center active:opacity-70"
-      style={{ width: 72, opacity: disabled ? 0.45 : 1 }}
-    >
-      <View
-        className="items-center justify-center rounded-full"
-        style={{ width: 50, height: 50, backgroundColor: `${colour}26` }}
-      >
-        <Icon size={22} color={colour} />
-      </View>
-      <Text className="text-[11px] text-center text-foreground dark:text-dark-text mt-1.5">
-        {label}
-      </Text>
-      {note && (
-        <Text className="text-[9px] text-muted-foreground dark:text-dark-muted">{note}</Text>
-      )}
-    </Pressable>
+        {recent.length === 0 ? (
+          <View style={{ paddingVertical: 18, alignItems: 'center' }}>
+            <Text className="text-[13px]" style={{ color: GLASS.muted }}>
+              Hali qayd yo&lsquo;q
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 7 }}>
+            {recent.map((n, i) => {
+              const Icon = ROW_ICONS[i % ROW_ICONS.length];
+              const tint = ROW_TINTS[i % ROW_TINTS.length];
+              const dot = colourOf.get(n.title.toLowerCase()) ?? GLASS.blueSoft;
+              return (
+                <Pressable
+                  key={n.id}
+                  onPress={() => onOpenNote?.(n.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${n.title} — ${noteTimeLabel(n.updated_at)}`}
+                  className="flex-row items-center gap-3 active:opacity-70"
+                  style={[
+                    {
+                      borderRadius: 17,
+                      paddingHorizontal: 11,
+                      paddingVertical: 8,
+                      backgroundColor: GLASS.surfaceSoft,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.8)',
+                    },
+                    raised('sm'),
+                  ]}
+                >
+                  <View
+                    className="items-center justify-center"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 12,
+                      backgroundColor: `${tint}22`,
+                    }}
+                  >
+                    <Icon size={18} color={tint} strokeWidth={2.2} />
+                  </View>
+
+                  <Text
+                    numberOfLines={1}
+                    className="flex-1 text-[15px] font-semibold"
+                    style={{ color: GLASS.ink }}
+                  >
+                    {n.title}
+                  </Text>
+
+                  <Text className="text-[12.5px]" style={{ color: GLASS.muted }}>
+                    {noteTimeLabel(n.updated_at)}
+                  </Text>
+                  <View
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: 5,
+                      backgroundColor: dot,
+                    }}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </GlassCard>
+    </View>
   );
 }

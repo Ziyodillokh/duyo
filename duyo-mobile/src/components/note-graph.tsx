@@ -78,17 +78,19 @@ const PLANET_TYPES = [
 
 type PlanetKey = (typeof PLANET_TYPES)[number]['key'];
 
-/** A four-pointed sparkle, centred on (x, y). Tags are drawn as stars rather
- *  than planets so a landmark never reads as one more note. */
-function sparkle(x: number, y: number, r: number): string {
-  const w = r * 0.32;
-  return (
-    `M ${x} ${y - r} Q ${x + w} ${y - w} ${x + r} ${y} ` +
-    `Q ${x + w} ${y + w} ${x} ${y + r} ` +
-    `Q ${x - w} ${y + w} ${x - r} ${y} ` +
-    `Q ${x - w} ${y - w} ${x} ${y - r} Z`
-  );
-}
+/** The colour each world catches along its dark limb. Warm worlds take a warm
+ *  rim and icy ones a cold one — a single white rim on all eight makes them
+ *  look like the same ball in different paint. */
+const RIM_LIGHT: Record<PlanetKey, string> = {
+  mercury: '#CBD5E1',
+  venus: '#FFE3A8',
+  earth: '#8FD0FF',
+  mars: '#FFAE86',
+  jupiter: '#FFD9A0',
+  saturn: '#FFE9B0',
+  uranus: '#C8F7FA',
+  neptune: '#9FB6FF',
+};
 
 /** Stable per-note number, so a planet keeps its character across visits. */
 function seedOf(title: string): number {
@@ -176,6 +178,40 @@ function ringHalves(
       </G>
     ),
   };
+}
+
+/** The bright hairline along a sphere's shadowed limb.
+ *
+ *  This is the one detail that separates "coloured circle with a gradient"
+ *  from "ball". Real spheres catch light around their dark edge — the eye
+ *  reads that arc as curvature, and without it no amount of gradient work
+ *  looks three-dimensional.
+ *
+ *  Anchored to the same upper-left light as `pg-*`, `planet-night` and
+ *  `planet-spec`: the lit face sits around 225 degrees, so the shadowed limb
+ *  is centred on 45 and the arc sweeps -25 -> 115 through it. Change the light
+ *  in one place and this must move with it, or the planet reads as lit by two
+ *  suns.
+ */
+function rimLight(x: number, y: number, R: number, colour: string) {
+  // Too small to resolve an arc — drawing one just muddies the silhouette.
+  if (R < 5) return null;
+  const at = (deg: number) => {
+    const t = (deg * Math.PI) / 180;
+    return [x + R * Math.cos(t), y + R * Math.sin(t)];
+  };
+  const [sx, sy] = at(-25);
+  const [ex, ey] = at(115);
+  return (
+    <Path
+      d={`M ${sx} ${sy} A ${R} ${R} 0 0 1 ${ex} ${ey}`}
+      stroke={colour}
+      strokeOpacity={0.5}
+      strokeWidth={Math.max(0.8, R * 0.075)}
+      strokeLinecap="round"
+      fill="none"
+    />
+  );
 }
 
 /** The surface details that make a planet nameable at a glance, drawn in
@@ -684,6 +720,35 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                     <Stop offset="100%" stopColor={p.stops[2]} stopOpacity={1} />
                   </RadialGradient>
                 ))}
+
+                {/* ── Lighting, shared by every sphere ──────────────────
+                    A single flat gradient reads as a coloured disc. Three
+                    cheap layers turn it into a lit ball, and all three key
+                    off the SAME light position (upper-left, 33%/28%) that
+                    the per-planet gradients above use — if these ever
+                    disagree, the planet looks lit from two suns at once.
+
+                    All are unit-space (objectBoundingBox), so one definition
+                    serves every planet at every radius. */}
+
+                {/* Night side. Transparent across the lit face, deepening to
+                    near-black at the far limb — this is what makes surface
+                    features look like they lie ON a sphere rather than on a
+                    sticker. */}
+                <RadialGradient id="planet-night" cx="33%" cy="28%" r="82%">
+                  <Stop offset="52%" stopColor="#03060F" stopOpacity={0} />
+                  <Stop offset="78%" stopColor="#03060F" stopOpacity={0.34} />
+                  <Stop offset="100%" stopColor="#010309" stopOpacity={0.74} />
+                </RadialGradient>
+
+                {/* Specular. The wet/icy glint at the light point. Small and
+                    weak on purpose: oversized, it turns every world into a
+                    billiard ball. */}
+                <RadialGradient id="planet-spec" cx="31%" cy="26%" r="30%">
+                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.42} />
+                  <Stop offset="45%" stopColor="#FFFFFF" stopOpacity={0.1} />
+                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+                </RadialGradient>
               </Defs>
 
               {/* ── Starfield ──────────────────────────────────────────── */}
@@ -843,16 +908,33 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
 
                 const rd = Math.max(5.5, n.r * 0.74);
 
-                // A #tag joins notes but is not one — a sparkle, never a
-                // planet, so a landmark cannot be mistaken for a note.
+                // A #tag joins notes but is not one, so it is a STAR, never
+                // a planet — a landmark must not be mistakeable for a note.
+                //
+                // It used to be a four-pointed sparkle. That shape is now the
+                // Gemini logo, so a tag on the map read as "AI did this" — a
+                // meaning nobody intended, on a screen where DUYO writing
+                // things for you is a real feature and the confusion is
+                // therefore expensive.
+                //
+                // A star is round like everything else in this sky, and
+                // separates from a planet by LIGHT rather than by outline:
+                // planets are shaded spheres lit from one side, a star emits.
                 if (n.kind === 'tag') {
+                  const core = rd * 0.62;
                   return (
-                    <Path
-                      key={`n-${n.title}`}
-                      d={sparkle(x, y, rd * 1.4)}
-                      fill={n.colour}
-                      opacity={a}
-                    />
+                    <G key={`n-${n.title}`} opacity={a}>
+                      {/* Outer halo — what makes it read as emitting rather
+                          than as one more coloured dot. */}
+                      <Circle cx={x} cy={y} r={core * 3.1} fill={n.colour} opacity={0.1} />
+                      <Circle cx={x} cy={y} r={core * 2.1} fill={n.colour} opacity={0.18} />
+                      {/* Corona in the tag's own colour, so the map stays a
+                          legend for the chips above it. */}
+                      <Circle cx={x} cy={y} r={core * 1.35} fill={n.colour} opacity={0.5} />
+                      {/* White-hot centre: a real star's core burns out to
+                          white whatever colour its corona is. */}
+                      <Circle cx={x} cy={y} r={core} fill="#FFFFFF" opacity={0.92} />
+                    </G>
                   );
                 }
 
@@ -896,20 +978,29 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                         <Circle cx={x} cy={y} r={rd} />
                       </ClipPath>
                     </Defs>
+                    {/* Albedo — the planet's own colour. */}
                     <Circle cx={x} cy={y} r={rd} fill={`url(#pg-${planet.key})`} />
+
+                    {/* Surface, clipped to the disc. */}
                     <G clipPath={`url(#${clipId})`}>
                       {planetFeatures(planet.key, x, y, rd)}
                     </G>
-                    {/* Night side — a soft limb shadow lower-right, so the
-                        surface details still read as lying on a sphere. */}
-                    <Circle
-                      cx={x}
-                      cy={y}
-                      r={rd}
-                      fill="none"
-                      stroke="rgba(7, 11, 26, 0.55)"
-                      strokeWidth={1}
-                    />
+
+                    {/* Night side, over the features rather than under them —
+                        a continent that stays bright as it wraps past the
+                        terminator is the exact tell that kills the illusion.
+                        This replaced a uniform 1px outline that was labelled
+                        a limb shadow but shaded nothing. */}
+                    <Circle cx={x} cy={y} r={rd} fill="url(#planet-night)" />
+
+                    {/* Specular glint, only where it can be resolved. Below
+                        about 9px it is a grey smudge that flattens the ball. */}
+                    {rd >= 9 && (
+                      <Circle cx={x} cy={y} r={rd} fill="url(#planet-spec)" />
+                    )}
+
+                    {/* Rim light along the dark limb — the curvature cue. */}
+                    {rimLight(x, y, rd, RIM_LIGHT[planet.key])}
                     {ring?.front}
                     {neonRings(rd)}
                   </G>

@@ -1,8 +1,9 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import {
   ArrowLeft,
+  Bell,
   Eye,
   List,
   Pencil,
@@ -39,7 +40,9 @@ import {
   type GraphNode,
   type NoteSort,
 } from '@/api/endpoints/notes';
+import { BrainBackdrop } from '@/components/brain-backdrop';
 import { BrainClusterCard } from '@/components/brain-cluster-card';
+import { GLASS, GlassCircle } from '@/components/brain/glass';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import {
   extractEmbeds,
@@ -47,8 +50,9 @@ import {
   toggleCheckbox,
 } from '@/components/markdown-note';
 import { NoteGraph } from '@/components/note-graph';
-import { colourForTag, PALETTE, UNTAGGED } from '@/lib/galaxy-layout';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
+import { useUnreadNotificationCount } from '@/hooks/use-notifications';
+import { colourForTag, PALETTE, UNTAGGED } from '@/lib/galaxy-layout';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
 
@@ -69,29 +73,15 @@ const SORT_LABEL: Record<NoteSort, string> = {
 // An unclosed [[ before the caret means the child is picking a link target.
 const OPEN_LINK = /\[\[([^\[\]]*)$/;
 
-/**
- * Where cluster cards sit over the map. Six slots along the edges, filled
- * biggest-cluster-first, because gravity keeps the stars gathered in the
- * middle and the edges are the only place a card does not cover the thing it
- * describes. Percentages, so the arrangement survives every screen height.
- */
-const CLUSTER_SLOTS = [
-  { top: 8, left: 10 },
-  { top: 8, right: 10 },
-  { top: '34%', left: 10 },
-  { top: '34%', right: 10 },
-  // Measured from the map's bottom edge; the floating tab bar owns roughly
-  // the lowest 92pt plus the device inset, so these clear it.
-  { bottom: 150, left: 10 },
-  { bottom: 150, right: 10 },
-] as const;
-
 export default function BrainScreen() {
   const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const childId = child?.id ?? '';
   const qc = useQueryClient();
 
+  const router = useRouter();
+  const unreadQuery = useUnreadNotificationCount();
+  const unread = unreadQuery.data?.count ?? 0;
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   // Sibling tabs go through this screen's navigator; router.push into
   // the (tabs) group from inside it is a silent no-op on web.
@@ -356,8 +346,7 @@ export default function BrainScreen() {
         }
         return { tag, colour: colourForTag(tag), notes: inside.size, links };
       })
-      .sort((a, b) => b.notes - a.notes)
-      .slice(0, CLUSTER_SLOTS.length);
+      .sort((a, b) => b.notes - a.notes);
   }, [graph.data?.edges, tags.data]);
 
   const cardBg = isDark ? '#132340' : '#FFFFFF';
@@ -371,17 +360,47 @@ export default function BrainScreen() {
           nebulae straight onto this backdrop, so a light background would not
           just look wrong — it would make half the sky invisible. The chrome
           above it (search, chips, cards) still follows the theme. */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#070B1A' }]} />
-      <LinearGradient
-        colors={[
-          'rgba(60, 3, 102, 0.55)',   // dark-bg-from, purple
-          'rgba(81, 4, 36, 0.30)',    // dark-bg-mid, burgundy
-          'rgba(22, 36, 86, 0.65)',   // dark-bg-to, navy
+      {/* Two grounds, one screen. The MAP is immersive and stays deep space;
+          the HOME is a light glass page carrying one dark sky card, so the
+          card reads as a window rather than as the whole world. */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: screen.kind === 'home' ? GLASS.pageTop : '#070B1A' },
         ]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={StyleSheet.absoluteFill}
       />
+      {screen.kind === 'home' && (
+        <LinearGradient
+          colors={[GLASS.pageTop, GLASS.pageBottom]}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.8, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+
+      {screen.kind !== 'home' && (
+        <LinearGradient
+          colors={[
+            'rgba(60, 3, 102, 0.55)',   // dark-bg-from, purple
+            'rgba(81, 4, 36, 0.30)',    // dark-bg-mid, burgundy
+            'rgba(22, 36, 86, 0.65)',   // dark-bg-to, navy
+          ]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+
+      {/* The video backdrop, ABOVE the nebula gradient so the clip actually
+          reads — stacking it under two tints muted it to nothing. It carries
+          its own lighter tint instead, so swapping the video cannot change
+          DUYO's colours.
+
+          Screen level on purpose: the sky's pinch/pan transforms only
+          NoteGraph's inner canvas, so anything out here is immune to the zoom
+          — the planets scale against a backdrop that stays put.
+          Swap the clip in src/config/brain-backdrop.ts. */}
+      {screen.kind !== 'home' && <BrainBackdrop />}
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <KeyboardAvoidingView className="flex-1">
@@ -413,29 +432,61 @@ export default function BrainScreen() {
               <MapButton Icon={Plus} label="Yangi qayd" onPress={() => startNew()} />
             </View>
           ) : screen.kind === 'home' ? (
-            <View className="flex-row items-center gap-2 px-4 py-3">
-              {/* The dock is three doors now; the hub is reached by going
-                  back, so every section carries this. */}
-              <MapButton
-                Icon={ArrowLeft}
-                label="Bosh sahifa"
+            /* Glass header. The wordmark carries the page, so the two controls
+               beside it are round glass rather than boxed buttons — a bordered
+               square next to a light glass circle reads as two design systems
+               on one row.
+
+               The left circle is the way OUT, not the profile. The dock is three
+               doors (Bir maqsad · DUYO · Neo Miyya) and the hub is reached by
+               going back, so every section carries one; Profil is one tap away
+               on the home header. */
+            <View className="flex-row items-center px-4" style={{ paddingVertical: 10 }}>
+              <Pressable
                 onPress={() => toHomeTab()}
-              />
-              <MapButton
-                Icon={Search}
-                label="Qidirish"
-                onPress={() => {
-                  setScreen({ kind: 'map' });
-                  setSearchOpen(true);
-                }}
-              />
-              <Text
-                className="flex-1 text-center text-[15px] font-bold"
-                style={{ color: '#E8EEFF', letterSpacing: 4 }}
+                accessibilityRole="button"
+                accessibilityLabel="Bosh sahifa"
+                className="active:opacity-70"
               >
-                DUYO MIYA
+                <GlassCircle size={52}>
+                  <ArrowLeft size={22} color={GLASS.blue} strokeWidth={2.2} />
+                </GlassCircle>
+              </Pressable>
+
+              <Text
+                className="flex-1 text-center font-bold"
+                style={{ color: GLASS.blue, fontSize: 25, letterSpacing: 7 }}
+              >
+                DUYO
               </Text>
-              <MapButton Icon={Plus} label="Yangi qayd" onPress={() => startNew()} />
+
+              <Pressable
+                onPress={() => router.push('/(main)/notifications')}
+                accessibilityRole="button"
+                accessibilityLabel="Bildirishnomalar"
+                className="active:opacity-70"
+              >
+                <GlassCircle size={52}>
+                  <Bell size={21} color={GLASS.blue} strokeWidth={2.2} />
+                  {/* The unread dot. Shown only when there is something to
+                      read — a badge that is always on stops being a signal. */}
+                  {unread > 0 && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 13,
+                        width: 9,
+                        height: 9,
+                        borderRadius: 5,
+                        backgroundColor: GLASS.blue,
+                        borderWidth: 1.5,
+                        borderColor: '#FFFFFF',
+                      }}
+                    />
+                  )}
+                </GlassCircle>
+              </Pressable>
             </View>
           ) : (
           <View className="flex-row items-center gap-2 px-6 py-4">
@@ -496,44 +547,13 @@ export default function BrainScreen() {
                   setScreen({ kind: 'map' });
                 }}
                 onExploreGraph={() => setScreen({ kind: 'map' })}
+                onOpenNote={(id) => setScreen({ kind: 'note', id })}
               />
 
-              {/* Quick capture — the centred orb from the reference design.
-                  Floats over the dashboard, above the tab bar, so a thought
-                  is one thumb-press from being written down wherever the
-                  child has scrolled to. */}
-              <View
-                className="absolute left-0 right-0 items-center"
-                style={{ bottom: navClearance + 8, pointerEvents: 'box-none' }}
-              >
-                <Pressable
-                  onPress={() => startNew()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tezkor qayd"
-                  className="items-center justify-center active:opacity-80"
-                  style={{
-                    width: 62,
-                    height: 62,
-                    borderRadius: 31,
-                    borderWidth: 2,
-                    borderColor: '#C27AFF',
-                    backgroundColor: 'rgba(130, 0, 219, 0.35)',
-                    shadowColor: '#C27AFF',
-                    shadowOpacity: 0.55,
-                    shadowRadius: 16,
-                    shadowOffset: { width: 0, height: 0 },
-                    elevation: 8,
-                  }}
-                >
-                  <Plus size={26} color="#E8EEFF" />
-                </Pressable>
-                <Text
-                  className="text-[9px] font-bold mt-1"
-                  style={{ color: '#8FA3C8', letterSpacing: 2 }}
-                >
-                  TEZKOR QAYD
-                </Text>
-              </View>
+              {/* The floating quick-capture orb that used to sit here is gone.
+                  The design puts "+" inside the sky card, so the orb was a
+                  second control for the same action — and it landed on top of
+                  the "So'nggi yozuvlar" heading, half-covering it. */}
             </View>
           ) : editingNote ? (
             <ScrollView contentContainerStyle={{ padding: 24, gap: 14, paddingBottom: navClearance + 24 }}>
@@ -825,21 +845,6 @@ export default function BrainScreen() {
                 />
               )}
 
-              {/* The clusters, pinned to the edges of the sky. */}
-              {clusters.map((c, i) => (
-                <BrainClusterCard
-                  key={c.tag}
-                  cluster={c}
-                  active={activeTag === c.tag}
-                  onPress={() => setActiveTag(activeTag === c.tag ? null : c.tag)}
-                  onLongPress={() => {
-                    setRenaming(c.tag);
-                    setRenameTo(c.tag);
-                  }}
-                  position={CLUSTER_SLOTS[i]}
-                />
-              ))}
-
               {/* Floating chrome, pinned to the top of the map. */}
               <View
                 className="absolute left-0 right-0 top-0"
@@ -863,56 +868,37 @@ export default function BrainScreen() {
                   </View>
                 )}
 
-                {/* There are only six card slots. With more tags than that,
-                    the chip row stays so the ones that missed a slot are still
-                    reachable — a filter you cannot reach is a filter you have
-                    lost. Below that threshold the cards say everything and the
-                    row would only repeat them. */}
-                {(tags.data?.length ?? 0) > CLUSTER_SLOTS.length && (
+                {/* Every #tag, as one scrolling strip.
+                    This replaced six cards pinned over the canvas. They were
+                    placed at the edges on the theory that gravity keeps notes
+                    in the middle, but with real notes they landed on top of
+                    planets and on top of the map's own tag labels — the
+                    landmark was hiding the thing it marked. A strip costs one
+                    line, covers nothing, and has no six-item cap. */}
+                {!!clusters.length && (
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 8 }}
+                    contentContainerStyle={{ gap: 8, paddingRight: 16 }}
                   >
                     {/* Each chip wears its tag's own colour — the same one that
                         tag's star and everything filed under it carries on the
                         map. The filter row is therefore also the legend, and a
                         child reads the colours by using them. */}
-                    {(tags.data ?? []).map((t) => {
-                      const on = activeTag === t;
-                      const colour = colourForTag(t);
-                      return (
-                        <Pressable
-                          key={t}
-                          onPress={() => setActiveTag(on ? null : t)}
-                          onLongPress={() => {
-                            setRenaming(t);
-                            setRenameTo(t);
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel={`#${t}`}
-                          className="rounded-md border flex-row items-center gap-2"
-                          style={{
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            borderColor: on ? colour : 'rgba(150,180,255,0.22)',
-                            backgroundColor: on ? `${colour}26` : 'rgba(11,16,32,0.55)',
-                          }}
-                        >
-                          <View
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 4,
-                              backgroundColor: colour,
-                            }}
-                          />
-                          <Text className="text-xs" style={{ color: on ? colour : '#DCE6FA' }}>
-                            #{t}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                    {clusters.map((c) => (
+                      <BrainClusterCard
+                        key={c.tag}
+                        cluster={c}
+                        active={activeTag === c.tag}
+                        onPress={() =>
+                          setActiveTag(activeTag === c.tag ? null : c.tag)
+                        }
+                        onLongPress={() => {
+                          setRenaming(c.tag);
+                          setRenameTo(c.tag);
+                        }}
+                      />
+                    ))}
                   </ScrollView>
                 )}
 

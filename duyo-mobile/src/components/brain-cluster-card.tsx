@@ -1,14 +1,20 @@
 import { Hash } from 'lucide-react-native';
-import { Pressable, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 /**
- * A #tag as a card floating over the map — the landmark for one cluster of
- * notes, showing how much is filed under it and how tightly it is linked.
+ * A #tag as a compact chip — the landmark for one cluster of notes, with how
+ * much is filed under it.
  *
- * Anchored to the canvas edges rather than to the tag's star: the stars drift
- * (see lib/graph-physics.ts), and a label that chased one around would be
- * unreadable and untappable. The edges are also where the sky is emptiest,
- * because gravity keeps the notes gathered in the middle.
+ * ## Why this is a chip in a strip and no longer a card over the map
+ *
+ * These used to be six 132px cards pinned to the canvas edges, on the theory
+ * that gravity keeps the notes gathered in the middle so the edges are empty.
+ * On a real phone with real notes that theory does not hold: the cards landed
+ * squarely on top of planets AND on top of the map's own tag labels, so the
+ * thing meant to help you find a cluster was hiding the cluster.
+ *
+ * A single scrolling strip costs one line of height, covers nothing, and has
+ * no six-item limit — every tag gets a chip instead of the first six.
  */
 
 export interface ClusterStats {
@@ -23,8 +29,6 @@ interface ClusterCardProps {
   active: boolean;
   onPress: () => void;
   onLongPress: () => void;
-  /** Which edge of the map this card is pinned to. */
-  position: ViewStyle;
 }
 
 export function BrainClusterCard({
@@ -32,7 +36,6 @@ export function BrainClusterCard({
   active,
   onPress,
   onLongPress,
-  position,
 }: ClusterCardProps) {
   const { tag, colour, notes, links } = cluster;
   return (
@@ -42,46 +45,47 @@ export function BrainClusterCard({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={`#${tag} to'plami — ${notes} qayd, ${links} bog'lam`}
-      style={[
-        position,
-        {
-          position: 'absolute',
-          width: 132,
-          borderRadius: 14,
-          paddingHorizontal: 10,
-          paddingVertical: 9,
-          borderWidth: 1,
-          // Dark enough to read a label on, sheer enough that the sky behind
-          // it still shows through.
-          backgroundColor: active ? `${colour}1F` : 'rgba(11, 16, 32, 0.72)',
-          borderColor: active ? colour : 'rgba(150, 180, 255, 0.18)',
-        },
-      ]}
-      className="active:opacity-80"
+      className="flex-row items-center gap-1.5 active:opacity-80"
+      style={{
+        borderRadius: 999,
+        paddingLeft: 7,
+        paddingRight: 11,
+        paddingVertical: 6,
+        borderWidth: 1,
+        // Dark enough to read a label on, sheer enough that the sky behind it
+        // still shows through.
+        backgroundColor: active ? `${colour}26` : 'rgba(11, 16, 32, 0.72)',
+        borderColor: active ? colour : 'rgba(150, 180, 255, 0.18)',
+      }}
     >
-      <View className="flex-row items-center gap-2">
-        <View
-          className="w-6 h-6 rounded-md items-center justify-center"
-          style={{ backgroundColor: `${colour}26` }}
-        >
-          <Hash size={13} color={colour} strokeWidth={2.5} />
-        </View>
-        <Text
-          numberOfLines={1}
-          className="flex-1 text-[13px] font-semibold"
-          style={{ color: active ? colour : '#DCE6FA' }}
-        >
-          {tag}
-        </Text>
+      <View
+        className="items-center justify-center"
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          backgroundColor: `${colour}2E`,
+        }}
+      >
+        <Hash size={11} color={colour} strokeWidth={2.6} />
       </View>
 
-      <Text className="text-[11px] mt-1.5" style={{ color: '#8FA3C8' }}>
-        {notes} qayd
+      <Text
+        numberOfLines={1}
+        className="text-[13px] font-semibold"
+        style={{ color: active ? colour : '#DCE6FA', maxWidth: 120 }}
+      >
+        {tag}
       </Text>
-      <Text className="text-[11px]" style={{ color: '#8FA3C8' }}>
-        {links} bog'lam
+
+      {/* The count only — "0 qayd / 0 bog'lam" on two lines was most of the
+          old card's height for information a single number carries. */}
+      <Text
+        className="text-[11px]"
+        style={{ color: '#8FA3C8', fontVariant: ['tabular-nums'] }}
+      >
+        {notes}
       </Text>
     </Pressable>
   );
 }
-
