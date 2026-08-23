@@ -1,1 +1,1 @@
-export { default } from '@/screens/goals/goals-screen';
+export { default } from '@/screens/goals/goal-mates-screen';
