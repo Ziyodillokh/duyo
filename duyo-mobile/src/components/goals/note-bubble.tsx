@@ -5,10 +5,10 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type ViewStyle,
 } from 'react-native';
+import { Text } from '@/components/text';
 
 import { apiClient } from '@/api/client';
 

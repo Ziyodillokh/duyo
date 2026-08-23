@@ -5,12 +5,11 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 
 import {
   MAX_AUDIO_MS,
