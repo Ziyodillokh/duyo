@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Bell,
   BrainCircuit,
+  ChevronRight,
   Crown,
   Globe,
   HelpCircle,
@@ -11,26 +12,44 @@ import {
   Mic,
   Moon,
   Shield,
+  type LucideIcon,
   // Users, // OTA-ONA BO'LIMI O'CHIRILGAN — qatori bilan birga kommentda
 } from 'lucide-react-native';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import { Text } from '@/components/text';
+import { type ReactNode, useState } from 'react';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SettingsRow } from '@/components/v2/dark/settings-row';
-import { SettingsSection } from '@/components/v2/dark/settings-section';
+import { Text } from '@/components/text';
 import { LANGUAGE_NAMES, useT } from '@/i18n';
+import { glass } from '@/lib/glass';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useLanguageStore } from '@/store/language';
 import { useMascotStore } from '@/store/mascot';
-import { useThemeStore , useIsDark } from '@/store/theme';
+import { useThemeStore } from '@/store/theme';
 
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as notifications and goal-mates: frosted panes on pale blue.
+// The screen commits to the light look the way its siblings do — the theme
+// toggle below still drives the screens that carry a dark variant.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
 
 export default function SettingsScreen() {
   const t = useT();
-  const isDark = useIsDark();
   const language = useLanguageStore((s) => s.language);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const clearChild = useChildStore((s) => s.clearChild);
@@ -59,166 +78,269 @@ export default function SettingsScreen() {
   return (
     <View style={StyleSheet.absoluteFill}>
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.95, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
-      <LinearGradient
-        colors={['rgba(96, 165, 250, 0.15)', 'rgba(252, 211, 77, 0.10)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.95, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: the inner-screen glass pattern ─────────────────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-2xl font-bold text-foreground dark:text-dark-text">
-            {t('settings.title')}
-          </Text>
+          <Text style={styles.title}>{t('settings.title')}</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 6,
+            paddingBottom: 40,
+          }}
           showsVerticalScrollIndicator={false}
         >
-          <SettingsSection title={t('settings.section.general')}>
-            <SettingsRow
+          <Section title={t('settings.section.general')}>
+            <Row
               Icon={Globe}
               label={t('settings.language')}
-              trailing={
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  {LANGUAGE_NAMES[language]}
-                </Text>
-              }
-              showChevron
+              value={LANGUAGE_NAMES[language]}
               onPress={() => router.push('/(main)/settings-language')}
             />
-            <SettingsRow
+            <Row
               Icon={Moon}
               label={t('settings.darkMode')}
               trailing={
                 <Switch
                   value={themeMode === 'dark'}
                   onValueChange={toggleTheme}
-                  trackColor={{ false: '#334155', true: '#60A5FA' }}
-                  thumbColor={isDark ? "#0A1628" : "#FFFFFF"}
+                  trackColor={{ false: 'rgba(140,163,203,0.35)', true: PRIMARY }}
+                  thumbColor="#FFFFFF"
                 />
               }
             />
-            <SettingsRow
+            <Row
               Icon={Bell}
               label={t('settings.notifications')}
               trailing={
                 <Switch
                   value={notifications}
                   onValueChange={setNotifications}
-                  trackColor={{ false: '#334155', true: '#60A5FA' }}
-                  thumbColor={isDark ? "#0A1628" : "#FFFFFF"}
+                  trackColor={{ false: 'rgba(140,163,203,0.35)', true: PRIMARY }}
+                  thumbColor="#FFFFFF"
                 />
               }
             />
-            <SettingsRow
+            <Row
               Icon={Mic}
               label={t('settings.voice')}
-              showChevron
-              isLast
               onPress={() => router.push('/(main)/settings-voice')}
+              isLast
             />
-          </SettingsSection>
+          </Section>
 
-          <SettingsSection title={t('settings.section.safety')}>
-            <SettingsRow
+          <Section title={t('settings.section.safety')}>
+            <Row
               Icon={BrainCircuit}
               label={t('settings.memory')}
-              trailing={
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  {t('settings.memoryValue')}
-                </Text>
-              }
-              showChevron
+              value={t('settings.memoryValue')}
               onPress={() => router.push('/(main)/memory')}
             />
-            <SettingsRow
+            <Row
               Icon={Shield}
               label={t('settings.privacy')}
-              showChevron
-              isLast
               onPress={() => router.push('/(main)/settings-privacy')}
+              isLast
             />
             {/* OTA-ONA BO'LIMI O'CHIRILGAN — ilova hozircha faqat bola uchun.
                 Qatorning asl kodi:
-            <SettingsRow
+            <Row
               Icon={Users}
               label={t('settings.parentLink')}
-              trailing={
-                <View className="bg-emerald-400/30 rounded-full px-3 py-1">
-                  <Text className="text-xs text-emerald-400">
-                    {t('settings.parentLinkConnected')}
-                  </Text>
-                </View>
-              }
-              showChevron
-              isLast
+              value={t('settings.parentLinkConnected')}
               onPress={() => router.push('/(main)/parent-connection')}
+              isLast
             />
             */}
-          </SettingsSection>
+          </Section>
 
-          <SettingsSection title={t('settings.section.subscription')}>
-            <SettingsRow
+          <Section title={t('settings.section.subscription')}>
+            <Row
               Icon={Crown}
               label={t('settings.plan')}
-              trailing={
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  {t('settings.planValue')}
-                </Text>
-              }
-              showChevron
-              isLast
+              value={t('settings.planValue')}
               onPress={() => router.push('/(main)/subscription')}
+              isLast
             />
-          </SettingsSection>
+          </Section>
 
-          <SettingsSection title={t('settings.section.help')}>
-            <SettingsRow
+          <Section title={t('settings.section.help')}>
+            <Row
               Icon={HelpCircle}
               label={t('settings.help')}
-              showChevron
-              isLast
               onPress={() => router.push('/(main)/settings-help')}
+              isLast
             />
-          </SettingsSection>
+          </Section>
 
+          {/* Logout is its own pane — an exit should not sit inside a group
+              of preferences a child taps casually. */}
           <Pressable
             onPress={handleLogout}
             accessibilityRole="button"
             accessibilityLabel={t('settings.logout')}
-            className="flex-row items-center justify-center gap-2 py-3"
+            style={[glass(22, 'md', 0.5), styles.logout]}
           >
-            <LogOut size={16} color="#F87171" />
-            <Text className="text-sm font-medium text-red-400">
-              {t('settings.logout')}
-            </Text>
+            <LogOut size={18} color={DANGER} strokeWidth={2.2} />
+            <Text style={styles.logoutText}>{t('settings.logout')}</Text>
           </Pressable>
 
-          <View className="items-center gap-1 pt-4">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO v1.0.0</Text>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-              {t('common.copyright')}
-            </Text>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>DUYO v1.0.0</Text>
+            <Text style={styles.footerText}>{t('common.copyright')}</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
+
+// ── The glass settings vocabulary ────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={[glass(22, 'md', 0.6), styles.pane]}>{children}</View>
+    </View>
+  );
+}
+
+function Row({
+  Icon,
+  label,
+  value,
+  trailing,
+  onPress,
+  isLast,
+}: {
+  Icon: LucideIcon;
+  label: string;
+  value?: string;
+  trailing?: ReactNode;
+  onPress?: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={label}
+      style={[styles.row, !isLast && styles.rowDivider]}
+    >
+      <View style={styles.iconWell}>
+        <Icon size={19} color={PRIMARY} strokeWidth={2} />
+      </View>
+      <Text style={styles.rowLabel}>{label}</Text>
+      {!!value && <Text style={styles.rowValue}>{value}</Text>}
+      {trailing}
+      {onPress && <ChevronRight size={18} color={MUTED} strokeWidth={2.2} />}
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+
+  section: { marginBottom: 18 },
+  sectionTitle: {
+    marginLeft: 6,
+    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: MUTED,
+  },
+  pane: { paddingHorizontal: 14 },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+  },
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: HAIRLINE,
+  },
+  iconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+  },
+  rowValue: {
+    fontSize: 13,
+    color: MUTED,
+  },
+
+  logout: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 15,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: DANGER,
+  },
+
+  footer: {
+    alignItems: 'center',
+    gap: 2,
+    paddingTop: 22,
+  },
+  footerText: {
+    fontSize: 12,
+    color: MUTED,
+  },
+});
