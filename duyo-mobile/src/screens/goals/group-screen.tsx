@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Send, Users } from 'lucide-react-native';
+import { ArrowLeft, Check, Mic, Paperclip, Send, Smile, Users } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +18,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchGoalCatalog, type GoalCatalogEntry } from '@/api/endpoints/goals';
 import type { GroupMessage } from '@/api/endpoints/social';
+import {
+  BUBBLE_THEIRS,
+  ChatWallpaper,
+  DayPill,
+  Tail,
+  clockOf,
+  dayLabel,
+  pill,
+} from '@/components/goals/chat-chrome';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
 import {
@@ -76,44 +85,19 @@ function portraitFor(id: string): PortraitSpec {
   };
 }
 
-/** A day heading, the way a chat separates sessions. */
-function DayPill({ label }: { label: string }) {
-  return (
-    <View style={styles.dayWrap}>
-      <View style={styles.dayPill}>
-        <Text style={styles.dayText}>{label}</Text>
-      </View>
-    </View>
-  );
-}
-
-function dayLabel(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const same = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
-  if (same(d, today)) return 'Bugun';
-  const y = new Date(today);
-  y.setDate(y.getDate() - 1);
-  if (same(d, y)) return 'Kecha';
-  return d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' });
-}
-
 function Bubble({
   m,
   grouped,
+  last,
 }: {
   m: GroupMessage;
-  /** True when the previous message is from the same sender: Telegram drops
-   *  the repeated name and avatar and tightens the gap. */
+  /** Previous message is the same sender's: drop the repeated name. */
   grouped: boolean;
+  /** Last of a run — only this one wears the tail, which is what makes a run
+   *  read as one turn rather than three separate ones. */
+  last: boolean;
 }) {
-  const time = useMemo(() => {
-    const d = new Date(m.created_at);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  }, [m.created_at]);
+  const time = clockOf(m.created_at);
 
   if (m.mine) {
     return (
@@ -123,20 +107,35 @@ function Bubble({
             styles.bubble,
             styles.bubbleMine,
             grouped && styles.bubbleMineGrouped,
+            !last && styles.bubbleMineRun,
           ]}
         >
-          <Text style={styles.bodyMine}>{m.body}</Text>
-          <Text style={styles.timeMine}>{time}</Text>
+          {last && <Tail side="right" colour={PRIMARY} />}
+          {/* The time sits at the end of the text and wraps with it —
+              Telegram's trick, and why a three-word message is not twice as
+              tall as it needs to be. The spacer reserves its room. */}
+          <Text style={styles.bodyMine}>
+            {m.body}
+            <Text style={styles.metaSpacer}>{'        '}</Text>
+          </Text>
+          <View style={styles.metaMine}>
+            <Text style={styles.timeMine}>{time}</Text>
+            {/* One tick, not two. The server has the message; nobody has told
+                us it was READ, and a second tick would be a claim we cannot
+                make. */}
+            <Check size={13} color="rgba(255,255,255,0.85)" strokeWidth={3} />
+          </View>
         </View>
       </View>
     );
   }
+
   return (
     <View style={[styles.rowTheirs, grouped && styles.rowGrouped]}>
-      {/* The avatar slot is held even when grouped, so the bubbles below a
-          name stay in one column instead of stepping left. */}
+      {/* The slot is held even when grouped, so a run stays in one column
+          instead of stepping left under the name. */}
       <View style={styles.avatarSlot}>
-        {!grouped && (
+        {last && (
           <Portrait
             spec={portraitFor(m.sender_name)}
             size={30}
@@ -149,11 +148,18 @@ function Bubble({
           styles.bubble,
           styles.bubbleTheirs,
           grouped && styles.bubbleTheirsGrouped,
+          !last && styles.bubbleTheirsRun,
         ]}
       >
+        {last && <Tail side="left" colour={BUBBLE_THEIRS} />}
         {!grouped && <Text style={styles.sender}>{m.sender_name}</Text>}
-        <Text style={styles.body}>{m.body}</Text>
-        <Text style={styles.time}>{time}</Text>
+        <Text style={styles.body}>
+          {m.body}
+          <Text style={styles.metaSpacer}>{'      '}</Text>
+        </Text>
+        <View style={styles.metaTheirs}>
+          <Text style={styles.time}>{time}</Text>
+        </View>
       </View>
     </View>
   );
@@ -240,6 +246,7 @@ export default function GroupScreen() {
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
+      <ChatWallpaper />
 
       <KeyboardAvoidingView style={{ flex: 1 }}>
         {/* ── Header: avatar, then name over member count, left-aligned —
@@ -251,7 +258,7 @@ export default function GroupScreen() {
             }
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            style={[styles.backButton, styles.focusable]}
+            style={[pill(22), styles.backButton, styles.focusable]}
           >
             <ArrowLeft size={24} color={PRIMARY} strokeWidth={2.2} />
           </Pressable>
@@ -260,7 +267,7 @@ export default function GroupScreen() {
             onPress={() => setRosterOpen((v) => !v)}
             accessibilityRole="button"
             accessibilityLabel={`${group?.label ?? label} — a'zolar`}
-            style={[styles.headerIdentity, styles.focusable]}
+            style={[pill(24), styles.headerIdentity, styles.focusable]}
           >
             <View style={styles.groupAvatar}>
               <Portrait
@@ -390,10 +397,20 @@ export default function GroupScreen() {
                 new Date(item.created_at).getTime() -
                   new Date(prev.created_at).getTime() <
                   5 * 60 * 1000;
+              // Only the last bubble of a run wears a tail and an avatar.
+              const next = (messages.data ?? [])[index + 1];
+              const last =
+                !next ||
+                next.sender_name !== item.sender_name ||
+                next.mine !== item.mine ||
+                dayLabel(next.created_at) !== dayLabel(item.created_at) ||
+                new Date(next.created_at).getTime() -
+                  new Date(item.created_at).getTime() >=
+                  5 * 60 * 1000;
               return (
                 <>
                   {newDay && <DayPill label={dayLabel(item.created_at)} />}
-                  <Bubble m={item} grouped={grouped} />
+                  <Bubble m={item} grouped={grouped} last={last} />
                 </>
               );
             }}
@@ -427,6 +444,7 @@ export default function GroupScreen() {
             )}
             <View style={styles.composerRow}>
               <View style={styles.inputPill}>
+                <Smile size={22} color="#93A9C9" strokeWidth={1.9} />
                 <TextInput
                   value={draft}
                   onChangeText={setDraft}
@@ -437,6 +455,15 @@ export default function GroupScreen() {
                   multiline
                   accessibilityLabel="Guruh xabari"
                 />
+                <Pressable
+                  onPress={() => setRefusal('Fayl biriktirish tez orada.')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fayl biriktirish"
+                  hitSlop={8}
+                  style={styles.focusable}
+                >
+                  <Paperclip size={21} color="#93A9C9" strokeWidth={1.9} />
+                </Pressable>
               </View>
               <Pressable
                 onPress={submit}
@@ -449,7 +476,12 @@ export default function GroupScreen() {
                   (!draft.trim() || send.isPending) && styles.sendIdle,
                 ]}
               >
-                <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
+                {draft.trim() ? (
+                  <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
+                ) : (
+                  // Telegram shows the mic until there is something to send.
+                  <Mic size={20} color="#FFFFFF" strokeWidth={2} />
+                )}
               </Pressable>
             </View>
           </View>
@@ -468,22 +500,30 @@ const styles = StyleSheet.create({
   focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
   focusableText: { outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle,
 
+  // Floating capsules over the wallpaper, the way the reference does it —
+  // no full-width bar, so the pattern runs behind them.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
     paddingHorizontal: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(120,160,220,0.16)',
+    paddingBottom: 8,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIdentity: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingLeft: 6,
+    paddingRight: 14,
+    paddingVertical: 5,
+  },
   groupAvatar: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
   headerText: { flex: 1 },
   title: { fontSize: 17, fontWeight: '700', color: TITLE },
@@ -514,6 +554,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(47,111,228,0.10)',
   },
   dayText: { fontSize: 12, fontWeight: '600', color: '#5A7BB0' },
+
+  metaSpacer: { opacity: 0 },
+  metaMine: {
+    position: 'absolute',
+    right: 12,
+    bottom: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  metaTheirs: { position: 'absolute', right: 10, bottom: 7 },
+  bubbleMineRun: { borderBottomRightRadius: 16 },
+  bubbleTheirsRun: { borderBottomLeftRadius: 16 },
 
   rowMine: { alignItems: 'flex-end', marginTop: 6 },
   rowTheirs: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, marginTop: 6 },
@@ -573,8 +626,10 @@ const styles = StyleSheet.create({
   },
   inputPill: {
     flex: 1,
-    minHeight: 44,
-    justifyContent: 'center',
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     borderRadius: 22,
     paddingHorizontal: 16,
     backgroundColor: 'rgba(255,255,255,0.92)',
@@ -583,11 +638,12 @@ const styles = StyleSheet.create({
     boxShadow: '0 6px 16px rgba(111,155,221,0.20)',
   },
   input: {
+    flex: 1,
     fontSize: 16,
     lineHeight: 21,
     color: INK,
     maxHeight: 110,
-    paddingVertical: 11,
+    paddingVertical: 12,
   },
   sendButton: {
     width: 44,
