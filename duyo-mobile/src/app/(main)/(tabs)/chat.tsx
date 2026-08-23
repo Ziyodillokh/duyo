@@ -15,10 +15,9 @@ import {
   Alert,
   FlatList,
   Pressable,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {

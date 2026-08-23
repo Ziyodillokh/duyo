@@ -11,11 +11,11 @@ import { useCallback, useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
   type TextStyle,
 } from 'react-native';
+import { Text } from '@/components/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   cancelAnimation,

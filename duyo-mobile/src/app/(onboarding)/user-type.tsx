@@ -5,13 +5,13 @@
 // =============================================================================
 import { Redirect } from 'expo-router';
 
+// ─── ASL KOD (o'chirilgan) ───────────────────────────────────────────────────
+// import { router } from 'expo-router';
+// import { Pressable, ScrollView, View } from 'react-native';
+
 export default function UserTypeScreen() {
   return <Redirect href="/phone" />;
 }
-
-// ─── ASL KOD (o'chirilgan) ───────────────────────────────────────────────────
-// import { router } from 'expo-router';
-// import { Pressable, ScrollView, Text, View } from 'react-native';
 // 
 // import { MascotImage } from '@/components/v2/mascot-image';
 // import { ScreenGradient } from '@/components/v2/screen-gradient';

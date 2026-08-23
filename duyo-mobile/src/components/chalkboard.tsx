@@ -1,6 +1,7 @@
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/components/text';
 import type { ViewStyle } from 'react-native';
 import Animated, {
   Easing,

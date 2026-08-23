@@ -5,15 +5,15 @@
 // =============================================================================
 import { Redirect } from 'expo-router';
 
-export default function ChildPhoneScreen() {
-  return <Redirect href="/age" />;
-}
-
 // ─── ASL KOD (o'chirilgan) ───────────────────────────────────────────────────
 // import { useMutation } from '@tanstack/react-query';
 // import { router } from 'expo-router';
 // import { useState } from 'react';
-// import { Alert, Text, View } from 'react-native';
+// import { Alert, View } from 'react-native';
+
+export default function ChildPhoneScreen() {
+  return <Redirect href="/age" />;
+}
 // import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 //
 // import { createFamilyInvite } from '@/api/endpoints/family';

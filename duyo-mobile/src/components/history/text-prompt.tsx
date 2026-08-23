@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 
 import { useIsDark } from '@/store/theme';
 

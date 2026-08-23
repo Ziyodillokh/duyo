@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 
 import { createChild } from '@/api/endpoints/children';
 import { updateMe } from '@/api/endpoints/me';

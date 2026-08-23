@@ -5,10 +5,9 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { handleRejectionMessage } from '@/api/endpoints/social';

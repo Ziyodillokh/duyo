@@ -1,6 +1,7 @@
 import * as Application from 'expo-application';
 import { useEffect, useState } from 'react';
-import { Linking, Modal, Platform, Pressable, Text, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 
 import { Card } from '@/components/v2/card';
 import { PrimaryButton } from '@/components/v2/primary-button';

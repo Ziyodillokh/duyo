@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { ChevronRight, Sparkles } from 'lucide-react-native';
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 
 import { useBalls, useInventory } from '@/hooks/use-gamification';
 import { INVENTORY_ITEMS } from '@/mocks/inventory';

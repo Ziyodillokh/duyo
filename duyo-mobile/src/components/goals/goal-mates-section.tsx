@@ -9,7 +9,8 @@ import {
   X,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 
 import {
   friendRequestErrorMessage,

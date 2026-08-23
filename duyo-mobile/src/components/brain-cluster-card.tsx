@@ -1,5 +1,6 @@
 import { Hash } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 
 /**
  * A #tag as a compact chip — the landmark for one cluster of notes, with how

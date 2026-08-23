@@ -7,12 +7,11 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

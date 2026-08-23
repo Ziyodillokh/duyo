@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
-import { Text } from 'react-native';
-import Animated, {
+import { Text } from '@/components/text';import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,

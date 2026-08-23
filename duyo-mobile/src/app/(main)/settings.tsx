@@ -14,7 +14,8 @@ import {
   // Users, // OTA-ONA BO'LIMI O'CHIRILGAN — qatori bilan birga kommentda
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SettingsRow } from '@/components/v2/dark/settings-row';

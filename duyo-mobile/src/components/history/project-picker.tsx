@@ -1,5 +1,6 @@
 import { Check, Folder, FolderMinus } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView, Text } from 'react-native';
+import { Modal, Pressable, ScrollView } from 'react-native';
+import { Text } from '@/components/text';
 
 import { type Project } from '@/api/endpoints/conversations';
 import { useIsDark } from '@/store/theme';

@@ -18,12 +18,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';

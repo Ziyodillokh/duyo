@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 
 interface Props {
   body: string;

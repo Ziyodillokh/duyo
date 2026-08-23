@@ -5,15 +5,15 @@
 // =============================================================================
 import { Redirect } from 'expo-router';
 
-export default function FamilyConsentScreen() {
-  return <Redirect href="/" />;
-}
-
 // ─── ASL KOD (o'chirilgan) ───────────────────────────────────────────────────
 // import { useMutation } from '@tanstack/react-query';
 // import { router, useLocalSearchParams } from 'expo-router';
 // import { useState } from 'react';
-// import { Alert, Pressable, Text, View } from 'react-native';
+// import { Alert, Pressable, View } from 'react-native';
+
+export default function FamilyConsentScreen() {
+  return <Redirect href="/" />;
+}
 //
 // import {
 //   acceptFamilyInvite,

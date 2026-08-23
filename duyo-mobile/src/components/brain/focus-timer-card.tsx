@@ -1,6 +1,7 @@
 import { Pause, Play, RotateCcw } from 'lucide-react-native';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 import Svg, { Circle } from 'react-native-svg';
 
 /**

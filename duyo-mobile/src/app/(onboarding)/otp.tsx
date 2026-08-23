@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { sendOtp, verifyOtp } from '@/api/endpoints/auth';

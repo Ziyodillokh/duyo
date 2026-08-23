@@ -1,11 +1,10 @@
 import { forwardRef, useState } from 'react';
 import {
-  Text,
-  TextInput,
   type TextInputProps,
   type TextInput as RNTextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 
 interface FormInputProps extends Omit<TextInputProps, 'className'> {
   label?: string;

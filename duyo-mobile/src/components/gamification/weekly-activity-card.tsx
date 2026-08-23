@@ -1,5 +1,6 @@
 import { Star } from 'lucide-react-native';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/text';
 
 import { useBallsHistory, useStreak } from '@/hooks/use-gamification';
 import { buildWeeklyActivity } from '@/lib/weekly-activity';

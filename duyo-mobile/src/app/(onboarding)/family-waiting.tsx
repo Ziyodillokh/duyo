@@ -5,15 +5,15 @@
 // =============================================================================
 import { Redirect } from 'expo-router';
 
-export default function FamilyWaitingScreen() {
-  return <Redirect href="/" />;
-}
-
 // ─── ASL KOD (o'chirilgan) ───────────────────────────────────────────────────
 // import { useQuery } from '@tanstack/react-query';
 // import { router } from 'expo-router';
 // import { useEffect } from 'react';
-// import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+// import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+
+export default function FamilyWaitingScreen() {
+  return <Redirect href="/" />;
+}
 //
 // import { listChildren } from '@/api/endpoints/children';
 // import { getFamilyInvite } from '@/api/endpoints/family';

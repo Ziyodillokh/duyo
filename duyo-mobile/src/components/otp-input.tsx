@@ -1,5 +1,6 @@
 import { useRef } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, View, type TextInput as RNTextInput } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 
 interface OtpInputProps {
   value: string;
@@ -14,7 +15,7 @@ export function OtpInput({
   length = 6,
   autoFocus = true,
 }: OtpInputProps) {
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<RNTextInput>(null);
   const digits = value.padEnd(length, ' ').slice(0, length).split('');
 
   const handleChange = (text: string) => {

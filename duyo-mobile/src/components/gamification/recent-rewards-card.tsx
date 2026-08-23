@@ -1,5 +1,6 @@
 import { Gift } from 'lucide-react-native';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/text';
 
 import type { BallsTransactionWire } from '@/api/endpoints/gamification';
 import { useBallsHistory } from '@/hooks/use-gamification';

@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/components/text';
 
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import { ScreenDark } from '@/components/v2/dark/screen-dark';

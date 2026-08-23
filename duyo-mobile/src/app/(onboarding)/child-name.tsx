@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/text';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { Card } from '@/components/v2/card';

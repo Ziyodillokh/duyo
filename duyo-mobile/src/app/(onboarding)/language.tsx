@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/text';
 
 import { FlagIcon } from '@/components/v2/flag-icon';
 import { MascotImage } from '@/components/v2/mascot-image';

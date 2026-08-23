@@ -1,5 +1,6 @@
 import { BrainCircuit } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/components/text';
 
 import type { InsightSummary } from '@/lib/brain-insights';
 import { colourForTag } from '@/lib/galaxy-layout';

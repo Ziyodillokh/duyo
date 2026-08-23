@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/text';
 
 // The dashboard's card surface (CompanionHome sits on a fixed navy gradient,
 // so these are deliberately literal rather than theme-aware).

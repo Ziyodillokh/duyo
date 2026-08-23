@@ -1,3 +1,42 @@
+const plugin = require('tailwindcss/plugin');
+
+/**
+ * Each Inter weight is its own font family (see src/lib/fonts.ts for why),
+ * so a weight utility has to name the family as well as the weight —
+ * `font-bold` alone would set fontWeight 700 on the SYSTEM face and Inter
+ * would never appear.
+ *
+ * This lives here rather than in the Text wrapper because NativeWind
+ * resolves className below the wrapper, where it cannot be read. The two
+ * halves are deliberately exclusive: components/text.tsx supplies a family
+ * only when NO weight utility is present.
+ *
+ * Weights the app does not ship round to the nearest face it does, so a
+ * stray `font-extrabold` still looks like the app.
+ */
+const INTER = {
+  thin: 'Inter_400Regular',
+  extralight: 'Inter_400Regular',
+  light: 'Inter_400Regular',
+  normal: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+  extrabold: 'Inter_700Bold',
+  black: 'Inter_700Bold',
+};
+const WEIGHT = {
+  thin: '100',
+  extralight: '200',
+  light: '300',
+  normal: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
+  extrabold: '800',
+  black: '900',
+};
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
@@ -86,5 +125,16 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addUtilities }) => {
+      addUtilities(
+        Object.fromEntries(
+          Object.entries(INTER).map(([name, fontFamily]) => [
+            `.font-${name}`,
+            { fontFamily, fontWeight: WEIGHT[name] },
+          ]),
+        ),
+      );
+    }),
+  ],
 };
