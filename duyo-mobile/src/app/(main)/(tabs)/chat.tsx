@@ -27,6 +27,7 @@ import {
   type QuickReply,
 } from '@/api/endpoints/chat';
 import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
+import { NAV_CLEARANCE } from '@/components/v2/dark/bottom-nav';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { SuggestedReplies } from '@/components/suggested-replies';
@@ -411,7 +412,12 @@ export default function ChatScreen() {
           }}
         />
 
-        <View className="bg-card dark:bg-dark-surface border-t border-neon-blue/20 px-3 py-3 flex-row items-end gap-2">
+        {/* The tab bar floats over this screen now, so the composer keeps
+            its own clearance beneath it (see NAV_CLEARANCE). */}
+        <View
+          className="bg-card dark:bg-dark-surface border-t border-neon-blue/20 px-3 pt-3 flex-row items-end gap-2"
+          style={{ paddingBottom: NAV_CLEARANCE }}
+        >
           <TextInput
             value={input}
             onChangeText={setInput}

@@ -36,7 +36,12 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
     }
   };
 
-  return <BottomNav active={active} onSelect={handleSelect} />;
+  // Maqsaddoshlar is a glass screen: it paints its own light sky whatever
+  // the theme is, so the bar over it must stay light too. (Home hides the
+  // bar entirely and ships its own dock.)
+  return (
+    <BottomNav active={active} onSelect={handleSelect} forceLight={active === 'goals'} />
+  );
 }
 
 export default function TabsLayout() {

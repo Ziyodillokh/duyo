@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
+import { NAV_CLEARANCE } from '@/components/v2/dark/bottom-nav';
 import { fetchGoalCatalog } from '@/api/endpoints/goals';
 import {
   friendRequestErrorMessage,
@@ -676,7 +677,7 @@ export default function GoalMatesScreen() {
       <ScrollView
         contentContainerStyle={{
           paddingTop: Math.max(insets.top, 44),
-          paddingBottom: insets.bottom + 100,
+          paddingBottom: insets.bottom + NAV_CLEARANCE + 12,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

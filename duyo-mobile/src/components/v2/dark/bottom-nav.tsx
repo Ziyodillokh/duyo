@@ -6,7 +6,7 @@ import {
   User,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useIsDark } from '@/store/theme';
@@ -16,18 +16,16 @@ export type TabKey = 'home' | 'chat' | 'goals' | 'brain' | 'profile';
 interface TabItem {
   key: TabKey;
   label: string;
-  Icon: ComponentType<{ size?: number; color?: string }>;
-  /** Rendered in a filled circle — the tab the product leads with. */
-  emphasis?: 'center';
+  Icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 }
 
-// Position 3 of 5 IS the middle, so Maqsadlar lands centre with no reordering.
+// Position 3 of 5 IS the middle, so Maqsaddosh lands centre with no reordering.
 // Kutubxona is not gone: it moved to a pushed screen at /(main)/library,
-// still reachable from every home card.
+// reachable from the profile screen.
 const TABS: readonly TabItem[] = [
   { key: 'home', label: 'Bosh sahifa', Icon: Home },
   { key: 'chat', label: 'Suhbat', Icon: MessageCircle },
-  { key: 'goals', label: 'Maqsaddosh', Icon: Target, emphasis: 'center' },
+  { key: 'goals', label: 'Maqsaddosh', Icon: Target },
   // Inventory moved inside Profil — it is part of "what I have", and the slot
   // it freed goes to the note graph.
   { key: 'brain', label: 'Miya', Icon: Brain },
@@ -37,62 +35,121 @@ const TABS: readonly TabItem[] = [
 interface BottomNavProps {
   active: TabKey;
   onSelect: (key: TabKey) => void;
+  /** The glass screens (home, Maqsaddoshlar) paint their own morning sky and
+   *  ignore the theme, so the bar over them must ignore it too — otherwise a
+   *  dark bar lands on a light screen whenever the child picks dark mode. */
+  forceLight?: boolean;
 }
 
-const DARK_ACTIVE = '#60A5FA';
-const DARK_INACTIVE = '#94A3B8';
-const LIGHT_ACTIVE = '#2563EB';
-const LIGHT_INACTIVE = '#64748B';
+/** Spec chrome, shared with the home dashboard's dock: a 350x80 bar, radius
+ *  30, sitting 12pt clear of the bottom inside 20pt gutters. */
+export const NAV_BAR_HEIGHT = 80;
+export const NAV_BAR_GAP = 12;
+/** What a scrolling screen must leave clear beneath its content. */
+export const NAV_CLEARANCE = NAV_BAR_HEIGHT + NAV_BAR_GAP * 2;
 
-export function BottomNav({ active, onSelect }: BottomNavProps) {
+const LIGHT = {
+  fill: 'rgba(255,255,255,0.82)',
+  border: 'rgba(255,255,255,0.9)',
+  shadow: '0 16px 34px rgba(111,155,221,0.32), inset 0 1.5px 0 rgba(255,255,255,0.95)',
+  active: '#2F6FE4',
+  inactive: '#8CA3CB',
+  label: '#33507F',
+  pill: 'rgba(47,111,228,0.12)',
+};
+const DARK = {
+  fill: 'rgba(16,26,46,0.93)',
+  border: 'rgba(140,180,255,0.18)',
+  shadow: '0 14px 30px rgba(0,0,0,0.45), inset 0 1.5px 0 rgba(255,255,255,0.08)',
+  active: '#60A5FA',
+  inactive: '#8296B4',
+  label: '#AFC1DC',
+  pill: 'rgba(96,165,250,0.16)',
+};
+
+/**
+ * The app's tab bar, in the same frosted glass as the home dashboard's dock.
+ *
+ * It FLOATS over the screen rather than taking a strip of layout, which is
+ * what lets the glass read as glass — a bar in the flow would need an opaque
+ * background of its own and would just be a coloured strip. Scrolling
+ * screens therefore have to leave `NAV_CLEARANCE` beneath their content;
+ * the home tab hides this bar entirely and ships its own three-item dock.
+ */
+export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
   const isDark = useIsDark();
   const insets = useSafeAreaInsets();
-  const bgClass = isDark
-    ? 'bg-card dark:bg-dark-surface border-t border-neon-blue/20'
-    : 'bg-white border-t border-primary/10';
-  const activeColor = isDark ? DARK_ACTIVE : LIGHT_ACTIVE;
-  const inactiveColor = isDark ? DARK_INACTIVE : LIGHT_INACTIVE;
+  const c = isDark && !forceLight ? DARK : LIGHT;
+
   return (
-    // paddingBottom lifts the bar above Android's gesture/nav bar (safe-area inset).
-    <View className={`${bgClass} flex-row`} style={{ paddingBottom: insets.bottom }}>
-      {TABS.map((tab) => {
-        const isActive = tab.key === active;
-        const color = isActive ? activeColor : inactiveColor;
-        return (
-          <Pressable
-            key={tab.key}
-            onPress={() => onSelect(tab.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            accessibilityLabel={tab.label}
-            className="h-16 flex-1 items-center justify-center gap-1"
-          >
-            {tab.emphasis === 'center' ? (
-              // Filled circle, NOT lifted above the bar with a negative margin:
-              // Android clips overflow on the safe-area-padded container, which
-              // would regress the edge-to-edge fix in 8e0d72b.
-              <View
-                className="w-9 h-9 rounded-full items-center justify-center"
-                style={{
-                  backgroundColor: isActive ? activeColor : `${activeColor}22`,
-                }}
-              >
-                <tab.Icon size={20} color={isActive ? '#FFFFFF' : activeColor} />
-              </View>
-            ) : (
-              <tab.Icon size={24} color={color} />
-            )}
-            <Text
-              className="text-xs font-medium"
-              style={{ color }}
+    <View
+      pointerEvents="box-none"
+      style={[styles.host, { bottom: insets.bottom + NAV_BAR_GAP }]}
+    >
+      <View
+        style={[
+          styles.bar,
+          { backgroundColor: c.fill, borderColor: c.border, boxShadow: c.shadow },
+        ]}
+      >
+        {TABS.map((tab) => {
+          const isActive = tab.key === active;
+          const colour = isActive ? c.active : c.inactive;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => onSelect(tab.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={tab.label}
+              style={styles.item}
             >
-              {tab.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+              {/* A soft pill instead of the old lifted circle: it marks the
+                  current tab without breaking the flat bar the spec asks for,
+                  and it cannot be clipped by the safe-area container the way
+                  a negative margin was (see 8e0d72b). */}
+              <View style={[styles.iconSlot, isActive && { backgroundColor: c.pill }]}>
+                <tab.Icon size={24} color={colour} strokeWidth={isActive ? 2.2 : 1.9} />
+              </View>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.label,
+                  { color: isActive ? c.active : c.label },
+                  isActive && styles.labelActive,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  host: { position: 'absolute', left: 0, right: 0 },
+  bar: {
+    marginHorizontal: 20,
+    height: NAV_BAR_HEIGHT,
+    borderRadius: 30,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // Five equal columns — 70pt each at the spec's 350pt bar.
+  item: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  iconSlot: {
+    width: 40,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: { marginTop: 4, fontSize: 11, fontWeight: '600' },
+  labelActive: { fontWeight: '700' },
+});
 
 export { TABS };

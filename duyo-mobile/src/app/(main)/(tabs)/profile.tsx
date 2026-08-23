@@ -15,6 +15,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InventorySummary } from '@/components/inventory-summary';
+import { NAV_CLEARANCE } from '@/components/v2/dark/bottom-nav';
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import { ProgressBar } from '@/components/v2/dark/progress-bar';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -75,7 +76,7 @@ export default function ProfileScreen() {
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 96 }}
+          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: NAV_CLEARANCE + 24 }}
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-row justify-between">
