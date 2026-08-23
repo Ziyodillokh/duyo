@@ -33,10 +33,10 @@ from duyo.models.psychology_chunk import PsychologyChunk
 from duyo.models.puzzle import PuzzleAttempt
 from duyo.models.report import Report
 from duyo.models.social import (
-    GroupMessage,
     ChildSocialSettings,
     Friendship,
     FriendshipStatus,
+    GroupMessage,
     PeerMessage,
     PeerModerationState,
     PeerReport,
@@ -48,7 +48,6 @@ from duyo.models.user import User
 
 __all__ = [
     "AdminRole",
-    "GroupMessage",
     "AdminUser",
     "AgeSegment",
     "AuditLog",
@@ -77,6 +76,7 @@ __all__ = [
     "GoalKind",
     "GoalSource",
     "GoalStatus",
+    "GroupMessage",
     "InventoryItem",
     "Language",
     "LicenseStatus",
