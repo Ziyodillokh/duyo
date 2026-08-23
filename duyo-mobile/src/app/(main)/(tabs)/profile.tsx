@@ -2,8 +2,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   Bell,
+  BookOpen,
+  ChevronRight,
   Crown,
   Flame,
+  PenLine,
   Settings as SettingsIcon,
   Star,
   Trophy,
@@ -206,6 +209,57 @@ export default function ProfileScreen() {
           <View style={{ marginBottom: 16 }}>
             <InventorySummary />
           </View>
+
+          {/* Kutubxona left the tab bar on the promise it stays reachable
+              from home — the glass dashboard dropped those cards, so the
+              doorway lives here now (and lesson-help with it). */}
+          <DarkCard>
+            {(
+              [
+                {
+                  key: 'library',
+                  Icon: BookOpen,
+                  colour: '#FDC700',
+                  label: 'Kutubxona',
+                  hint: "She'r, ertak va darsliklar",
+                  href: '/(main)/library',
+                },
+                {
+                  key: 'lessons',
+                  Icon: PenLine,
+                  colour: '#05DF72',
+                  label: 'Dars yordami',
+                  hint: 'Uy vazifasiga qadamma-qadam yordam',
+                  href: '/(main)/lesson-help',
+                },
+              ] as const
+            ).map(({ key, Icon, colour, label, hint, href }, i) => (
+              <Pressable
+                key={key}
+                onPress={() => router.push(href)}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                className="flex-row items-center gap-3 py-3"
+                style={i > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(148,163,184,0.35)' } : undefined}
+              >
+                <View
+                  className="w-10 h-10 rounded-md items-center justify-center"
+                  style={{ backgroundColor: `${colour}22` }}
+                >
+                  <Icon size={20} color={colour} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-foreground dark:text-dark-text">
+                    {label}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                    {hint}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </Pressable>
+            ))}
+          </DarkCard>
 
           <Pressable
             onPress={() => router.push('/(main)/subscription')}

@@ -21,6 +21,12 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
   const currentRouteName = state.routes[state.index]?.name ?? 'index';
   const active: TabKey = ROUTE_TO_TAB[currentRouteName] ?? 'home';
 
+  // The glass dashboard ships its own dock (Maqsaddoshlar · AI · 2-Miyya);
+  // stacking the global bar under it would announce the same places twice.
+  if (active === 'home') {
+    return null;
+  }
+
   const handleSelect = (key: TabKey) => {
     const targetRoute = Object.keys(ROUTE_TO_TAB).find(
       (route) => ROUTE_TO_TAB[route] === key,
