@@ -21,20 +21,11 @@ import {
   Text,
   TextInput,
   View,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, {
-  Circle,
-  ClipPath,
-  Defs,
-  Ellipse,
-  G,
-  Path,
-  RadialGradient,
-  Stop,
-} from 'react-native-svg';
-
+import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
 import { fetchGoalCatalog } from '@/api/endpoints/goals';
 import {
   friendRequestErrorMessage,
@@ -78,185 +69,36 @@ const glass = (radius: number): ViewStyle => ({
 // nothing else), so the mock's photographs become drawn people: the same
 // warm circles, deterministic per peer, no real child's face anywhere.
 
-const AVATAR_BG: readonly [string, string][] = [
-  ['#BFD9FB', '#8FB7F3'],
-  ['#F6D9C4', '#E8A87C'],
-  ['#CDEBD8', '#8FCFA9'],
-  ['#E7D6F7', '#B79BE0'],
-  ['#F9E3B5', '#EBC06B'],
-];
-const SKIN = ['#F4C9A5', '#E8B48C', '#D49B6F', '#B97F55'];
-const HAIR = ['#2C2320', '#4A3423', '#7A5230', '#1F2A44'];
-const SHIRT = ['#3A6FD8', '#2FA872', '#D8663A', '#7A55C9', '#2B8FA5', '#C94A72'];
-
-function pick<T>(arr: readonly T[], seed: number, salt: number): T {
-  // Small seeds die under a bare shift — mix properly so every trait varies.
-  const h = Math.imul(seed ^ Math.imul(salt + 1, 0x9e3779b9), 0x85ebca6b) >>> 16;
-  return arr[h % arr.length];
+/** The first word or two of a goal, which the mock sets in bold before the
+ *  rest of the sentence goes quiet. Two words when the first is tiny ("O'z",
+ *  "10 ta"), so the emphasis always carries meaning. */
+function leadOf(goal: string): string {
+  const words = goal.split(' ');
+  const lead = words[0] ?? '';
+  if (lead.length <= 4 && words.length > 2) return `${lead} ${words[1]}`;
+  return lead;
 }
 
-/** Trait overrides + a backdrop scene, so a circle can echo the mock's
- *  photographs: a hiker against mountains, a coder against the city, a
- *  reader against her shelves — drawn, never photographed. */
-export interface AvatarSpec {
-  bg?: [string, string];
-  scene?: 'plain' | 'mountains' | 'city' | 'gym' | 'books';
-  skin?: string;
-  hair?: string;
-  shirt?: string;
-  style?: 0 | 1 | 2 | 3;
-}
+/** A stable portrait for a real peer. Deterministic from the id, so the same
+ *  child looks the same on every device and every launch. */
+const PORTRAIT_SCENES: readonly Scene[] = ['studio', 'street', 'city', 'mountains', 'library'];
+const PORTRAIT_SKIN = ['#F0C6A2', '#E8BC92', '#DDAA80', '#CE9469', '#B97D55'];
+const PORTRAIT_HAIR = ['#1E1815', '#2B211B', '#4A3423', '#5A3520', '#1F2436'];
+const PORTRAIT_TOP = ['#33507F', '#2F6E7F', '#4E6B58', '#8E97A6', '#D9924E', '#7A55C9'];
 
-function Scene({ kind, s }: { kind: NonNullable<AvatarSpec['scene']>; s: number }) {
-  switch (kind) {
-    case 'mountains':
-      return (
-        <>
-          <Path
-            d={`M ${-s * 0.1} ${s * 0.78} L ${s * 0.3} ${s * 0.34} L ${s * 0.62} ${s * 0.78} Z`}
-            fill="#7FA3D9"
-          />
-          <Path
-            d={`M ${s * 0.34} ${s * 0.78} L ${s * 0.72} ${s * 0.42} L ${s * 1.1} ${s * 0.78} Z`}
-            fill="#5E82B8"
-          />
-          <Path
-            d={`M ${s * 0.24} ${s * 0.41} L ${s * 0.3} ${s * 0.34} L ${s * 0.36} ${s * 0.41} L ${s * 0.3} ${s * 0.45} Z`}
-            fill="#FFFFFF"
-          />
-        </>
-      );
-    case 'city':
-      return (
-        <>
-          {[0.04, 0.22, 0.42, 0.6, 0.78].map((x, i) => (
-            <Path
-              key={i}
-              d={`M ${s * x} ${s * (0.3 + (i % 3) * 0.09)} h ${s * 0.16} V ${s * 0.9} h ${-s * 0.16} Z`}
-              fill={`rgba(70,100,150,${0.35 + (i % 2) * 0.15})`}
-            />
-          ))}
-        </>
-      );
-    case 'gym':
-      return (
-        <>
-          <Path d={`M 0 0 h ${s} v ${s} h ${-s} Z`} fill="rgba(28,36,52,0.5)" />
-          <Path
-            d={`M ${s * 0.12} ${s * 0.3} h ${s * 0.76}`}
-            stroke="rgba(200,215,235,0.5)"
-            strokeWidth={s * 0.025}
-          />
-        </>
-      );
-    case 'books':
-      return (
-        <>
-          {[0.22, 0.46, 0.7].map((y, r) => (
-            <G key={r}>
-              <Path d={`M 0 ${s * y} h ${s} v ${s * 0.03} h ${-s} Z`} fill="rgba(120,90,60,0.5)" />
-              {[0.06, 0.2, 0.34, 0.5, 0.66, 0.8].map((x, i) => (
-                <Path
-                  key={i}
-                  d={`M ${s * x} ${s * (y - 0.16)} h ${s * 0.1} V ${s * y} h ${-s * 0.1} Z`}
-                  fill={['#C96F4A', '#5B84C4', '#4FA37C', '#C9A44A'][(r + i) % 4]}
-                  opacity={0.75}
-                />
-              ))}
-            </G>
-          ))}
-        </>
-      );
-    case 'plain':
-      return null;
-  }
-}
-
-/** A flat-vector person, head and shoulders, clipped to a circle. */
-function PersonAvatar({ seed, size, spec }: { seed: number; size: number; spec?: AvatarSpec }) {
-  const bg = spec?.bg ?? pick(AVATAR_BG, seed, 2);
-  const skin = spec?.skin ?? pick(SKIN, seed, 5);
-  const hair = spec?.hair ?? pick(HAIR, seed, 8);
-  const shirt = spec?.shirt ?? pick(SHIRT, seed, 11);
-  const style = spec?.style ?? (Math.imul(seed, 0x27d4eb2f) >>> 13) % 4;
-  const s = size;
-  const cx = s / 2;
-  const headY = s * 0.44;
-  const headR = s * 0.21;
-  const uid = `av${seed}-${size}-${spec?.scene ?? 'p'}`;
-
-  return (
-    <Svg width={s} height={s}>
-      <Defs>
-        <RadialGradient id={uid} cx="35%" cy="28%" r="90%">
-          <Stop offset="0%" stopColor={bg[0]} />
-          <Stop offset="100%" stopColor={bg[1]} />
-        </RadialGradient>
-        <ClipPath id={`${uid}c`}>
-          <Circle cx={cx} cy={s / 2} r={s / 2} />
-        </ClipPath>
-      </Defs>
-      <Circle cx={cx} cy={s / 2} r={s / 2} fill={`url(#${uid})`} />
-      <G clipPath={`url(#${uid}c)`}>
-        {spec?.scene && spec.scene !== 'plain' && <Scene kind={spec.scene} s={s} />}
-        {/* shoulders */}
-        <Ellipse cx={cx} cy={s * 1.04} rx={s * 0.4} ry={s * 0.34} fill={shirt} />
-        {/* neck */}
-        <Path
-          d={`M ${cx - s * 0.06} ${headY + headR * 0.7} h ${s * 0.12} v ${s * 0.12} h ${-s * 0.12} Z`}
-          fill={skin}
-        />
-        {/* head */}
-        <Circle cx={cx} cy={headY} r={headR} fill={skin} />
-        {/* hair */}
-        {style === 0 && (
-          <Path
-            d={`M ${cx - headR} ${headY} a ${headR} ${headR} 0 0 1 ${headR * 2} 0 l 0 ${-headR * 0.28} a ${headR} ${headR} 0 0 0 ${-headR * 2} 0 Z`}
-            fill={hair}
-          />
-        )}
-        {style === 1 && (
-          <Path
-            d={`M ${cx - headR * 1.04} ${headY + headR * 0.1} a ${headR * 1.04} ${headR * 1.04} 0 0 1 ${headR * 2.08} 0 l ${-headR * 0.3} ${-headR * 0.72} l ${-headR * 1.5} ${-headR * 0.05} Z`}
-            fill={hair}
-          />
-        )}
-        {style === 2 && (
-          <>
-            <Circle cx={cx - headR * 0.62} cy={headY - headR * 0.72} r={headR * 0.42} fill={hair} />
-            <Circle cx={cx} cy={headY - headR * 0.92} r={headR * 0.46} fill={hair} />
-            <Circle cx={cx + headR * 0.62} cy={headY - headR * 0.72} r={headR * 0.42} fill={hair} />
-          </>
-        )}
-        {style === 3 && (
-          <>
-            <Path
-              d={`M ${cx - headR * 1.05} ${headY} a ${headR * 1.05} ${headR * 1.05} 0 0 1 ${headR * 2.1} 0 Z`}
-              fill={hair}
-            />
-            <Path
-              d={`M ${cx - headR * 1.02} ${headY - headR * 0.1} q ${-headR * 0.16} ${headR * 1.2} ${headR * 0.24} ${headR * 1.6} l ${headR * 0.34} 0 q ${-headR * 0.3} ${-headR * 0.8} ${-headR * 0.18} ${-headR * 1.5} Z`}
-              fill={hair}
-            />
-            <Path
-              d={`M ${cx + headR * 1.02} ${headY - headR * 0.1} q ${headR * 0.16} ${headR * 1.2} ${-headR * 0.24} ${headR * 1.6} l ${-headR * 0.34} 0 q ${headR * 0.3} ${-headR * 0.8} ${headR * 0.18} ${-headR * 1.5} Z`}
-              fill={hair}
-            />
-          </>
-        )}
-        {/* face hints — enough to read as a person, never as a portrait */}
-        <Circle cx={cx - headR * 0.34} cy={headY} r={s * 0.014} fill="#3A2E28" />
-        <Circle cx={cx + headR * 0.34} cy={headY} r={s * 0.014} fill="#3A2E28" />
-        <Path
-          d={`M ${cx - headR * 0.2} ${headY + headR * 0.42} q ${headR * 0.2} ${headR * 0.18} ${headR * 0.4} 0`}
-          stroke="#3A2E28"
-          strokeWidth={s * 0.012}
-          strokeLinecap="round"
-          fill="none"
-        />
-      </G>
-    </Svg>
-  );
+function portraitFor(id: string): PortraitSpec {
+  const h = seedOf(id);
+  const at = (n: number, salt: number) =>
+    (Math.imul(h ^ Math.imul(salt + 1, 0x9e3779b9), 0x85ebca6b) >>> 16) % n;
+  return {
+    scene: PORTRAIT_SCENES[at(PORTRAIT_SCENES.length, 1)],
+    skin: PORTRAIT_SKIN[at(PORTRAIT_SKIN.length, 3)],
+    hair: PORTRAIT_HAIR[at(PORTRAIT_HAIR.length, 5)],
+    hairStyle: at(5, 7) as PortraitSpec['hairStyle'],
+    top: PORTRAIT_TOP[at(PORTRAIT_TOP.length, 9)],
+    lightFromLeft: at(2, 11) === 0,
+    turn: at(9, 13) - 4,
+  };
 }
 
 function seedOf(text: string): number {
@@ -308,30 +150,38 @@ const categoryOf = (matchKey: string | null): Category | null =>
   matchKey ? (CATEGORIES.find((c) => c.match(matchKey)) ?? null) : null;
 
 /** The mock's community circles, wired to the categories that exist. */
-const STORIES: readonly { label: string; cat: string; seed: number; spec: AvatarSpec }[] = [
+const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
   {
     label: 'Talabalar',
     cat: 'talim',
-    seed: 137,
-    spec: { scene: 'plain', style: 0, hair: '#241D1A', shirt: '#3E4A5C', bg: ['#C9D8EE', '#96ACCC'] },
+    spec: {
+      scene: 'street', skin: '#E3B183', hair: '#241C18', hairStyle: 0,
+      top: '#4A5566', lightFromLeft: true, turn: -4,
+    },
   },
   {
     label: 'IT & Code',
     cat: 'it',
-    seed: 452,
-    spec: { scene: 'city', style: 3, hair: '#4A3423', shirt: '#7A8B99' },
+    spec: {
+      scene: 'city', skin: '#EFC6A0', hair: '#3A2A1E', hairStyle: 3,
+      top: '#8A7F76', lightFromLeft: false, turn: 5,
+    },
   },
   {
     label: 'Sayohatchilar',
     cat: 'sayohat',
-    seed: 863,
-    spec: { scene: 'mountains', style: 0, shirt: '#2B8FA5' },
+    spec: {
+      scene: 'mountains', skin: '#DFAE84', hair: '#1F1815', hairStyle: 0,
+      top: '#2F6E7F', lightFromLeft: true, turn: 3,
+    },
   },
   {
     label: 'Sportchilar',
     cat: 'sport',
-    seed: 291,
-    spec: { scene: 'gym', style: 0, hair: '#241D1A', shirt: '#20242B' },
+    spec: {
+      scene: 'gym', skin: '#D9A278', hair: '#1B1512', hairStyle: 0,
+      top: '#171B21', lightFromLeft: false, turn: -3,
+    },
   },
 ];
 
@@ -357,76 +207,103 @@ interface DemoMate {
   online: boolean;
   tags: readonly string[];
   catKeys: readonly string[];
-  spec: AvatarSpec;
+  /** The words the mock sets in bold before the sentence goes quiet. */
+  lead: string;
+  spec: PortraitSpec;
 }
 
 const DEMO_MATES: readonly DemoMate[] = [
   {
     name: 'Bekzodbek',
     goal: "Frontend developer bo'lish",
+    lead: 'Frontend',
     status: 'Onlayn',
     online: true,
     tags: ['IT & Code'],
     catKeys: ['it'],
-    spec: { scene: 'plain', style: 0, hair: '#241D1A', shirt: '#2E3440', bg: ['#C7D6EC', '#93A9C9'] },
+    spec: {
+      scene: 'studio', skin: '#E8BC92', hair: '#1E1815', hairStyle: 0,
+      top: '#2A2F38', lightFromLeft: true, turn: -5,
+    },
   },
   {
     name: 'Sevinch',
     goal: 'IELTS 7.0 olish',
+    lead: 'IELTS 7.0',
     status: 'Onlayn',
     online: true,
     tags: ["Ta'lim", "Til o'rganish"],
     catKeys: ['talim', 'til'],
-    spec: { scene: 'plain', style: 3, hair: '#4A3423', shirt: '#D8663A', bg: ['#F3D9C0', '#E0A878'] },
+    spec: {
+      scene: 'street', skin: '#F0C6A2', hair: '#2B211B', hairStyle: 3,
+      top: '#D9924E', lightFromLeft: false, turn: 6,
+    },
   },
   {
     name: 'Jasurbek',
     goal: 'Marafonda qatnashish',
+    lead: 'Marafonda',
     status: '5 daqiqa avval',
     online: false,
     tags: ['Sport'],
     catKeys: ['sport'],
-    spec: { scene: 'mountains', style: 0, shirt: '#2B8FA5' },
+    spec: {
+      scene: 'mountains', skin: '#DDAA80', hair: '#221A16', hairStyle: 0,
+      top: '#3E6E86', lightFromLeft: true, turn: 4,
+    },
   },
   {
     name: 'Madinaxon',
     goal: "O'z biznesimni ochish",
+    lead: "O'z",
     status: '10 daqiqa avval',
     online: false,
     tags: ['Biznes'],
     catKeys: ['biznes'],
-    spec: { scene: 'city', style: 2, hair: '#4A3423', shirt: '#5E7F5A' },
+    spec: {
+      scene: 'city', skin: '#F2CBA6', hair: '#5A3520', hairStyle: 3,
+      top: '#4E6B58', lightFromLeft: true, turn: -6,
+    },
   },
   {
     name: 'Diyorbek',
     goal: '10 ta davlatga sayohat qilish',
+    lead: '10 ta',
     status: '1 soat avval',
     online: false,
     tags: ['Sayohat'],
     catKeys: ['sayohat'],
-    spec: { scene: 'mountains', style: 1, shirt: '#3A6FD8' },
+    spec: {
+      scene: 'mountains', skin: '#D9A47A', hair: '#1C1512', hairStyle: 1,
+      top: '#33507F', lightFromLeft: false, turn: 3,
+    },
   },
   {
     name: 'Nilufar',
     goal: "Kuniga 20 bet kitob o'qish",
+    lead: 'Kuniga 20',
     status: '2 soat avval',
     online: false,
     tags: ["O'zini rivojlantirish"],
     catKeys: ['rivoj'],
-    spec: { scene: 'books', style: 3, hair: '#2C2320', shirt: '#7A8B99' },
+    spec: {
+      scene: 'library', skin: '#EEC49E', hair: '#241A14', hairStyle: 4,
+      top: '#8E97A6', lightFromLeft: true, turn: -3,
+    },
   },
 ];
 
 function DemoCard({ mate, onTap }: { mate: DemoMate; onTap: () => void }) {
   return (
     <View style={[glass(30), rowStyles.card]}>
-      <PersonAvatar seed={seedOf(mate.name)} size={84} spec={mate.spec} />
+      <Portrait spec={mate.spec} size={88} seed={seedOf(mate.name)} />
       <View style={rowStyles.body}>
         <Text style={rowStyles.name} numberOfLines={1}>
           {mate.name}
         </Text>
         <Text style={rowStyles.goal} numberOfLines={1}>
-          {mate.goal}
+          <Text style={rowStyles.goalLead}>{mate.lead}</Text>
+          {mate.goal.slice(mate.lead.length)}
         </Text>
         <View style={rowStyles.statusRow}>
           <View style={[rowStyles.dot, { backgroundColor: mate.online ? GREEN : MUTED }]} />
@@ -502,13 +379,14 @@ function MateCard({
 
   return (
     <View style={[glass(30), rowStyles.card]}>
-      <PersonAvatar seed={seedOf(row.peerId)} size={84} />
+      <Portrait spec={portraitFor(row.peerId)} size={88} seed={seedOf(row.peerId)} />
       <View style={rowStyles.body}>
         <Text style={rowStyles.name} numberOfLines={1}>
           {row.name}
         </Text>
         <Text style={rowStyles.goal} numberOfLines={1}>
-          {row.goal}
+          <Text style={rowStyles.goalLead}>{leadOf(row.goal)}</Text>
+          {row.goal.slice(leadOf(row.goal).length)}
         </Text>
         <View style={rowStyles.statusRow}>
           <View style={[rowStyles.dot, { backgroundColor: status.dot }]} />
@@ -830,7 +708,7 @@ export default function GoalMatesScreen() {
               >
                 <View style={[styles.storyRing, active && styles.storyRingActive]}>
                   <View style={styles.storyInner}>
-                    <PersonAvatar seed={story.seed} size={72} spec={story.spec} />
+                    <Portrait spec={story.spec} size={72} seed={seedOf(story.label)} />
                   </View>
                 </View>
                 <Text style={styles.storyLabel} numberOfLines={1}>
@@ -1160,7 +1038,8 @@ const rowStyles = StyleSheet.create({
   },
   body: { flex: 1 },
   name: { fontSize: 21, fontWeight: '700', color: PRIMARY },
-  goal: { marginTop: 4, fontSize: 16, fontWeight: '600', color: INK },
+  goal: { marginTop: 4, fontSize: 16, fontWeight: '500', color: MUTED },
+  goalLead: { fontWeight: '700', color: INK } as TextStyle,
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 14, color: MUTED },
