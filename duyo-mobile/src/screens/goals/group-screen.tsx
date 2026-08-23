@@ -155,6 +155,7 @@ export default function GroupScreen() {
   const [draft, setDraft] = useState('');
   const [refusal, setRefusal] = useState<string | null>(null);
   const [joinFailed, setJoinFailed] = useState<string | null>(null);
+  const [rosterOpen, setRosterOpen] = useState(false);
   const listRef = useRef<FlatList<GroupMessage>>(null);
 
   const submit = () => {
@@ -185,44 +186,61 @@ export default function GroupScreen() {
       />
 
       <KeyboardAvoidingView style={{ flex: 1 }}>
-        {/* ── Header ───────────────────────────────────────────────────── */}
+        {/* ── Header: avatar, then name over member count, left-aligned —
+             the order Telegram uses, and the whole strip opens the roster. */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 44) }]}>
           <Pressable
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(main)/(tabs)/goals'))}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace('/(main)/(tabs)/goals')
+            }
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            style={[glass(24), styles.headerButton]}
+            style={[styles.backButton, styles.focusable]}
           >
-            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
+            <ArrowLeft size={24} color={PRIMARY} strokeWidth={2.2} />
           </Pressable>
-          <View style={styles.headerText}>
-            <Text style={styles.title} numberOfLines={1}>
-              {group?.label ?? label}
-            </Text>
-            <View style={styles.subRow}>
-              <Users size={13} color={MUTED} strokeWidth={2} />
-              <Text style={styles.sub}>
+
+          <Pressable
+            onPress={() => setRosterOpen((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={`${group?.label ?? label} — a'zolar`}
+            style={[styles.headerIdentity, styles.focusable]}
+          >
+            <View style={styles.groupAvatar}>
+              <Portrait
+                spec={portraitFor(key ?? label)}
+                size={40}
+                seed={seedOf(key ?? label)}
+              />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.title} numberOfLines={1}>
+                {group?.label ?? label}
+              </Text>
+              <Text style={styles.sub} numberOfLines={1}>
                 {group ? `${group.members} a'zo` : '...'}
               </Text>
             </View>
-          </View>
-          <View style={styles.headerButton} />
+          </Pressable>
         </View>
 
-        {/* ── Roster strip ─────────────────────────────────────────────── */}
-        {joined && (members.data?.length ?? 0) > 0 && (
-          <View style={styles.roster}>
-            {(members.data ?? []).slice(0, 8).map((m) => (
-              <View key={m.child_id} style={styles.rosterFace}>
-                <Portrait
-                  spec={portraitFor(m.display_name)}
-                  size={30}
-                  seed={seedOf(m.display_name)}
-                />
-              </View>
-            ))}
-            {(members.data?.length ?? 0) > 8 && (
-              <Text style={styles.rosterMore}>+{(members.data?.length ?? 0) - 8}</Text>
+        {/* The roster is a disclosure, not permanent furniture — it used to
+            sit under the back button and read as a broken overlap. */}
+        {rosterOpen && joined && (
+          <View style={[glass(18), styles.rosterSheet]}>
+            {(members.data ?? []).length === 0 ? (
+              <Text style={styles.rosterEmpty}>Hozircha faqat sen bu yerdasan.</Text>
+            ) : (
+              (members.data ?? []).map((m) => (
+                <View key={m.child_id} style={styles.rosterRow}>
+                  <Portrait
+                    spec={portraitFor(m.display_name)}
+                    size={32}
+                    seed={seedOf(m.display_name)}
+                  />
+                  <Text style={styles.rosterName}>{m.display_name}</Text>
+                </View>
+              ))
             )}
           </View>
         )}
@@ -309,12 +327,15 @@ export default function GroupScreen() {
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               messages.isPending ? null : (
-                <View style={[glass(22), styles.gate]}>
-                  <Text style={styles.gateTitle}>Hali hech kim yozmagan</Text>
-                  <Text style={styles.gateBody}>
-                    Birinchi bo'lib salom ayt — shu maqsaddagi {group?.members ?? 0}{' '}
-                    bola shu yerda.
-                  </Text>
+                // Telegram puts an empty room's note in a small centred pill,
+                // not a card the size of a screen.
+                <View style={styles.emptyWrap}>
+                  <View style={styles.emptyPill}>
+                    <Text style={styles.emptyText}>
+                      Hali hech kim yozmagan. Birinchi bo'lib salom ayt —
+                      shu maqsaddagi {group?.members ?? 0} bola shu yerda.
+                    </Text>
+                  </View>
                 </View>
               )
             }
@@ -329,17 +350,19 @@ export default function GroupScreen() {
                 <Text style={styles.refusalText}>{refusal}</Text>
               </View>
             )}
-            <View style={[glass(26), styles.composer]}>
-              <TextInput
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="Guruhga yozing..."
-                placeholderTextColor="#7693C2"
-                style={styles.input}
-                maxLength={500}
-                multiline
-                accessibilityLabel="Guruh xabari"
-              />
+            <View style={styles.composerRow}>
+              <View style={styles.inputPill}>
+                <TextInput
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Xabar yozing..."
+                  placeholderTextColor="#93A9C9"
+                  style={[styles.input, styles.focusable]}
+                  maxLength={500}
+                  multiline
+                  accessibilityLabel="Guruh xabari"
+                />
+              </View>
               <Pressable
                 onPress={submit}
                 disabled={!draft.trim() || send.isPending}
@@ -347,10 +370,11 @@ export default function GroupScreen() {
                 accessibilityLabel="Yuborish"
                 style={[
                   styles.sendButton,
-                  (!draft.trim() || send.isPending) && { opacity: 0.45 },
+                  styles.focusable,
+                  (!draft.trim() || send.isPending) && styles.sendIdle,
                 ]}
               >
-                <Send size={20} color="#FFFFFF" strokeWidth={2} />
+                <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
               </Pressable>
             </View>
           </View>
@@ -364,43 +388,48 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
+  // The browser draws a black rectangle around a focused control; these are
+  // round or pill-shaped, so the default ring is simply wrong.
+  focusable: { outlineWidth: 0 },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
+    gap: 4,
+    paddingHorizontal: 12,
     paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(120,160,220,0.16)',
   },
-  headerButton: {
-    width: 48,
-    height: 48,
+  backButton: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerText: { flex: 1, alignItems: 'center' },
-  title: { fontSize: 20, fontWeight: '700', color: TITLE },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  sub: { fontSize: 13, color: MUTED },
+  headerIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  groupAvatar: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
+  headerText: { flex: 1 },
+  title: { fontSize: 17, fontWeight: '700', color: TITLE },
+  sub: { marginTop: 1, fontSize: 13, color: MUTED },
 
-  roster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: -8,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-  rosterFace: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.9)',
-    marginRight: -8,
-  },
-  rosterMore: { marginLeft: 16, fontSize: 13, fontWeight: '600', color: MUTED },
+  rosterSheet: { marginHorizontal: 12, marginTop: 8, padding: 12, gap: 10 },
+  rosterRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rosterName: { fontSize: 15, fontWeight: '600', color: INK },
+  rosterEmpty: { fontSize: 14, color: MUTED },
 
-  list: { padding: 16, paddingBottom: 8, gap: 10 },
+  // flexGrow + flex-end anchors a short conversation to the bottom, the way
+  // a chat fills upward rather than starting at the top of the screen.
+  list: { flexGrow: 1, justifyContent: 'flex-end', padding: 12, gap: 6 },
+  emptyWrap: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyPill: {
+    maxWidth: 280,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  emptyText: { fontSize: 13.5, lineHeight: 19, color: INK, textAlign: 'center' },
   rowMine: { alignItems: 'flex-end' },
   rowTheirs: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingVertical: 9 },
@@ -440,22 +469,38 @@ const styles = StyleSheet.create({
 
   refusal: { marginHorizontal: 16, marginBottom: 8, padding: 12 },
   refusalText: { fontSize: 13.5, color: DANGER, fontWeight: '600' },
-  composer: {
-    marginHorizontal: 16,
-    paddingLeft: 18,
-    paddingRight: 8,
-    paddingVertical: 8,
+  composerRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 6,
   },
-  input: { flex: 1, fontSize: 16, color: INK, maxHeight: 110, paddingVertical: 6 },
+  inputPill: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.9)',
+    boxShadow: '0 6px 16px rgba(111,155,221,0.20)',
+  },
+  input: {
+    fontSize: 16,
+    lineHeight: 21,
+    color: INK,
+    maxHeight: 110,
+    paddingVertical: 11,
+  },
   sendButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sendIdle: { backgroundColor: '#A8C2EA' },
 });
