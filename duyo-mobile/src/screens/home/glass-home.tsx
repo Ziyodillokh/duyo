@@ -400,7 +400,7 @@ function makeStyles({ s }: Sizes) {
  * There is deliberately NO scroll view here: the whole column is scaled by
  * `k` to the phone it is on (see DESIGN_CONTENT), so the dock — home's only
  * navigation — is always on screen. The screen brings its own dock
- * (Maqsaddoshlar · AI · 2-Miyya), so the global tab bar hides itself while
+ * (Maqsad · DUYO · Neo Miyya), so the global tab bar hides itself while
  * the home tab is focused — two bars would double-announce the same places.
  */
 export function GlassHome() {
@@ -567,35 +567,35 @@ export function GlassHome() {
           <Pressable
             onPress={() => toTab('goals')}
             accessibilityRole="button"
-            accessibilityLabel="Maqsaddoshlar"
+            accessibilityLabel="Maqsad"
             style={styles.dockItem}
           >
             <View style={[glass(29), styles.dockCircle]}>
               <Target size={sizes.s(26)} color={PRIMARY} strokeWidth={1.9} />
             </View>
-            <Text style={styles.dockLabel}>Maqsaddoshlar</Text>
+            <Text style={styles.dockLabel}>Maqsad</Text>
           </Pressable>
           <Pressable
             onPress={() => toTab('chat')}
             accessibilityRole="button"
-            accessibilityLabel="AI"
+            accessibilityLabel="DUYO"
             style={styles.dockItem}
           >
             <View style={[glass(43), styles.dockCircleRaised]}>
               <MascotImage size={sizes.s(56)} glow="none" />
             </View>
-            <Text style={styles.dockLabel}>AI</Text>
+            <Text style={styles.dockLabel}>DUYO</Text>
           </Pressable>
           <Pressable
             onPress={() => toTab('brain')}
             accessibilityRole="button"
-            accessibilityLabel="2-Miyya"
+            accessibilityLabel="Neo Miyya"
             style={styles.dockItem}
           >
             <View style={[glass(29), styles.dockCircle]}>
               <Brain size={sizes.s(26)} color={PRIMARY} strokeWidth={1.9} />
             </View>
-            <Text style={styles.dockLabel}>2-Miyya</Text>
+            <Text style={styles.dockLabel}>Neo Miyya</Text>
           </Pressable>
         </View>
       </View>
