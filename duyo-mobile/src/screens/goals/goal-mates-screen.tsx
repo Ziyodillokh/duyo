@@ -44,6 +44,7 @@ import {
   useSocialSettings,
   useUpdateSocialSettings,
 } from '@/hooks/use-social';
+import { categoryOf } from '@/lib/goal-categories';
 import { useChildStore } from '@/store/child';
 
 // ── The glass sky, a shade bluer than home — the mock's cooler morning ───────
@@ -115,46 +116,6 @@ function seedOf(text: string): number {
 }
 
 // ── Categories and the mock's communities ────────────────────────────────────
-
-interface Category {
-  key: string;
-  label: string;
-  match: (k: string) => boolean;
-}
-
-const CATEGORIES: readonly Category[] = [
-  { key: 'it', label: 'IT & Code', match: (k) => k.includes('dasturlash') },
-  {
-    key: 'til',
-    label: "Til o'rganish",
-    match: (k) => k.includes('ingliz') || k.includes('ielts'),
-  },
-  {
-    key: 'talim',
-    label: "Ta'lim",
-    match: (k) => k.startsWith('textbook_') || k.startsWith('exam_'),
-  },
-  {
-    key: 'kitoblar',
-    label: 'Kitoblar',
-    match: (k) => k.startsWith('book_') || k === 'habit_har_kuni_kitob',
-  },
-  { key: 'sport', label: 'Sport', match: (k) => k.includes('sport') },
-  { key: 'sayohat', label: 'Sayohat', match: (k) => k.includes('sayohat') },
-  {
-    key: 'ijod',
-    label: 'Ijodkorlik',
-    match: (k) => k.includes('chizish') || k.includes('gitara'),
-  },
-  {
-    key: 'rivoj',
-    label: "O'zini rivojlantirish",
-    match: (k) => k.startsWith('habit_') || k.startsWith('skill_'),
-  },
-];
-
-const categoryOf = (matchKey: string | null): Category | null =>
-  matchKey ? (CATEGORIES.find((c) => c.match(matchKey)) ?? null) : null;
 
 /** The mock's community circles, wired to the categories that exist. */
 const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
@@ -592,7 +553,6 @@ export default function GoalMatesScreen() {
                 <Text style={styles.storyLabel} numberOfLines={1}>
                   {g.label}
                 </Text>
-                <Text style={styles.storyCount}>{g.members}</Text>
               </Pressable>
             );
           })}
@@ -852,7 +812,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  storyCount: { marginTop: 1, fontSize: 11, fontWeight: '600', color: MUTED },
   storyLabel: {
     marginTop: 8,
     fontSize: 13,

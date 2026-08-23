@@ -96,6 +96,23 @@ def parse_group_key(key: str) -> tuple[Category, AgeSegment] | None:
         return None
 
 
+async def _category_keys(session: AsyncSession, category: Category) -> list[str]:
+    """Catalogue keys that belong to THIS room, by precedence.
+
+    `category.matches` alone is not enough: the rules overlap on purpose
+    (textbook_ingliz_6 satisfies both "til" and "talim"), and `category_of`
+    resolves that by first-match. Counting with the bare predicate while
+    deciding membership with `category_of` put a child in one room and their
+    head-count in another — a room could show two members and still tell one
+    of them they were not in it.
+    """
+    return [
+        k
+        for k in await _matchable_keys(session)
+        if category_of(k) is category
+    ]
+
+
 async def _matchable_keys(session: AsyncSession) -> list[str]:
     """Catalogue keys a group may be built from.
 
@@ -145,7 +162,7 @@ async def member_ids(
 ) -> list[UUID]:
     """Everyone currently in the room, by the same rule as the caller's own
     membership — so a child never sees a roster they are not part of."""
-    allowed = [k for k in await _matchable_keys(session) if category.matches(k)]
+    allowed = await _category_keys(session, category)
     if not allowed:
         return []
     rows = await session.execute(
@@ -170,7 +187,7 @@ async def member_ids(
 async def member_count(
     session: AsyncSession, category: Category, segment: AgeSegment
 ) -> int:
-    allowed = [k for k in await _matchable_keys(session) if category.matches(k)]
+    allowed = await _category_keys(session, category)
     if not allowed:
         return 0
     return (

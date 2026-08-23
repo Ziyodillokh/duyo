@@ -165,3 +165,12 @@ export async function fetchGoalCatalog(
     return [];
   }
 }
+
+/** Confirm a goal the child agreed to. Only confirmed goals introduce a child
+ *  to anyone — see duyo-backend services/social.py and services/groups.py. */
+export async function confirmGoal(childId: string, goalId: string): Promise<Goal> {
+  const { data } = await apiClient.post<Goal>(
+    `/children/${childId}/goals/${goalId}/confirm`,
+  );
+  return data;
+}

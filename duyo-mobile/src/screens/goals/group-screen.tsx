@@ -12,8 +12,10 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { fetchGoalCatalog, type GoalCatalogEntry } from '@/api/endpoints/goals';
 import type { GroupMessage } from '@/api/endpoints/social';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
@@ -21,8 +23,10 @@ import {
   useGroupMembers,
   useGroupMessages,
   useGroups,
+  useJoinGroup,
   useSendGroupMessage,
 } from '@/hooks/use-social';
+import { categoryOf } from '@/lib/goal-categories';
 import { useChildStore } from '@/store/child';
 
 const PRIMARY = '#2F6FE4';
@@ -126,9 +130,31 @@ export default function GroupScreen() {
   const members = useGroupMembers(childId, joined ? key : undefined);
   const messages = useGroupMessages(childId, joined ? key : undefined);
   const send = useSendGroupMessage(childId, key);
+  const join = useJoinGroup(childId);
+  const childAge = useChildStore((st) => st.child?.age ?? undefined);
+
+  // Joining means taking on one of the room's goals, so the door shows the
+  // actual goals rather than a button that would have to invent one.
+  const catalog = useQuery({
+    queryKey: ['goal-catalog', childAge ?? 0],
+    queryFn: () => fetchGoalCatalog(undefined, childAge),
+    staleTime: 60 * 60 * 1000,
+    enabled: !joined,
+  });
+  const joinable = useMemo<GoalCatalogEntry[]>(() => {
+    if (!group) return [];
+    // categoryOf, not the bare rule: the rules overlap on purpose
+    // (textbook_ingliz_6 is both "til" and "talim") and precedence decides.
+    // Filtering by the bare rule offered goals that would have put the child
+    // in a different room than the one they tapped.
+    return (catalog.data ?? []).filter(
+      (e) => categoryOf(e.match_key)?.key === group.category,
+    );
+  }, [catalog.data, group]);
 
   const [draft, setDraft] = useState('');
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [joinFailed, setJoinFailed] = useState<string | null>(null);
   const listRef = useRef<FlatList<GroupMessage>>(null);
 
   const submit = () => {
@@ -207,22 +233,71 @@ export default function GroupScreen() {
             <ActivityIndicator color={PRIMARY} />
           </View>
         ) : !joined ? (
-          <View style={[glass(22), styles.gate]}>
-            <Text style={styles.gateTitle}>Bu guruhga hali kirmagansan</Text>
-            <Text style={styles.gateBody}>
-              Guruhga qo'shilish uchun alohida tugma yo'q: shu yo'nalishda
-              maqsad qo'shsang va uni tasdiqlasang, o'zing shu yerda bo'lasan.
-              Maqsadni olib tashlasang — chiqib ketasan.
-            </Text>
-            <Pressable
-              onPress={() => router.push('/(main)/my-goals')}
-              accessibilityRole="button"
-              accessibilityLabel="Maqsad qo'shish"
-              style={styles.gateButton}
-            >
-              <Text style={styles.gateButtonText}>Maqsad qo'shish</Text>
-            </Pressable>
-          </View>
+          <FlatList
+            data={joinable}
+            keyExtractor={(e) => e.match_key}
+            contentContainerStyle={styles.list}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+              <View style={[glass(22), styles.gate]}>
+                <Text style={styles.gateTitle}>
+                  {group?.label ?? label} guruhiga qo'shilish
+                </Text>
+                <Text style={styles.gateBody}>
+                  Qaysi maqsad ustida ishlayotganingni tanla — shu bilan
+                  guruhga kirasan va o'sha maqsaddagi bolalarni ko'rasan.
+                  Maqsadni keyin olib tashlasang, guruhdan ham chiqasan.
+                </Text>
+                {joinFailed && <Text style={styles.joinError}>{joinFailed}</Text>}
+              </View>
+            }
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => {
+                  if (join.isPending) return;
+                  setJoinFailed(null);
+                  join.mutate(
+                    { match_key: item.match_key, title: item.title, kind: item.kind },
+                    {
+                      onError: () =>
+                        setJoinFailed("Qo'shilib bo'lmadi — qayta urinib ko'r."),
+                    },
+                  );
+                }}
+                disabled={join.isPending}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title} — bu maqsad bilan qo'shilish`}
+                style={[glass(20), styles.joinRow, join.isPending && { opacity: 0.6 }]}
+              >
+                <Text style={styles.joinTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                <Text style={styles.joinAges}>
+                  {item.age_min}–{item.age_max} yosh
+                </Text>
+              </Pressable>
+            )}
+            ListEmptyComponent={
+              catalog.isPending ? null : (
+                <View style={[glass(22), styles.gate]}>
+                  <Text style={styles.gateTitle}>
+                    Bu guruh uchun sening yoshingga mos maqsad yo'q
+                  </Text>
+                  <Text style={styles.gateBody}>
+                    Boshqa guruhni ko'rib chiq yoki o'zing maqsad yozib qo'y.
+                  </Text>
+                  <Pressable
+                    onPress={() => router.push('/(main)/my-goals')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Maqsadlarim"
+                    style={styles.gateButton}
+                  >
+                    <Text style={styles.gateButtonText}>Maqsadlarim</Text>
+                  </Pressable>
+                </View>
+              )
+            }
+          />
         ) : (
           <FlatList
             ref={listRef}
@@ -358,6 +433,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gateButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  joinError: { marginTop: 10, fontSize: 13.5, color: DANGER, fontWeight: '600' },
+  joinRow: { marginHorizontal: 4, padding: 16 },
+  joinTitle: { fontSize: 16, fontWeight: '600', color: INK },
+  joinAges: { marginTop: 4, fontSize: 12.5, color: MUTED },
 
   refusal: { marginHorizontal: 16, marginBottom: 8, padding: 12 },
   refusalText: { fontSize: 13.5, color: DANGER, fontWeight: '600' },

@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { confirmGoal, createGoal, type GoalKind } from '@/api/endpoints/goals';
+
 import {
   listGroupMembers,
   listGroupMessages,
@@ -192,6 +194,36 @@ export function useSendGroupMessage(childId: string | undefined, key: string | u
       sendGroupMessage(childId as string, key as string, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['group-messages', childId, key] });
+    },
+  });
+}
+
+/**
+ * Join a room by taking on one of its goals.
+ *
+ * There is no join request to approve, because there is nobody to approve it:
+ * a room is a catalogue category, not somebody's club. What "joining" means
+ * here is adopting a goal from that category and confirming it — which is the
+ * same fact the server reads membership from, so the door and the state can
+ * never disagree.
+ */
+export function useJoinGroup(childId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (entry: { match_key: string; title: string; kind: GoalKind }) => {
+      const goal = await createGoal(childId as string, {
+        title: entry.title,
+        kind: entry.kind,
+        match_key: entry.match_key,
+      });
+      // Unconfirmed goals never introduce a child to anyone, so the join is
+      // not finished until this lands.
+      return confirmGoal(childId as string, goal.id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups', childId] });
+      qc.invalidateQueries({ queryKey: ['goal-mates', childId] });
+      qc.invalidateQueries({ queryKey: ['goals', childId] });
     },
   });
 }
