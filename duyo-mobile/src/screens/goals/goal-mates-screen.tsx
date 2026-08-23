@@ -95,18 +95,95 @@ function pick<T>(arr: readonly T[], seed: number, salt: number): T {
   return arr[h % arr.length];
 }
 
+/** Trait overrides + a backdrop scene, so a circle can echo the mock's
+ *  photographs: a hiker against mountains, a coder against the city, a
+ *  reader against her shelves — drawn, never photographed. */
+export interface AvatarSpec {
+  bg?: [string, string];
+  scene?: 'plain' | 'mountains' | 'city' | 'gym' | 'books';
+  skin?: string;
+  hair?: string;
+  shirt?: string;
+  style?: 0 | 1 | 2 | 3;
+}
+
+function Scene({ kind, s }: { kind: NonNullable<AvatarSpec['scene']>; s: number }) {
+  switch (kind) {
+    case 'mountains':
+      return (
+        <>
+          <Path
+            d={`M ${-s * 0.1} ${s * 0.78} L ${s * 0.3} ${s * 0.34} L ${s * 0.62} ${s * 0.78} Z`}
+            fill="#7FA3D9"
+          />
+          <Path
+            d={`M ${s * 0.34} ${s * 0.78} L ${s * 0.72} ${s * 0.42} L ${s * 1.1} ${s * 0.78} Z`}
+            fill="#5E82B8"
+          />
+          <Path
+            d={`M ${s * 0.24} ${s * 0.41} L ${s * 0.3} ${s * 0.34} L ${s * 0.36} ${s * 0.41} L ${s * 0.3} ${s * 0.45} Z`}
+            fill="#FFFFFF"
+          />
+        </>
+      );
+    case 'city':
+      return (
+        <>
+          {[0.04, 0.22, 0.42, 0.6, 0.78].map((x, i) => (
+            <Path
+              key={i}
+              d={`M ${s * x} ${s * (0.3 + (i % 3) * 0.09)} h ${s * 0.16} V ${s * 0.9} h ${-s * 0.16} Z`}
+              fill={`rgba(70,100,150,${0.35 + (i % 2) * 0.15})`}
+            />
+          ))}
+        </>
+      );
+    case 'gym':
+      return (
+        <>
+          <Path d={`M 0 0 h ${s} v ${s} h ${-s} Z`} fill="rgba(28,36,52,0.5)" />
+          <Path
+            d={`M ${s * 0.12} ${s * 0.3} h ${s * 0.76}`}
+            stroke="rgba(200,215,235,0.5)"
+            strokeWidth={s * 0.025}
+          />
+        </>
+      );
+    case 'books':
+      return (
+        <>
+          {[0.22, 0.46, 0.7].map((y, r) => (
+            <G key={r}>
+              <Path d={`M 0 ${s * y} h ${s} v ${s * 0.03} h ${-s} Z`} fill="rgba(120,90,60,0.5)" />
+              {[0.06, 0.2, 0.34, 0.5, 0.66, 0.8].map((x, i) => (
+                <Path
+                  key={i}
+                  d={`M ${s * x} ${s * (y - 0.16)} h ${s * 0.1} V ${s * y} h ${-s * 0.1} Z`}
+                  fill={['#C96F4A', '#5B84C4', '#4FA37C', '#C9A44A'][(r + i) % 4]}
+                  opacity={0.75}
+                />
+              ))}
+            </G>
+          ))}
+        </>
+      );
+    case 'plain':
+      return null;
+  }
+}
+
 /** A flat-vector person, head and shoulders, clipped to a circle. */
-function PersonAvatar({ seed, size }: { seed: number; size: number }) {
-  const bg = pick(AVATAR_BG, seed, 2);
-  const skin = pick(SKIN, seed, 5);
-  const hair = pick(HAIR, seed, 8);
-  const shirt = pick(SHIRT, seed, 11);
-  const style = (Math.imul(seed, 0x27d4eb2f) >>> 13) % 4;
+function PersonAvatar({ seed, size, spec }: { seed: number; size: number; spec?: AvatarSpec }) {
+  const bg = spec?.bg ?? pick(AVATAR_BG, seed, 2);
+  const skin = spec?.skin ?? pick(SKIN, seed, 5);
+  const hair = spec?.hair ?? pick(HAIR, seed, 8);
+  const shirt = spec?.shirt ?? pick(SHIRT, seed, 11);
+  const style = spec?.style ?? (Math.imul(seed, 0x27d4eb2f) >>> 13) % 4;
   const s = size;
   const cx = s / 2;
   const headY = s * 0.44;
   const headR = s * 0.21;
-  const uid = `av${seed}-${size}`;
+  const uid = `av${seed}-${size}-${spec?.scene ?? 'p'}`;
 
   return (
     <Svg width={s} height={s}>
@@ -121,6 +198,7 @@ function PersonAvatar({ seed, size }: { seed: number; size: number }) {
       </Defs>
       <Circle cx={cx} cy={s / 2} r={s / 2} fill={`url(#${uid})`} />
       <G clipPath={`url(#${uid}c)`}>
+        {spec?.scene && spec.scene !== 'plain' && <Scene kind={spec.scene} s={s} />}
         {/* shoulders */}
         <Ellipse cx={cx} cy={s * 1.04} rx={s * 0.4} ry={s * 0.34} fill={shirt} />
         {/* neck */}
@@ -230,11 +308,31 @@ const categoryOf = (matchKey: string | null): Category | null =>
   matchKey ? (CATEGORIES.find((c) => c.match(matchKey)) ?? null) : null;
 
 /** The mock's community circles, wired to the categories that exist. */
-const STORIES: readonly { label: string; cat: string; seed: number }[] = [
-  { label: 'Talabalar', cat: 'talim', seed: 137 },
-  { label: 'IT & Code', cat: 'it', seed: 452 },
-  { label: 'Sayohatchilar', cat: 'sayohat', seed: 863 },
-  { label: 'Sportchilar', cat: 'sport', seed: 291 },
+const STORIES: readonly { label: string; cat: string; seed: number; spec: AvatarSpec }[] = [
+  {
+    label: 'Talabalar',
+    cat: 'talim',
+    seed: 137,
+    spec: { scene: 'plain', style: 0, hair: '#241D1A', shirt: '#3E4A5C', bg: ['#C9D8EE', '#96ACCC'] },
+  },
+  {
+    label: 'IT & Code',
+    cat: 'it',
+    seed: 452,
+    spec: { scene: 'city', style: 3, hair: '#4A3423', shirt: '#7A8B99' },
+  },
+  {
+    label: 'Sayohatchilar',
+    cat: 'sayohat',
+    seed: 863,
+    spec: { scene: 'mountains', style: 0, shirt: '#2B8FA5' },
+  },
+  {
+    label: 'Sportchilar',
+    cat: 'sport',
+    seed: 291,
+    spec: { scene: 'gym', style: 0, hair: '#241D1A', shirt: '#20242B' },
+  },
 ];
 
 /** The mock's filter chips. "Yaqin atrofimda" is honest by construction:
@@ -248,6 +346,111 @@ const CHIPS: readonly { key: ChipKey; label: string }[] = [
   { key: 'fresh', label: 'Yangi' },
   { key: 'top', label: 'Top mavzular' },
 ];
+
+// ── The mock's six sample people ─────────────────────────────────────────────
+// Shown only while the child has no real rows: the screen demonstrates what
+// it becomes, card for card the mock, and every tap on them says so.
+interface DemoMate {
+  name: string;
+  goal: string;
+  status: string;
+  online: boolean;
+  tags: readonly string[];
+  catKeys: readonly string[];
+  spec: AvatarSpec;
+}
+
+const DEMO_MATES: readonly DemoMate[] = [
+  {
+    name: 'Bekzodbek',
+    goal: "Frontend developer bo'lish",
+    status: 'Onlayn',
+    online: true,
+    tags: ['IT & Code'],
+    catKeys: ['it'],
+    spec: { scene: 'plain', style: 0, hair: '#241D1A', shirt: '#2E3440', bg: ['#C7D6EC', '#93A9C9'] },
+  },
+  {
+    name: 'Sevinch',
+    goal: 'IELTS 7.0 olish',
+    status: 'Onlayn',
+    online: true,
+    tags: ["Ta'lim", "Til o'rganish"],
+    catKeys: ['talim', 'til'],
+    spec: { scene: 'plain', style: 3, hair: '#4A3423', shirt: '#D8663A', bg: ['#F3D9C0', '#E0A878'] },
+  },
+  {
+    name: 'Jasurbek',
+    goal: 'Marafonda qatnashish',
+    status: '5 daqiqa avval',
+    online: false,
+    tags: ['Sport'],
+    catKeys: ['sport'],
+    spec: { scene: 'mountains', style: 0, shirt: '#2B8FA5' },
+  },
+  {
+    name: 'Madinaxon',
+    goal: "O'z biznesimni ochish",
+    status: '10 daqiqa avval',
+    online: false,
+    tags: ['Biznes'],
+    catKeys: ['biznes'],
+    spec: { scene: 'city', style: 2, hair: '#4A3423', shirt: '#5E7F5A' },
+  },
+  {
+    name: 'Diyorbek',
+    goal: '10 ta davlatga sayohat qilish',
+    status: '1 soat avval',
+    online: false,
+    tags: ['Sayohat'],
+    catKeys: ['sayohat'],
+    spec: { scene: 'mountains', style: 1, shirt: '#3A6FD8' },
+  },
+  {
+    name: 'Nilufar',
+    goal: "Kuniga 20 bet kitob o'qish",
+    status: '2 soat avval',
+    online: false,
+    tags: ["O'zini rivojlantirish"],
+    catKeys: ['rivoj'],
+    spec: { scene: 'books', style: 3, hair: '#2C2320', shirt: '#7A8B99' },
+  },
+];
+
+function DemoCard({ mate, onTap }: { mate: DemoMate; onTap: () => void }) {
+  return (
+    <View style={[glass(30), rowStyles.card]}>
+      <PersonAvatar seed={seedOf(mate.name)} size={84} spec={mate.spec} />
+      <View style={rowStyles.body}>
+        <Text style={rowStyles.name} numberOfLines={1}>
+          {mate.name}
+        </Text>
+        <Text style={rowStyles.goal} numberOfLines={1}>
+          {mate.goal}
+        </Text>
+        <View style={rowStyles.statusRow}>
+          <View style={[rowStyles.dot, { backgroundColor: mate.online ? GREEN : MUTED }]} />
+          <Text style={rowStyles.statusText}>{mate.status}</Text>
+        </View>
+        <View style={rowStyles.tagRow}>
+          {mate.tags.map((t) => (
+            <View key={t} style={rowStyles.tag}>
+              <Text style={rowStyles.tagText}>{t}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <Pressable
+        onPress={onTap}
+        accessibilityRole="button"
+        accessibilityLabel={`${mate.name} — namunaviy profil`}
+        style={[glass(31), rowStyles.action]}
+      >
+        <MessageCircle size={24} color={PRIMARY} strokeWidth={1.9} />
+      </Pressable>
+    </View>
+  );
+}
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
 
@@ -514,6 +717,25 @@ export default function GoalMatesScreen() {
 
   const hasConnections = rows.some((r) => r.state.kind !== 'new');
 
+  // The sample six show only while the child has nothing real to look at,
+  // and they obey the same chips, stories and search as real rows would.
+  const demoRows = useMemo(() => {
+    if (rows.length > 0) return [];
+    let list = [...DEMO_MATES];
+    if (chip === 'active') list = list.filter((d) => d.online);
+    if (category) list = list.filter((d) => d.catKeys.includes(category));
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (d) => d.name.toLowerCase().includes(q) || d.goal.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [rows.length, chip, category, query]);
+
+  const demoTap = () =>
+    say("Bu namunaviy profil — o'z maqsadingni qo'shsang, shu yerda haqiqiy maqsaddoshlar chiqadi.");
+
   const openChat = (f: Friendship) =>
     router.push({
       pathname: '/(main)/peer-chat',
@@ -608,7 +830,7 @@ export default function GoalMatesScreen() {
               >
                 <View style={[styles.storyRing, active && styles.storyRingActive]}>
                   <View style={styles.storyInner}>
-                    <PersonAvatar seed={story.seed} size={72} />
+                    <PersonAvatar seed={story.seed} size={72} spec={story.spec} />
                   </View>
                 </View>
                 <Text style={styles.storyLabel} numberOfLines={1}>
@@ -774,20 +996,25 @@ export default function GoalMatesScreen() {
                       onDecline={decline}
                     />
                   ))}
-                {rows.length === 0 && (
+                {rows.length === 0 && demoRows.length === 0 && (
                   <View style={[glass(28), styles.consentCard]}>
-                    <Text style={styles.consentTitle}>
-                      {query || category
-                        ? 'Hech kim topilmadi'
-                        : "Hozircha maqsaddosh yo'q"}
-                    </Text>
+                    <Text style={styles.consentTitle}>Hech kim topilmadi</Text>
                     <Text style={styles.consentBody}>
-                      {query || category
-                        ? "Qidiruvni o'zgartirib ko'r."
-                        : "Maqsad qo'shsang, xuddi shu maqsaddagi bolalar shu yerda chiqadi."}
+                      Qidiruvni o'zgartirib ko'r.
                     </Text>
                   </View>
                 )}
+              </>
+            )}
+
+            {demoRows.length > 0 && (
+              <>
+                <Text style={styles.demoNote}>
+                  Namuna — maqsad qo'shsang, haqiqiylari chiqadi
+                </Text>
+                {demoRows.map((d) => (
+                  <DemoCard key={d.name} mate={d} onTap={demoTap} />
+                ))}
               </>
             )}
           </>
@@ -901,6 +1128,14 @@ const styles = StyleSheet.create({
 
   skeleton: { marginTop: 18, marginHorizontal: 20, height: 118, opacity: 0.55 },
 
+  demoNote: {
+    marginTop: 20,
+    marginHorizontal: 24,
+    fontSize: 13,
+    fontWeight: '600',
+    color: MUTED,
+    letterSpacing: 0.3,
+  },
   consentCard: { marginTop: 18, marginHorizontal: 20, padding: 22 },
   consentTitle: { fontSize: 17.5, fontWeight: '700', color: INK },
   consentBody: { marginTop: 8, fontSize: 14.5, lineHeight: 22, color: MUTED },
@@ -929,7 +1164,7 @@ const rowStyles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 14, color: MUTED },
-  tagRow: { flexDirection: 'row', marginTop: 9 },
+  tagRow: { flexDirection: 'row', gap: 8, marginTop: 9, flexWrap: 'wrap' },
   tag: {
     backgroundColor: 'rgba(79,134,238,0.16)',
     borderRadius: 14,
