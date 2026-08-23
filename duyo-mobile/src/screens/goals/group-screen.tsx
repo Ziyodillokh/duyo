@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Check, Mic, Paperclip, Send, Smile, Users } from 'lucide-react-native';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,7 +26,10 @@ import {
   dayLabel,
   pill,
 } from '@/components/goals/chat-chrome';
+import { ChatComposer } from '@/components/goals/chat-composer';
+import { AudioNote, VideoNote } from '@/components/goals/note-bubble';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
+import type { MediaNote } from '@/hooks/use-media-note';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
 import {
   useGroupMembers,
@@ -34,6 +37,7 @@ import {
   useGroups,
   useJoinGroup,
   useSendGroupMessage,
+  useSendGroupNote,
 } from '@/hooks/use-social';
 import { categoryOf } from '@/lib/goal-categories';
 import { useChildStore } from '@/store/child';
@@ -84,6 +88,23 @@ function portraitFor(id: string): PortraitSpec {
   };
 }
 
+/**
+ * The clip above a note's text, or nothing at all for a plain message.
+ *
+ * The transcript stays visible underneath rather than being replaced by the
+ * player: it is what the safety screen actually read, and it is the only part
+ * a child on a silent bus can use.
+ */
+function NoteMedia({ m, mine }: { m: GroupMessage; mine: boolean }) {
+  if (!m.media_url || !m.media_kind) return null;
+  const Note = m.media_kind === 'video' ? VideoNote : AudioNote;
+  return (
+    <View style={styles.noteWrap}>
+      <Note url={m.media_url} durationMs={m.media_duration_ms ?? 0} mine={mine} />
+    </View>
+  );
+}
+
 function Bubble({
   m,
   grouped,
@@ -110,6 +131,7 @@ function Bubble({
           ]}
         >
           {last && <Tail side="right" colour={PRIMARY} />}
+          <NoteMedia m={m} mine />
           {/* The time sits at the end of the text and wraps with it —
               Telegram's trick, and why a three-word message is not twice as
               tall as it needs to be. The spacer reserves its room. */}
@@ -152,6 +174,7 @@ function Bubble({
       >
         {last && <Tail side="left" colour={BUBBLE_THEIRS} />}
         {!grouped && <Text style={styles.sender}>{m.sender_name}</Text>}
+        <NoteMedia m={m} mine={false} />
         <Text style={styles.body}>
           {m.body}
           <Text style={styles.metaSpacer}>{'      '}</Text>
@@ -191,6 +214,7 @@ export default function GroupScreen() {
   const members = useGroupMembers(childId, joined ? key : undefined);
   const messages = useGroupMessages(childId, joined ? key : undefined);
   const send = useSendGroupMessage(childId, key);
+  const sendNote = useSendGroupNote(childId, key);
   const join = useJoinGroup(childId);
   const childAge = useChildStore((st) => st.child?.age ?? undefined);
 
@@ -231,6 +255,23 @@ export default function GroupScreen() {
       onError: (err) => {
         // The server explains a refusal without teaching evasion; show its
         // words rather than inventing our own.
+        const detail = (err as { response?: { data?: { detail?: string } } }).response
+          ?.data?.detail;
+        setRefusal(detail ?? "Yuborilmadi — birozdan so'ng qayta urinib ko'r.");
+      },
+    });
+  };
+
+  const submitNote = (note: MediaNote) => {
+    setRefusal(null);
+    sendNote.mutate(note, {
+      onSuccess: () => {
+        // The blob URL was only ever for the local preview; the bubble now
+        // plays the uploaded copy, so let the browser reclaim it.
+        if (note.uri.startsWith('blob:')) URL.revokeObjectURL(note.uri);
+        requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+      },
+      onError: (err) => {
         const detail = (err as { response?: { data?: { detail?: string } } }).response
           ?.data?.detail;
         setRefusal(detail ?? "Yuborilmadi — birozdan so'ng qayta urinib ko'r.");
@@ -441,48 +482,15 @@ export default function GroupScreen() {
                 <Text style={styles.refusalText}>{refusal}</Text>
               </View>
             )}
-            <View style={styles.composerRow}>
-              <View style={styles.inputPill}>
-                <Smile size={22} color="#93A9C9" strokeWidth={1.9} />
-                <TextInput
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder="Xabar yozing..."
-                  placeholderTextColor="#93A9C9"
-                  style={[styles.input, styles.focusableText]}
-                  maxLength={500}
-                  multiline
-                  accessibilityLabel="Guruh xabari"
-                />
-                <Pressable
-                  onPress={() => setRefusal('Fayl biriktirish tez orada.')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Fayl biriktirish"
-                  hitSlop={8}
-                  style={styles.focusable}
-                >
-                  <Paperclip size={21} color="#93A9C9" strokeWidth={1.9} />
-                </Pressable>
-              </View>
-              <Pressable
-                onPress={submit}
-                disabled={!draft.trim() || send.isPending}
-                accessibilityRole="button"
-                accessibilityLabel="Yuborish"
-                style={[
-                  styles.sendButton,
-                  styles.focusable,
-                  (!draft.trim() || send.isPending) && styles.sendIdle,
-                ]}
-              >
-                {draft.trim() ? (
-                  <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
-                ) : (
-                  // Telegram shows the mic until there is something to send.
-                  <Mic size={20} color="#FFFFFF" strokeWidth={2} />
-                )}
-              </Pressable>
-            </View>
+            <ChatComposer
+              draft={draft}
+              onChangeDraft={setDraft}
+              onSendText={submit}
+              sending={send.isPending}
+              onSendNote={submitNote}
+              uploading={sendNote.isPending}
+              onNotice={setRefusal}
+            />
           </View>
         )}
       </KeyboardAvoidingView>
@@ -614,43 +622,8 @@ const styles = StyleSheet.create({
   joinTitle: { fontSize: 16, fontWeight: '600', color: INK },
   joinAges: { marginTop: 4, fontSize: 12.5, color: MUTED },
 
+  noteWrap: { marginBottom: 6 },
+
   refusal: { marginHorizontal: 16, marginBottom: 8, padding: 12 },
   refusalText: { fontSize: 13.5, color: DANGER, fontWeight: '600' },
-  composerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingTop: 6,
-  },
-  inputPill: {
-    flex: 1,
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
-    boxShadow: '0 6px 16px rgba(111,155,221,0.20)',
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 21,
-    color: INK,
-    maxHeight: 110,
-    paddingVertical: 12,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: PRIMARY,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendIdle: { backgroundColor: '#A8C2EA' },
 });

@@ -46,10 +46,16 @@ export interface GroupCard {
 export interface GroupMessage {
   id: string;
   seq: number;
+  /** For a voice/video note this is the TRANSCRIPT — the text the safety
+   *  screen actually judged, and the caption for anyone who cannot play it. */
   body: string;
   sender_name: string;
   mine: boolean;
   created_at: string;
+  /** Authenticated URL of the clip; null for a plain text message. */
+  media_url?: string | null;
+  media_kind?: 'audio' | 'video' | null;
+  media_duration_ms?: number | null;
 }
 
 export interface SocialSettings {
@@ -264,6 +270,57 @@ export async function sendGroupMessage(
   const { data } = await apiClient.post<GroupMessage>(
     `/social/${childId}/groups/${encodeURIComponent(key)}/messages`,
     { body },
+  );
+  return data;
+}
+
+/**
+ * Send a recorded voice or video note.
+ *
+ * Multipart rather than JSON+base64: a 12 MB clip base64-encodes to 16 MB of
+ * string that has to be held in memory twice.
+ *
+ * The Content-Type override is NOT cosmetic. apiClient defaults to
+ * `application/json`, and axios's default transformRequest reacts to that by
+ * running FormData through `formDataToJSON` — the request still succeeds, the
+ * file is simply gone. Overriding the type and passing an identity
+ * transformRequest is what keeps the bytes in the body; the browser then
+ * replaces the header with a boundary-bearing one of its own.
+ */
+export async function sendGroupNote(
+  childId: string,
+  key: string,
+  note: { blob?: Blob; uri: string; mimeType: string; durationMs: number },
+): Promise<GroupMessage> {
+  const form = new FormData();
+  const ext = note.mimeType.includes('mp4')
+    ? 'mp4'
+    : note.mimeType.includes('webm')
+      ? 'webm'
+      : 'bin';
+  const filename = `note.${ext}`;
+
+  if (note.blob) {
+    form.append('file', note.blob, filename);
+  } else {
+    // Native: react-native's FormData takes the {uri, name, type} shape and
+    // streams the file itself.
+    form.append('file', {
+      uri: note.uri,
+      name: filename,
+      type: note.mimeType,
+    } as unknown as Blob);
+  }
+  form.append('kind', note.mimeType.startsWith('video/') ? 'video' : 'audio');
+  form.append('duration_ms', String(Math.round(note.durationMs)));
+
+  const { data } = await apiClient.post<GroupMessage>(
+    `/social/${childId}/groups/${encodeURIComponent(key)}/notes`,
+    form,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      transformRequest: (body) => body,
+    },
   );
   return data;
 }

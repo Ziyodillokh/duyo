@@ -10,16 +10,33 @@ Authorization has two layers, because ownership alone is not enough here:
 Everything 404s rather than 403s on failure, so existence never leaks.
 """
 
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
 from duyo.api.v1.chat import _get_owned_child
+from duyo.core import storage
+
+# Aliased: this module already defines a ROUTE called `get_settings` (the
+# child's social settings), which shadows the app-config one further down the
+# file.
+from duyo.core.config import get_settings as get_app_settings
 from duyo.crisis.detector import KeywordCrisisDetector
 from duyo.crisis.router import get_detector
 from duyo.models.child import ChildProfile
@@ -49,8 +66,10 @@ from duyo.schemas.social import (
     SocialSettingsUpdate,
 )
 from duyo.services import groups as group_svc
+from duyo.services.media_notes import transcribe
 from duyo.services.social import (
     HandleError,
+    MessageVerdict,
     canonical_pair,
     find_friendship,
     find_goal_mates,
@@ -60,6 +79,8 @@ from duyo.services.social import (
     suggest_handles,
     validate_handle,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/social", tags=["social"])
 
@@ -658,6 +679,43 @@ async def list_group_members(
     return [await _peer_card(db, pid) for pid in ids if pid != child.id]
 
 
+def _note_media_url(m: GroupMessage, viewer_id: UUID) -> str:
+    """The AUTHENTICATED URL for a note's clip.
+
+    Deliberately NOT `storage.media_url()`. That points at
+    `GET /v1/content/media/{key}`, which is public by design and documents
+    itself as such — fine for a published book cover, wrong for a recording of
+    a child's voice or face. A key is unguessable, but an unguessable URL is
+    not access control: it leaks through logs, referrers and shared links, and
+    that route even sends `Cache-Control: public`.
+
+    So a note is served by the route below instead, which re-checks the same
+    membership as reading the room.
+    """
+    base = get_app_settings().public_base_url.rstrip("/")
+    return f"{base}/v1/social/{viewer_id}/groups/{m.group_key}/notes/{m.id}/media"
+
+
+def _group_message_read(m: GroupMessage, viewer_id: UUID) -> GroupMessageRead:
+    """One row → one wire object.
+
+    The media KEY is stored and the URL is built here, so the bucket can move
+    without rewriting rows, and only this one place knows how a key becomes a
+    URL.
+    """
+    return GroupMessageRead(
+        id=m.id,
+        seq=m.seq,
+        body=m.body,
+        sender_name=m.sender_name,
+        mine=m.sender_child_id == viewer_id,
+        created_at=m.created_at,
+        media_url=_note_media_url(m, viewer_id) if m.media_key else None,
+        media_kind=m.media_kind,
+        media_duration_ms=m.media_duration_ms,
+    )
+
+
 @router.get("/{child_id}/groups/{key}/messages", response_model=list[GroupMessageRead])
 async def list_group_messages(
     child_id: UUID,
@@ -684,17 +742,7 @@ async def list_group_messages(
         )
     ).scalars().all()
 
-    return [
-        GroupMessageRead(
-            id=m.id,
-            seq=m.seq,
-            body=m.body,
-            sender_name=m.sender_name,
-            mine=m.sender_child_id == child.id,
-            created_at=m.created_at,
-        )
-        for m in reversed(rows)
-    ]
+    return [_group_message_read(m, child.id) for m in reversed(rows)]
 
 
 @router.post(
@@ -747,11 +795,216 @@ async def send_group_message(
             status.HTTP_422_UNPROCESSABLE_ENTITY, _refusal_text(verdict.reason)
         )
 
-    return GroupMessageRead(
-        id=message.id,
-        seq=message.seq,
-        body=message.body,
-        sender_name=message.sender_name,
-        mine=True,
-        created_at=message.created_at,
+    return _group_message_read(message, child.id)
+
+
+@router.get("/{child_id}/groups/{key}/notes/{message_id}/media")
+async def get_group_note_media(
+    child_id: UUID,
+    key: str,
+    message_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream a note's clip to someone who is actually in the room.
+
+    The same gate as reading the room's text: own the child, be a member. A
+    child who leaves the group — by retiring the goal or turning visibility
+    off — stops being able to fetch the audio at the same instant they stop
+    seeing the messages, because it is literally the same check.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    if await group_svc.is_member(db, child, key) is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
+
+    message = await db.get(GroupMessage, message_id)
+    if (
+        message is None
+        or message.group_key != key
+        or not message.media_key
+        # A blocked note is evidence for a moderator, never playable content
+        # for the room it was aimed at.
+        or message.moderation_state != PeerModerationState.DELIVERED
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Yozuv topilmadi")
+
+    try:
+        stream, content_type, size = storage.get_object(message.media_key)
+    except storage.S3Error as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Yozuv topilmadi") from exc
+
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "application/octet-stream",
+        headers={
+            "Content-Length": str(size),
+            # PRIVATE, unlike the public content route: a shared cache must
+            # never hold one child's voice where another request can reach it.
+            "Cache-Control": "private, max-age=3600",
+        },
     )
+
+
+#: The composer's own caps, enforced again here. A client can be edited; the
+#: server is the only place a limit is actually a limit.
+_MAX_NOTE_MS = {"audio": 75_000, "video": 45_000}
+
+#: Tighter than storage's generic ceilings on purpose. Those exist for admin
+#: content uploads; a seconds-long chat note has no business being 20 MB, and
+#: the smaller number is what actually bounds abuse here.
+_MAX_NOTE_BYTES = {"audio": 4 * 1024 * 1024, "video": 12 * 1024 * 1024}
+
+
+@router.post(
+    "/{child_id}/groups/{key}/notes",
+    response_model=GroupMessageRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def send_group_note(
+    child_id: UUID,
+    key: str,
+    file: UploadFile = File(...),
+    kind: str = Form(...),
+    duration_ms: int = Form(default=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    detector: KeywordCrisisDetector = Depends(get_detector),
+) -> GroupMessageRead:
+    """A voice or video note — TRANSCRIBED FIRST, then screened as text.
+
+    The screen that protects this room reads words. A spoken sentence is not
+    safer than a typed one, so the clip is transcribed and the transcript goes
+    through exactly the same `screen_peer_message` as a text message: same
+    peer-harm, contact-detail and crisis rules, no relaxation for being audio.
+
+    A clip that cannot be transcribed is REFUSED rather than delivered.
+    Delivering it would mean sending a room of children something no screen
+    has read, which is the precise failure this path exists to prevent.
+
+    There is no general "child uploads a file" endpoint on purpose: media
+    enters only here, bound to a room the child is already in, and only after
+    passing the screen.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    if await group_svc.is_member(db, child, key) is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
+
+    if kind not in ("audio", "video"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Noma'lum yozuv turi")
+
+    content_type = storage.normalise_type(file.content_type or "")
+    allowed = storage.AUDIO_TYPES if kind == "audio" else storage.VIDEO_TYPES
+    if content_type not in allowed:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Qo'llab-quvvatlanmaydigan fayl turi: {content_type or 'nomalum'}",
+        )
+
+    if duration_ms > _MAX_NOTE_MS[kind]:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Yozuv juda uzun — qisqaroq qilib qayta yozing",
+        )
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bo'sh fayl")
+    if len(data) > _MAX_NOTE_BYTES[kind]:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            "Yozuv juda katta — qisqaroq qilib qayta yozing",
+        )
+
+    app = get_app_settings()
+    unscreened_reason: str | None = None
+
+    if app.google_api_key:
+        transcription = await transcribe(data, content_type)
+        if not transcription.ok:
+            # Fail closed: nothing has read this clip, so nothing may hear it.
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "Yozuvni tekshirib bo'lmadi. Birozdan so'ng qayta urinib ko'ring.",
+            )
+        spoken = transcription.text
+    elif app.app_env == "development":
+        # A local backend with no GOOGLE_API_KEY cannot transcribe, which means
+        # notes could never be sent while developing — and every other Gemini
+        # feature is equally dead, so the machine is plainly not serving real
+        # children. The note goes through UNSCREENED and says so on the row.
+        #
+        # Narrow on purpose: only development, and only when there is no key at
+        # all. Production without a key still refuses, because "misconfigured"
+        # must never become "unmoderated" where real children are.
+        log.warning(
+            "GOOGLE_API_KEY yo'q — %s guruhiga yozuv TEKSHIRILMASDAN o'tkazildi "
+            "(faqat development)",
+            key,
+        )
+        unscreened_reason = "dev_unscreened"
+        spoken = ""
+    else:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Yozuvni tekshirib bo'lmadi. Birozdan so'ng qayta urinib ko'ring.",
+        )
+
+    # An empty body would render as an empty bubble, so a wordless clip gets a
+    # caption instead of a transcript.
+    body = spoken or ("Video xabar" if kind == "video" else "Ovozli xabar")
+
+    if spoken:  # noqa: SIM108 — a ternary would bury the reasoning below
+        verdict = screen_peer_message(spoken, detector)
+    else:
+        # No speech is NOT the same as no screen. Transcription SUCCEEDED and
+        # reported silence, so there are no words to judge — and refusing here
+        # would make a wordless wave impossible to send, which
+        # `screen_peer_message` would do, since it treats an empty string as an
+        # empty message and blocks it.
+        #
+        # The honest limit of this: a clip whose speech the model fails to pick
+        # up also arrives as silence, and passes. Words are the only thing this
+        # path can screen, so a clip carrying risk in some other form — a face,
+        # a place — is not caught here by anything.
+        verdict = MessageVerdict(True, None)
+
+    settings = await get_or_create_settings(db, child.id)
+    try:
+        media_key = storage.upload(data, content_type)
+    except storage.UploadError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "Yozuvni saqlab bo'lmadi"
+        ) from exc
+
+    message = GroupMessage(
+        group_key=key,
+        sender_child_id=child.id,
+        sender_name=settings.display_name,
+        body=body,
+        media_key=media_key,
+        media_kind=kind,
+        media_duration_ms=duration_ms or None,
+        moderation_state=(
+            PeerModerationState.DELIVERED
+            if verdict.allowed
+            else PeerModerationState.BLOCKED
+        ),
+        # On a delivered row this carries `dev_unscreened` when the local
+        # backend had no key — so the row never claims a screen that never ran.
+        moderation_reason=verdict.reason or unscreened_reason,
+    )
+    db.add(message)
+    await db.flush()
+
+    if not verdict.allowed:
+        # Committed before raising for the same reason as the text path: the
+        # blocked row IS the safety record, and here it keeps the clip too, so
+        # a moderator can hear what the transcript only approximates.
+        await db.commit()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, _refusal_text(verdict.reason)
+        )
+
+    return _group_message_read(message, child.id)

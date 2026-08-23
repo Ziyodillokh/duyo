@@ -85,10 +85,17 @@ class GroupRead(BaseModel):
 class GroupMessageRead(BaseModel):
     id: UUID
     seq: int
+    #: For a note this is the TRANSCRIPT — what the safety screen actually
+    #: judged, and the caption for anyone who cannot play the clip.
     body: str
     sender_name: str
     mine: bool
     created_at: datetime
+    #: Absolute URL of the clip, or None for a plain text message.
+    media_url: str | None = None
+    #: "audio" | "video".
+    media_kind: str | None = None
+    media_duration_ms: int | None = None
 
 
 class GroupMessageCreate(BaseModel):

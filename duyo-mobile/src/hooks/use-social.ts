@@ -7,6 +7,7 @@ import {
   listGroupMessages,
   listGroups,
   sendGroupMessage,
+  sendGroupNote,
   acceptFriend,
   blockFriend,
   declineFriend,
@@ -192,6 +193,22 @@ export function useSendGroupMessage(childId: string | undefined, key: string | u
   return useMutation({
     mutationFn: (body: string) =>
       sendGroupMessage(childId as string, key as string, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['group-messages', childId, key] });
+    },
+  });
+}
+
+/** Upload a recorded voice/video note as a message in this room. */
+export function useSendGroupNote(childId: string | undefined, key: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (note: {
+      blob?: Blob;
+      uri: string;
+      mimeType: string;
+      durationMs: number;
+    }) => sendGroupNote(childId as string, key as string, note),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['group-messages', childId, key] });
     },

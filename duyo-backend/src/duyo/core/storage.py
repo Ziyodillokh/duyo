@@ -29,11 +29,22 @@ AUDIO_TYPES = {
     "audio/mp4": ".m4a",
     "audio/wav": ".wav",
     "audio/ogg": ".ogg",
+    # What a browser's MediaRecorder actually produces — a chat voice note
+    # recorded on the web arrives as webm/opus and nothing else.
+    "audio/webm": ".webm",
+}
+#: Short video notes from the chat composer. Deliberately small: these are
+#: seconds-long clips, not uploads of a film.
+VIDEO_TYPES = {
+    "video/webm": ".webm",
+    "video/mp4": ".mp4",
+    "video/quicktime": ".mov",
 }
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024    # 5 MB
 MAX_PDF_BYTES = 25 * 1024 * 1024     # 25 MB
 MAX_AUDIO_BYTES = 20 * 1024 * 1024   # 20 MB
+MAX_VIDEO_BYTES = 40 * 1024 * 1024   # 40 MB
 
 
 class UploadError(ValueError):
@@ -56,20 +67,36 @@ def _ensure_bucket(client: Minio, bucket: str) -> None:
         client.make_bucket(bucket)
 
 
+def normalise_type(content_type: str) -> str:
+    """Drop codec parameters and case from a MIME type.
+
+    A browser does not send "audio/webm" — it sends
+    "audio/webm;codecs=opus". Matching the raw header against the allowlists
+    rejects every voice note recorded on the web, so the parameters come off
+    before the lookup.
+    """
+    return (content_type or "").split(";")[0].strip().lower()
+
+
 def _validate(content_type: str, size: int) -> str:
     """Return the file extension for an allowed (type, size), else raise."""
-    if content_type in IMAGE_TYPES:
+    kind = normalise_type(content_type)
+    if kind in IMAGE_TYPES:
         if size > MAX_IMAGE_BYTES:
             raise UploadError("Rasm hajmi 5 MB dan oshmasligi kerak")
-        return IMAGE_TYPES[content_type]
-    if content_type in PDF_TYPES:
+        return IMAGE_TYPES[kind]
+    if kind in PDF_TYPES:
         if size > MAX_PDF_BYTES:
             raise UploadError("PDF hajmi 25 MB dan oshmasligi kerak")
-        return PDF_TYPES[content_type]
-    if content_type in AUDIO_TYPES:
+        return PDF_TYPES[kind]
+    if kind in AUDIO_TYPES:
         if size > MAX_AUDIO_BYTES:
             raise UploadError("Audio hajmi 20 MB dan oshmasligi kerak")
-        return AUDIO_TYPES[content_type]
+        return AUDIO_TYPES[kind]
+    if kind in VIDEO_TYPES:
+        if size > MAX_VIDEO_BYTES:
+            raise UploadError("Video hajmi 40 MB dan oshmasligi kerak")
+        return VIDEO_TYPES[kind]
     raise UploadError(f"Qo'llab-quvvatlanmaydigan fayl turi: {content_type}")
 
 
@@ -81,7 +108,13 @@ def upload(data: bytes, content_type: str) -> str:
     _ensure_bucket(client, bucket)
     key = f"{uuid4().hex}{ext}"
     client.put_object(
-        bucket, key, io.BytesIO(data), length=len(data), content_type=content_type,
+        bucket,
+        key,
+        io.BytesIO(data),
+        length=len(data),
+        # Stored without the codec parameters, so what is served back is a
+        # plain type every player understands.
+        content_type=normalise_type(content_type),
     )
     return key
 
@@ -101,4 +134,13 @@ def get_object(key: str):
     return resp, stat.content_type, stat.size
 
 
-__all__ = ["S3Error", "UploadError", "get_object", "media_url", "upload"]
+__all__ = [
+    "AUDIO_TYPES",
+    "VIDEO_TYPES",
+    "S3Error",
+    "UploadError",
+    "get_object",
+    "media_url",
+    "normalise_type",
+    "upload",
+]

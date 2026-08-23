@@ -30,6 +30,7 @@ from sqlalchemy import (
     ForeignKey,
     Identity,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -212,7 +213,22 @@ class GroupMessage(Base, UUIDPK, TimestampMixin):
     seq: Mapped[int] = mapped_column(
         BigInteger, Identity(always=False), nullable=False, unique=True,
     )
+    #: For a voice or video note this holds the TRANSCRIPT, not a caption. The
+    #: transcript is what the text screen actually judged, so storing it keeps
+    #: the moderation decision auditable — and it doubles as the caption a
+    #: child who cannot play the clip still gets to read.
     body: Mapped[str] = mapped_column(Text, nullable=False)
+
+    #: Object-storage key for a voice/video note; NULL for a plain text
+    #: message. The key, never a URL — the bucket is private and the API
+    #: serves it, so a moved bucket does not rewrite history.
+    media_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: "audio" or "video". A plain string rather than an enum: this is a
+    #: presentation hint, and a new kind should not need a type migration.
+    media_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    #: Milliseconds, so the bubble can draw the duration before the file loads.
+    media_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     moderation_state: Mapped[PeerModerationState] = mapped_column(
         _peer_moderation_enum, nullable=False, default=PeerModerationState.DELIVERED
     )
