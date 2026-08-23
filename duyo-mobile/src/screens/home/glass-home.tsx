@@ -226,14 +226,20 @@ function Clouds() {
 // ── Proportional sizing ──────────────────────────────────────────────────────
 
 /**
- * The mock was drawn on a 932pt canvas; below its fixed top chrome that
- * leaves 888pt of column. Every vertical number on this screen is the design
+ * The dock is fixed chrome at the spec's 350x80; everything ABOVE it scales
+ * by k so the column always fits without a scroll view. DESIGN_CONTENT is
+ * that upper block's natural height at k = 1. Every vertical number on this screen is the design
  * value times `k`, so the whole column compresses uniformly and the dock —
  * home's only navigation — lands above the fold on ANY phone. There is no
  * scroll view to fall back to, on purpose. The floor keeps text legible on
  * the very smallest screens.
  */
-const DESIGN_CONTENT = 888;
+// 750 is the block's natural height; the margin absorbs the rounding that
+// s() adds across a dozen stacked values on the shortest phones.
+const DESIGN_CONTENT = 762;
+/** Spec: 350x80 bar, radius 30, 12pt clear of the bottom. */
+const DOCK_H = 80;
+const DOCK_GAP = 12;
 
 interface Sizes {
   k: number;
@@ -357,34 +363,15 @@ function makeStyles({ s }: Sizes) {
 
     spacer: { flex: 1, minHeight: s(10) },
     dock: {
-      marginHorizontal: 16,
-      paddingTop: s(14),
-      paddingBottom: s(12),
-      paddingHorizontal: 24,
+      // 350 wide inside a 390 screen: 20pt of gutter on each side.
+      marginHorizontal: 20,
+      height: DOCK_H,
       flexDirection: 'row',
-      alignItems: 'flex-end',
-      justifyContent: 'space-between',
-    },
-    dockItem: { alignItems: 'center', minWidth: 86 },
-    dockCircle: {
-      width: s(58),
-      height: s(58),
       alignItems: 'center',
-      justifyContent: 'center',
     },
-    dockCircleRaised: {
-      width: s(86),
-      height: s(86),
-      marginTop: -s(40),
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    dockLabel: {
-      marginTop: s(7),
-      fontSize: Math.max(11, s(13)),
-      fontWeight: '600',
-      color: '#33507F',
-    },
+    // Three equal columns, 116.6pt each at spec width.
+    dockItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    dockLabel: { marginTop: 6, fontSize: 13, fontWeight: '600', color: '#33507F' },
   });
 }
 
@@ -418,7 +405,10 @@ export function GlassHome() {
 
   const { height: windowH } = useWindowDimensions();
   const topPad = Math.max(insets.top, 44);
-  const k = Math.min(1, Math.max(0.6, (windowH - topPad - insets.bottom) / DESIGN_CONTENT));
+  const k = Math.min(
+    1,
+    Math.max(0.6, (windowH - topPad - insets.bottom - DOCK_H - DOCK_GAP) / DESIGN_CONTENT),
+  );
   const sizes = useMemo<Sizes>(() => ({ k, s: (n: number) => Math.round(n * k) }), [k]);
   const styles = useMemo(() => makeStyles(sizes), [sizes]);
   const orbSize = sizes.s(GLOW_MAX);
@@ -449,7 +439,7 @@ export function GlassHome() {
             paddingTop: topPad + sizes.s(10),
             // The system gesture bar owns the bottom edge now that the global
             // tab bar hides itself here — the dock must clear it.
-            paddingBottom: insets.bottom + sizes.s(18),
+            paddingBottom: insets.bottom + DOCK_GAP,
           },
         ]}
       >
@@ -562,17 +552,16 @@ export function GlassHome() {
 
         <View style={styles.spacer} />
 
-        {/* ── Dock ───────────────────────────────────────────────────── */}
-        <View style={[glass(44), styles.dock]}>
+        {/* ── Dock — 350x80, three equal columns, icons sitting in the
+             bar itself rather than in floating circles ───────────────── */}
+        <View style={[glass(30), styles.dock]}>
           <Pressable
             onPress={() => toTab('goals')}
             accessibilityRole="button"
             accessibilityLabel="Bir maqsad"
             style={styles.dockItem}
           >
-            <View style={[glass(29), styles.dockCircle]}>
-              <Target size={sizes.s(26)} color={PRIMARY} strokeWidth={1.9} />
-            </View>
+            <Target size={28} color={PRIMARY} strokeWidth={1.9} />
             <Text style={styles.dockLabel}>Bir maqsad</Text>
           </Pressable>
           <Pressable
@@ -581,9 +570,7 @@ export function GlassHome() {
             accessibilityLabel="DUYO"
             style={styles.dockItem}
           >
-            <View style={[glass(43), styles.dockCircleRaised]}>
-              <MascotImage size={sizes.s(56)} glow="none" />
-            </View>
+            <MascotImage size={30} glow="none" />
             <Text style={styles.dockLabel}>DUYO</Text>
           </Pressable>
           <Pressable
@@ -592,9 +579,7 @@ export function GlassHome() {
             accessibilityLabel="Neo Miyya"
             style={styles.dockItem}
           >
-            <View style={[glass(29), styles.dockCircle]}>
-              <Brain size={sizes.s(26)} color={PRIMARY} strokeWidth={1.9} />
-            </View>
+            <Brain size={28} color={PRIMARY} strokeWidth={1.9} />
             <Text style={styles.dockLabel}>Neo Miyya</Text>
           </Pressable>
         </View>

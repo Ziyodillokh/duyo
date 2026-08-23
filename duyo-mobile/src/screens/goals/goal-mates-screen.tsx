@@ -51,9 +51,14 @@ const INK = '#22406F';
 const MUTED = '#8CA3CB';
 const GREEN = '#22B573';
 const DANGER = '#E0455E';
-const BG_TOP = '#D2E2F9';
-const BG_MID = '#DDE7FB';
-const BG_BOTTOM = '#E6EBFA';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+/** The spec's placeholder grey-blue. */
+const PLACEHOLDER = '#7693C2';
+/** Active tab gradient. */
+const TAB_A = '#246BEB';
+const TAB_B = '#3D7FFF';
 
 const glass = (radius: number): ViewStyle => ({
   backgroundColor: 'rgba(255,255,255,0.55)',
@@ -183,6 +188,14 @@ const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
       top: '#171B21', lightFromLeft: false, turn: -3,
     },
   },
+  {
+    label: 'Kitobxonlar',
+    cat: 'kitoblar',
+    spec: {
+      scene: 'library', skin: '#EFC6A0', hair: '#2A1F18', hairStyle: 4,
+      top: '#8E97A6', lightFromLeft: true, turn: -4,
+    },
+  },
 ];
 
 /** The mock's filter chips. "Yaqin atrofimda" is honest by construction:
@@ -194,7 +207,7 @@ const CHIPS: readonly { key: ChipKey; label: string }[] = [
   { key: 'nearby', label: 'Yaqin atrofimda' },
   { key: 'active', label: 'Faol' },
   { key: 'fresh', label: 'Yangi' },
-  { key: 'top', label: 'Top mavzular' },
+  { key: 'top', label: 'Top mentorlar' },
 ];
 
 // ── The mock's six sample people ─────────────────────────────────────────────
@@ -295,8 +308,8 @@ const DEMO_MATES: readonly DemoMate[] = [
 
 function DemoCard({ mate, onTap }: { mate: DemoMate; onTap: () => void }) {
   return (
-    <View style={[glass(30), rowStyles.card]}>
-      <Portrait spec={mate.spec} size={88} seed={seedOf(mate.name)} />
+    <View style={[glass(22), rowStyles.card]}>
+      <Portrait spec={mate.spec} size={64} seed={seedOf(mate.name)} />
       <View style={rowStyles.body}>
         <Text style={rowStyles.name} numberOfLines={1}>
           {mate.name}
@@ -321,7 +334,7 @@ function DemoCard({ mate, onTap }: { mate: DemoMate; onTap: () => void }) {
         onPress={onTap}
         accessibilityRole="button"
         accessibilityLabel={`${mate.name} — namunaviy profil`}
-        style={[glass(31), rowStyles.action]}
+        style={[glass(24), rowStyles.action]}
       >
         <MessageCircle size={24} color={PRIMARY} strokeWidth={1.9} />
       </Pressable>
@@ -378,8 +391,8 @@ function MateCard({
   const state = row.state;
 
   return (
-    <View style={[glass(30), rowStyles.card]}>
-      <Portrait spec={portraitFor(row.peerId)} size={88} seed={seedOf(row.peerId)} />
+    <View style={[glass(22), rowStyles.card]}>
+      <Portrait spec={portraitFor(row.peerId)} size={64} seed={seedOf(row.peerId)} />
       <View style={rowStyles.body}>
         <Text style={rowStyles.name} numberOfLines={1}>
           {row.name}
@@ -406,13 +419,13 @@ function MateCard({
           onPress={() => onChat(state.friendship)}
           accessibilityRole="button"
           accessibilityLabel={`${row.name} bilan suhbat`}
-          style={[glass(31), rowStyles.action]}
+          style={[glass(24), rowStyles.action]}
         >
           <MessageCircle size={24} color={PRIMARY} strokeWidth={1.9} />
         </Pressable>
       )}
       {state.kind === 'outgoing' && (
-        <View style={[glass(31), rowStyles.action, { opacity: 0.55 }]}>
+        <View style={[glass(24), rowStyles.action, { opacity: 0.55 }]}>
           <Clock size={24} color={PRIMARY} strokeWidth={1.9} />
         </View>
       )}
@@ -422,7 +435,7 @@ function MateCard({
           disabled={busy}
           accessibilityRole="button"
           accessibilityLabel={`${row.name} — so'rov yuborish`}
-          style={[glass(31), rowStyles.action, busy && { opacity: 0.55 }]}
+          style={[glass(24), rowStyles.action, busy && { opacity: 0.55 }]}
         >
           <UserPlus size={24} color={PRIMARY} strokeWidth={1.9} />
         </Pressable>
@@ -434,7 +447,7 @@ function MateCard({
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel={`${row.name} — qabul qilish`}
-            style={[glass(25), rowStyles.smallAction, busy && { opacity: 0.55 }]}
+            style={[glass(20), rowStyles.smallAction, busy && { opacity: 0.55 }]}
           >
             <Check size={21} color={GREEN} strokeWidth={2.2} />
           </Pressable>
@@ -443,7 +456,7 @@ function MateCard({
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel={`${row.name} — rad etish`}
-            style={[glass(25), rowStyles.smallAction, busy && { opacity: 0.55 }]}
+            style={[glass(20), rowStyles.smallAction, busy && { opacity: 0.55 }]}
           >
             <X size={21} color={DANGER} strokeWidth={2.2} />
           </Pressable>
@@ -662,7 +675,7 @@ export default function GoalMatesScreen() {
 
       <ScrollView
         contentContainerStyle={{
-          paddingTop: Math.max(insets.top, 44) + 10,
+          paddingTop: Math.max(insets.top, 44),
           paddingBottom: insets.bottom + 100,
         }}
         keyboardShouldPersistTaps="handled"
@@ -674,18 +687,18 @@ export default function GoalMatesScreen() {
             onPress={toHome}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            style={[glass(30), styles.headerButton]}
+            style={[glass(24), styles.headerButton]}
           >
-            <ArrowLeft size={26} color={PRIMARY} strokeWidth={2} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
           <Text style={styles.title}>Maqsaddoshlar</Text>
           <Pressable
             onPress={() => router.push('/(main)/notifications')}
             accessibilityRole="button"
             accessibilityLabel="Bildirishnomalar"
-            style={[glass(30), styles.headerButton]}
+            style={[glass(24), styles.headerButton]}
           >
-            <Bell size={24} color={PRIMARY} strokeWidth={1.9} />
+            <Bell size={23} color={PRIMARY} strokeWidth={1.9} />
             {hasUnread && <View style={styles.bellDot} />}
           </Pressable>
         </View>
@@ -708,7 +721,7 @@ export default function GoalMatesScreen() {
               >
                 <View style={[styles.storyRing, active && styles.storyRingActive]}>
                   <View style={styles.storyInner}>
-                    <Portrait spec={story.spec} size={72} seed={seedOf(story.label)} />
+                    <Portrait spec={story.spec} size={56} seed={seedOf(story.label)} />
                   </View>
                 </View>
                 <Text style={styles.storyLabel} numberOfLines={1}>
@@ -723,21 +736,21 @@ export default function GoalMatesScreen() {
             accessibilityLabel="Qo'shish — maqsadlarim"
             style={styles.story}
           >
-            <View style={[glass(42), styles.storyPlus]}>
-              <Plus size={34} color={PRIMARY} strokeWidth={1.9} />
+            <View style={[glass(32), styles.storyPlus]}>
+              <Plus size={28} color={PRIMARY} strokeWidth={1.9} />
             </View>
             <Text style={styles.storyLabel}>Qo'shish</Text>
           </Pressable>
         </ScrollView>
 
         {/* ── Search ─────────────────────────────────────────────────── */}
-        <View style={[glass(30), styles.search]}>
-          <Search size={24} color={PRIMARY} strokeWidth={2.1} />
+        <View style={[glass(20), styles.search]}>
+          <Search size={22} color={PRIMARY} strokeWidth={2.1} />
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder="Maqsaddoshlarni qidirish..."
-            placeholderTextColor={MUTED}
+            placeholderTextColor={PLACEHOLDER}
             style={styles.searchInput}
             accessibilityLabel="Maqsaddoshlarni qidirish"
           />
@@ -747,13 +760,13 @@ export default function GoalMatesScreen() {
             accessibilityLabel="Ko'rinish sozlamalari"
             hitSlop={10}
           >
-            <SlidersHorizontal size={24} color={PRIMARY} strokeWidth={2.1} />
+            <SlidersHorizontal size={24} color={PRIMARY} strokeWidth={2} />
           </Pressable>
         </View>
 
         {/* ── Visibility panel (inline — Alert does not exist on web) ── */}
         {showSettings && (
-          <View style={[glass(26), styles.settingsCard]}>
+          <View style={[glass(20), styles.settingsCard]}>
             <View style={styles.settingsRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.settingsTitle}>Ko'rinish</Text>
@@ -795,6 +808,14 @@ export default function GoalMatesScreen() {
               accessibilityRole="button"
               style={[styles.chip, chip === c.key && styles.chipActive]}
             >
+              {chip === c.key && (
+                <LinearGradient
+                  colors={[TAB_A, TAB_B]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.chipFill}
+                />
+              )}
               <Text style={[styles.chipText, chip === c.key && styles.chipTextActive]}>
                 {c.label}
               </Text>
@@ -803,7 +824,7 @@ export default function GoalMatesScreen() {
         </ScrollView>
 
         {toast && (
-          <View style={[glass(20), styles.toast]}>
+          <View style={[glass(16), styles.toast]}>
             <Text style={styles.toastText}>{toast}</Text>
           </View>
         )}
@@ -812,7 +833,7 @@ export default function GoalMatesScreen() {
         {booting ? (
           <>
             {[0, 1, 2].map((i) => (
-              <View key={i} style={[glass(30), styles.skeleton]} />
+              <View key={i} style={[glass(22), styles.skeleton]} />
             ))}
           </>
         ) : (
@@ -832,7 +853,7 @@ export default function GoalMatesScreen() {
               ))}
 
             {!discoverable ? (
-              <View style={[glass(28), styles.consentCard]}>
+              <View style={[glass(22), styles.consentCard]}>
                 <Text style={styles.consentTitle}>
                   Yangi maqsaddoshlarni ko'rish uchun ko'rinishni yoq
                 </Text>
@@ -875,7 +896,7 @@ export default function GoalMatesScreen() {
                     />
                   ))}
                 {rows.length === 0 && demoRows.length === 0 && (
-                  <View style={[glass(28), styles.consentCard]}>
+                  <View style={[glass(22), styles.consentCard]}>
                     <Text style={styles.consentTitle}>Hech kim topilmadi</Text>
                     <Text style={styles.consentBody}>
                       Qidiruvni o'zgartirib ko'r.
@@ -902,165 +923,196 @@ export default function GoalMatesScreen() {
   );
 }
 
+// Every number below comes from the design spec for a 390x844 screen:
+// 20pt gutters, a 350pt content column, and the 4/8/12/16/20/24/32 spacing
+// ladder. Sizes are fixed rather than scaled — this screen scrolls, so it
+// does not need the home dashboard's fit-to-height trick.
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
+  // ── Header: 68pt tall, 48pt round buttons ──────────────────────────────
   header: {
+    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
   headerButton: {
-    width: 60,
-    height: 60,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { fontSize: 30, fontWeight: '700', color: TITLE },
+  title: { fontSize: 23, fontWeight: '700', color: TITLE },
   bellDot: {
     position: 'absolute',
-    top: 14,
-    right: 15,
+    top: 10,
+    right: 11,
     width: 9,
     height: 9,
     borderRadius: 5,
     backgroundColor: '#F04438',
   },
 
-  stories: { paddingHorizontal: 18, paddingTop: 26, gap: 18 },
-  story: { alignItems: 'center', width: 96 },
+  // ── Stories: 112pt band, 64pt circles, 13pt apart ──────────────────────
+  stories: { paddingLeft: 20, paddingRight: 8, paddingTop: 8, gap: 13 },
+  story: { alignItems: 'center', width: 64 },
   storyRing: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 2.5,
-    borderColor: 'rgba(79,134,238,0.55)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: 'rgba(79,134,238,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.6)',
-    boxShadow: '0 10px 22px rgba(111,155,221,0.3)',
   },
-  storyRingActive: { borderColor: PRIMARY, borderWidth: 3.5 },
-  storyInner: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    overflow: 'hidden',
-  },
+  storyRingActive: { borderColor: PRIMARY },
+  storyInner: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden' },
   storyPlus: {
-    width: 84,
-    height: 84,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  storyLabel: { marginTop: 10, fontSize: 14.5, fontWeight: '600', color: INK },
+  storyLabel: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: INK,
+    textAlign: 'center',
+  },
 
+  // ── Search: 350x56, radius 20, 18pt side padding ───────────────────────
   search: {
-    marginTop: 26,
+    marginTop: 8,
     marginHorizontal: 20,
-    paddingHorizontal: 20,
-    height: 60,
+    paddingHorizontal: 18,
+    height: 56,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
+    gap: 12,
   },
-  searchInput: { flex: 1, fontSize: 18, color: INK, paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: 16, color: INK, paddingVertical: 0 },
 
-  settingsCard: { marginTop: 14, marginHorizontal: 20, padding: 18 },
-  settingsRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  settingsCard: { marginTop: 12, marginHorizontal: 20, padding: 16 },
+  settingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingsTitle: { fontSize: 16, fontWeight: '700', color: INK },
-  settingsBody: { marginTop: 4, fontSize: 13.5, lineHeight: 19, color: MUTED },
+  settingsBody: { marginTop: 4, fontSize: 13, lineHeight: 18, color: MUTED },
   switch: {
-    width: 56,
-    height: 32,
-    borderRadius: 16,
+    width: 52,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: 'rgba(140,163,203,0.4)',
     padding: 3,
     justifyContent: 'center',
   },
   switchOn: { backgroundColor: PRIMARY },
-  knob: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-  },
+  knob: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF' },
   knobOn: { alignSelf: 'flex-end' },
 
-  chips: { paddingHorizontal: 20, paddingTop: 18, gap: 11 },
+  // ── Tabs: 40pt tall, radius 20, 18pt padding ───────────────────────────
+  chips: { paddingHorizontal: 20, paddingTop: 12, gap: 8 },
   chip: {
-    paddingHorizontal: 21,
-    paddingVertical: 13,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    height: 40,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.55)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.85)',
+    borderColor: 'rgba(255,255,255,0.7)',
   },
-  chipActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  chipText: { fontSize: 16, fontWeight: '600', color: INK },
+  chipActive: { borderColor: 'transparent', backgroundColor: 'transparent' },
+  chipFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
+  },
+  chipText: { fontSize: 15, fontWeight: '600', color: INK },
   chipTextActive: { color: '#FFFFFF' },
 
-  toast: { marginTop: 14, marginHorizontal: 20, padding: 14 },
+  toast: { marginTop: 12, marginHorizontal: 20, padding: 12, borderRadius: 16 },
   toastText: { fontSize: 14, color: DANGER, fontWeight: '600' },
 
-  skeleton: { marginTop: 18, marginHorizontal: 20, height: 118, opacity: 0.55 },
+  skeleton: {
+    marginTop: 12,
+    marginHorizontal: 20,
+    height: 90,
+    borderRadius: 22,
+    opacity: 0.55,
+  },
 
   demoNote: {
-    marginTop: 20,
+    marginTop: 16,
     marginHorizontal: 24,
     fontSize: 13,
     fontWeight: '600',
     color: MUTED,
-    letterSpacing: 0.3,
   },
-  consentCard: { marginTop: 18, marginHorizontal: 20, padding: 22 },
-  consentTitle: { fontSize: 17.5, fontWeight: '700', color: INK },
-  consentBody: { marginTop: 8, fontSize: 14.5, lineHeight: 22, color: MUTED },
-  consentButton: {
-    marginTop: 15,
-    backgroundColor: PRIMARY,
-    borderRadius: 17,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  consentButtonText: { color: '#FFFFFF', fontSize: 16.5, fontWeight: '700' },
-});
 
-const rowStyles = StyleSheet.create({
-  card: {
-    marginTop: 18,
-    marginHorizontal: 20,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15,
-  },
-  body: { flex: 1 },
-  name: { fontSize: 21, fontWeight: '700', color: PRIMARY },
-  goal: { marginTop: 4, fontSize: 16, fontWeight: '500', color: MUTED },
-  goalLead: { fontWeight: '700', color: INK } as TextStyle,
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 14, color: MUTED },
-  tagRow: { flexDirection: 'row', gap: 8, marginTop: 9, flexWrap: 'wrap' },
-  tag: {
-    backgroundColor: 'rgba(79,134,238,0.16)',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  tagText: { fontSize: 13.5, fontWeight: '600', color: PRIMARY },
-  action: {
-    width: 62,
-    height: 62,
+  consentCard: { marginTop: 12, marginHorizontal: 20, padding: 20, borderRadius: 22 },
+  consentTitle: { fontSize: 17, fontWeight: '700', color: INK },
+  consentBody: { marginTop: 8, fontSize: 14, lineHeight: 21, color: MUTED },
+  consentButton: {
+    marginTop: 16,
+    backgroundColor: PRIMARY,
+    borderRadius: 16,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pairActions: { gap: 8 },
+  consentButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+});
+
+const rowStyles = StyleSheet.create({
+  // 350x90 with 18pt side padding; the avatar is 64 so the vertical padding
+  // is what is left over, and the text column runs tight to fit four rows.
+  card: {
+    marginTop: 12,
+    marginHorizontal: 20,
+    minHeight: 90,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  body: { flex: 1 },
+  name: { fontSize: 18, lineHeight: 21, fontWeight: '700', color: PRIMARY },
+  goal: { marginTop: 1, fontSize: 14.5, lineHeight: 17, fontWeight: '500', color: MUTED },
+  goalLead: { fontWeight: '700', color: INK } as TextStyle,
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  statusText: { fontSize: 14, lineHeight: 15, color: MUTED },
+  tagRow: { flexDirection: 'row', gap: 8, marginTop: 3, flexWrap: 'wrap' },
+  tag: {
+    height: 24,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(79,134,238,0.14)',
+    borderRadius: 11,
+    paddingHorizontal: 12,
+  },
+  tagText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  action: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pairActions: { gap: 6 },
   smallAction: {
-    width: 50,
-    height: 50,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
