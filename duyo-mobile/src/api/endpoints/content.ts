@@ -1,3 +1,5 @@
+import { isAxiosError } from 'axios';
+
 import { apiClient } from '@/api/client';
 
 export type ContentType =
@@ -31,6 +33,9 @@ export interface ListContentParams {
   type?: string;
   age_segment?: string;
   language?: string;
+  /** Title/author search, matched server-side — the response is capped by
+   *  `limit`, so searching on the client would only ever see the first page. */
+  q?: string;
   limit?: number;
 }
 
@@ -46,4 +51,10 @@ export async function listContent(
 export async function getContent(id: string): Promise<ContentDetail> {
   const { data } = await apiClient.get<ContentDetail>(`/content/${id}`);
   return data;
+}
+
+/** An unpublished or deleted item — a permanent answer, so never retried and
+ *  shown as "not found" rather than as a network failure. */
+export function isContentNotFound(error: unknown): boolean {
+  return isAxiosError(error) && error.response?.status === 404;
 }

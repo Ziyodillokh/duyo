@@ -9,6 +9,7 @@ order and Gemini will treat the whole conversation as one session.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import time
 from dataclasses import dataclass, field
@@ -26,6 +27,8 @@ from duyo.prompts import (
     LESSON_HELP_PROMPT,
     SYSTEM_PROMPTS,
 )
+
+log = logging.getLogger(__name__)
 
 HistoryRole = Literal["user", "model"]
 
@@ -425,17 +428,27 @@ async def solve_lesson(
 ) -> dict:
     """Step-by-step tutor answer for a homework question (lesson-help).
 
-    Returns {"steps": [{"title","detail"}], "answer": str}. Fails safe: on any
-    error returns a single gentle step so the screen always renders something.
+    Returns {"steps": [{"title","detail"}], "answer": str, "available": bool}.
+
+    Fails safe, and says so: `available` is False when this is the outage
+    text rather than a real solution, so the screen can render it as a calm
+    notice instead of dressing an apology up as "DUYO yechimi".
+
+    EVERYTHING that can raise lives inside the try — `get_client()` included.
+    It was above it, and with no GOOGLE_API_KEY configured it raises
+    RuntimeError before the try is ever entered: POST /v1/chat/lesson-help
+    answered a child with a raw Python traceback and HTTP 500. The main chat
+    path (api/v1/chat.py, LLM_UNAVAILABLE) has always degraded gracefully
+    here; this now matches it.
     """
     settings = get_settings()
-    client = get_client()
-    model = settings.gemini_model_primary
     payload = (
         f"Fan: {subject}\nSavol: {question}\n\n"
         "Yuqoridagi qoidalar bo'yicha bosqichma-bosqich yech va JSON qaytar."
     )
     try:
+        client = get_client()
+        model = settings.gemini_model_primary
         resp = await client.aio.models.generate_content(
             model=model,
             contents=payload,
@@ -458,14 +471,25 @@ async def solve_lesson(
         answer = str(data.get("answer", ""))[:400]
         if not steps:
             raise ValueError("no steps")
-        return {"steps": steps, "answer": answer}
+        return {"steps": steps, "answer": answer, "available": True}
     except Exception:  # never break the lesson screen
+        # Logged, because a permanently-down key looks identical to a lucky
+        # child seeing the notice once — and the endpoint itself now answers
+        # 200, so nothing else records the outage.
+        log.exception("solve_lesson_failed subject=%s", subject)
         return {
+            # Honest, not evasive: the old text ("savolni aniqroq yozib
+            # yuborsang") blamed the CHILD for a server-side outage, so they
+            # would rewrite a perfectly good question and fail again.
             "steps": [{
-                "title": "Qayta urinib ko'r",
-                "detail": "Savolni biroz aniqroq yozib yuborsang, qadam-baqadam tushuntiraman.",
+                "title": "Hozir yordam berolmayman",
+                "detail": (
+                    "Kechir, hozir yechimni tayyorlay olmayapman — biroz muammo bor. "
+                    "Bir necha daqiqadan keyin yana urinib ko'r, men shu yerdaman."
+                ),
             }],
             "answer": "",
+            "available": False,
         }
 
 

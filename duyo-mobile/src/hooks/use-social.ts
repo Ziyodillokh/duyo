@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  listGroupMembers,
+  listGroupMessages,
+  listGroups,
+  sendGroupMessage,
   acceptFriend,
   blockFriend,
   declineFriend,
@@ -149,6 +153,45 @@ export function useSendPeerMessage(
         ['peer-messages', childId, friendshipId],
         (prev) => [...(prev ?? []), result.message!],
       );
+    },
+  });
+}
+
+// ── Goal groups ─────────────────────────────────────────────────────────────
+
+export function useGroups(childId: string | undefined) {
+  return useQuery({
+    queryKey: ['groups', childId],
+    queryFn: () => listGroups(childId as string),
+    enabled: childId != null,
+  });
+}
+
+export function useGroupMembers(childId: string | undefined, key: string | undefined) {
+  return useQuery({
+    queryKey: ['group-members', childId, key],
+    queryFn: () => listGroupMembers(childId as string, key as string),
+    enabled: childId != null && !!key,
+  });
+}
+
+export function useGroupMessages(childId: string | undefined, key: string | undefined) {
+  return useQuery({
+    queryKey: ['group-messages', childId, key],
+    queryFn: () => listGroupMessages(childId as string, key as string),
+    enabled: childId != null && !!key,
+    // A room is other children typing; poll while it is open.
+    refetchInterval: 5000,
+  });
+}
+
+export function useSendGroupMessage(childId: string | undefined, key: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) =>
+      sendGroupMessage(childId as string, key as string, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['group-messages', childId, key] });
     },
   });
 }

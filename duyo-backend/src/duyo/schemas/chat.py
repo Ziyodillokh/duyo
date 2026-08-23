@@ -162,6 +162,12 @@ class LessonStep(BaseModel):
 class LessonHelpResponse(BaseModel):
     steps: list[LessonStep]
     answer: str
+    #: False when `steps` is the outage notice rather than a real solution.
+    #: The endpoint answers 200 either way (a child must never meet a 500),
+    #: so this is the only thing that tells the two apart — without it the
+    #: app renders an apology under a "DUYO yechimi" heading as if it had
+    #: solved the problem.
+    available: bool = True
 
 
 class BoardRequest(BaseModel):

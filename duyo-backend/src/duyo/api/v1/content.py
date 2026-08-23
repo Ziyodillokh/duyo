@@ -3,7 +3,7 @@
 Mirror of the admin content module, read-only and filtered to published items.
 Only public-safe fields are exposed (no review/license/report internals).
 
-  GET /content        published list, filterable by type/age_segment/language
+  GET /content        published list, filterable by type/age_segment/language/q
   GET /content/{id}   full item (with body / audio_url)
 """
 
@@ -12,7 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
@@ -67,6 +67,7 @@ async def list_content(
     type: ContentType | None = None,
     age_segment: str | None = None,
     language: str | None = None,
+    q: str | None = None,
     limit: int = 100,
     _: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -77,6 +78,14 @@ async def list_content(
         stmt = stmt.where(ContentItem.type == type)
     if language is not None:
         stmt = stmt.where(ContentItem.language == language)
+    if q is not None and q.strip():
+        # Search server-side: the response is capped at `limit`, so filtering
+        # on the client would only ever search the first page and silently
+        # miss the rest of the library.
+        needle = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(ContentItem.title.ilike(needle), ContentItem.author.ilike(needle))
+        )
     if age_segment is not None:
         # A child sees content for their segment plus the universal "all".
         stmt = stmt.where(ContentItem.age_segment.in_([age_segment, "all"]))

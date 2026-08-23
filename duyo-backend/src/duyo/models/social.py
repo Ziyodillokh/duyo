@@ -179,6 +179,53 @@ class PeerMessage(Base, UUIDPK, TimestampMixin):
         return f"<PeerMessage seq={self.seq} {self.moderation_state.value}>"
 
 
+class GroupMessage(Base, UUIDPK, TimestampMixin):
+    """One message in a goal group — the same contract as PeerMessage.
+
+    Groups have no membership table on purpose. A child belongs to a group
+    exactly while they hold a CONFIRMED, matchable goal in that category and
+    are discoverable; leaving is therefore the same act as retiring the goal
+    or turning visibility off, and there is no second consent surface to get
+    out of step with the first.
+
+    `group_key` is category + age segment ("it:explorer"). Segments never
+    share a room: a nine-year-old and a fifteen-year-old having a goal in
+    common is not a reason to put them in the same conversation.
+    """
+
+    __tablename__ = "group_messages"
+    __table_args__ = (
+        Index("ix_group_messages_key_seq", "group_key", "seq"),
+    )
+
+    #: "<category>:<age_segment>", e.g. "kitoblar:explorer".
+    group_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # SET NULL, not CASCADE — a deleted child must not erase the safety record
+    # of what was said in a room full of other children.
+    sender_child_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("child_profiles.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+    #: The pseudonym as it stood when the message was sent, so history does not
+    #: silently rewrite itself when a child renames.
+    sender_name: Mapped[str] = mapped_column(String(40), nullable=False)
+    # See PeerMessage.seq for why Identity() rather than autoincrement.
+    seq: Mapped[int] = mapped_column(
+        BigInteger, Identity(always=False), nullable=False, unique=True,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    moderation_state: Mapped[PeerModerationState] = mapped_column(
+        _peer_moderation_enum, nullable=False, default=PeerModerationState.DELIVERED
+    )
+    moderation_reason: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<GroupMessage {self.group_key} seq={self.seq}>"
+
+
 class PeerReport(Base, UUIDPK, TimestampMixin):
     """A child reporting another. Never requires an explanation to file."""
 

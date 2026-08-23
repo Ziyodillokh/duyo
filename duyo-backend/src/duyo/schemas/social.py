@@ -70,5 +70,30 @@ class PeerMessageCreate(BaseModel):
     body: str = Field(min_length=1, max_length=500)
 
 
+class GroupRead(BaseModel):
+    """One room. `key` is category + age segment; the client never builds it."""
+
+    key: str
+    category: str
+    label: str
+    members: int
+    #: True when the caller is in this room. The list also carries rooms they
+    #: are not in, so the screen can say what joining would take.
+    joined: bool
+
+
+class GroupMessageRead(BaseModel):
+    id: UUID
+    seq: int
+    body: str
+    sender_name: str
+    mine: bool
+    created_at: datetime
+
+
+class GroupMessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=500)
+
+
 class PeerReportCreate(BaseModel):
     reason: str | None = Field(default=None, max_length=200)

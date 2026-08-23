@@ -122,8 +122,14 @@ class Settings(BaseSettings):
     payment_return_url: str = ""
 
     # Object storage (MinIO/S3) for uploaded media — content cover images, PDFs, audio.
-    # Local dev points at the standalone minio on :9100; prod uses the duyo-minio alias.
-    minio_endpoint: str = "localhost:9100"
+    # The default has to work from INSIDE the api container, which is where this
+    # client runs: `localhost` there is the api container itself, never minio, so
+    # every media read/write failed with a connection refused. docker-compose puts
+    # minio on the same network under the aliases `minio` / `duyo-minio` on its
+    # real port 9000 (there is no :9100 anywhere in this repo), and prod uses the
+    # same duyo-minio alias — so one default is correct in both places. Override
+    # with MINIO_ENDPOINT for an external S3.
+    minio_endpoint: str = "duyo-minio:9000"
     minio_access_key: str = "duyo"
     minio_secret_key: str = "duyo_dev_password"
     minio_secure: bool = False  # True for https endpoints

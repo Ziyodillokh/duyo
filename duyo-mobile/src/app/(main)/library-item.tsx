@@ -1,6 +1,4 @@
 import { useIsDark } from '@/store/theme';
-import { useQuery } from '@tanstack/react-query';
-import { isAxiosError } from 'axios';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -12,7 +10,6 @@ import {
   Music,
   Share2,
 } from 'lucide-react-native';
-import { useState } from 'react';
 import {
   Linking,
   Pressable,
@@ -23,29 +20,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getContent } from '@/api/endpoints/content';
-
-function isNotFound(error: unknown): boolean {
-  return isAxiosError(error) && error.response?.status === 404;
-}
+import { isContentNotFound } from '@/api/endpoints/content';
+import { useContentItem } from '@/hooks/use-content';
 
 export default function LibraryItemScreen() {
   const isDark = useIsDark();
   const params = useLocalSearchParams<{ id: string }>();
   const id = params.id ?? '';
-  const [liked, setLiked] = useState(false);
 
-  const {
-    data: item,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ['content', id],
-    queryFn: () => getContent(id),
-    enabled: id !== '',
-    retry: (count, err) => !isNotFound(err) && count < 2,
-  });
+  const { data: item, isLoading, isError, error } = useContentItem(id);
 
   const renderMessage = (emoji: string, message: string) => (
     <View
@@ -93,7 +76,7 @@ export default function LibraryItemScreen() {
   }
 
   if (isError) {
-    return isNotFound(error)
+    return isContentNotFound(error)
       ? renderMessage('🔍', 'Kontent topilmadi')
       : renderMessage('⚠️', "Kontentni yuklab bo'lmadi");
   }
@@ -107,6 +90,10 @@ export default function LibraryItemScreen() {
   const isPdf = item.type === 'pdf';
   const hasBody = (item.body ?? '').trim() !== '';
   const body = hasBody ? item.body : 'Kontent tez orada qo\'shiladi.';
+  // `likes` is a real counter on the item. There is no per-child like endpoint
+  // yet, so this is a readout, not a button — a heart that only changed colour
+  // locally promised a save that never happened.
+  const likes = item.likes;
 
   const openPdf = () => {
     if (item.pdf_url) {
@@ -140,20 +127,18 @@ export default function LibraryItemScreen() {
             <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
           </Pressable>
           <View className="flex-row gap-2">
-            <Pressable
-              onPress={() => setLiked((v) => !v)}
-              accessibilityRole="button"
-              accessibilityLabel={
-                liked ? 'Sevimlilardan olib tashlash' : 'Sevimlilarga'
-              }
-              className="w-10 h-10 items-center justify-center rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20"
-            >
-              <Heart
-                size={18}
-                color={liked ? '#FB64B6' : '#94A3B8'}
-                fill={liked ? '#FB64B6' : 'transparent'}
-              />
-            </Pressable>
+            {likes > 0 && (
+              <View
+                accessibilityLabel={`${likes} ta yoqtirish`}
+                className="h-10 flex-row items-center gap-1.5 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20"
+                style={{ paddingHorizontal: 12 }}
+              >
+                <Heart size={16} color="#FB64B6" fill="#FB64B6" />
+                <Text className="text-sm font-medium text-foreground dark:text-dark-text">
+                  {likes}
+                </Text>
+              </View>
+            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Ulashish"

@@ -39,6 +39,7 @@ import {
   useDeclineFriend,
   useFriends,
   useGoalMates,
+  useGroups,
   useSendFriendRequest,
   useSocialSettings,
   useUpdateSocialSettings,
@@ -364,6 +365,9 @@ export default function GoalMatesScreen() {
   const acceptRequest = useAcceptFriend(childId);
   const declineRequest = useDeclineFriend(childId);
   const unread = useUnreadNotificationCount();
+  // The circles are real rooms now (see screens/goals/group-screen.tsx);
+  // the server decides which exist and who is in them.
+  const groups = useGroups(childId);
 
   // Friend rows carry no shared_goal (a connected peer never reappears in
   // goal-mates), so their goal line is named from the catalogue.
@@ -561,24 +565,34 @@ export default function GoalMatesScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.stories}
         >
-          {STORIES.map((story) => {
-            const active = category === story.cat;
+          {(groups.data ?? []).map((g) => {
+            const story = STORIES.find((x) => x.cat === g.category);
             return (
               <Pressable
-                key={story.cat}
-                onPress={() => setCategory(active ? null : story.cat)}
+                key={g.key}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(main)/group',
+                    params: { key: g.key, label: g.label },
+                  })
+                }
                 accessibilityRole="button"
-                accessibilityLabel={story.label}
-                style={styles.story}
+                accessibilityLabel={`${g.label} guruhi — ${g.members} a'zo`}
+                style={[styles.story, styles.focusable]}
               >
-                <View style={[styles.storyRing, active && styles.storyRingActive]}>
+                <View style={[styles.storyRing, g.joined && styles.storyRingActive]}>
                   <View style={styles.storyInner}>
-                    <Portrait spec={story.spec} size={56} seed={seedOf(story.label)} />
+                    <Portrait
+                      spec={story?.spec ?? portraitFor(g.key)}
+                      size={56}
+                      seed={seedOf(g.key)}
+                    />
                   </View>
                 </View>
                 <Text style={styles.storyLabel} numberOfLines={1}>
-                  {story.label}
+                  {g.label}
                 </Text>
+                <Text style={styles.storyCount}>{g.members}</Text>
               </Pressable>
             );
           })}
@@ -586,7 +600,7 @@ export default function GoalMatesScreen() {
             onPress={() => router.push('/(main)/my-goals')}
             accessibilityRole="button"
             accessibilityLabel="Qo'shish — maqsadlarim"
-            style={styles.story}
+            style={[styles.story, styles.focusable]}
           >
             <View style={[glass(32), styles.storyPlus]}>
               <Plus size={28} color={PRIMARY} strokeWidth={1.9} />
@@ -826,6 +840,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.6)',
   },
   storyRingActive: { borderColor: PRIMARY },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineWidth: 0 } as ViewStyle,
   storyInner: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden' },
   storyPlus: {
     width: 64,
@@ -834,6 +852,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  storyCount: { marginTop: 1, fontSize: 11, fontWeight: '600', color: MUTED },
   storyLabel: {
     marginTop: 8,
     fontSize: 13,

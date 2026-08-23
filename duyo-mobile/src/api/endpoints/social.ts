@@ -33,6 +33,25 @@ export interface PeerMessage {
   created_at: string;
 }
 
+/** A goal room: one catalogue category within one age band. Membership is
+ *  derived server-side from confirmed goals, so there is nothing to join. */
+export interface GroupCard {
+  key: string;
+  category: string;
+  label: string;
+  members: number;
+  joined: boolean;
+}
+
+export interface GroupMessage {
+  id: string;
+  seq: number;
+  body: string;
+  sender_name: string;
+  mine: boolean;
+  created_at: string;
+}
+
 export interface SocialSettings {
   display_name: string;
   discoverable: boolean;
@@ -208,4 +227,43 @@ export async function sendPeerMessage(
     }
     throw err;
   }
+}
+
+// ── Goal groups ─────────────────────────────────────────────────────────────
+
+export async function listGroups(childId: string): Promise<GroupCard[]> {
+  const { data } = await apiClient.get<GroupCard[]>(`/social/${childId}/groups`);
+  return data;
+}
+
+export async function listGroupMembers(
+  childId: string,
+  key: string,
+): Promise<PeerCard[]> {
+  const { data } = await apiClient.get<PeerCard[]>(
+    `/social/${childId}/groups/${encodeURIComponent(key)}/members`,
+  );
+  return data;
+}
+
+export async function listGroupMessages(
+  childId: string,
+  key: string,
+): Promise<GroupMessage[]> {
+  const { data } = await apiClient.get<GroupMessage[]>(
+    `/social/${childId}/groups/${encodeURIComponent(key)}/messages`,
+  );
+  return data;
+}
+
+export async function sendGroupMessage(
+  childId: string,
+  key: string,
+  body: string,
+): Promise<GroupMessage> {
+  const { data } = await apiClient.post<GroupMessage>(
+    `/social/${childId}/groups/${encodeURIComponent(key)}/messages`,
+    { body },
+  );
+  return data;
 }

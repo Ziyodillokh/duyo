@@ -960,7 +960,10 @@ async def lesson_help(
     """AI tutor: step-by-step solution for a child's homework question.
 
     Age-aware (uses the child's segment), Uzbek, child-safe. Stateless —
-    nothing is persisted. Fails safe: always returns at least one step.
+    nothing is persisted. Fails safe: always returns at least one step, and
+    `available=False` marks that step as the outage notice rather than a
+    solution (see services/gemini.py::solve_lesson). Same contract as the main
+    chat path above: the model being down is never an error screen for a child.
     """
     child = await _get_owned_child(payload.child_id, current_user, db)
     result = await solve_lesson(
@@ -971,6 +974,9 @@ async def lesson_help(
     return LessonHelpResponse(
         steps=[LessonStep(title=s["title"], detail=s["detail"]) for s in result["steps"]],
         answer=result["answer"],
+        # .get, not [...]: keeps older/faked solve_lesson results (which have
+        # no such key) meaning "this is a real answer".
+        available=result.get("available", True),
     )
 
 

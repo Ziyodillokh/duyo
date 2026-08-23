@@ -27,6 +27,7 @@ from duyo.models.social import (
     ChildSocialSettings,
     Friendship,
     FriendshipStatus,
+    GroupMessage,
     PeerMessage,
     PeerModerationState,
     PeerReport,
@@ -36,6 +37,9 @@ from duyo.schemas.social import (
     FriendRequestCreate,
     FriendshipRead,
     GoalMateRead,
+    GroupMessageCreate,
+    GroupMessageRead,
+    GroupRead,
     HandleSuggestions,
     PeerCard,
     PeerMessageCreate,
@@ -44,6 +48,7 @@ from duyo.schemas.social import (
     SocialSettingsRead,
     SocialSettingsUpdate,
 )
+from duyo.services import groups as group_svc
 from duyo.services.social import (
     HandleError,
     canonical_pair,
@@ -589,6 +594,164 @@ async def send_message(
         id=message.id,
         seq=message.seq,
         body=message.body,
+        mine=True,
+        created_at=message.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Goal groups — the rooms behind the Maqsaddoshlar circles.
+#
+# Membership is derived, never stored (services/groups.py explains why), so
+# there is nothing here to join or leave: the goal IS the membership. Every
+# route re-checks it rather than trusting a key the client sent.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{child_id}/groups", response_model=list[GroupRead])
+async def list_groups(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[GroupRead]:
+    """Every room for this child's age band, with the ones they are in flagged.
+
+    Rooms they are NOT in are listed too — a child should be able to see that
+    a room exists and what it would take to be in it, rather than have the
+    circle silently do nothing.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    mine = {c.key for c in await group_svc.categories_for_child(db, child)}
+
+    out: list[GroupRead] = []
+    for category in group_svc.CATEGORIES:
+        count = await group_svc.member_count(db, category, child.age_segment)
+        if count == 0 and category.key not in mine:
+            # An empty room nobody is in is noise, not a door.
+            continue
+        out.append(
+            GroupRead(
+                key=group_svc.group_key(category.key, child.age_segment),
+                category=category.key,
+                label=category.label,
+                members=count,
+                joined=category.key in mine,
+            )
+        )
+    return out
+
+
+@router.get("/{child_id}/groups/{key}/members", response_model=list[PeerCard])
+async def list_group_members(
+    child_id: UUID,
+    key: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[PeerCard]:
+    """The roster, visible only to someone in the room."""
+    child = await _get_owned_child(child_id, current_user, db)
+    category = await group_svc.is_member(db, child, key)
+    if category is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
+
+    ids = await group_svc.member_ids(db, category, child.age_segment)
+    return [await _peer_card(db, pid) for pid in ids if pid != child.id]
+
+
+@router.get("/{child_id}/groups/{key}/messages", response_model=list[GroupMessageRead])
+async def list_group_messages(
+    child_id: UUID,
+    key: str,
+    after_seq: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[GroupMessageRead]:
+    """Newest page first, then reversed — see list_messages for why."""
+    child = await _get_owned_child(child_id, current_user, db)
+    if await group_svc.is_member(db, child, key) is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
+
+    rows = (
+        await db.execute(
+            select(GroupMessage)
+            .where(
+                GroupMessage.group_key == key,
+                GroupMessage.seq > after_seq,
+                GroupMessage.moderation_state == PeerModerationState.DELIVERED,
+            )
+            .order_by(GroupMessage.seq.desc())
+            .limit(100)
+        )
+    ).scalars().all()
+
+    return [
+        GroupMessageRead(
+            id=m.id,
+            seq=m.seq,
+            body=m.body,
+            sender_name=m.sender_name,
+            mine=m.sender_child_id == child.id,
+            created_at=m.created_at,
+        )
+        for m in reversed(rows)
+    ]
+
+
+@router.post(
+    "/{child_id}/groups/{key}/messages",
+    response_model=GroupMessageRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def send_group_message(
+    child_id: UUID,
+    key: str,
+    payload: GroupMessageCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    detector: KeywordCrisisDetector = Depends(get_detector),
+) -> GroupMessageRead:
+    """Screened before delivery by the SAME pipeline as a one-to-one message.
+
+    A room is a bigger audience than a friendship, never a lighter one, so
+    nothing here is relaxed: peer-harm, contact details and Layer-1 crisis all
+    still block, and a blocked message is still persisted as the safety
+    record.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    if await group_svc.is_member(db, child, key) is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
+
+    settings = await get_or_create_settings(db, child.id)
+    verdict = screen_peer_message(payload.body, detector)
+    message = GroupMessage(
+        group_key=key,
+        sender_child_id=child.id,
+        # Frozen at send time: renaming must not rewrite what a room saw.
+        sender_name=settings.display_name,
+        body=payload.body.strip(),
+        moderation_state=(
+            PeerModerationState.DELIVERED
+            if verdict.allowed
+            else PeerModerationState.BLOCKED
+        ),
+        moderation_reason=verdict.reason,
+    )
+    db.add(message)
+    await db.flush()
+
+    if not verdict.allowed:
+        # Commit before raising — get_db rolls back on HTTPException, and the
+        # blocked row IS the safety record. Same reasoning as send_message.
+        await db.commit()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, _refusal_text(verdict.reason)
+        )
+
+    return GroupMessageRead(
+        id=message.id,
+        seq=message.seq,
+        body=message.body,
+        sender_name=message.sender_name,
         mine=True,
         created_at=message.created_at,
     )

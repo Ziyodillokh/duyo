@@ -3,19 +3,33 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  DTM_SUBJECTS,
-  type DTMSubject,
-  questionsBySubject,
-  TIMER_SECONDS_PER_QUESTION,
-} from '@/mocks/dtm';
+import { DTM_QUESTION_COUNT } from '@/api/endpoints/dtm';
+import { useDtmQuestions } from '@/hooks/use-dtm';
+import { DTM_SUBJECTS, type DTMSubject } from '@/mocks/dtm';
 
-type Stage = 'subject-select' | 'quiz' | 'result';
+type Stage = 'subject-select' | 'prepare' | 'quiz' | 'result';
 
 const FULL_SCREEN_BG = '#0A1628';
+
+/** Exam pacing, not data — DTM allows roughly a minute a question. */
+const TIMER_SECONDS_PER_QUESTION = 60;
+
+/** The sentinel stored in `answers` when the clock ran out with nothing picked.
+ *  It can never equal a real correct_index, so it always grades as wrong. */
+const NO_ANSWER = -1;
+
+const labelOf = (key: DTMSubject | null) =>
+  DTM_SUBJECTS.find((s) => s.key === key)?.label ?? '';
 
 export default function DTMScreen() {
   const isDark = useIsDark();
@@ -26,10 +40,10 @@ export default function DTMScreen() {
   const [answers, setAnswers] = useState<readonly number[]>([]);
   const [secondsLeft, setSecondsLeft] = useState(TIMER_SECONDS_PER_QUESTION);
 
-  const questions = useMemo(
-    () => (subject ? questionsBySubject(subject) : []),
-    [subject],
-  );
+  // The set the child is answering right now. Generated per run by the
+  // backend, so it is never cached and never the same twice.
+  const generate = useDtmQuestions();
+  const questions = useMemo(() => generate.data ?? [], [generate.data]);
 
   const question = questions[qIndex];
   const isLast = qIndex >= questions.length - 1;
@@ -41,8 +55,10 @@ export default function DTMScreen() {
   }, [stage, secondsLeft]);
 
   const handleNext = (answerIndex: number) => {
-    const newAnswers = [...answers, answerIndex];
-    setAnswers(newAnswers);
+    // Append only if this question has not been recorded yet. The timeout
+    // effect below can fire more than once for the same expiry, and a double
+    // append would shift every later answer against the wrong question.
+    setAnswers((prev) => (prev.length > qIndex ? prev : [...prev, answerIndex]));
     if (isLast) {
       setStage('result');
     } else {
@@ -54,21 +70,36 @@ export default function DTMScreen() {
 
   useEffect(() => {
     if (stage === 'quiz' && secondsLeft <= 0 && selected === null) {
-      handleNext(-1);
+      handleNext(NO_ANSWER);
     }
   }, [secondsLeft, stage, selected]);
 
   const startQuiz = (s: DTMSubject) => {
     setSubject(s);
-    setStage('quiz');
+    setStage('prepare');
     setQIndex(0);
     setAnswers([]);
     setSelected(null);
     setSecondsLeft(TIMER_SECONDS_PER_QUESTION);
+    generate.mutate(s, {
+      // Only enter the quiz once there is something real to answer. An empty
+      // or failed generation stays on the prepare card and says so.
+      onSuccess: (qs) => {
+        if (qs.length > 0) setStage('quiz');
+      },
+    });
+  };
+
+  const backToSubjects = () => {
+    setStage('subject-select');
+    setSubject(null);
+    // Drop the previous run so a stale error or an old question set cannot
+    // flash when the child picks the next subject.
+    generate.reset();
   };
 
   const correctCount = useMemo(
-    () => answers.filter((a, i) => a === questions[i]?.correctIndex).length,
+    () => answers.filter((a, i) => a === questions[i]?.correct_index).length,
     [answers, questions],
   );
 
@@ -87,7 +118,7 @@ export default function DTMScreen() {
           <Pressable
             onPress={() => {
               if (stage === 'subject-select') router.back();
-              else setStage('subject-select');
+              else backToSubjects();
             }}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
@@ -102,9 +133,15 @@ export default function DTMScreen() {
           <ScrollView
             contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
           >
-            <Text className="text-base text-muted-foreground dark:text-dark-muted">
-              Qaysi fan bo'yicha mashq qilamiz?
-            </Text>
+            <View className="gap-1">
+              <Text className="text-base text-muted-foreground dark:text-dark-muted">
+                Qaysi fan bo'yicha mashq qilamiz?
+              </Text>
+              <Text className="text-sm text-muted-foreground dark:text-dark-subtitle">
+                Har safar darsliklar asosida {DTM_QUESTION_COUNT} tagacha yangi
+                savol tuziladi.
+              </Text>
+            </View>
             {DTM_SUBJECTS.map((s) => (
               <Pressable
                 key={s.key}
@@ -129,13 +166,89 @@ export default function DTMScreen() {
                     <Text className="text-base font-medium text-foreground dark:text-dark-text">
                       {s.label}
                     </Text>
-                    <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
-                      {questionsBySubject(s.key).length} ta savol
-                    </Text>
                   </View>
                 </View>
               </Pressable>
             ))}
+          </ScrollView>
+        )}
+
+        {/* Preparing / failed / nothing to ask — one card, never a blank screen
+            and never an invented question. */}
+        {stage === 'prepare' && (
+          <ScrollView
+            contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
+          >
+            <View
+              className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
+              style={{ padding: 32 }}
+            >
+              {generate.isPending ? (
+                <>
+                  <ActivityIndicator size="large" color="#60A5FA" />
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text mt-4 text-center">
+                    Savollar tayyorlanmoqda...
+                  </Text>
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-2 text-center">
+                    {labelOf(subject)} bo'yicha yangi test tuzilyapti. Bu bir
+                    necha soniya olishi mumkin.
+                  </Text>
+                </>
+              ) : generate.isError ? (
+                <>
+                  <Text className="text-5xl mb-3">📡</Text>
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text text-center">
+                    Savollarni ololmadim
+                  </Text>
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-2 text-center">
+                    Aloqada yoki xizmatda muammo bor shekilli. Bir necha
+                    daqiqadan keyin qayta urinib ko'r.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text className="text-5xl mb-3">📚</Text>
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text text-center">
+                    Hozircha savol yo'q
+                  </Text>
+                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-2 text-center">
+                    {labelOf(subject)} bo'yicha savol tuza olmadim — bu fanning
+                    darslik materiali hali tayyor emas. Boshqa fanni sinab ko'r
+                    yoki keyinroq qayta kir.
+                  </Text>
+                </>
+              )}
+            </View>
+
+            {!generate.isPending && (
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => subject && startQuiz(subject)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Qayta urinish"
+                  className="flex-1 rounded-md bg-neon-blue items-center justify-center active:opacity-80"
+                  style={{ height: 56 }}
+                >
+                  <Text
+                    className="text-base font-medium"
+                    style={{ color: '#0A1628' }}
+                  >
+                    Qayta urinish
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={backToSubjects}
+                  accessibilityRole="button"
+                  accessibilityLabel="Boshqa fan"
+                  className="flex-1 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
+                  style={{ height: 56 }}
+                >
+                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
+                    Boshqa fan
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </ScrollView>
         )}
 
@@ -270,10 +383,10 @@ export default function DTMScreen() {
 
             <View className="gap-3">
               {questions.map((q, i) => {
-                const isCorrect = answers[i] === q.correctIndex;
+                const isCorrect = answers[i] === q.correct_index;
                 return (
                   <View
-                    key={q.id}
+                    key={i}
                     className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
                     style={{ padding: 16 }}
                   >
@@ -288,13 +401,13 @@ export default function DTMScreen() {
                           {q.text}
                         </Text>
                         <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-                          To'g'ri javob: {q.choices[q.correctIndex]}
+                          To'g'ri javob: {q.choices[q.correct_index]}
                         </Text>
-                        {q.explanation && (
+                        {q.explanation ? (
                           <Text className="text-xs text-muted-foreground dark:text-dark-subtitle mt-1">
                             {q.explanation}
                           </Text>
-                        )}
+                        ) : null}
                       </View>
                     </View>
                   </View>
@@ -318,7 +431,7 @@ export default function DTMScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => setStage('subject-select')}
+                onPress={backToSubjects}
                 accessibilityRole="button"
                 accessibilityLabel="Boshqa fan"
                 className="flex-1 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
