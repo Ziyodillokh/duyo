@@ -27,7 +27,7 @@ interface TabItem {
 const TABS: readonly TabItem[] = [
   { key: 'home', label: 'Bosh sahifa', Icon: Home },
   { key: 'chat', label: 'Suhbat', Icon: MessageCircle },
-  { key: 'goals', label: 'Maqsadlar', Icon: Target, emphasis: 'center' },
+  { key: 'goals', label: 'Maqsaddosh', Icon: Target, emphasis: 'center' },
   // Inventory moved inside Profil — it is part of "what I have", and the slot
   // it freed goes to the note graph.
   { key: 'brain', label: 'Miya', Icon: Brain },

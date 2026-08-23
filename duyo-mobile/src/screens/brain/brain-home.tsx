@@ -208,7 +208,8 @@ export default function BrainHome({
         <QuickAction
           icon={Target}
           label="Yangi maqsad"
-          onPress={() => router.push('/(main)/(tabs)/goals')}
+          // The goals TAB is Maqsaddoshlar now; goal creation lives at my-goals.
+          onPress={() => router.push('/(main)/my-goals')}
           colour="#FDC700"
         />
       </View>
