@@ -803,7 +803,7 @@ const styles = StyleSheet.create({
   // The browser's default focus ring is a black rectangle around a round
   // control. RN's ViewStyle has no outline, so this is a web-only escape;
   // native ignores unknown keys.
-  focusable: { outlineWidth: 0 } as ViewStyle,
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
   storyInner: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden' },
   storyPlus: {
     width: 64,

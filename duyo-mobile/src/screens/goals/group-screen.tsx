@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -75,7 +76,40 @@ function portraitFor(id: string): PortraitSpec {
   };
 }
 
-function Bubble({ m }: { m: GroupMessage }) {
+/** A day heading, the way a chat separates sessions. */
+function DayPill({ label }: { label: string }) {
+  return (
+    <View style={styles.dayWrap}>
+      <View style={styles.dayPill}>
+        <Text style={styles.dayText}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const same = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (same(d, today)) return 'Bugun';
+  const y = new Date(today);
+  y.setDate(y.getDate() - 1);
+  if (same(d, y)) return 'Kecha';
+  return d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' });
+}
+
+function Bubble({
+  m,
+  grouped,
+}: {
+  m: GroupMessage;
+  /** True when the previous message is from the same sender: Telegram drops
+   *  the repeated name and avatar and tightens the gap. */
+  grouped: boolean;
+}) {
   const time = useMemo(() => {
     const d = new Date(m.created_at);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -83,8 +117,14 @@ function Bubble({ m }: { m: GroupMessage }) {
 
   if (m.mine) {
     return (
-      <View style={styles.rowMine}>
-        <View style={[styles.bubble, styles.bubbleMine]}>
+      <View style={[styles.rowMine, grouped && styles.rowGrouped]}>
+        <View
+          style={[
+            styles.bubble,
+            styles.bubbleMine,
+            grouped && styles.bubbleMineGrouped,
+          ]}
+        >
           <Text style={styles.bodyMine}>{m.body}</Text>
           <Text style={styles.timeMine}>{time}</Text>
         </View>
@@ -92,10 +132,26 @@ function Bubble({ m }: { m: GroupMessage }) {
     );
   }
   return (
-    <View style={styles.rowTheirs}>
-      <Portrait spec={portraitFor(m.sender_name)} size={34} seed={seedOf(m.sender_name)} />
-      <View style={[glass(18), styles.bubble, styles.bubbleTheirs]}>
-        <Text style={styles.sender}>{m.sender_name}</Text>
+    <View style={[styles.rowTheirs, grouped && styles.rowGrouped]}>
+      {/* The avatar slot is held even when grouped, so the bubbles below a
+          name stay in one column instead of stepping left. */}
+      <View style={styles.avatarSlot}>
+        {!grouped && (
+          <Portrait
+            spec={portraitFor(m.sender_name)}
+            size={30}
+            seed={seedOf(m.sender_name)}
+          />
+        )}
+      </View>
+      <View
+        style={[
+          styles.bubble,
+          styles.bubbleTheirs,
+          grouped && styles.bubbleTheirsGrouped,
+        ]}
+      >
+        {!grouped && <Text style={styles.sender}>{m.sender_name}</Text>}
         <Text style={styles.body}>{m.body}</Text>
         <Text style={styles.time}>{time}</Text>
       </View>
@@ -321,7 +377,26 @@ export default function GroupScreen() {
             ref={listRef}
             data={messages.data ?? []}
             keyExtractor={(m) => m.id}
-            renderItem={({ item }) => <Bubble m={item} />}
+            renderItem={({ item, index }) => {
+              const prev = (messages.data ?? [])[index - 1];
+              const newDay =
+                !prev || dayLabel(prev.created_at) !== dayLabel(item.created_at);
+              // Same sender, same day, within five minutes reads as one turn.
+              const grouped =
+                !newDay &&
+                !!prev &&
+                prev.sender_name === item.sender_name &&
+                prev.mine === item.mine &&
+                new Date(item.created_at).getTime() -
+                  new Date(prev.created_at).getTime() <
+                  5 * 60 * 1000;
+              return (
+                <>
+                  {newDay && <DayPill label={dayLabel(item.created_at)} />}
+                  <Bubble m={item} grouped={grouped} />
+                </>
+              );
+            }}
             contentContainerStyle={styles.list}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             keyboardShouldPersistTaps="handled"
@@ -357,7 +432,7 @@ export default function GroupScreen() {
                   onChangeText={setDraft}
                   placeholder="Xabar yozing..."
                   placeholderTextColor="#93A9C9"
-                  style={[styles.input, styles.focusable]}
+                  style={[styles.input, styles.focusableText]}
                   maxLength={500}
                   multiline
                   accessibilityLabel="Guruh xabari"
@@ -390,7 +465,8 @@ const styles = StyleSheet.create({
 
   // The browser draws a black rectangle around a focused control; these are
   // round or pill-shaped, so the default ring is simply wrong.
-  focusable: { outlineWidth: 0 },
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  focusableText: { outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle,
 
   header: {
     flexDirection: 'row',
@@ -430,22 +506,41 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(47,111,228,0.10)',
   },
   emptyText: { fontSize: 13.5, lineHeight: 19, color: INK, textAlign: 'center' },
-  rowMine: { alignItems: 'flex-end' },
-  rowTheirs: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingVertical: 9 },
+  dayWrap: { alignItems: 'center', paddingVertical: 8 },
+  dayPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  dayText: { fontSize: 12, fontWeight: '600', color: '#5A7BB0' },
+
+  rowMine: { alignItems: 'flex-end', marginTop: 6 },
+  rowTheirs: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, marginTop: 6 },
+  //消 A grouped turn sits tight under the one above it.
+  rowGrouped: { marginTop: 2 },
+  avatarSlot: { width: 30, height: 30, borderRadius: 15, overflow: 'hidden' },
+  bubble: { maxWidth: '76%', paddingHorizontal: 12, paddingVertical: 7 },
   bubbleMine: {
     backgroundColor: PRIMARY,
-    borderRadius: 18,
-    borderBottomRightRadius: 6,
+    borderRadius: 16,
+    borderBottomRightRadius: 5,
   },
-  bubbleTheirs: { borderBottomLeftRadius: 6 },
+  bubbleMineGrouped: { borderTopRightRadius: 5 },
+  bubbleTheirs: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderBottomLeftRadius: 5,
+    boxShadow: '0 1px 2px rgba(80,120,190,0.16)',
+  },
+  bubbleTheirsGrouped: { borderTopLeftRadius: 5 },
   sender: { fontSize: 12.5, fontWeight: '700', color: PRIMARY, marginBottom: 2 },
   body: { fontSize: 15, lineHeight: 20, color: INK },
   bodyMine: { fontSize: 15, lineHeight: 20, color: '#FFFFFF' },
-  time: { marginTop: 3, fontSize: 11, color: MUTED, alignSelf: 'flex-end' },
+  time: { marginTop: 2, fontSize: 10.5, color: '#9BB0CE', alignSelf: 'flex-end' },
   timeMine: {
-    marginTop: 3,
-    fontSize: 11,
+    marginTop: 2,
+    fontSize: 10.5,
     color: 'rgba(255,255,255,0.75)',
     alignSelf: 'flex-end',
   },
