@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft, Bell } from 'lucide-react-native';
+import { ArrowLeft, Bell, CheckCheck } from 'lucide-react-native';
 import {
   ActivityIndicator,
   FlatList,
@@ -8,70 +8,110 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type NotificationWire } from '@/api/endpoints/notifications';
-import { useT } from '@/i18n';
+import { Text } from '@/components/text';
+import { MascotHead } from '@/components/v2/mascot-image';
 import {
   useMarkNotificationRead,
   useNotifications,
 } from '@/hooks/use-notifications';
+import { useT } from '@/i18n';
+import { glass } from '@/lib/glass';
 import { shortWhen } from '@/lib/history-groups';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as goal-mates: panes of frosted glass on a pale blue page.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 /**
  * "Bildirishnomalar" — sent campaigns targeted at this child's age segment,
  * newest first. Read state is per-child (see backend NotificationRead), so
  * tapping a card marks it read without affecting any sibling's view of it.
+ *
+ * The screen is a pane of the same morning sky as home and goal-mates: the
+ * old navy build predated the glass system and read as a different app
+ * bolted onto this one.
  */
 export default function NotificationsScreen() {
   const t = useT();
-  const isDark = useIsDark();
   const notifications = useNotifications();
   const markRead = useMarkNotificationRead();
 
   const items = notifications.data ?? [];
+  const unread = items.filter((n) => !n.read);
+
+  const markAll = () => {
+    // One mutation per campaign — the backend's read-marks are per-campaign
+    // rows and the hook invalidates once per settle, so a handful of these
+    // is fine for the volumes a child ever has.
+    unread.forEach((n) => markRead.mutate(n.id));
+  };
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.95, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: 48pt glass rounds, the inner-screen pattern ────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-2xl font-bold text-foreground dark:text-dark-text">
-            {t('notificationsScreen.title')}
-          </Text>
+
+          <View style={styles.titleWrap}>
+            <Text style={styles.title}>{t('notificationsScreen.title')}</Text>
+            {unread.length > 0 && (
+              <Text style={styles.unreadCaption}>
+                {t('notificationsScreen.unread', { count: unread.length })}
+              </Text>
+            )}
+          </View>
+
+          {unread.length > 0 ? (
+            <Pressable
+              onPress={markAll}
+              accessibilityRole="button"
+              accessibilityLabel={t('notificationsScreen.markAllRead')}
+              style={[glass(24, 'sm'), styles.headerButton]}
+            >
+              <CheckCheck size={22} color={PRIMARY} strokeWidth={2} />
+            </Pressable>
+          ) : (
+            // Keeps the title centred when there is nothing to mark.
+            <View style={styles.headerButton} />
+          )}
         </View>
 
         {notifications.isLoading ? (
-          <View className="items-center" style={{ padding: 32 }}>
-            <ActivityIndicator color="#60A5FA" />
+          <View style={{ alignItems: 'center', padding: 32 }}>
+            <ActivityIndicator color={PRIMARY} />
           </View>
         ) : (
           <FlatList
             data={items}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ padding: 24, paddingTop: 8, gap: 12, paddingBottom: 48 }}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingTop: 6,
+              gap: 12,
+              paddingBottom: 48,
+            }}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
               <NotificationRow
@@ -82,12 +122,16 @@ export default function NotificationsScreen() {
               />
             )}
             ListEmptyComponent={
-              <View className="items-center" style={{ paddingVertical: 64 }}>
-                <Bell size={40} color="#64748B" />
-                <Text className="text-base font-bold text-foreground dark:text-dark-text mt-3 text-center">
+              <View style={{ alignItems: 'center', paddingVertical: 56 }}>
+                {/* The mascot delivers the quiet, not a grey bell — an empty
+                    inbox is a friendly fact, not a failure state. */}
+                <View style={[glass(999, 'md', 0.65), styles.emptyBadge]}>
+                  <MascotHead size={72} />
+                </View>
+                <Text style={styles.emptyTitle}>
                   {t('notificationsScreen.emptyTitle')}
                 </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                <Text style={styles.emptySubtitle}>
                   {t('notificationsScreen.emptySubtitle')}
                 </Text>
               </View>
@@ -112,61 +156,131 @@ function NotificationRow({
       onPress={onOpen}
       accessibilityRole="button"
       accessibilityLabel={notification.title}
-      className={`rounded-xl border bg-card dark:bg-dark-surface active:opacity-80 ${
-        unread ? 'border-neon-blue/50' : 'border-neon-blue/20'
-      }`}
-      style={{ padding: 14 }}
+      // An unread pane sits brighter and whiter than a read one — the state
+      // is in the light, with the dot as the second witness.
+      style={[glass(22, 'md', unread ? 0.78 : 0.45), styles.row]}
     >
-      <View className="flex-row items-start gap-3">
-        <View
-          className="items-center justify-center"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            backgroundColor: 'rgba(96,165,250,0.12)',
-          }}
-        >
-          <Bell size={17} color="#60A5FA" />
-        </View>
-
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <Text
-              className="text-base font-medium text-foreground dark:text-dark-text flex-1"
-              numberOfLines={1}
-            >
-              {notification.title}
-            </Text>
-            {!!notification.sent_at && (
-              <Text
-                className="text-xs text-muted-foreground dark:text-dark-muted"
-                style={{ fontVariant: ['tabular-nums'] }}
-              >
-                {shortWhen(notification.sent_at)}
-              </Text>
-            )}
-          </View>
-          <Text
-            className="text-sm text-muted-foreground dark:text-dark-muted mt-0.5"
-            numberOfLines={2}
-          >
-            {notification.body}
-          </Text>
-        </View>
-
-        {unread && (
-          <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: '#60A5FA',
-              marginTop: 6,
-            }}
-          />
-        )}
+      <View style={[styles.iconWell, unread && styles.iconWellUnread]}>
+        <Bell size={18} color={unread ? '#FFFFFF' : PRIMARY} strokeWidth={2} />
       </View>
+
+      <View style={{ flex: 1 }}>
+        <View style={styles.rowHead}>
+          <Text
+            style={[styles.rowTitle, !unread && styles.rowTitleRead]}
+            numberOfLines={1}
+          >
+            {notification.title}
+          </Text>
+          {!!notification.sent_at && (
+            <Text style={styles.when}>{shortWhen(notification.sent_at)}</Text>
+          )}
+        </View>
+        <Text style={styles.rowBody} numberOfLines={2}>
+          {notification.body}
+        </Text>
+      </View>
+
+      {unread && <View style={styles.dot} />}
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleWrap: { flex: 1, alignItems: 'center' },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+  unreadCaption: {
+    marginTop: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: PRIMARY,
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 14,
+  },
+  iconWell: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  iconWellUnread: {
+    backgroundColor: PRIMARY,
+  },
+  rowHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rowTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: INK,
+  },
+  rowTitleRead: {
+    fontWeight: '600',
+    color: 'rgba(34,64,111,0.72)',
+  },
+  when: {
+    fontSize: 12,
+    color: MUTED,
+    fontVariant: ['tabular-nums'],
+  },
+  rowBody: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 19,
+    color: MUTED,
+  },
+  dot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: PRIMARY,
+    marginTop: 6,
+  },
+
+  emptyBadge: {
+    width: 116,
+    height: 116,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    marginTop: 18,
+    fontSize: 17,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    marginTop: 4,
+    fontSize: 14,
+    color: MUTED,
+    textAlign: 'center',
+  },
+});

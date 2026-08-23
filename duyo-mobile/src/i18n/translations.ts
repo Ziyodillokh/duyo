@@ -191,6 +191,8 @@ const UZ = {
   'notificationsScreen.title': 'Bildirishnomalar',
   'notificationsScreen.emptyTitle': 'Hozircha bildirishnoma yo’q',
   'notificationsScreen.emptySubtitle': 'Yangi bildirishnomalar shu yerda ko’rinadi',
+  'notificationsScreen.unread': '{count} ta yangi',
+  'notificationsScreen.markAllRead': "Hammasini o'qilgan qilish",
 
   // ── settings: language ──────────────────────────────────────────────────
   'settings.languageScreen.subtitle': 'Ilova tilini tanlang',
@@ -448,6 +450,8 @@ const RU: Record<TranslationKey, string> = {
   'notificationsScreen.title': 'Уведомления',
   'notificationsScreen.emptyTitle': 'Пока нет уведомлений',
   'notificationsScreen.emptySubtitle': 'Новые уведомления появятся здесь',
+  'notificationsScreen.unread': 'Новых: {count}',
+  'notificationsScreen.markAllRead': 'Отметить все прочитанными',
 
   // ── settings: language ──────────────────────────────────────────────────
   'settings.languageScreen.subtitle': 'Выберите язык приложения',
@@ -705,6 +709,8 @@ const EN: Record<TranslationKey, string> = {
   'notificationsScreen.title': 'Notifications',
   'notificationsScreen.emptyTitle': 'No notifications yet',
   'notificationsScreen.emptySubtitle': 'New notifications will show up here',
+  'notificationsScreen.unread': '{count} new',
+  'notificationsScreen.markAllRead': 'Mark all as read',
 
   // ── settings: language ──────────────────────────────────────────────────
   'settings.languageScreen.subtitle': 'Choose the app language',
