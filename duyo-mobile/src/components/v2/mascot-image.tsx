@@ -9,6 +9,9 @@ export const MASCOT_VARIANTS: Record<MascotVariant, number> = {
   raccoon: require('../../../assets/duyo/v2/mascot-raccoon.png'),
 };
 
+/** DUYO's face on its own, for the places too small to show a body. */
+const MASCOT_HEAD = require('../../../assets/duyo/v2/mascot-head.png');
+
 type MascotGlow = 'cosmic' | 'soft' | 'none';
 
 interface MascotImageProps {
@@ -64,5 +67,36 @@ export function MascotImage({
         accessibilityIgnoresInvertColors
       />
     </View>
+  );
+}
+
+/**
+ * DUYO's head, for icon-sized slots.
+ *
+ * ## Why not just render MascotImage smaller
+ *
+ * The body art is a full standing robot in a 1024 square. Shrunk into the
+ * dock's 44pt bubble the head lands about 14pt across — smaller than the
+ * lucide glyphs beside it, and the face, which is the entire point of having
+ * a mascot, stops being readable at all. This asset is the same character
+ * cropped to the head, so the face gets the whole 44pt.
+ *
+ * ## Why this ignores the variant the child picked
+ *
+ * The dock is DUYO's chrome, not the child's pet: the middle button means
+ * "the assistant", the same way the wordmark means the app. A child who
+ * chose the raccoon body still taps DUYO to talk to DUYO. (There is also no
+ * raccoon head crop — if that ever changes, this is the one place to look.)
+ */
+export function MascotHead({ size = 44 }: { size?: number }) {
+  return (
+    <Image
+      source={MASCOT_HEAD}
+      // `contain`: the head is wider than it is tall, so `cover` would crop
+      // the headphones and the star antenna off the sides.
+      contentFit="contain"
+      style={{ width: size, height: size }}
+      accessibilityIgnoresInvertColors
+    />
   );
 }

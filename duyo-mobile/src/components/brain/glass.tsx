@@ -1,5 +1,7 @@
 import { type ReactNode } from 'react';
-import { Platform, View, type ViewStyle } from 'react-native';
+import { View, type ViewStyle } from 'react-native';
+
+import { lift, type Lift } from '@/lib/glass';
 
 /**
  * The frosted-glass surfaces the Miya page is built from.
@@ -12,13 +14,12 @@ import { Platform, View, type ViewStyle } from 'react-native';
  * its own shadow. Here the light is always upper-left, so every raised surface
  * carries a white highlight up-left and a cool shadow down-right.
  *
- * ## Why the shadow is split in two on iOS and flat on Android
+ * ## Where the light itself comes from
  *
- * React Native gives one shadow per view on iOS and only `elevation` on
- * Android, which is always a grey drop-shadow with no colour control and no
- * highlight. Rather than fake a second layer with nested Views on every card
- * — which doubles the view count on the cheapest phones — Android gets a
- * slightly stronger border instead. It reads as glass without the cost.
+ * The shadows are lib/glass.ts, shared with the home dashboard, so the two
+ * light screens agree about how high things sit. This file keeps the Miya
+ * PALETTE — the deep accent, the dark sky card — because those are Miya's
+ * and nothing else uses them.
  */
 
 export const GLASS = {
@@ -31,7 +32,9 @@ export const GLASS = {
   surfaceSoft: 'rgba(255,255,255,0.52)',
   /** The highlight edge, up-left, where the light hits. */
   edge: 'rgba(255,255,255,0.92)',
-  /** The cool shadow, down-right, where it does not. */
+  /** The cool shadow colour this page was built around. The shadows
+   *  themselves come from lib/glass.ts now; this stays for anything that
+   *  needs to tint against the same shade. */
   shade: '#A9B8D8',
 
   /** The dark sky card, the one place this page is not light. */
@@ -49,19 +52,17 @@ export const GLASS = {
   blueSoft: '#5B7DF7',
 } as const;
 
-/** Soft shadow for a raised glass surface. */
-export function raised(strength: 'sm' | 'md' | 'lg' = 'md'): ViewStyle {
-  const depth = { sm: 6, md: 14, lg: 22 }[strength];
-  if (Platform.OS === 'android') {
-    // No coloured shadow available; the border carries the edge instead.
-    return { elevation: strength === 'sm' ? 1 : 2 };
-  }
-  return {
-    shadowColor: GLASS.shade,
-    shadowOffset: { width: 0, height: depth * 0.42 },
-    shadowOpacity: 0.34,
-    shadowRadius: depth,
-  };
+/**
+ * Soft shadow for a raised glass surface.
+ *
+ * This used to be one iOS shadow and, on Android, a bare `elevation: 2` —
+ * a grey rectangle with no colour control, accepted because `shadow*` gives
+ * only one layer per view. `boxShadow` lifted that limit on both platforms,
+ * so Miya now gets the same contact-plus-ambient pair as the dashboard and
+ * Android stops being the flat version of the design.
+ */
+export function raised(strength: Lift = 'md'): ViewStyle {
+  return { boxShadow: lift(strength) };
 }
 
 export function GlassCard({

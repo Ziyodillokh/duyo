@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MascotImage } from '@/components/v2/mascot-image';
+import { MascotHead } from '@/components/v2/mascot-image';
 import { useIsDark } from '@/store/theme';
 
 /** Every tab route the navigator owns. The dock surfaces three of them; home
@@ -163,7 +163,7 @@ export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
           },
         ]}
       >
-        <MascotImage size={44} glow="none" />
+        <MascotHead size={44} />
       </Pressable>
     </View>
   );

@@ -15,7 +15,6 @@ import {
   useWindowDimensions,
   View,
   type TextStyle,
-  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -26,18 +25,11 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, {
-  Circle,
-  ClipPath,
-  Defs,
-  Ellipse,
-  G,
-  Path,
-  RadialGradient,
-  Stop,
-} from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
+import { MascotHead } from '@/components/v2/mascot-image';
+import { glass } from '@/lib/glass';
 import { useAchievements, useBalls } from '@/hooks/use-gamification';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
 import { useTamagochi } from '@/hooks/use-tamagochi';
@@ -53,17 +45,14 @@ const BG_TOP = '#D6E6FA';
 const BG_MID = '#E7EEFC';
 const BG_BOTTOM = '#EEEFFA';
 
-/** Frosted glass. boxShadow (not shadow*) — RN understands it on every
- *  platform now and the web build stops warning. The inset line is the light
- *  catching the top edge of the pane. */
-const glass = (radius: number): ViewStyle => ({
-  backgroundColor: 'rgba(255,255,255,0.50)',
-  borderRadius: radius,
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.85)',
-  boxShadow:
-    '0 14px 30px rgba(111,155,221,0.30), inset 0 1.5px 0 rgba(255,255,255,0.9)',
-});
+/* Every pane on this screen used to cast the same `0 14px 30px`, which is
+   what made the glass look drawn rather than lit. Depth now comes from
+   lib/glass.ts, where each level is a contact shadow plus an ambient one
+   and the ratio between them is the height cue. What each surface IS
+   decides its level, so the hierarchy below is the screen's hierarchy:
+   the credit card is the hero, the stat tiles are cards, the header
+   buttons rest on the page, and the icon wells are flush against the
+   card they belong to. */
 
 /** Space-grouped integer, the way uz locale reads big numbers. */
 const fmt = (n: number): string =>
@@ -76,34 +65,20 @@ const fmt = (n: number): string =>
 const GLOW_MAX = 316;
 const ORB_RATIO = 236 / 316;
 
-/** One sine stroke across the orb's midline. Deterministic — the same wave
- *  cluster every launch, like a photograph of a voice. */
-function wavePath(cx: number, cy: number, r: number, amp: number, freq: number, phase: number): string {
-  const steps = 48;
-  let d = '';
-  for (let i = 0; i <= steps; i++) {
-    const x = cx - r + (2 * r * i) / steps;
-    const y = cy + amp * Math.sin((i / steps) * Math.PI * 2 * freq + phase);
-    d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)} `;
-  }
-  return d;
-}
-
-/** amp/freq/phase per stroke; a dense whisper of thin lines near the middle,
- *  a couple of louder swings around them — an audio waveform mid-sentence. */
-const WAVES: readonly [number, number, number, number][] = [
-  // [amp, freq, phase, opacity]
-  [46, 1.15, 0.4, 0.4],
-  [34, 1.5, 2.1, 0.55],
-  [26, 1.9, 4.4, 0.7],
-  [19, 2.3, 1.2, 0.85],
-  [13, 2.8, 5.0, 0.95],
-  [9, 3.3, 2.6, 0.9],
-  [16, 2.1, 3.3, 0.7],
-  [23, 1.7, 0.9, 0.6],
-  [31, 1.4, 5.6, 0.45],
-];
-
+/**
+ * DUYO itself, breathing, over the halo it lights the sky with.
+ *
+ * This slot used to hold an abstract sphere with an audio waveform drawn
+ * across it. It was a nice sphere, and it was also the one place the home
+ * screen said nothing about whose app this is — a glowing orb is what every
+ * assistant draws. The mascot already exists, children already know its
+ * face, and the caption underneath carries the "listening" that the
+ * waveform used to carry.
+ *
+ * The halo stays: it is what stops the robot reading as a sticker dropped
+ * on the page, and it is the brightest thing on the screen, which is how a
+ * child finds the one control that starts a conversation.
+ */
 function ListeningOrb({ size }: { size: number }) {
   const breath = useSharedValue(1);
   // Breathe only while the home tab is on screen — an infinite repeat behind
@@ -129,74 +104,38 @@ function ListeningOrb({ size }: { size: number }) {
   }));
 
   const c = size / 2;
+  // The radius the sphere used to occupy — the stardust is still placed
+  // against it, so the grains sit where the mock has them.
   const r = (size * ORB_RATIO) / 2;
-  const k = size / GLOW_MAX;
-  const waves = useMemo(
-    () => WAVES.map(([amp, freq, phase]) => wavePath(c, c, r * 0.94, amp * k, freq, phase)),
-    [c, r, k],
-  );
 
   return (
-    <Animated.View style={breathing}>
-      <Svg width={size} height={size}>
+    <Animated.View style={[breathing, { width: size, height: size }]}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Defs>
           {/* Halo — the orb lights the sky around itself. */}
           <RadialGradient id="orb-halo" cx="50%" cy="50%" r="50%">
-            <Stop offset="55%" stopColor="#CFE2FC" stopOpacity={0.9} />
-            <Stop offset="78%" stopColor="#CFE2FC" stopOpacity={0.35} />
+            <Stop offset="42%" stopColor="#CFE2FC" stopOpacity={0.92} />
+            <Stop offset="72%" stopColor="#CFE2FC" stopOpacity={0.34} />
             <Stop offset="100%" stopColor="#CFE2FC" stopOpacity={0} />
           </RadialGradient>
-          {/* The sphere: lit top-left, sky-blue body, deeper limb. */}
-          <RadialGradient id="orb-body" cx="36%" cy="30%" r="80%">
-            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.98} />
-            <Stop offset="34%" stopColor="#DFEBFD" stopOpacity={0.95} />
-            <Stop offset="72%" stopColor="#B9D2F8" stopOpacity={0.95} />
-            <Stop offset="100%" stopColor="#9DB8EF" stopOpacity={0.98} />
-          </RadialGradient>
-          {/* Warm dusk creeping in from the lower right, like the mock. */}
-          <RadialGradient id="orb-dusk" cx="70%" cy="76%" r="55%">
-            <Stop offset="0%" stopColor="#E5B4F0" stopOpacity={0.5} />
-            <Stop offset="60%" stopColor="#C9A8F2" stopOpacity={0.2} />
-            <Stop offset="100%" stopColor="#C9A8F2" stopOpacity={0} />
-          </RadialGradient>
-          <ClipPath id="orb-clip">
-            <Circle cx={c} cy={c} r={r} />
-          </ClipPath>
         </Defs>
 
         <Circle cx={c} cy={c} r={size / 2} fill="url(#orb-halo)" />
-        <Circle cx={c} cy={c} r={r} fill="url(#orb-body)" />
 
-        <G clipPath="url(#orb-clip)">
-          <Circle cx={c} cy={c} r={r} fill="url(#orb-dusk)" />
-          {waves.map((d, i) => (
-            <Path
-              key={i}
-              d={d}
-              stroke={i % 4 === 3 ? '#8FB7FF' : '#FFFFFF'}
-              strokeOpacity={WAVES[i][3]}
-              strokeWidth={WAVES[i][0] < 15 ? 2.1 : WAVES[i][0] < 28 ? 1.5 : 1.1}
-              fill="none"
-            />
-          ))}
-          {/* Gloss — the window-light reflection that sells the sphere. */}
-          <Ellipse
-            cx={c - r * 0.34}
-            cy={c - r * 0.52}
-            rx={r * 0.44}
-            ry={r * 0.2}
-            fill="#FFFFFF"
-            opacity={0.55}
-            transform={`rotate(-18 ${c - r * 0.34} ${c - r * 0.52})`}
-          />
-        </G>
-
-        {/* A few grains of stardust around the sphere. */}
+        {/* A few grains of stardust around DUYO. */}
         <Circle cx={c - r * 1.18} cy={c - r * 0.42} r={2.2} fill="#FFFFFF" opacity={0.9} />
         <Circle cx={c + r * 1.12} cy={c - r * 0.65} r={1.6} fill="#FFFFFF" opacity={0.7} />
         <Circle cx={c + r * 1.24} cy={c + r * 0.38} r={1.9} fill="#FFFFFF" opacity={0.6} />
         <Circle cx={c - r * 0.9} cy={c + r * 1.05} r={1.4} fill="#FFFFFF" opacity={0.5} />
       </Svg>
+
+      {/* Centred in the square the halo occupies. MascotHead letterboxes the
+          head inside the box it is given, so passing a share of the WIDTH
+          keeps DUYO the same size whatever the phone, and the leftover
+          height above and below is what the halo shows through. */}
+      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+        <MascotHead size={Math.round(size * 0.86)} />
+      </View>
     </Animated.View>
   );
 }
@@ -437,7 +376,7 @@ export function GlassHome() {
             onPress={() => toTab('profile')}
             accessibilityRole="button"
             accessibilityLabel="Profil"
-            style={[glass(28), styles.headerButton]}
+            style={[glass(28, 'sm'), styles.headerButton]}
           >
             <User size={sizes.s(24)} color={PRIMARY} strokeWidth={1.8} />
           </Pressable>
@@ -448,7 +387,7 @@ export function GlassHome() {
             onPress={() => router.push('/(main)/notifications')}
             accessibilityRole="button"
             accessibilityLabel="Bildirishnomalar"
-            style={[glass(28), styles.headerButton]}
+            style={[glass(28, 'sm'), styles.headerButton]}
           >
             <Bell size={sizes.s(23)} color={PRIMARY} strokeWidth={1.8} />
             {hasUnread && <View style={styles.bellDot} />}
@@ -472,7 +411,7 @@ export function GlassHome() {
           onPress={() => router.push('/(main)/subscription')}
           accessibilityRole="button"
           accessibilityLabel="AI kredit — limitni oshirish"
-          style={[glass(30), styles.creditCard]}
+          style={[glass(30, 'lg'), styles.creditCard]}
         >
           <View style={styles.creditText}>
             <Text style={styles.creditLabel}>AI KREDIT</Text>
@@ -481,17 +420,17 @@ export function GlassHome() {
             </Text>
             <Text style={styles.creditHint}>limitni oshirish</Text>
           </View>
-          <View style={[glass(22), styles.creditArrow]}>
+          <View style={[glass(22, 'flush'), styles.creditArrow]}>
             <ArrowUpRight size={sizes.s(30)} color={PRIMARY} strokeWidth={2.2} />
           </View>
         </Pressable>
 
         {/* ── Faollik · Yutuqlar ─────────────────────────────────────── */}
         <View style={styles.statRow}>
-          <View style={[glass(28), styles.statCard]}>
+          <View style={[glass(28, 'md'), styles.statCard]}>
             <View style={styles.statHead}>
               <Text style={styles.statTitle}>Faollik</Text>
-              <View style={[glass(20), styles.cardIcon]}>
+              <View style={[glass(20, 'flush'), styles.cardIcon]}>
                 <BarChart3 size={sizes.s(19)} color={PRIMARY} strokeWidth={2} />
               </View>
             </View>
@@ -516,10 +455,10 @@ export function GlassHome() {
             <Text style={styles.statCaption}>Bugungi faolligingiz</Text>
           </View>
 
-          <View style={[glass(28), styles.statCard]}>
+          <View style={[glass(28, 'md'), styles.statCard]}>
             <View style={styles.statHead}>
               <Text style={styles.statTitle}>Yutuqlar</Text>
-              <View style={[glass(20), styles.cardIcon]}>
+              <View style={[glass(20, 'flush'), styles.cardIcon]}>
                 <CheckCircle2 size={sizes.s(19)} color={PRIMARY} strokeWidth={2} />
               </View>
             </View>
