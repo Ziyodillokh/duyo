@@ -1,35 +1,31 @@
-import {
-  Brain,
-  Home,
-  MessageCircle,
-  Target,
-  User,
-} from 'lucide-react-native';
+import { Brain, Target } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MascotImage } from '@/components/v2/mascot-image';
 import { useIsDark } from '@/store/theme';
 
+/** Every tab route the navigator owns. The dock surfaces three of them; home
+ *  and profile are reached from the screens themselves — home by each
+ *  section's back button, profile from the home header. */
 export type TabKey = 'home' | 'chat' | 'goals' | 'brain' | 'profile';
 
-interface TabItem {
-  key: TabKey;
+interface DockItem {
+  key: Extract<TabKey, 'goals' | 'chat' | 'brain'>;
   label: string;
-  Icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  Icon?: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  /** The centre slot is DUYO itself, so it shows the mascot, not an icon. */
+  mascot?: boolean;
 }
 
-// Position 3 of 5 IS the middle, so Maqsaddosh lands centre with no reordering.
-// Kutubxona is not gone: it moved to a pushed screen at /(main)/library,
-// reachable from the profile screen.
-const TABS: readonly TabItem[] = [
-  { key: 'home', label: 'Bosh sahifa', Icon: Home },
-  { key: 'chat', label: 'Suhbat', Icon: MessageCircle },
-  { key: 'goals', label: 'Maqsaddosh', Icon: Target },
-  // Inventory moved inside Profil — it is part of "what I have", and the slot
-  // it freed goes to the note graph.
-  { key: 'brain', label: 'Miya', Icon: Brain },
-  { key: 'profile', label: 'Profil', Icon: User },
+/** The three places the product leads with, in the order the home dashboard
+ *  drew them. Bosh sahifa and Profil deliberately are not here: the dock is
+ *  the hub's three doors, and the hub is reached by going back. */
+const DOCK: readonly DockItem[] = [
+  { key: 'goals', label: 'Bir maqsad', Icon: Target },
+  { key: 'chat', label: 'DUYO', mascot: true },
+  { key: 'brain', label: 'Neo Miyya', Icon: Brain },
 ];
 
 interface BottomNavProps {
@@ -45,8 +41,23 @@ interface BottomNavProps {
  *  30, sitting 12pt clear of the bottom inside 20pt gutters. */
 export const NAV_BAR_HEIGHT = 80;
 export const NAV_BAR_GAP = 12;
-/** What a scrolling screen must leave clear beneath its content. */
-export const NAV_CLEARANCE = NAV_BAR_HEIGHT + NAV_BAR_GAP * 2;
+/** How far DUYO's bubble stands proud of the bar's top edge. */
+const RAISE = 26;
+const BUBBLE = 64;
+/**
+ * What a screen must leave clear beneath its content, INCLUDING the device's
+ * bottom inset — the bar is pinned at `insets.bottom + NAV_BAR_GAP`, so a
+ * flat constant under-reserves by the whole inset (34pt on a notched iPhone,
+ * ~48 on Android 3-button) and buries whatever sits at the bottom.
+ *
+ * A hook rather than a constant on purpose: the inset is only knowable at
+ * render time, and the previous constant read as the whole answer while
+ * being only part of one.
+ */
+export function useNavClearance(extra = 0): number {
+  const insets = useSafeAreaInsets();
+  return insets.bottom + NAV_BAR_GAP + NAV_BAR_HEIGHT + RAISE + extra;
+}
 
 const LIGHT = {
   fill: 'rgba(255,255,255,0.82)',
@@ -68,13 +79,15 @@ const DARK = {
 };
 
 /**
- * The app's tab bar, in the same frosted glass as the home dashboard's dock.
+ * The app's dock — the same three doors the home dashboard drew, now on every
+ * tab: Bir maqsad, DUYO, Neo Miyya.
  *
  * It FLOATS over the screen rather than taking a strip of layout, which is
  * what lets the glass read as glass — a bar in the flow would need an opaque
  * background of its own and would just be a coloured strip. Scrolling
- * screens therefore have to leave `NAV_CLEARANCE` beneath their content;
- * the home tab hides this bar entirely and ships its own three-item dock.
+ * screens therefore have to leave `NAV_CLEARANCE` beneath their content.
+ * Home renders it too and no longer carries a dock of its own — one bar,
+ * everywhere.
  */
 export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
   const isDark = useIsDark();
@@ -92,7 +105,7 @@ export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
           { backgroundColor: c.fill, borderColor: c.border, boxShadow: c.shadow },
         ]}
       >
-        {TABS.map((tab) => {
+        {DOCK.map((tab) => {
           const isActive = tab.key === active;
           const colour = isActive ? c.active : c.inactive;
           return (
@@ -108,9 +121,17 @@ export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
                   current tab without breaking the flat bar the spec asks for,
                   and it cannot be clipped by the safe-area container the way
                   a negative margin was (see 8e0d72b). */}
-              <View style={[styles.iconSlot, isActive && { backgroundColor: c.pill }]}>
-                <tab.Icon size={24} color={colour} strokeWidth={isActive ? 2.2 : 1.9} />
-              </View>
+              {tab.mascot ? (
+                // The bubble itself is drawn above, outside the bar; this
+                // just reserves its column so the label lines up.
+                <View style={styles.iconSlot} />
+              ) : (
+                <View style={[styles.iconSlot, isActive && { backgroundColor: c.pill }]}>
+                  {tab.Icon ? (
+                    <tab.Icon size={28} color={colour} strokeWidth={isActive ? 2.2 : 1.9} />
+                  ) : null}
+                </View>
+              )}
               <Text
                 numberOfLines={1}
                 style={[
@@ -125,12 +146,50 @@ export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
           );
         })}
       </View>
+
+      {/* DUYO, standing proud of the bar. A sibling of the bar rather than a
+          child of it, so no rounded-corner clipping can eat it. */}
+      <Pressable
+        onPress={() => onSelect('chat')}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: active === 'chat' }}
+        accessibilityLabel="DUYO"
+        style={[
+          styles.bubble,
+          {
+            backgroundColor: c.fill,
+            borderColor: active === 'chat' ? c.active : c.border,
+            boxShadow: c.shadow,
+          },
+        ]}
+      >
+        <MascotImage size={44} glow="none" />
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  host: { position: 'absolute', left: 0, right: 0 },
+  // Tall enough to hold the raised bubble as well as the bar, so nothing
+  // has to overflow its parent.
+  host: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: NAV_BAR_HEIGHT + RAISE,
+    justifyContent: 'flex-end',
+  },
+  bubble: {
+    position: 'absolute',
+    top: 0,
+    alignSelf: 'center',
+    width: BUBBLE,
+    height: BUBBLE,
+    borderRadius: BUBBLE / 2,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   bar: {
     marginHorizontal: 20,
     height: NAV_BAR_HEIGHT,
@@ -139,17 +198,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // Five equal columns — 70pt each at the spec's 350pt bar.
+  // Three equal columns — 116.6pt each at the spec's 350pt bar.
   item: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   iconSlot: {
-    width: 40,
-    height: 32,
-    borderRadius: 16,
+    width: 48,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: { marginTop: 4, fontSize: 11, fontWeight: '600' },
+  label: { marginTop: 6, fontSize: 13, fontWeight: '600' },
   labelActive: { fontWeight: '700' },
 });
 
-export { TABS };
+export { DOCK };

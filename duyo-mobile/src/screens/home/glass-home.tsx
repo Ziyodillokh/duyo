@@ -4,9 +4,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Bell,
-  Brain,
   CheckCircle2,
-  Target,
   User,
 } from 'lucide-react-native';
 import { useCallback, useMemo } from 'react';
@@ -39,7 +37,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
-import { MascotImage } from '@/components/v2/mascot-image';
+import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { useAchievements, useBalls } from '@/hooks/use-gamification';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
 import { useTamagochi } from '@/hooks/use-tamagochi';
@@ -237,9 +235,8 @@ function Clouds() {
 // 750 is the block's natural height; the margin absorbs the rounding that
 // s() adds across a dozen stacked values on the shortest phones.
 const DESIGN_CONTENT = 762;
-/** Spec: 350x80 bar, radius 30, 12pt clear of the bottom. */
-const DOCK_H = 80;
-const DOCK_GAP = 12;
+/** The dock is the global bar now (components/v2/dark/bottom-nav.tsx); the
+ *  column just leaves its footprint clear. */
 
 interface Sizes {
   k: number;
@@ -362,16 +359,6 @@ function makeStyles({ s }: Sizes) {
     statCaptionStrong: { color: PRIMARY, fontWeight: '700' } as TextStyle,
 
     spacer: { flex: 1, minHeight: s(10) },
-    dock: {
-      // 350 wide inside a 390 screen: 20pt of gutter on each side.
-      marginHorizontal: 20,
-      height: DOCK_H,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    // Three equal columns, 116.6pt each at spec width.
-    dockItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    dockLabel: { marginTop: 6, fontSize: 13, fontWeight: '600', color: '#33507F' },
   });
 }
 
@@ -396,6 +383,7 @@ export function GlassHome() {
   const achievements = useAchievements();
   const unread = useUnreadNotificationCount();
   const insets = useSafeAreaInsets();
+  const navClearance = useNavClearance();
   // Sibling tabs are reached the way the tab bar itself reaches them —
   // navigate() on this screen's navigator. router.push into a (tabs) group
   // from inside the group is a silent no-op on web.
@@ -407,7 +395,7 @@ export function GlassHome() {
   const topPad = Math.max(insets.top, 44);
   const k = Math.min(
     1,
-    Math.max(0.6, (windowH - topPad - insets.bottom - DOCK_H - DOCK_GAP) / DESIGN_CONTENT),
+    Math.max(0.6, (windowH - topPad - navClearance) / DESIGN_CONTENT),
   );
   const sizes = useMemo<Sizes>(() => ({ k, s: (n: number) => Math.round(n * k) }), [k]);
   const styles = useMemo(() => makeStyles(sizes), [sizes]);
@@ -439,7 +427,7 @@ export function GlassHome() {
             paddingTop: topPad + sizes.s(10),
             // The system gesture bar owns the bottom edge now that the global
             // tab bar hides itself here — the dock must clear it.
-            paddingBottom: insets.bottom + DOCK_GAP,
+            paddingBottom: navClearance,
           },
         ]}
       >
@@ -552,37 +540,6 @@ export function GlassHome() {
 
         <View style={styles.spacer} />
 
-        {/* ── Dock — 350x80, three equal columns, icons sitting in the
-             bar itself rather than in floating circles ───────────────── */}
-        <View style={[glass(30), styles.dock]}>
-          <Pressable
-            onPress={() => toTab('goals')}
-            accessibilityRole="button"
-            accessibilityLabel="Bir maqsad"
-            style={styles.dockItem}
-          >
-            <Target size={28} color={PRIMARY} strokeWidth={1.9} />
-            <Text style={styles.dockLabel}>Bir maqsad</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => toTab('chat')}
-            accessibilityRole="button"
-            accessibilityLabel="DUYO"
-            style={styles.dockItem}
-          >
-            <MascotImage size={30} glow="none" />
-            <Text style={styles.dockLabel}>DUYO</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => toTab('brain')}
-            accessibilityRole="button"
-            accessibilityLabel="Neo Miyya"
-            style={styles.dockItem}
-          >
-            <Brain size={28} color={PRIMARY} strokeWidth={1.9} />
-            <Text style={styles.dockLabel}>Neo Miyya</Text>
-          </Pressable>
-        </View>
       </View>
     </View>
   );

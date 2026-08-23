@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   ChevronRight,
@@ -15,7 +16,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InventorySummary } from '@/components/inventory-summary';
-import { NAV_CLEARANCE } from '@/components/v2/dark/bottom-nav';
+import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { DarkCard } from '@/components/v2/dark/dark-card';
 import { ProgressBar } from '@/components/v2/dark/progress-bar';
 import { MascotImage } from '@/components/v2/mascot-image';
@@ -36,6 +37,10 @@ import { useIsDark } from '@/store/theme';
 
 export default function ProfileScreen() {
   const isDark = useIsDark();
+  // Sibling tabs go through this screen's navigator; router.push into
+  // the (tabs) group from inside it is a silent no-op on web.
+  const navigation = useNavigation() as { navigate(name: string): void };
+  const navClearance = useNavClearance();
   const child = useChildStore((s) => s.child);
   const childName = child?.name ?? 'Foydalanuvchi';
   const childAge = child?.age;
@@ -76,10 +81,21 @@ export default function ProfileScreen() {
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: NAV_CLEARANCE + 24 }}
+          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: navClearance + 24 }}
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-row justify-between">
+            {/* The dock is three doors now; the hub is reached by going back,
+                so every section carries this. */}
+            <Pressable
+              onPress={() => navigation.navigate('index')}
+              accessibilityRole="button"
+              accessibilityLabel="Bosh sahifa"
+              className="w-10 h-10 rounded-md items-center justify-center bg-card dark:bg-dark-surface border border-neon-blue/20"
+            >
+              <ArrowLeft size={20} color="#94A3B8" />
+            </Pressable>
+            <View className="flex-row gap-2">
             <Pressable
               onPress={() => router.push('/(main)/notifications')}
               accessibilityRole="button"
@@ -111,6 +127,7 @@ export default function ProfileScreen() {
             >
               <SettingsIcon size={20} color="#94A3B8" />
             </Pressable>
+            </View>
           </View>
 
           <DarkCard className="items-center">

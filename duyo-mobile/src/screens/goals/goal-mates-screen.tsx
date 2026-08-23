@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
-import { NAV_CLEARANCE } from '@/components/v2/dark/bottom-nav';
+import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { fetchGoalCatalog } from '@/api/endpoints/goals';
 import {
   friendRequestErrorMessage,
@@ -211,138 +211,6 @@ const CHIPS: readonly { key: ChipKey; label: string }[] = [
   { key: 'top', label: 'Top mentorlar' },
 ];
 
-// ── The mock's six sample people ─────────────────────────────────────────────
-// Shown only while the child has no real rows: the screen demonstrates what
-// it becomes, card for card the mock, and every tap on them says so.
-interface DemoMate {
-  name: string;
-  goal: string;
-  status: string;
-  online: boolean;
-  tags: readonly string[];
-  catKeys: readonly string[];
-  /** The words the mock sets in bold before the sentence goes quiet. */
-  lead: string;
-  spec: PortraitSpec;
-}
-
-const DEMO_MATES: readonly DemoMate[] = [
-  {
-    name: 'Bekzodbek',
-    goal: "Frontend developer bo'lish",
-    lead: 'Frontend',
-    status: 'Onlayn',
-    online: true,
-    tags: ['IT & Code'],
-    catKeys: ['it'],
-    spec: {
-      scene: 'studio', skin: '#E8BC92', hair: '#1E1815', hairStyle: 0,
-      top: '#2A2F38', lightFromLeft: true, turn: -5,
-    },
-  },
-  {
-    name: 'Sevinch',
-    goal: 'IELTS 7.0 olish',
-    lead: 'IELTS 7.0',
-    status: 'Onlayn',
-    online: true,
-    tags: ["Ta'lim", "Til o'rganish"],
-    catKeys: ['talim', 'til'],
-    spec: {
-      scene: 'street', skin: '#F0C6A2', hair: '#2B211B', hairStyle: 3,
-      top: '#D9924E', lightFromLeft: false, turn: 6,
-    },
-  },
-  {
-    name: 'Jasurbek',
-    goal: 'Marafonda qatnashish',
-    lead: 'Marafonda',
-    status: '5 daqiqa avval',
-    online: false,
-    tags: ['Sport'],
-    catKeys: ['sport'],
-    spec: {
-      scene: 'mountains', skin: '#DDAA80', hair: '#221A16', hairStyle: 0,
-      top: '#3E6E86', lightFromLeft: true, turn: 4,
-    },
-  },
-  {
-    name: 'Madinaxon',
-    goal: "O'z biznesimni ochish",
-    lead: "O'z",
-    status: '10 daqiqa avval',
-    online: false,
-    tags: ['Biznes'],
-    catKeys: ['biznes'],
-    spec: {
-      scene: 'city', skin: '#F2CBA6', hair: '#5A3520', hairStyle: 3,
-      top: '#4E6B58', lightFromLeft: true, turn: -6,
-    },
-  },
-  {
-    name: 'Diyorbek',
-    goal: '10 ta davlatga sayohat qilish',
-    lead: '10 ta',
-    status: '1 soat avval',
-    online: false,
-    tags: ['Sayohat'],
-    catKeys: ['sayohat'],
-    spec: {
-      scene: 'mountains', skin: '#D9A47A', hair: '#1C1512', hairStyle: 1,
-      top: '#33507F', lightFromLeft: false, turn: 3,
-    },
-  },
-  {
-    name: 'Nilufar',
-    goal: "Kuniga 20 bet kitob o'qish",
-    lead: 'Kuniga 20',
-    status: '2 soat avval',
-    online: false,
-    tags: ["O'zini rivojlantirish"],
-    catKeys: ['rivoj'],
-    spec: {
-      scene: 'library', skin: '#EEC49E', hair: '#241A14', hairStyle: 4,
-      top: '#8E97A6', lightFromLeft: true, turn: -3,
-    },
-  },
-];
-
-function DemoCard({ mate, onTap }: { mate: DemoMate; onTap: () => void }) {
-  return (
-    <View style={[glass(22), rowStyles.card]}>
-      <Portrait spec={mate.spec} size={64} seed={seedOf(mate.name)} />
-      <View style={rowStyles.body}>
-        <Text style={rowStyles.name} numberOfLines={1}>
-          {mate.name}
-        </Text>
-        <Text style={rowStyles.goal} numberOfLines={1}>
-          <Text style={rowStyles.goalLead}>{mate.lead}</Text>
-          {mate.goal.slice(mate.lead.length)}
-        </Text>
-        <View style={rowStyles.statusRow}>
-          <View style={[rowStyles.dot, { backgroundColor: mate.online ? GREEN : MUTED }]} />
-          <Text style={rowStyles.statusText}>{mate.status}</Text>
-        </View>
-        <View style={rowStyles.tagRow}>
-          {mate.tags.map((t) => (
-            <View key={t} style={rowStyles.tag}>
-              <Text style={rowStyles.tagText}>{t}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-      <Pressable
-        onPress={onTap}
-        accessibilityRole="button"
-        accessibilityLabel={`${mate.name} — namunaviy profil`}
-        style={[glass(24), rowStyles.action]}
-      >
-        <MessageCircle size={24} color={PRIMARY} strokeWidth={1.9} />
-      </Pressable>
-    </View>
-  );
-}
-
 // ── Rows ─────────────────────────────────────────────────────────────────────
 
 type MateState =
@@ -481,6 +349,7 @@ function MateCard({
  */
 export default function GoalMatesScreen() {
   const insets = useSafeAreaInsets();
+  const navClearance = useNavClearance();
   const childId = useChildStore((s) => s.child?.id ?? undefined);
   const childAge = useChildStore((s) => s.child?.age ?? undefined);
   const navigation = useNavigation();
@@ -609,24 +478,6 @@ export default function GoalMatesScreen() {
 
   const hasConnections = rows.some((r) => r.state.kind !== 'new');
 
-  // The sample six show only while the child has nothing real to look at,
-  // and they obey the same chips, stories and search as real rows would.
-  const demoRows = useMemo(() => {
-    if (rows.length > 0) return [];
-    let list = [...DEMO_MATES];
-    if (chip === 'active') list = list.filter((d) => d.online);
-    if (category) list = list.filter((d) => d.catKeys.includes(category));
-    const q = query.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (d) => d.name.toLowerCase().includes(q) || d.goal.toLowerCase().includes(q),
-      );
-    }
-    return list;
-  }, [rows.length, chip, category, query]);
-
-  const demoTap = () =>
-    say("Bu namunaviy profil — o'z maqsadingni qo'shsang, shu yerda haqiqiy maqsaddoshlar chiqadi.");
 
   const openChat = (f: Friendship) =>
     router.push({
@@ -677,7 +528,7 @@ export default function GoalMatesScreen() {
       <ScrollView
         contentContainerStyle={{
           paddingTop: Math.max(insets.top, 44),
-          paddingBottom: insets.bottom + NAV_CLEARANCE + 12,
+          paddingBottom: navClearance + 12,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -896,25 +747,30 @@ export default function GoalMatesScreen() {
                       onDecline={decline}
                     />
                   ))}
-                {rows.length === 0 && demoRows.length === 0 && (
+                {rows.length === 0 && (
                   <View style={[glass(22), styles.consentCard]}>
-                    <Text style={styles.consentTitle}>Hech kim topilmadi</Text>
-                    <Text style={styles.consentBody}>
-                      Qidiruvni o'zgartirib ko'r.
+                    <Text style={styles.consentTitle}>
+                      {query || category
+                        ? 'Hech kim topilmadi'
+                        : "Hozircha maqsaddosh yo'q"}
                     </Text>
+                    <Text style={styles.consentBody}>
+                      {query || category
+                        ? "Qidiruvni o'zgartirib ko'r."
+                        : "Maqsad qo'shsang, xuddi shu maqsaddagi bolalar shu yerda chiqadi."}
+                    </Text>
+                    {!query && !category && (
+                      <Pressable
+                        onPress={() => router.push('/(main)/my-goals')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Maqsad qo'shish"
+                        style={styles.consentButton}
+                      >
+                        <Text style={styles.consentButtonText}>Maqsad qo'shish</Text>
+                      </Pressable>
+                    )}
                   </View>
                 )}
-              </>
-            )}
-
-            {demoRows.length > 0 && (
-              <>
-                <Text style={styles.demoNote}>
-                  Namuna — maqsad qo'shsang, haqiqiylari chiqadi
-                </Text>
-                {demoRows.map((d) => (
-                  <DemoCard key={d.name} mate={d} onTap={demoTap} />
-                ))}
               </>
             )}
           </>
@@ -1050,13 +906,6 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 
-  demoNote: {
-    marginTop: 16,
-    marginHorizontal: 24,
-    fontSize: 13,
-    fontWeight: '600',
-    color: MUTED,
-  },
 
   consentCard: { marginTop: 12, marginHorizontal: 20, padding: 20, borderRadius: 22 },
   consentTitle: { fontSize: 17, fontWeight: '700', color: INK },

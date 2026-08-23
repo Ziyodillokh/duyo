@@ -1,5 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from 'expo-router';
 import {
   ArrowLeft,
   Eye,
@@ -47,6 +48,7 @@ import {
 } from '@/components/markdown-note';
 import { NoteGraph } from '@/components/note-graph';
 import { colourForTag, PALETTE, UNTAGGED } from '@/lib/galaxy-layout';
+import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { useChildStore } from '@/store/child';
 import { useIsDark } from '@/store/theme';
 
@@ -78,8 +80,10 @@ const CLUSTER_SLOTS = [
   { top: 8, right: 10 },
   { top: '34%', left: 10 },
   { top: '34%', right: 10 },
-  { bottom: 104, left: 10 },
-  { bottom: 104, right: 10 },
+  // Measured from the map's bottom edge; the floating tab bar owns roughly
+  // the lowest 92pt plus the device inset, so these clear it.
+  { bottom: 150, left: 10 },
+  { bottom: 150, right: 10 },
 ] as const;
 
 export default function BrainScreen() {
@@ -89,6 +93,14 @@ export default function BrainScreen() {
   const qc = useQueryClient();
 
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
+  // Sibling tabs go through this screen's navigator; router.push into
+  // the (tabs) group from inside it is a silent no-op on web.
+  const navigation = useNavigation() as { navigate(name: string): void };
+  // The tab bar floats over this screen, so anything pinned to the bottom
+  // has to start above its footprint or it is both invisible and, being
+  // under a live bar, tappable only by the bar.
+  const navClearance = useNavClearance();
+  const toHomeTab = () => navigation.navigate('index');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [preview, setPreview] = useState(false);
@@ -402,6 +414,13 @@ export default function BrainScreen() {
             </View>
           ) : screen.kind === 'home' ? (
             <View className="flex-row items-center gap-2 px-4 py-3">
+              {/* The dock is three doors now; the hub is reached by going
+                  back, so every section carries this. */}
+              <MapButton
+                Icon={ArrowLeft}
+                label="Bosh sahifa"
+                onPress={() => toHomeTab()}
+              />
               <MapButton
                 Icon={Search}
                 label="Qidirish"
@@ -485,7 +504,7 @@ export default function BrainScreen() {
                   child has scrolled to. */}
               <View
                 className="absolute left-0 right-0 items-center"
-                style={{ bottom: 14, pointerEvents: 'box-none' }}
+                style={{ bottom: navClearance + 8, pointerEvents: 'box-none' }}
               >
                 <Pressable
                   onPress={() => startNew()}
@@ -517,7 +536,7 @@ export default function BrainScreen() {
               </View>
             </View>
           ) : editingNote ? (
-            <ScrollView contentContainerStyle={{ padding: 24, gap: 14, paddingBottom: 140 }}>
+            <ScrollView contentContainerStyle={{ padding: 24, gap: 14, paddingBottom: navClearance + 24 }}>
               {preview ? (
                 <>
                   <View className="rounded-xl" style={{ padding: 16, backgroundColor: cardBg }}>
@@ -939,8 +958,12 @@ export default function BrainScreen() {
                   reading the shape of everything. */}
               {query.trim() !== '' && (
                 <View
-                  className="absolute left-0 right-0 bottom-0"
-                  style={{ top: 58, backgroundColor: isDark ? '#070B1A' : '#F4F8FF' }}
+                  className="absolute left-0 right-0"
+                  style={{
+                    top: 58,
+                    bottom: navClearance,
+                    backgroundColor: isDark ? '#070B1A' : '#F4F8FF',
+                  }}
                 >
                   <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 8, gap: 8 }}>
                     <Text className="text-base font-bold text-foreground dark:text-dark-text">
@@ -984,7 +1007,7 @@ export default function BrainScreen() {
                   className="absolute rounded-full flex-row items-center gap-2 active:opacity-80"
                   style={{
                     right: 16,
-                    bottom: 16,
+                    bottom: navClearance + 8,
                     paddingHorizontal: 16,
                     paddingVertical: 11,
                     backgroundColor: 'rgba(96,165,250,0.92)',
@@ -999,8 +1022,8 @@ export default function BrainScreen() {
 
               {listOpen && query.trim() === '' && (
                 <View
-                  className="absolute left-0 right-0 bottom-0 rounded-t-2xl border-t border-neon-blue/20"
-                  style={{ maxHeight: '62%', backgroundColor: cardBg }}
+                  className="absolute left-0 right-0 rounded-t-2xl border-t border-neon-blue/20"
+                  style={{ bottom: navClearance, maxHeight: '62%', backgroundColor: cardBg }}
                 >
                   <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
                     <Text className="text-base font-bold text-foreground dark:text-dark-text">

@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import {
+  ArrowLeft,
   Menu,
   Mic,
   Send,
@@ -27,7 +28,9 @@ import {
   type QuickReply,
 } from '@/api/endpoints/chat';
 import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
-import { NAV_CLEARANCE } from '@/components/v2/dark/bottom-nav';
+import { useNavClearance } from '@/components/v2/dark/bottom-nav';
+import { useKeyboardState } from 'react-native-keyboard-controller';
+
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { SuggestedReplies } from '@/components/suggested-replies';
@@ -91,6 +94,14 @@ export default function ChatScreen() {
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isDark = useIsDark();
+  // Sibling tabs are reached through this screen's navigator; router.push
+  // into the (tabs) group from inside it is a silent no-op on web.
+  const navigation = useNavigation() as { navigate(name: string): void };
+  // While the keyboard is up it covers the bar, so the composer must sit on
+  // the keyboard rather than hold a dead 92pt band above it.
+  const keyboard = useKeyboardState();
+  const navClearance = useNavClearance();
+  const composerPad = keyboard.isVisible ? 12 : navClearance;
 
   useEffect(() => {
     if (!child || !hydrated) return;
@@ -293,6 +304,17 @@ export default function ChatScreen() {
       {/* Header: menu — identity — new chat. The two unlabelled icons that
           used to sit here moved into the drawer, where they have names. */}
       <View className="bg-card dark:bg-dark-surface border-b border-neon-blue/20 px-2 py-2 flex-row items-center gap-2">
+        {/* The dock is three doors now; the hub is reached by going back, so
+            every section carries this. */}
+        <Pressable
+          onPress={() => navigation.navigate('index')}
+          accessibilityRole="button"
+          accessibilityLabel="Bosh sahifa"
+          hitSlop={8}
+          className="w-10 h-10 items-center justify-center"
+        >
+          <ArrowLeft size={22} color={isDark ? '#E0E7FF' : '#102033'} />
+        </Pressable>
         <Pressable
           onPress={() => setDrawerOpen(true)}
           accessibilityRole="button"
@@ -416,7 +438,7 @@ export default function ChatScreen() {
             its own clearance beneath it (see NAV_CLEARANCE). */}
         <View
           className="bg-card dark:bg-dark-surface border-t border-neon-blue/20 px-3 pt-3 flex-row items-end gap-2"
-          style={{ paddingBottom: NAV_CLEARANCE }}
+          style={{ paddingBottom: composerPad }}
         >
           <TextInput
             value={input}
