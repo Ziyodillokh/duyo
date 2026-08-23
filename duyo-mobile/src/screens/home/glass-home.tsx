@@ -400,7 +400,7 @@ function makeStyles({ s }: Sizes) {
  * There is deliberately NO scroll view here: the whole column is scaled by
  * `k` to the phone it is on (see DESIGN_CONTENT), so the dock — home's only
  * navigation — is always on screen. The screen brings its own dock
- * (Maqsad · DUYO · Neo Miyya), so the global tab bar hides itself while
+ * (Bir maqsad · DUYO · Neo Miyya), so the global tab bar hides itself while
  * the home tab is focused — two bars would double-announce the same places.
  */
 export function GlassHome() {
@@ -567,13 +567,13 @@ export function GlassHome() {
           <Pressable
             onPress={() => toTab('goals')}
             accessibilityRole="button"
-            accessibilityLabel="Maqsad"
+            accessibilityLabel="Bir maqsad"
             style={styles.dockItem}
           >
             <View style={[glass(29), styles.dockCircle]}>
               <Target size={sizes.s(26)} color={PRIMARY} strokeWidth={1.9} />
             </View>
-            <Text style={styles.dockLabel}>Maqsad</Text>
+            <Text style={styles.dockLabel}>Bir maqsad</Text>
           </Pressable>
           <Pressable
             onPress={() => toTab('chat')}
