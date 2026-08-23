@@ -66,7 +66,12 @@ export const BRAIN_BACKDROP: BrainBackdropConfig = {
   // Android telefonda osmon simulyatsiyasi bilan resurs talashmaydi. Nisbati
   // (1200x2140) ham telefon ekraniga tayyor.
   uri: 'https://i.pinimg.com/1200x/70/de/13/70de13c61a79162e976c131461ac7507.jpg',
-  opacity: 0.55,
+  // 0.32, not the 0.55 this started at. The sayyoralar are shaded spheres
+  // a few pixels across; a photographic nebula at over half strength behind
+  // them has more contrast than they do, and the eye stops reading them as
+  // lit balls at all. The fon is the room, not the subject. Raise it back if
+  // you prefer the picture — bu bitta qator.
+  opacity: 0.32,
   tint: true,
 
   // Boshqa variantlar, kerak bo'lsa:

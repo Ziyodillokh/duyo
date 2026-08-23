@@ -533,13 +533,9 @@ export default function BrainScreen() {
           {screen.kind === 'home' ? (
             <View className="flex-1">
               <BrainHome
-                childId={childId}
                 notes={notes.data ?? []}
-                tags={tags.data ?? []}
                 graphNodes={graph.data?.nodes ?? []}
                 graphEdges={graph.data?.edges ?? []}
-                clusters={clusters}
-                cardBg={cardBg}
                 onNewNote={() => startNew()}
                 onStartNote={(t) => startNew(t)}
                 onOpenTag={(t) => {
@@ -547,6 +543,10 @@ export default function BrainScreen() {
                   setScreen({ kind: 'map' });
                 }}
                 onExploreGraph={() => setScreen({ kind: 'map' })}
+                onOpenList={() => {
+                  setScreen({ kind: 'map' });
+                  setListOpen(true);
+                }}
                 onOpenNote={(id) => setScreen({ kind: 'note', id })}
               />
 

@@ -1,9 +1,9 @@
 import {
   ChevronRight,
   ClipboardList,
-  Info,
   Lightbulb,
   Link2,
+  Maximize2,
   Plus,
   StickyNote,
   Target,
@@ -16,7 +16,6 @@ import {
   type GraphNode,
   type NoteListItem,
 } from '@/api/endpoints/notes';
-import { type ClusterStats } from '@/components/brain-cluster-card';
 import { BrainBackdrop } from '@/components/brain-backdrop';
 import { GLASS, GlassCard, raised } from '@/components/brain/glass';
 import { NoteGraph } from '@/components/note-graph';
@@ -42,17 +41,17 @@ const HERO_MIN = 240;
 const RECENT = 3;
 
 export interface BrainHomeProps {
-  childId: string;
   notes: NoteListItem[];
-  tags: string[];
   graphNodes: GraphNode[];
   graphEdges: GraphEdge[];
-  clusters: ClusterStats[];
-  cardBg: string;
   onNewNote: () => void;
+  /** Start writing a note that is only a [[link]] so far. */
   onStartNote: (title: string) => void;
+  /** Open the map filtered to one #tag. */
   onOpenTag: (tag: string) => void;
   onExploreGraph: () => void;
+  /** Open the map with the full note list showing. */
+  onOpenList: () => void;
   onOpenNote?: (id: string) => void;
 }
 
@@ -66,10 +65,11 @@ export default function BrainHome({
   notes,
   graphNodes,
   graphEdges,
-  clusters,
   onNewNote,
+  onStartNote,
   onOpenTag,
   onExploreGraph,
+  onOpenList,
   onOpenNote,
 }: BrainHomeProps) {
   // The dock floats over this page rather than taking a strip of layout,
@@ -149,10 +149,14 @@ export default function BrainHome({
               nodes={graphNodes}
               edges={graphEdges}
               onSelect={(n) => {
-                // Unwritten links and #tag nodes carry no id — tapping one
-                // opens the map instead of failing silently.
-                if (n.id) onOpenNote?.(n.id);
-                else onExploreGraph();
+                // Each kind of body goes where it points. Everything without
+                // an id used to dump the child on the bare map, which threw
+                // away the thing they had just aimed at: a #tag star is a
+                // cluster to open, and an unwritten [[link]] is a note asking
+                // to be written.
+                if (n.kind === 'tag') onOpenTag(n.title.replace(/^#/, ''));
+                else if (n.id) onOpenNote?.(n.id);
+                else onStartNote(n.title);
               }}
             />
           </View>
@@ -205,7 +209,9 @@ export default function BrainHome({
                 borderColor: 'rgba(255,255,255,0.55)',
               }}
             >
-              <Info size={17} color="#FFFFFF" />
+              {/* An `i` promises an explanation; this button enlarges the map.
+                  The glyph now says what happens. */}
+              <Maximize2 size={16} color="#FFFFFF" strokeWidth={2.4} />
             </Pressable>
           </View>
         </View>
@@ -281,8 +287,11 @@ export default function BrainHome({
           >
             So&lsquo;nggi yozuvlar
           </Text>
+          {/* "Barchasi", beside a list of notes, means the rest of the LIST.
+              It used to open the bare graph — the one screen that does not
+              show a note's name until you tap a planet. */}
           <Pressable
-            onPress={onExploreGraph}
+            onPress={onOpenList}
             accessibilityRole="button"
             accessibilityLabel="Barcha qaydlar"
             hitSlop={8}

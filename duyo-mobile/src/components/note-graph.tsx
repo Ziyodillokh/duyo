@@ -993,11 +993,30 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                         a limb shadow but shaded nothing. */}
                     <Circle cx={x} cy={y} r={rd} fill="url(#planet-night)" />
 
-                    {/* Specular glint, only where it can be resolved. Below
-                        about 9px it is a grey smudge that flattens the ball. */}
-                    {rd >= 9 && (
-                      <Circle cx={x} cy={y} r={rd} fill="url(#planet-spec)" />
-                    )}
+                    {/* Specular glint, faded in with size rather than switched
+                        on at a threshold.
+
+                        The threshold used to be `rd >= 9`, and it was set
+                        without checking what radii actually occur. A body is
+                        drawn at `max(5.5, n.r * 0.74)`, and `n.r` runs from
+                        MIN_R (7) to MAX_R (17) scaled by a density factor that
+                        falls to 0.42 as the notebook fills. So the drawn radius
+                        tops out near 12.6 for the most-linked note in a SMALL
+                        notebook — and past about 24 notes density pins every
+                        single body to the 5.5 floor. In other words the glint
+                        never once drew for a real child's map, and the sphere
+                        shading it belongs to read as a flat disc.
+
+                        The original worry was sound — a full-strength highlight
+                        on an 11px ball is a grey smudge — so it ramps instead of
+                        popping: a hint at the floor, the whole thing by 8px. */}
+                    <Circle
+                      cx={x}
+                      cy={y}
+                      r={rd}
+                      fill="url(#planet-spec)"
+                      opacity={Math.min(1, (rd - 4) / 4)}
+                    />
 
                     {/* Rim light along the dark limb — the curvature cue. */}
                     {rimLight(x, y, rd, RIM_LIGHT[planet.key])}
