@@ -478,3 +478,60 @@ def test_picker_key_for_an_unpublished_entry_is_dropped(session):
         )
     )
     assert goal.match_key is None
+
+
+# --- narrowing to one goal ---------------------------------------------------
+
+
+def test_match_key_narrows_the_search_to_that_goal(session):
+    """The filter behind the Maqsaddoshlar sliders button.
+
+    Two goals, a different peer on each. Asking for one goal must return only
+    that goal's peer — not both, and not the wrong one.
+    """
+
+    async def scenario():
+        books = await _catalog(session, "test-otkan")
+        chess = await _catalog(session, "test-shaxmat")
+        me = await _child(session, "Me")
+        reader = await _child(session, "Reader")
+        player = await _child(session, "Player")
+        await _goal(session, me, books.match_key)
+        await _goal(session, me, chess.match_key)
+        await _goal(session, reader, books.match_key)
+        await _goal(session, player, chess.match_key)
+
+        everyone = await find_goal_mates(session, me)
+        assert {p.id for p, _s, _e in everyone} == {reader.id, player.id}
+
+        only_books = await find_goal_mates(session, me, match_key=books.match_key)
+        assert [p.id for p, _s, _e in only_books] == [reader.id]
+
+        only_chess = await find_goal_mates(session, me, match_key=chess.match_key)
+        assert [p.id for p, _s, _e in only_chess] == [player.id]
+
+    _run(scenario())
+
+
+def test_match_key_the_child_does_not_hold_returns_nobody(session):
+    """A narrowed search can never widen one.
+
+    The key is intersected with the caller's own confirmed goals, so passing a
+    key they have not taken on cannot be used to browse children by goal.
+    """
+
+    async def scenario():
+        books = await _catalog(session, "test-otkan")
+        await _catalog(session, "test-shaxmat")
+        me = await _child(session, "Me")
+        peer = await _child(session, "Peer")
+        await _goal(session, me, books.match_key)
+        await _goal(session, peer, books.match_key)
+        # `peer` is a real mate — but only on a goal `me` shares.
+        assert len(await find_goal_mates(session, me)) == 1
+
+        # A key `me` never confirmed: nothing, rather than the chess players.
+        assert await find_goal_mates(session, me, match_key="test-shaxmat") == []
+        assert await find_goal_mates(session, me, match_key="nonexistent") == []
+
+    _run(scenario())

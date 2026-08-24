@@ -258,17 +258,27 @@ async def handle_suggestions(
 @router.get("/{child_id}/goal-mates", response_model=list[GoalMateRead])
 async def goal_mates(
     child_id: UUID,
+    match_key: str | None = Query(
+        default=None,
+        max_length=120,
+        description="Narrow the search to ONE of the child's own goals.",
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[GoalMateRead]:
     """Peers sharing an active goal. Requires the child to be discoverable too —
-    you cannot browse others while hiding yourself."""
+    you cannot browse others while hiding yourself.
+
+    With `match_key`, only mates on that one goal come back. The key is
+    intersected with the child's own confirmed goals inside `find_goal_mates`,
+    so it narrows a search and can never widen one.
+    """
     child = await _get_owned_child(child_id, current_user, db)
     settings = await get_or_create_settings(db, child.id)
     if not settings.discoverable or settings.suspended_at is not None:
         return []
 
-    mates = await find_goal_mates(db, child)
+    mates = await find_goal_mates(db, child, match_key=match_key)
     out: list[GoalMateRead] = []
     for peer, peer_settings, entry in mates:
         # The shared goal is named from the CATALOGUE TITLE, never from either

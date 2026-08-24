@@ -57,10 +57,17 @@ export function useHandleSuggestions(childId: string | undefined) {
   });
 }
 
-export function useGoalMates(childId: string | undefined, enabled: boolean) {
+/** `matchKey` narrows the search to one goal; leave it out for all of them. */
+export function useGoalMates(
+  childId: string | undefined,
+  enabled: boolean,
+  matchKey?: string | null,
+) {
   return useQuery({
-    queryKey: ['goal-mates', childId],
-    queryFn: () => listGoalMates(childId!),
+    // The key is part of the cache key, so switching goals in the filter
+    // shows that goal's mates instead of the previous goal's.
+    queryKey: ['goal-mates', childId, matchKey ?? null],
+    queryFn: () => listGoalMates(childId!, matchKey),
     enabled: !!childId && enabled,
     staleTime: 15_000,
     // Same reasoning as useFriends: no push channel to a child, so a mate who

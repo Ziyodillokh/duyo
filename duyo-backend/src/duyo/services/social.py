@@ -129,7 +129,10 @@ async def find_friendship(
 
 
 async def find_goal_mates(
-    session: AsyncSession, child: ChildProfile, limit: int = 20
+    session: AsyncSession,
+    child: ChildProfile,
+    limit: int = 20,
+    match_key: str | None = None,
 ) -> list[tuple[ChildProfile, ChildSocialSettings, GoalCatalog]]:
     """Children sharing a PUBLISHED goal key, within the same age band.
 
@@ -141,6 +144,14 @@ async def find_goal_mates(
     the shared goal the way a human wrote it; deriving a label from the key
     ("book_otkan_kunlar" → "Book otkan kunlar") is what children were being
     shown before.
+
+    `match_key` narrows the search to ONE of the child's goals. It is applied
+    here rather than by filtering the result, because `limit` would otherwise
+    be spent on the other goals first: a child with six goals could ask for
+    mates on the sixth and be told there were none, when the cap had simply
+    been used up. Narrowing is also safe against probing — the key is
+    intersected with what the child actually holds, so asking about a goal
+    they have not confirmed returns nothing rather than other children.
     """
     # Both sides must be CONFIRMED. The peer side was already checked; the
     # caller's was not, which was harmless only while inferred goals could
@@ -158,6 +169,8 @@ async def find_goal_mates(
         )
     ).scalars().all()
     keys = [k for k in my_keys if k]
+    if match_key is not None:
+        keys = [k for k in keys if k == match_key]
     if not keys:
         return []
 

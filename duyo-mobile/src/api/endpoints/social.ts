@@ -131,9 +131,21 @@ export function friendRequestErrorMessage(err: unknown): string {
   }
 }
 
-export async function listGoalMates(childId: string): Promise<GoalMate[]> {
+/**
+ * Peers sharing a goal.
+ *
+ * `matchKey` narrows the search to ONE of the child's own goals. It is sent to
+ * the server rather than filtered here: the server caps the result set, so
+ * filtering client-side would search every goal, spend the cap on the others,
+ * and then report that the chosen goal had no mates.
+ */
+export async function listGoalMates(
+  childId: string,
+  matchKey?: string | null,
+): Promise<GoalMate[]> {
   const { data } = await apiClient.get<GoalMate[]>(
     `/social/${childId}/goal-mates`,
+    matchKey ? { params: { match_key: matchKey } } : undefined,
   );
   return data;
 }

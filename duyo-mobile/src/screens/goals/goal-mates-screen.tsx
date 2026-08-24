@@ -26,7 +26,7 @@ import { Text, TextInput } from '@/components/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
-import { fetchGoalCatalog } from '@/api/endpoints/goals';
+import { fetchGoalCatalog, listGoals } from '@/api/endpoints/goals';
 import {
   friendRequestErrorMessage,
   type Friendship,
@@ -58,6 +58,9 @@ const BG_MID = '#EAF3FF';
 const BG_BOTTOM = '#EDF2FD';
 /** The spec's placeholder grey-blue. */
 const PLACEHOLDER = '#7693C2';
+/** Marks the search as narrowed — on the sliders icon, the bar and the tick,
+ *  so the state is visible without opening the panel. */
+const ACTIVE_FILTER = '#1D4ED8';
 /** Active tab gradient. */
 const TAB_A = '#246BEB';
 const TAB_B = '#3D7FFF';
@@ -319,7 +322,10 @@ export default function GoalMatesScreen() {
   const updateSettings = useUpdateSocialSettings(childId);
   const discoverable = settingsQuery.data?.discoverable ?? false;
 
-  const matesQuery = useGoalMates(childId, discoverable);
+  /** Which of my goals the search is narrowed to; null searches all of them. */
+  const [goalKey, setGoalKey] = useState<string | null>(null);
+
+  const matesQuery = useGoalMates(childId, discoverable, goalKey);
   const friendsQuery = useFriends(childId);
   const sendRequest = useSendFriendRequest(childId);
   const acceptRequest = useAcceptFriend(childId);
@@ -342,9 +348,36 @@ export default function GoalMatesScreen() {
     return m;
   }, [catalogQuery.data]);
 
+  /**
+   * MY goals — what the filter offers to narrow the search to.
+   *
+   * Taken from my own goal list rather than from the mates already on screen:
+   * a goal nobody else has yet still belongs in the picker, and answering
+   * "nobody on this one yet" is more use than hiding the goal entirely.
+   * Only confirmed, matchable goals can introduce anyone, so only those are
+   * offered — the same rule the server matches on.
+   */
+  const myGoalsQuery = useQuery({
+    queryKey: ['my-goals', childId],
+    queryFn: () => listGoals(childId!, 'active'),
+    enabled: !!childId,
+    staleTime: 60_000,
+  });
+  const filterGoals = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { key: string; label: string }[] = [];
+    for (const g of myGoalsQuery.data ?? []) {
+      if (!g.match_key || !g.confirmed_at || seen.has(g.match_key)) continue;
+      seen.add(g.match_key);
+      // The catalogue title is how a human wrote the goal; the child's own
+      // title is the fallback when the catalogue has not loaded.
+      out.push({ key: g.match_key, label: catalogTitles.get(g.match_key) ?? g.title });
+    }
+    return out;
+  }, [myGoalsQuery.data, catalogTitles]);
+
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<ChipKey>('all');
-  const [category, setCategory] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   /** Optimistic "already asked" — flips the row before the refetch lands,
    *  so a double-tap cannot fire a duplicate request and earn a false error. */
@@ -430,7 +463,14 @@ export default function GoalMatesScreen() {
           (freq.get(categoryOf(a.matchKey)?.key ?? '') ?? 0),
       );
     }
-    if (category) list = list.filter((r) => categoryOf(r.matchKey)?.key === category);
+    // The old category filter is gone: the story circles became real rooms
+    // (they navigate to /group), so nothing ever set it.
+    //
+    // `goalKey` already narrowed the SEARCH server-side, but existing
+    // connections come from friendsQuery, which knows nothing about it — so
+    // choosing "maths" and still seeing an English-goal friend read as a
+    // filter that had not worked. One goal chosen means one goal shown.
+    if (goalKey) list = list.filter((r) => r.matchKey === goalKey);
     const q = query.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -438,7 +478,7 @@ export default function GoalMatesScreen() {
       );
     }
     return list;
-  }, [friendsQuery.data, matesQuery.data, catalogTitles, chip, category, query, requested]);
+  }, [friendsQuery.data, matesQuery.data, catalogTitles, chip, goalKey, query, requested]);
 
   const hasConnections = rows.some((r) => r.state.kind !== 'new');
 
@@ -582,16 +622,90 @@ export default function GoalMatesScreen() {
           <Pressable
             onPress={() => setShowSettings((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel="Ko'rinish sozlamalari"
+            accessibilityLabel="Filtr va sozlamalar"
             hitSlop={10}
           >
-            <SlidersHorizontal size={24} color={PRIMARY} strokeWidth={2} />
+            <SlidersHorizontal
+              size={24}
+              color={goalKey ? ACTIVE_FILTER : PRIMARY}
+              strokeWidth={2}
+            />
           </Pressable>
         </View>
 
-        {/* ── Visibility panel (inline — Alert does not exist on web) ── */}
+        {/* A narrowed search is easy to forget you turned on, so it says so
+            outside the panel — and one tap puts it back. */}
+        {goalKey && !showSettings && (
+          <Pressable
+            onPress={() => setGoalKey(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Filtrni olib tashlash"
+            style={styles.activeFilterBar}
+          >
+            <Text style={styles.activeFilterText} numberOfLines={1}>
+              {catalogTitles.get(goalKey) ?? goalKey}
+            </Text>
+            <X size={15} color={ACTIVE_FILTER} strokeWidth={2.4} />
+          </Pressable>
+        )}
+
+        {/* ── Filter + visibility panel (inline — Alert has no web build) ── */}
         {showSettings && (
           <View style={[glass(20), styles.settingsCard]}>
+            {/* Which goal to look on. "Barchasi" is the default and searches
+                every goal at once, the way the screen always has. */}
+            <Text style={styles.filterHeading}>Qaysi maqsad bo'yicha?</Text>
+            <View style={styles.filterList}>
+              <Pressable
+                onPress={() => setGoalKey(null)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: goalKey === null }}
+                style={[styles.filterRow, goalKey === null && styles.filterRowOn]}
+              >
+                <Text
+                  style={[styles.filterLabel, goalKey === null && styles.filterLabelOn]}
+                >
+                  Barcha maqsadlar
+                </Text>
+                {goalKey === null && (
+                  <Check size={16} color={ACTIVE_FILTER} strokeWidth={2.6} />
+                )}
+              </Pressable>
+
+              {filterGoals.map((g) => (
+                <Pressable
+                  key={g.key}
+                  onPress={() => setGoalKey(g.key)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: goalKey === g.key }}
+                  style={[styles.filterRow, goalKey === g.key && styles.filterRowOn]}
+                >
+                  <Text
+                    style={[
+                      styles.filterLabel,
+                      goalKey === g.key && styles.filterLabelOn,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {g.label}
+                  </Text>
+                  {goalKey === g.key && (
+                    <Check size={16} color={ACTIVE_FILTER} strokeWidth={2.6} />
+                  )}
+                </Pressable>
+              ))}
+
+              {filterGoals.length === 0 && (
+                <Text style={styles.filterEmpty}>
+                  {myGoalsQuery.isPending
+                    ? 'Maqsadlar yuklanmoqda...'
+                    : "Hali tasdiqlangan maqsading yo'q — maqsad qo'shsang, shu yerda chiqadi."}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.settingsDivider} />
+
             <View style={styles.settingsRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.settingsTitle}>Ko'rinish</Text>
@@ -723,16 +837,16 @@ export default function GoalMatesScreen() {
                 {rows.length === 0 && (
                   <View style={[glass(22), styles.consentCard]}>
                     <Text style={styles.consentTitle}>
-                      {query || category
+                      {query || goalKey
                         ? 'Hech kim topilmadi'
                         : "Hozircha maqsaddosh yo'q"}
                     </Text>
                     <Text style={styles.consentBody}>
-                      {query || category
+                      {query || goalKey
                         ? "Qidiruvni o'zgartirib ko'r."
                         : "Maqsad qo'shsang, xuddi shu maqsaddagi bolalar shu yerda chiqadi."}
                     </Text>
-                    {!query && !category && (
+                    {!query && !goalKey && (
                       <Pressable
                         onPress={() => router.push('/(main)/my-goals')}
                         accessibilityRole="button"
@@ -834,6 +948,52 @@ const styles = StyleSheet.create({
 
   settingsCard: { marginTop: 12, marginHorizontal: 20, padding: 16 },
   settingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  settingsDivider: {
+    height: 1,
+    marginVertical: 14,
+    backgroundColor: 'rgba(140,163,203,0.28)',
+  },
+
+  filterHeading: { fontSize: 13, fontWeight: '700', color: MUTED },
+  filterList: { marginTop: 8, gap: 4 },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  filterRowOn: { backgroundColor: 'rgba(47,111,228,0.10)' },
+  filterLabel: { flex: 1, fontSize: 14.5, color: INK },
+  filterLabelOn: { fontWeight: '700', color: ACTIVE_FILTER },
+  filterEmpty: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    lineHeight: 18,
+    color: MUTED,
+  },
+
+  activeFilterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    marginTop: 10,
+    marginHorizontal: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(47,111,228,0.12)',
+  },
+  activeFilterText: {
+    maxWidth: 240,
+    fontSize: 13,
+    fontWeight: '700',
+    color: ACTIVE_FILTER,
+  },
   settingsTitle: { fontSize: 16, fontWeight: '700', color: INK },
   settingsBody: { marginTop: 4, fontSize: 13, lineHeight: 18, color: MUTED },
   switch: {
