@@ -1,5 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle2, Plus, Target, Trash2, Users } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Plus,
+  Target,
+  Trash2,
+  Users,
+} from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,6 +15,8 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,8 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { fetchGoalCatalog, type Goal, type GoalCatalogEntry } from '@/api/endpoints/goals';
 import { GoalMatesSection } from '@/components/goals/goal-mates-section';
-import { DarkCard } from '@/components/v2/dark/dark-card';
-import { ProgressBar } from '@/components/v2/dark/progress-bar';
+import { glass, lift } from '@/lib/glass';
 import {
   useAddProgress,
   useCreateGoal,
@@ -26,7 +34,28 @@ import {
   useUpdateGoal,
 } from '@/hooks/use-goals';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings, dtm and goal-mates: frosted panes on pale blue. The
+// navy/neon build this replaces predated the glass system and read as a
+// different app bolted onto this one.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const GREEN = '#22B573';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+const PLACEHOLDER = '#7693C2';
+/** The disabled fill. Not `PRIMARY` at low opacity: a translucent button lets
+ *  the page's gradient through and reads as a hole rather than a dimmed one. */
+const PRIMARY_OFF = '#A8C2EA';
+/** The offline strip. Amber survives the restyle — it is the one warning on a
+ *  page of blues — but darkened, because the neon orange was unreadable on a
+ *  pale ground. */
+const WARN = '#B4661A';
+const WARN_BG = 'rgba(251,146,60,0.16)';
 
 /**
  * Debounced catalog search behind the free-text draft.
@@ -73,76 +102,71 @@ function GoalCard({
   onComplete: () => void;
   onDelete: () => void;
 }) {
-  const isDark = useIsDark();
   const [entry, setEntry] = useState('');
   const done = goal.status === 'completed';
   const unit = goal.unit_label ?? 'qadam';
   const canSave = entry.length > 0;
 
   return (
-    <DarkCard glow={done ? 'green' : 'none'}>
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1">
-          <Text
-            className={`text-base font-bold ${
-              done
-                ? 'text-muted-foreground dark:text-dark-muted'
-                : 'text-foreground dark:text-dark-text'
-            }`}
-          >
+    <View
+      style={[
+        glass(22, 'md', done ? 0.5 : 0.62),
+        styles.card,
+        done && styles.cardDone,
+      ]}
+    >
+      <View style={styles.cardHead}>
+        <View style={styles.cardHeadBody}>
+          <Text style={[styles.goalTitle, done && styles.goalTitleDone]}>
             {goal.title}
           </Text>
           {goal.current_unit !== null && (
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
+            <Text style={styles.goalMeta}>
               {goal.total_units
                 ? `${goal.current_unit} / ${goal.total_units} ${unit}`
                 : `${goal.current_unit}-${unit}da`}
             </Text>
           )}
-          {done && (
-            <Text className="text-sm font-medium text-neon-green mt-1">
-              Tugatilgan 🎉
-            </Text>
-          )}
+          {done && <Text style={styles.goalDone}>Tugatilgan 🎉</Text>}
         </View>
         <Pressable
           onPress={onDelete}
           accessibilityRole="button"
           accessibilityLabel="Maqsadni o'chirish"
           hitSlop={10}
-          className="p-1"
+          style={[styles.iconButton, styles.focusable]}
         >
-          <Trash2 size={18} color="#94A3B8" />
+          <Trash2 size={18} color={MUTED} />
         </Pressable>
       </View>
 
       {goal.progress_pct !== null && (
-        <View className="mt-4">
-          <ProgressBar
-            value={(goal.progress_pct ?? 0) / 100}
-            color={done ? 'green' : 'blue'}
-            height={10}
-          />
-          <Text className="text-xs text-muted-foreground dark:text-dark-muted text-right mt-2">
+        <View style={styles.progress}>
+          <View style={styles.track}>
+            <View
+              style={[
+                styles.trackFill,
+                done && styles.trackFillDone,
+                { width: `${Math.max(0, Math.min(100, goal.progress_pct ?? 0))}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressPct}>
             {Math.round(goal.progress_pct ?? 0)}%
           </Text>
         </View>
       )}
 
       {!done && (
-        <View className="flex-row items-center gap-2 mt-4">
+        <View style={[styles.entryRow, styles.entryRowSpaced]}>
           <TextInput
             value={entry}
             onChangeText={(t) => setEntry(t.replace(/\D/g, '').slice(0, 6))}
             placeholder={`Nechanchi ${unit}?`}
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={PLACEHOLDER}
             keyboardType="number-pad"
             accessibilityLabel="Yangi progress"
-            className="flex-1 px-4 rounded-md text-base text-foreground dark:text-dark-text"
-            style={{
-              height: 44,
-              backgroundColor: isDark ? '#1E3A5F' : '#F4F8FF',
-            }}
+            style={styles.entryInput}
           />
           <Pressable
             onPress={() => {
@@ -154,43 +178,31 @@ function GoalCard({
             disabled={!canSave}
             accessibilityRole="button"
             accessibilityLabel="Progressni saqlash"
-            className={`px-4 rounded-md items-center justify-center active:opacity-80 ${
-              canSave ? 'bg-neon-blue' : ''
-            }`}
-            style={{
-              height: 44,
-              backgroundColor: canSave
-                ? undefined
-                : isDark
-                  ? '#1E3A5F'
-                  : '#F4F8FF',
-            }}
+            style={({ pressed }) => [
+              styles.saveButton,
+              canSave ? styles.buttonOn : styles.buttonOff,
+              pressed && canSave && styles.pressed,
+              styles.focusable,
+            ]}
           >
-            <Text
-              className="text-sm font-medium"
-              style={{ color: canSave ? '#0A1628' : '#94A3B8' }}
-            >
-              Saqlash
-            </Text>
+            <Text style={styles.buttonText}>Saqlash</Text>
           </Pressable>
           <Pressable
             onPress={onComplete}
             accessibilityRole="button"
             accessibilityLabel="Tugatdim"
             hitSlop={8}
-            className="items-center justify-center"
-            style={{ width: 44, height: 44 }}
+            style={[styles.completeButton, styles.focusable]}
           >
-            <CheckCircle2 size={24} color="#34D399" />
+            <CheckCircle2 size={24} color={GREEN} />
           </Pressable>
         </View>
       )}
-    </DarkCard>
+    </View>
   );
 }
 
-export default function GoalsScreen() {
-  const isDark = useIsDark();
+export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
 
@@ -246,74 +258,72 @@ export default function GoalsScreen() {
   };
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
+    <View style={styles.root}>
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.96, y: 0.2 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+      <SafeAreaView style={styles.root} edges={['top']}>
+        <KeyboardAvoidingView behavior="padding" style={styles.root}>
           <ScrollView
-            contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 96 }}
+            contentContainerStyle={styles.page}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <View className="gap-1">
-              <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
-                Maqsadlarim
-              </Text>
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+            {/* The back button is a SIBLING of the title, not a thing floating
+                over it. The route used to position it absolutely while this
+                screen dodged it with a fixed paddingTop — two files guessing
+                at each other, and the guess was wrong: on web `insets.top` is
+                0, so the button ended at y=66 and the title started at 56. */}
+            <View style={styles.intro}>
+              <View style={styles.titleRow}>
+                {onBack ? (
+                <Pressable
+                  onPress={onBack}
+                  accessibilityRole="button"
+                  accessibilityLabel="Orqaga"
+                  style={[glass(23, 'sm', 0.9), styles.backButton, styles.focusable]}
+                >
+                  <ArrowLeft size={22} color={PRIMARY} strokeWidth={2.1} />
+                </Pressable>
+                ) : null}
+                <Text style={styles.screenTitle}>Maqsadlarim</Text>
+              </View>
+              <Text style={styles.screenSubtitle}>
                 DUYO suhbat davomida maqsadingni o'zi eslab qoladi
               </Text>
             </View>
 
             {/* Add a goal by hand — DUYO also adds them from conversation. */}
-            <DarkCard>
-              <View className="flex-row items-center gap-2">
+            <View style={[glass(22, 'md', 0.62), styles.card]}>
+              <View style={styles.entryRow}>
                 <TextInput
                   value={draft}
                   onChangeText={handleChangeDraft}
                   placeholder="Masalan: O'tkan Kunlarni o'qish"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={PLACEHOLDER}
                   maxLength={160}
                   accessibilityLabel="Yangi maqsad"
-                  className="flex-1 px-4 rounded-md text-base text-foreground dark:text-dark-text"
-                  style={{
-                    height: 48,
-                    backgroundColor: isDark ? '#1E3A5F' : '#F4F8FF',
-                  }}
+                  style={styles.draftInput}
                 />
                 <Pressable
                   onPress={handleCreate}
                   disabled={!canAdd || createMutation.isPending}
                   accessibilityRole="button"
                   accessibilityLabel="Maqsad qo'shish"
-                  className={`items-center justify-center rounded-md active:opacity-80 ${
-                    canAdd ? 'bg-neon-blue' : ''
-                  }`}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    backgroundColor: canAdd
-                      ? undefined
-                      : isDark
-                        ? '#1E3A5F'
-                        : '#F4F8FF',
-                  }}
+                  style={({ pressed }) => [
+                    styles.addButton,
+                    canAdd ? styles.buttonOn : styles.buttonOff,
+                    pressed && canAdd && styles.pressed,
+                    styles.focusable,
+                  ]}
                 >
                   {createMutation.isPending ? (
-                    <ActivityIndicator color="#0A1628" />
+                    <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Plus size={22} color={canAdd ? '#0A1628' : '#94A3B8'} />
+                    <Plus size={22} color="#FFFFFF" />
                   )}
                 </Pressable>
               </View>
@@ -321,21 +331,20 @@ export default function GoalsScreen() {
               {/* Picking one of these is what lets another child with the same
                   goal find you — free-typed text never matches anyone. */}
               {!picked && suggestions.length > 0 && (
-                <View className="flex-row flex-wrap gap-2 mt-3">
+                <View style={styles.suggestions}>
                   {suggestions.map((entry) => (
                     <Pressable
                       key={entry.match_key}
                       onPress={() => handlePickSuggestion(entry)}
                       accessibilityRole="button"
                       accessibilityLabel={`"${entry.title}" ni tanlash`}
-                      className="rounded-full px-3 py-1.5"
-                      style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+                      style={({ pressed }) => [
+                        styles.suggestion,
+                        pressed && styles.pressed,
+                        styles.focusable,
+                      ]}
                     >
-                      <Text
-                        className="text-xs font-medium"
-                        style={{ color: '#60A5FA' }}
-                        numberOfLines={1}
-                      >
+                      <Text style={styles.suggestionText} numberOfLines={1}>
                         {entry.title}
                       </Text>
                     </Pressable>
@@ -343,87 +352,66 @@ export default function GoalsScreen() {
                 </View>
               )}
               {picked && (
-                <View className="flex-row items-center gap-1.5 mt-3">
-                  <Users size={13} color="#34D399" />
-                  <Text className="text-xs" style={{ color: '#34D399' }}>
+                <View style={styles.matchNote}>
+                  <Users size={13} color={GREEN} />
+                  <Text style={styles.matchNoteText}>
                     Shu maqsaddagi boshqalar bilan moslashtiriladi
                   </Text>
                 </View>
               )}
-            </DarkCard>
+            </View>
 
             {/* "You are not alone" — counts only, never identities. */}
             {signals.map((s) => (
-              <DarkCard key={s.match_key} glow="blue">
-                <View className="flex-row items-center gap-3">
-                  <View
-                    className="rounded-full items-center justify-center"
-                    style={{
-                      width: 40,
-                      height: 40,
-                      backgroundColor: 'rgba(96,165,250,0.15)',
-                    }}
-                  >
-                    <Users size={20} color="#60A5FA" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                      {s.count} ta bola ham shu maqsadda
-                    </Text>
-                    <Text
-                      className="text-sm text-muted-foreground dark:text-dark-muted"
-                      numberOfLines={1}
-                    >
-                      {s.title}
-                    </Text>
-                  </View>
+              <View
+                key={s.match_key}
+                style={[glass(22, 'md', 0.62), styles.card, styles.signalCard]}
+              >
+                <View style={styles.signalWell}>
+                  <Users size={20} color={PRIMARY} />
                 </View>
-              </DarkCard>
+                <View style={styles.signalBody}>
+                  <Text style={styles.signalTitle}>
+                    {s.count} ta bola ham shu maqsadda
+                  </Text>
+                  <Text style={styles.signalGoal} numberOfLines={1}>
+                    {s.title}
+                  </Text>
+                </View>
+              </View>
             ))}
 
             {/* States. A cached list is never blanked out mid-read. */}
             {goalsQuery.isLoading && goals.length === 0 ? (
-              <View className="items-center" style={{ padding: 32 }}>
-                <ActivityIndicator color={isDark ? '#60A5FA' : '#102033'} />
+              <View style={styles.loading}>
+                <ActivityIndicator color={PRIMARY} />
               </View>
             ) : goalsQuery.isError && goals.length === 0 ? (
-              <DarkCard className="items-center">
-                <Text className="text-4xl">⚠️</Text>
-                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
+              <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
+                <Text style={styles.statusEmoji}>⚠️</Text>
+                <Text style={styles.statusTitle}>
                   Maqsadlarni yuklab bo'lmadi
                 </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                <Text style={styles.statusBody}>
                   Internetni tekshirib, qaytadan urinib ko'ring
                 </Text>
-              </DarkCard>
+              </View>
             ) : goals.length === 0 ? (
-              <DarkCard className="items-center">
-                <View
-                  className="rounded-full items-center justify-center"
-                  style={{
-                    width: 64,
-                    height: 64,
-                    backgroundColor: 'rgba(96,165,250,0.15)',
-                  }}
-                >
-                  <Target size={30} color="#60A5FA" />
+              <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
+                <View style={styles.emptyWell}>
+                  <Target size={30} color={PRIMARY} />
                 </View>
-                <Text className="text-base font-bold text-foreground dark:text-dark-text mt-3">
-                  Hali maqsad yo'q
-                </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                <Text style={styles.statusTitle}>Hali maqsad yo'q</Text>
+                <Text style={styles.statusBody}>
                   DUYO bilan gaplashganingda maqsadingni o'zi eslab qoladi —
                   yoki yuqoriga o'zing yozib qo'ysang bo'ladi
                 </Text>
-              </DarkCard>
+              </View>
             ) : (
               <>
                 {goalsQuery.isError && (
-                  <View
-                    className="rounded-md px-4 py-2"
-                    style={{ backgroundColor: 'rgba(251,146,60,0.15)' }}
-                  >
-                    <Text className="text-xs" style={{ color: '#FB923C' }}>
+                  <View style={styles.offline}>
+                    <Text style={styles.offlineText}>
                       Oflayn — oxirgi ma'lumot ko'rsatilyapti
                     </Text>
                   </View>
@@ -464,7 +452,7 @@ export default function GoalsScreen() {
 
                 {finished.length > 0 && (
                   <>
-                    <Text className="text-base font-bold text-foreground dark:text-dark-text mt-2">
+                    <Text style={styles.sectionHeading}>
                       Tugatilgan ({finished.length})
                     </Text>
                     {finished.map((goal) => (
@@ -490,3 +478,193 @@ export default function GoalsScreen() {
     </View>
   );
 }
+
+/** The app's field, as FormInput draws it: a near-solid well with a tinted
+ *  hairline instead of a shadow, so a control never outranks the card it is
+ *  drawn on. */
+const field = (height: number, radius: number, fontSize: number) =>
+  ({
+    flex: 1,
+    // A flex child will not shrink below its intrinsic width unless told it
+    // may, and an <input> on the web has a wide intrinsic width. Without this
+    // the row overflowed the card and pushed the "tugatdim" tick off the
+    // right-hand edge.
+    minWidth: 0,
+    height,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
+    borderRadius: radius,
+    fontSize,
+    color: INK,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(47,111,228,0.12)',
+    // The browser's own focus ring is a square drawn outside the radius; the
+    // tinted border above is what marks the field instead.
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  }) as unknown as TextStyle;
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  // The browser's default focus ring is a square drawn around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  pressed: { opacity: 0.85 },
+
+  page: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 96,
+    gap: 16,
+  },
+
+  intro: { gap: 6, paddingHorizontal: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backButton: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
+  screenTitle: {
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    color: TITLE,
+  },
+  screenSubtitle: { fontSize: 13.5, lineHeight: 19, color: MUTED },
+
+  card: { padding: 16 },
+  cardDone: { borderColor: 'rgba(34,181,115,0.45)' },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cardHeadBody: { flex: 1 },
+  goalTitle: { fontSize: 16, fontWeight: '700', color: INK },
+  goalTitleDone: { color: MUTED },
+  goalMeta: { marginTop: 4, fontSize: 13.5, color: MUTED },
+  goalDone: { marginTop: 4, fontSize: 13.5, fontWeight: '600', color: GREEN },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  progress: { marginTop: 16 },
+  track: {
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(47,111,228,0.12)',
+  },
+  trackFill: { height: '100%', borderRadius: 5, backgroundColor: PRIMARY },
+  trackFillDone: { backgroundColor: GREEN },
+  progressPct: { marginTop: 8, fontSize: 12, color: MUTED, textAlign: 'right' },
+
+  entryRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  entryRowSpaced: { marginTop: 16 },
+  draftInput: field(48, 16, 16),
+  entryInput: field(44, 14, 15),
+  addButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButton: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // A raised button on the glass page: the same shadow ladder as every other
+  // object, so the eye can tell how high it sits next to the card it is on.
+  buttonOn: { backgroundColor: PRIMARY, boxShadow: lift('md') },
+  buttonOff: { backgroundColor: PRIMARY_OFF },
+  buttonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+
+  suggestions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  suggestion: {
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  suggestionText: { fontSize: 12.5, fontWeight: '600', color: PRIMARY },
+
+  matchNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  matchNoteText: { fontSize: 12.5, color: GREEN },
+
+  signalCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  signalWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  signalBody: { flex: 1 },
+  signalTitle: { fontSize: 16, fontWeight: '700', color: INK },
+  signalGoal: { marginTop: 2, fontSize: 13.5, color: MUTED },
+
+  loading: { alignItems: 'center', padding: 32 },
+  statusCard: { alignItems: 'center', padding: 28 },
+  statusEmoji: { fontSize: 38 },
+  statusTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  statusBody: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  emptyWell: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+
+  offline: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 14,
+    backgroundColor: WARN_BG,
+  },
+  offlineText: { fontSize: 12.5, fontWeight: '600', color: WARN },
+
+  sectionHeading: { marginTop: 8, fontSize: 16, fontWeight: '700', color: INK },
+});

@@ -1,9 +1,13 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+
 import { Text } from '@/components/text';
+import { glass } from '@/lib/glass';
 
 interface SuggestedRepliesProps {
   onSelect: (text: string) => void;
 }
+
+const INK = '#22406F';
 
 // Hardcoded for Bosqich B beta — Phase 1+ moves these to per-age-segment
 // suggestions returned alongside the chat response.
@@ -16,17 +20,46 @@ const REPLIES: readonly string[] = [
 
 export function SuggestedReplies({ onSelect }: SuggestedRepliesProps) {
   return (
-    <View className="flex-row flex-wrap gap-2 justify-center">
+    <View style={styles.row}>
       {REPLIES.map((reply) => (
         <Pressable
           key={reply}
           onPress={() => onSelect(reply)}
           accessibilityRole="button"
-          className="px-4 py-2 rounded-md border border-neon-blue/20 active:opacity-70"
+          style={({ pressed }) => [
+            styles.reply,
+            pressed && styles.pressed,
+            styles.focusable,
+          ]}
         >
-          <Text className="text-sm font-medium text-foreground dark:text-dark-text">{reply}</Text>
+          <Text style={styles.label}>{reply}</Text>
         </Pressable>
       ))}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  // Chips, so 'sm' — they rest on the page beneath the bubbles rather than
+  // floating with them. Radius at the low end of the chip range because they
+  // are shorter than the 46pt Chip in v2/.
+  reply: {
+    ...glass(14, 'sm', 0.8),
+    minHeight: 36,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: { opacity: 0.7 },
+
+  label: { fontSize: 14, fontWeight: '500', color: INK },
+});

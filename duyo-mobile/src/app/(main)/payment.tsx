@@ -1,7 +1,8 @@
-import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import type { BillingPeriod, PaidTier } from '@/api/endpoints/subscription';
+import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
+import { Text, TextInput } from '@/components/text';
 import { usePlans, useSubscribe } from '@/hooks/use-subscription';
-import { useIsDark } from '@/store/theme';
+import { glass, lift } from '@/lib/glass';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CheckCircle2, CreditCard } from 'lucide-react-native';
@@ -12,9 +13,22 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const GREEN = '#22B573';
+const PLACEHOLDER = '#7693C2';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
 
 type PaymentMethod = 'click' | 'payme' | 'card';
 
@@ -47,7 +61,6 @@ const PAYMENT_METHODS: readonly PaymentMethodOption[] = [
 ];
 
 export default function PaymentScreen() {
-  const isDark = useIsDark();
   const params = useLocalSearchParams<{ tier?: string; period?: string }>();
   const tierKey = (params.tier ?? 'standart') as PaidTier;
   const period: BillingPeriod = params.period === 'yearly' ? 'yearly' : 'monthly';
@@ -91,31 +104,26 @@ export default function PaymentScreen() {
   if (success) {
     return (
       <View style={StyleSheet.absoluteFill}>
-        <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]}
-        />
         <LinearGradient
-          colors={['rgba(5, 223, 114, 0.20)', 'rgba(96, 165, 250, 0.10)']}
+          colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+          locations={[0, 0.55, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* The confirmation keeps its green wash: on the plain sky a paid
+            receipt would look like any other step of the flow. */}
+        <LinearGradient
+          colors={['rgba(34,181,115,0.18)', 'rgba(34,181,115,0)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-          <View className="flex-1 items-center justify-center px-6 gap-4">
-            <View
-              className="rounded-full items-center justify-center"
-              style={{
-                width: 100,
-                height: 100,
-                backgroundColor: 'rgba(5, 223, 114, 0.20)',
-              }}
-            >
-              <CheckCircle2 size={56} color="#05DF72" />
+        <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+          <View style={styles.successBody}>
+            <View style={[glass(50, 'lg'), styles.successMark]}>
+              <CheckCircle2 size={56} color={GREEN} strokeWidth={2} />
             </View>
-            <Text className="text-2xl font-bold text-foreground dark:text-dark-text text-center">
-              To'lov muvaffaqiyatli
-            </Text>
-            <Text className="text-base text-muted-foreground dark:text-dark-muted text-center">
+            <Text style={styles.successTitle}>To'lov muvaffaqiyatli</Text>
+            <Text style={styles.successBlurb}>
               {tierName} rejasi faollashdi.{'\n'}DUYO bilan o'rganishda davom
               eting!
             </Text>
@@ -123,15 +131,9 @@ export default function PaymentScreen() {
               onPress={() => router.replace('/(main)/(tabs)')}
               accessibilityRole="button"
               accessibilityLabel="Bosh sahifaga"
-              className="rounded-md bg-neon-blue items-center justify-center active:opacity-80 mt-4"
-              style={{ height: 56, paddingHorizontal: 32 }}
+              style={[styles.cta, styles.successCta, styles.focusable]}
             >
-              <Text
-                className="text-base font-medium"
-                style={{ color: '#0A1628' }}
-              >
-                Bosh sahifaga
-              </Text>
+              <Text style={styles.ctaText}>Bosh sahifaga</Text>
             </Pressable>
           </View>
         </SafeAreaView>
@@ -141,48 +143,40 @@ export default function PaymentScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        {/* ── Header: 48pt glass round, the inner-screen pattern ─────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">To'lov</Text>
+          <Text style={styles.title}>To'lov</Text>
         </View>
 
-        <KeyboardAvoidingView behavior="padding" className="flex-1">
-          <ScrollView
-            contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 48 }}
-          >
-            <View
-              className="rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-            >
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">Tanlangan reja</Text>
-              <View className="flex-row items-center justify-between mt-2">
-                <Text className="text-lg font-bold text-foreground dark:text-dark-text">
-                  {tierName}
-                </Text>
-                <Text className="text-lg font-bold text-neon-cyan">
+        <KeyboardAvoidingView behavior="padding" style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.scroll}>
+            <View style={[glass(22, 'md'), styles.planCard]}>
+              <Text style={styles.caption}>Tanlangan reja</Text>
+              <View style={styles.planRow}>
+                <Text style={styles.planName}>{tierName}</Text>
+                <Text style={styles.planPrice}>
                   {price.toLocaleString('uz-UZ')} {priceUnit}
                 </Text>
               </View>
             </View>
 
-            <View className="gap-3">
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">To'lov usuli</Text>
+            <View style={styles.methods}>
+              <Text style={styles.caption}>To'lov usuli</Text>
               {PAYMENT_METHODS.map((m) => {
                 const isSel = m.key === method;
                 return (
@@ -192,30 +186,24 @@ export default function PaymentScreen() {
                     accessibilityRole="radio"
                     accessibilityState={{ selected: isSel }}
                     accessibilityLabel={m.label}
-                    className={`rounded-xl border active:opacity-80 ${
-                      isSel
-                        ? 'bg-neon-blue/10 border-neon-blue'
-                        : 'border-neon-blue/20'
-                    }`}
-                    style={{
-                      padding: 16,
-                      backgroundColor: isSel ? undefined : '#132340',
-                    }}
+                    style={[
+                      glass(20, 'md', isSel ? 0.78 : 0.5),
+                      styles.method,
+                      isSel && styles.methodOn,
+                      styles.focusable,
+                    ]}
                   >
-                    <View className="flex-row items-center gap-3">
+                    <View style={styles.methodRow}>
+                      {/* The provider's own colour — a brand mark is the one
+                          place this page borrows a hue from outside. */}
                       <View
-                        className="w-12 h-12 items-center justify-center rounded-md"
-                        style={{ backgroundColor: `${m.color}30` }}
+                        style={[styles.methodWell, { backgroundColor: `${m.color}22` }]}
                       >
-                        <CreditCard size={20} color={m.color} />
+                        <CreditCard size={20} color={m.color} strokeWidth={2} />
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                          {m.label}
-                        </Text>
-                        <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
-                          {m.description}
-                        </Text>
+                      <View style={styles.flex}>
+                        <Text style={styles.methodLabel}>{m.label}</Text>
+                        <Text style={styles.methodBlurb}>{m.description}</Text>
                       </View>
                     </View>
                   </Pressable>
@@ -224,66 +212,45 @@ export default function PaymentScreen() {
             </View>
 
             {method === 'card' && (
-              <View
-                className="rounded-xl border border-neon-blue/20"
-                style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF', gap: 12 }}
-              >
+              <View style={[glass(22, 'md'), styles.cardForm]}>
                 <View>
-                  <Text className="text-sm font-medium text-foreground dark:text-dark-text mb-2">
-                    Karta raqami
-                  </Text>
+                  <Text style={styles.fieldLabel}>Karta raqami</Text>
                   <TextInput
                     value={cardNumber}
                     onChangeText={(t) =>
                       setCardNumber(t.replace(/\D/g, '').slice(0, 16))
                     }
                     placeholder="1234 5678 9012 3456"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={PLACEHOLDER}
                     keyboardType="number-pad"
-                    className="text-base text-foreground dark:text-dark-text"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: 'rgba(96, 165, 250, 0.20)',
-                      borderRadius: 8,
-                      paddingHorizontal: 12,
-                      height: 44,
-                    }}
+                    style={styles.field}
                     accessibilityLabel="Karta raqami"
                   />
                 </View>
                 <View>
-                  <Text className="text-sm font-medium text-foreground dark:text-dark-text mb-2">
-                    Amal qilish muddati
-                  </Text>
+                  <Text style={styles.fieldLabel}>Amal qilish muddati</Text>
                   <TextInput
                     value={cardExpiry}
                     onChangeText={(t) =>
                       setCardExpiry(t.replace(/\D/g, '').slice(0, 4))
                     }
                     placeholder="MM/YY"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={PLACEHOLDER}
                     keyboardType="number-pad"
-                    className="text-base text-foreground dark:text-dark-text"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: 'rgba(96, 165, 250, 0.20)',
-                      borderRadius: 8,
-                      paddingHorizontal: 12,
-                      height: 44,
-                    }}
+                    style={styles.field}
                     accessibilityLabel="Amal qilish muddati"
                   />
                 </View>
               </View>
             )}
 
-            <View
-              className="rounded-xl border border-neon-blue/20"
-              style={{ padding: 16, backgroundColor: 'rgba(252, 211, 77, 0.10)' }}
-            >
-              <View className="flex-row justify-between">
-                <Text className="text-base text-foreground dark:text-dark-text">Jami</Text>
-                <Text className="text-xl font-bold text-neon-yellow">
+            {/* The total is the one figure the page is about, so its pane is
+                the brightest and highest thing on it rather than a second
+                accent hue. */}
+            <View style={[glass(24, 'lg', 0.75), styles.totalCard]}>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Jami</Text>
+                <Text style={styles.totalValue}>
                   {price.toLocaleString('uz-UZ')} so'm
                 </Text>
               </View>
@@ -295,18 +262,18 @@ export default function PaymentScreen() {
               accessibilityRole="button"
               accessibilityLabel="To'lashga o'tish"
               accessibilityState={{ disabled: subscribeMutation.isPending }}
-              className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-              style={{ height: 56, opacity: subscribeMutation.isPending ? 0.6 : 1 }}
+              style={[
+                styles.cta,
+                subscribeMutation.isPending && styles.ctaBusy,
+                styles.focusable,
+              ]}
             >
-              <Text
-                className="text-base font-medium"
-                style={{ color: '#0A1628' }}
-              >
+              <Text style={styles.ctaText}>
                 {subscribeMutation.isPending ? 'Yuborilmoqda…' : "To'lashga o'tish"}
               </Text>
             </Pressable>
 
-            <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center">
+            <Text style={styles.finePrint}>
               To'lovni ortga qaytarib bo'lmaydi. 7 kun bepul sinov ulanmaydi.
             </Text>
           </ScrollView>
@@ -315,3 +282,135 @@ export default function PaymentScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  // The browser's default focus ring is a black rectangle around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: { fontSize: 22, fontWeight: '700', color: INK },
+
+  scroll: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 48,
+    gap: 18,
+  },
+  caption: { fontSize: 13, color: MUTED },
+
+  planCard: { padding: 16 },
+  planRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  planName: { fontSize: 17, fontWeight: '700', color: INK },
+  planPrice: { fontSize: 17, fontWeight: '700', color: PRIMARY },
+
+  methods: { gap: 12 },
+  method: { padding: 16 },
+  methodOn: { borderColor: PRIMARY },
+  methodRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  methodWell: {
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  methodLabel: { fontSize: 15, fontWeight: '600', color: INK },
+  methodBlurb: { marginTop: 2, fontSize: 13, color: MUTED },
+
+  cardForm: { padding: 16, gap: 12 },
+  fieldLabel: {
+    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: INK,
+  },
+  // Flush by design: a field is cut INTO the card it sits on, so it casts no
+  // shadow of its own — see the `flush` note in lib/glass.
+  field: {
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    fontSize: 15,
+    color: INK,
+  },
+
+  totalCard: { padding: 18 },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  totalLabel: { fontSize: 15, color: INK },
+  totalValue: { fontSize: 21, fontWeight: '800', color: TITLE },
+
+  cta: {
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    boxShadow: lift('md'),
+  },
+  ctaBusy: { opacity: 0.6 },
+  ctaText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+
+  successBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  successMark: {
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(34,181,115,0.16)',
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: TITLE,
+    textAlign: 'center',
+  },
+  successBlurb: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  successCta: { marginTop: 8, paddingHorizontal: 32 },
+
+  finePrint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: MUTED,
+    textAlign: 'center',
+  },
+});

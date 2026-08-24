@@ -1,39 +1,63 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
-import { Text } from '@/components/text';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DuyoAvatar } from '@/components/duyo-avatar';
+import { Text } from '@/components/text';
+import { glass, lift } from '@/lib/glass';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 type CrisisLevel = 'yellow' | 'orange' | 'red';
 
 interface LevelCopy {
   title: string;
   message: string;
-  accentClass: string;
-  cardBorderClass: string;
+  /** The level's colour, on the card edge and nowhere else. */
+  accent: string;
+  /** The same colour washed over the sky, so the whole page carries the tone. */
+  wash: string;
 }
 
+// The escalation has to stay readable AS escalation, so each level keeps its
+// own hue. The yellow is darkened from the token's #FACC15: on a white pane a
+// true yellow line disappears, and the one thing this screen may not do is
+// look like nothing is being said.
 const COPY: Record<CrisisLevel, LevelCopy> = {
   yellow: {
     title: 'Men seni tushunaman',
     message: "Ba'zan qiyin paytlar bo'ladi. Men seni tinglashga tayyorman.",
-    accentClass: 'bg-warning/10',
-    cardBorderClass: 'border-warning',
+    accent: '#D9A200',
+    wash: 'rgba(250,204,21,0.20)',
   },
   orange: {
     title: "Sen yolg'iz emassan",
     message:
       'Men senga yordam berishga tayyorman. Keling, ishonchli katta odam bilan gaplashaylik.',
-    accentClass: 'bg-accent/10',
-    cardBorderClass: 'border-accent',
+    accent: '#E07B39',
+    wash: 'rgba(224,123,57,0.18)',
   },
   red: {
     title: 'Sen muhimsan',
     message:
       "Men sening xavfsizligingni o'ylayman. Keling, hozir senga yordam beradigan odamni topamiz.",
-    accentClass: 'bg-destructive/10',
-    cardBorderClass: 'border-destructive',
+    accent: DANGER,
+    wash: 'rgba(224,69,94,0.16)',
   },
 };
 
@@ -55,78 +79,100 @@ export default function CrisisScreen() {
   const copy = COPY[level];
 
   return (
-    <SafeAreaView className={`flex-1 ${copy.accentClass}`}>
-      <ScrollView
-        contentContainerStyle={{ padding: 24, gap: 20 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="items-center mt-4">
-          <DuyoAvatar size="xl" state="crisis-support" />
-        </View>
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* The level's tone over the sky — what the old accent background said. */}
+      <LinearGradient
+        colors={[copy.wash, 'rgba(255,255,255,0)']}
+        locations={[0, 0.7]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
-        <View className={`bg-card p-6 rounded-2xl border-2 ${copy.cardBorderClass}`}>
-          <Text className="text-2xl font-bold text-foreground text-center mb-3">
-            {copy.title}
-          </Text>
-          <Text className="text-base text-muted-foreground text-center leading-6">
-            {copy.message}
-          </Text>
-        </View>
-
-        <View className="gap-3">
-          {level === 'yellow' && <YellowActions />}
-          {level === 'orange' && <OrangeActions />}
-          {level === 'red' && <RedActions />}
-        </View>
-
-        <View className="bg-card border border-border p-4 rounded-2xl">
-          <Text className="text-sm font-semibold text-foreground mb-2">
-            Yordam kerakmi?
-          </Text>
-          <Text className="text-sm text-muted-foreground leading-5">
-            Sen xavfsizsan va sen yolg'iz emassan. Doimo yordam olish mumkin.
-          </Text>
-          {level === 'red' && (
-            <View className="mt-3 gap-1">
-              <Text className="text-sm font-bold text-foreground">
-                Favqulodda raqamlar:
-              </Text>
-              <Pressable
-                onPress={() => callHotline(HOTLINE_PSYCH)}
-                accessibilityRole="button"
-                accessibilityLabel="Psixologik yordamga qo'ng'iroq"
-              >
-                <Text className="text-sm text-primary font-medium">
-                  {HOTLINE_PSYCH} — Psixologik yordam
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => callHotline(HOTLINE_CHILD)}
-                accessibilityRole="button"
-                accessibilityLabel="Bolalar telefoniga qo'ng'iroq"
-              >
-                <Text className="text-sm text-primary font-medium">
-                  {HOTLINE_CHILD} — Bolalar telefoni
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-
-        <Text className="text-xs text-muted-foreground text-center leading-5">
-          Bu suhbat maxfiy saqlanadi va faqat sen xavfsiz bo'lishingni
-          ta'minlash uchun ishlatiladi.
-        </Text>
-
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          className="h-12 rounded-lg items-center justify-center bg-muted mt-2"
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
         >
-          <Text className="text-base font-medium text-foreground">Yopish</Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+          <View style={styles.avatar}>
+            <DuyoAvatar size="xl" state="crisis-support" />
+          </View>
+
+          {/* The one hero object of the screen, and the only pane whose edge
+              carries the level instead of the glass's own white. */}
+          <View
+            style={[
+              glass(28, 'lg', 0.62),
+              styles.hero,
+              { borderWidth: 2, borderColor: copy.accent },
+            ]}
+          >
+            <Text style={styles.heroTitle}>{copy.title}</Text>
+            <Text style={styles.heroMessage}>{copy.message}</Text>
+          </View>
+
+          <View style={styles.actions}>
+            {level === 'yellow' && <YellowActions />}
+            {level === 'orange' && <OrangeActions />}
+            {level === 'red' && <RedActions />}
+          </View>
+
+          <View style={[glass(24, 'md', 0.55), styles.help]}>
+            <Text style={styles.helpTitle}>Yordam kerakmi?</Text>
+            <Text style={styles.helpBody}>
+              Sen xavfsizsan va sen yolg'iz emassan. Doimo yordam olish mumkin.
+            </Text>
+            {level === 'red' && (
+              <View style={styles.hotlines}>
+                <Text style={styles.hotlinesHeading}>Favqulodda raqamlar:</Text>
+                <Pressable
+                  onPress={() => callHotline(HOTLINE_PSYCH)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Psixologik yordamga qo'ng'iroq"
+                  style={[styles.hotline, styles.focusable]}
+                >
+                  <Text style={styles.hotlineText}>
+                    {HOTLINE_PSYCH} — Psixologik yordam
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => callHotline(HOTLINE_CHILD)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Bolalar telefoniga qo'ng'iroq"
+                  style={[styles.hotline, styles.focusable]}
+                >
+                  <Text style={styles.hotlineText}>
+                    {HOTLINE_CHILD} — Bolalar telefoni
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.disclaimer}>
+            Bu suhbat maxfiy saqlanadi va faqat sen xavfsiz bo'lishingni
+            ta'minlash uchun ishlatiladi.
+          </Text>
+
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              glass(18, 'sm', 0.5),
+              styles.close,
+              styles.focusable,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.closeText}>Yopish</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -201,19 +247,121 @@ function ActionButton({
   primary,
   destructive,
 }: ActionButtonProps) {
-  const tone = destructive
-    ? 'bg-destructive'
-    : primary
-      ? 'bg-primary'
-      : 'bg-card border border-border';
-  const text = destructive || primary ? 'text-white' : 'text-foreground';
+  const filled = destructive === true || primary === true;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className={`h-14 rounded-xl items-center justify-center px-4 active:opacity-80 ${tone}`}
+      style={({ pressed }) => [
+        styles.action,
+        styles.focusable,
+        destructive
+          ? styles.actionDanger
+          : primary
+            ? styles.actionPrimary
+            : glass(18, 'md', 0.55),
+        pressed && styles.pressed,
+      ]}
     >
-      <Text className={`text-base font-semibold ${text}`}>{label}</Text>
+      <Text style={[styles.actionLabel, filled && styles.actionLabelFilled]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  scroll: { padding: 24, gap: 20 },
+
+  avatar: { alignItems: 'center', marginTop: 16 },
+
+  hero: { padding: 24 },
+  heroTitle: {
+    marginBottom: 12,
+    fontSize: 24,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  heroMessage: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: INK,
+    textAlign: 'center',
+  },
+
+  actions: { gap: 12 },
+  action: {
+    height: 56,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // A filled button styles its own surface, so it takes the light on its own
+  // (`lift`) rather than the whole glass material.
+  actionPrimary: {
+    backgroundColor: PRIMARY,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    boxShadow: lift('md'),
+  },
+  actionDanger: {
+    backgroundColor: DANGER,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    boxShadow: lift('md'),
+  },
+  actionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: INK,
+    textAlign: 'center',
+  },
+  actionLabelFilled: { color: '#FFFFFF' },
+
+  help: { padding: 18 },
+  helpTitle: {
+    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: '700',
+    color: INK,
+  },
+  helpBody: { fontSize: 14, lineHeight: 20, color: MUTED },
+  hotlines: { marginTop: 12, gap: 6 },
+  hotlinesHeading: { fontSize: 14, fontWeight: '700', color: INK },
+  // A number a child in crisis has to hit is not a line of text: 40pt tall,
+  // tinted, and obviously tappable.
+  hotline: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  hotlineText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
+
+  disclaimer: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  close: {
+    marginTop: 4,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeText: { fontSize: 15, fontWeight: '600', color: INK },
+
+  pressed: { opacity: 0.8 },
+  // The browser's default focus ring is a black rectangle around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+});

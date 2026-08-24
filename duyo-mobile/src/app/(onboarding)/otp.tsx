@@ -1,25 +1,34 @@
 import { useMutation } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/text';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { sendOtp, verifyOtp } from '@/api/endpoints/auth';
 import { listChildren } from '@/api/endpoints/children';
 import { updateMe } from '@/api/endpoints/me';
-import { Card } from '@/components/v2/card';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
-import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { OtpInput } from '@/components/otp-input';
 import { useT } from '@/i18n';
+import { glass } from '@/lib/glass';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
 import { useMascotStore } from '@/store/mascot';
 // OTA-ONA BO'LIMI O'CHIRILGAN — userType selektori bilan birga kommentda:
 // import { useOnboardingStore } from '@/store/onboarding';
+
+// ── The glass sky, the same pale morning the inner screens wake up to ────────
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 const PHONE_PREFIX = '+998';
 const OTP_LENGTH = 5;
@@ -156,97 +165,156 @@ export default function OtpScreen() {
   const canResend = secondsLeft === 0 && !resend.isPending;
 
   return (
-    <ScreenGradient>
-      <KeyboardAwareScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingHorizontal: 24,
-          paddingVertical: 24,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        bottomOffset={24}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="w-full max-w-[345px] items-center">
-          <MascotImage size={160} glow="soft" />
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-          <View className="w-full mt-12">
-            <Card>
-              <View className="gap-2 items-center">
-                <Text className="text-xl font-bold text-foreground text-center">
-                  {demoCode
-                    ? t('onboarding.otp.titleDemo')
-                    : t('onboarding.otp.titleSms')}
-                </Text>
-                <Text className="text-sm text-muted-foreground text-center">
-                  {demoCode
-                    ? t('onboarding.otp.subtitleDemo', { phone: fullPhone })
-                    : t('onboarding.otp.subtitleSms', { phone: fullPhone })}
-                </Text>
-              </View>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.scroll}
+          bottomOffset={24}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.column}>
+            <MascotImage size={160} glow="soft" />
 
-              {/* No SMS provider is connected yet, so the server publishes the
-                  code. Saying so is better than leaving a tester waiting. */}
-              {demoCode !== '' && (
-                <View className="mt-4 rounded-xl bg-primary/5 border border-primary/20 p-3">
-                  <Text className="text-sm text-foreground text-center">
-                    {t('onboarding.otp.demoNotice')}{' '}
-                    <Text className="font-bold text-primary">{demoCode}</Text>
+            <View style={styles.cardHolder}>
+              {/* The sheet the whole screen is about, so it sits highest. */}
+              <View style={[glass(28, 'lg'), styles.card]}>
+                <View style={styles.heading}>
+                  <Text style={styles.title}>
+                    {demoCode
+                      ? t('onboarding.otp.titleDemo')
+                      : t('onboarding.otp.titleSms')}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    {demoCode
+                      ? t('onboarding.otp.subtitleDemo', { phone: fullPhone })
+                      : t('onboarding.otp.subtitleSms', { phone: fullPhone })}
                   </Text>
                 </View>
-              )}
 
-              <View className="gap-3 mt-6">
-                <Text className="text-sm font-medium text-foreground text-center">
-                  {t('onboarding.otp.codeLabel')}
-                </Text>
-                <View className="items-center">
-                  <OtpInput
-                    value={code}
-                    onChange={setCode}
-                    length={OTP_LENGTH}
-                  />
+                {/* No SMS provider is connected yet, so the server publishes the
+                    code. Saying so is better than leaving a tester waiting. */}
+                {demoCode !== '' ? (
+                  <View style={styles.notice}>
+                    <Text style={styles.noticeText}>
+                      {t('onboarding.otp.demoNotice')}{' '}
+                      <Text style={styles.noticeCode}>{demoCode}</Text>
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.codeBlock}>
+                  <Text style={styles.codeLabel}>
+                    {t('onboarding.otp.codeLabel')}
+                  </Text>
+                  <View style={styles.codeRow}>
+                    <OtpInput
+                      value={code}
+                      onChange={setCode}
+                      length={OTP_LENGTH}
+                    />
+                  </View>
                 </View>
-              </View>
 
-              <View className="mt-6">
-                <PrimaryButton
-                  onPress={() => verify.mutate()}
-                  disabled={!canVerify}
-                  accessibilityLabel={t('onboarding.otp.verify')}
-                >
-                  {verify.isPending
-                    ? t('onboarding.otp.verifying')
-                    : t('onboarding.otp.verify')}
-                </PrimaryButton>
-              </View>
+                <View style={styles.cta}>
+                  <PrimaryButton
+                    onPress={() => verify.mutate()}
+                    disabled={!canVerify}
+                    accessibilityLabel={t('onboarding.otp.verify')}
+                  >
+                    {verify.isPending
+                      ? t('onboarding.otp.verifying')
+                      : t('onboarding.otp.verify')}
+                  </PrimaryButton>
+                </View>
 
-              <Pressable
-                onPress={() => canResend && resend.mutate()}
-                disabled={!canResend}
-                accessibilityRole="button"
-                className="items-center mt-4"
-              >
-                <Text
-                  className={`text-sm ${
-                    canResend
-                      ? 'text-primary font-medium'
-                      : 'text-muted-foreground'
-                  }`}
+                <Pressable
+                  onPress={() => canResend && resend.mutate()}
+                  disabled={!canResend}
+                  accessibilityRole="button"
+                  style={styles.resend}
                 >
-                  {resend.isPending
-                    ? t('common.sending')
-                    : canResend
-                      ? t('onboarding.otp.resend')
-                      : t('onboarding.otp.resendIn', { seconds: secondsLeft })}
-                </Text>
-              </Pressable>
-            </Card>
+                  <Text
+                    style={[styles.resendText, canResend && styles.resendTextOn]}
+                  >
+                    {resend.isPending
+                      ? t('common.sending')
+                      : canResend
+                        ? t('onboarding.otp.resend')
+                        : t('onboarding.otp.resendIn', { seconds: secondsLeft })}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
-        </View>
-      </KeyboardAwareScrollView>
-    </ScreenGradient>
+        </KeyboardAwareScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  column: { width: '100%', maxWidth: 345, alignItems: 'center' },
+
+  cardHolder: { marginTop: 48, width: '100%' },
+  card: { padding: 24 },
+
+  heading: { alignItems: 'center', gap: 8 },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  // Flush on the card it sits in: an inner notice with a shadow would read as
+  // a second card rather than as part of this one.
+  notice: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(47,111,228,0.20)',
+    backgroundColor: 'rgba(47,111,228,0.06)',
+  },
+  noticeText: { fontSize: 14, color: INK, textAlign: 'center' },
+  noticeCode: { fontWeight: '700', color: PRIMARY },
+
+  codeBlock: { marginTop: 24, gap: 12 },
+  codeLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: INK,
+    textAlign: 'center',
+  },
+  codeRow: { alignItems: 'center' },
+
+  cta: { marginTop: 24 },
+
+  // Padded rather than hitSlopped: hitSlop does not grow the element on web,
+  // and this is the one way back out of a wrong number.
+  resend: { marginTop: 12, paddingVertical: 8, alignItems: 'center' },
+  resendText: { fontSize: 14, color: MUTED },
+  resendTextOn: { fontWeight: '500', color: PRIMARY },
+});

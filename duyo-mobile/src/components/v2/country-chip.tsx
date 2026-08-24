@@ -1,14 +1,27 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
 import { Text } from '@/components/text';
+import { glass } from '@/lib/glass';
 
-interface CountryChipProps {
-  code: string;
-}
+const MUTED = '#8CA3CB';
 
-export function CountryChip({ code }: CountryChipProps) {
+export function CountryChip({ code }: { code: string }) {
   return (
-    <View className="bg-muted rounded-lg border border-primary/10 px-4 py-3 items-center justify-center">
-      <Text className="text-base text-muted-foreground">{code}</Text>
+    <View style={styles.chip}>
+      <Text style={styles.code}>{code}</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // Sits beside a 56pt FormInput, so it matches that height rather than
+  // floating at its own.
+  chip: {
+    ...glass(18, 'sm', 0.86),
+    minHeight: 56,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  code: { fontSize: 16, color: MUTED },
+});

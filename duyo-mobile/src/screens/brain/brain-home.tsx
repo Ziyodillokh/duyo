@@ -9,9 +9,9 @@ import {
   Target,
 } from 'lucide-react-native';
 import { useMemo } from 'react';
-import { Pressable, View } from 'react-native';
-import { Text } from '@/components/text';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
+import { Text } from '@/components/text';
 import {
   type GraphEdge,
   type GraphNode,
@@ -31,6 +31,10 @@ import { noteTimeLabel } from '@/lib/note-time';
  * count is their actual edges, and the list is their actual last-touched
  * notes. There is no placeholder content anywhere on this screen, because a
  * dashboard that shows invented numbers teaches children to ignore numbers.
+ *
+ * The palette comes from `components/brain/glass`, not `lib/glass`: this page
+ * is the one place in the app with a dark ground, and GLASS carries the tokens
+ * that read correctly against it.
  */
 
 /** Minimum sky. Below this the planets crowd into an unreadable knot; the
@@ -40,6 +44,10 @@ const HERO_MIN = 240;
 
 /** How many notes the "So'nggi yozuvlar" card shows before "Barchasi". */
 const RECENT = 3;
+
+const SKY_TEXT = '#E8EEFF';
+const SKY_MUTED = '#8FA3C8';
+const SKY_SUBTITLE = '#9FB3D4';
 
 export interface BrainHomeProps {
   notes: NoteListItem[];
@@ -117,35 +125,16 @@ export default function BrainHome({
   // sky absorbs whatever is left after the list and the dock's reserved
   // strip, instead of the page being taller than the display and scrolling.
   return (
-    <View
-      style={{
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 4,
-        paddingBottom: navClearance,
-        gap: 12,
-      }}
-    >
+    <View style={[styles.page, { paddingBottom: navClearance }]}>
       {/* ── The sky, as one dark card on the light page ─────────────────── */}
-      <View
-        style={[
-          {
-            flex: 1,
-            minHeight: HERO_MIN,
-            borderRadius: 30,
-            overflow: 'hidden',
-            backgroundColor: GLASS.sky,
-          },
-          raised('lg'),
-        ]}
-      >
+      <View style={[styles.sky, raised('lg')]}>
         {/* The nebula, inside the card. On the full map this is the page
             ground; here it belongs to the card, so the shrunken sky keeps the
             same backdrop instead of falling back to flat navy. */}
         <BrainBackdrop />
 
         {hasSky ? (
-          <View style={{ flex: 1 }}>
+          <View style={styles.fill}>
             <NoteGraph
               nodes={graphNodes}
               edges={graphEdges}
@@ -166,12 +155,14 @@ export default function BrainHome({
             onPress={onNewNote}
             accessibilityRole="button"
             accessibilityLabel="Birinchi qaydni yozish"
-            className="flex-1 items-center justify-center active:opacity-80"
+            style={({ pressed }) => [
+              styles.emptySky,
+              pressed && styles.pressed80,
+              styles.focusable,
+            ]}
           >
-            <Text className="text-base font-semibold" style={{ color: '#E8EEFF' }}>
-              Osmoningiz hali bo&lsquo;sh
-            </Text>
-            <Text className="text-[13px] mt-1.5" style={{ color: '#8FA3C8' }}>
+            <Text style={styles.emptyTitle}>Osmoningiz hali bo&lsquo;sh</Text>
+            <Text style={styles.emptyBody}>
               Birinchi qaydni yozing — birinchi yulduz paydo bo&lsquo;ladi
             </Text>
           </Pressable>
@@ -180,35 +171,22 @@ export default function BrainHome({
         {/* Title block. Absolute over the sky rather than above it, because
             the card must read as ONE object — a header band would split it
             into a label and a picture. */}
-        <View
-          style={{ position: 'absolute', top: 22, left: 22, right: 22 }}
-          pointerEvents="box-none"
-        >
-          <View className="flex-row items-start">
-            <View className="flex-1">
-              <Text
-                className="font-bold"
-                style={{ color: '#FFFFFF', fontSize: 27, letterSpacing: -0.5 }}
-              >
-                2-Miyya
-              </Text>
-              <Text className="text-[13px] mt-1" style={{ color: '#9FB3D4' }}>
-                Bilimlaringiz olami
-              </Text>
+        <View style={styles.titleBlock} pointerEvents="box-none">
+          <View style={styles.titleRow}>
+            <View style={styles.fill}>
+              <Text style={styles.skyTitle}>2-Miyya</Text>
+              <Text style={styles.skySubtitle}>Bilimlaringiz olami</Text>
             </View>
             <Pressable
               onPress={onExploreGraph}
               accessibilityRole="button"
               accessibilityLabel="Xaritani to&lsquo;liq ochish"
               hitSlop={10}
-              className="items-center justify-center active:opacity-70"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
-                borderWidth: 1.5,
-                borderColor: 'rgba(255,255,255,0.55)',
-              }}
+              style={({ pressed }) => [
+                styles.expandButton,
+                pressed && styles.pressed70,
+                styles.focusable,
+              ]}
             >
               {/* An `i` promises an explanation; this button enlarges the map.
                   The glyph now says what happens. */}
@@ -219,40 +197,21 @@ export default function BrainHome({
 
         {/* The headline number, bottom-left; the new-note button, bottom-right.
             Both sit over the sky's emptiest band. */}
-        <View
-          style={{
-            position: 'absolute',
-            left: 22,
-            right: 18,
-            bottom: 18,
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-          }}
-          pointerEvents="box-none"
-        >
+        <View style={styles.footRow} pointerEvents="box-none">
           <Pressable
             onPress={onExploreGraph}
             accessibilityRole="button"
             accessibilityLabel={`${connections} bog'lanish — xaritani ochish`}
-            className="flex-1 active:opacity-70"
+            style={({ pressed }) => [
+              styles.fill,
+              pressed && styles.pressed70,
+              styles.focusable,
+            ]}
           >
-            <Text
-              className="font-bold"
-              style={{
-                color: GLASS.blueSoft,
-                fontSize: 38,
-                lineHeight: 42,
-                letterSpacing: -1,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {connections}
-            </Text>
-            <View className="flex-row items-center gap-1.5 mt-0.5">
-              <Link2 size={12} color="#8FA3C8" />
-              <Text className="text-[13px]" style={{ color: '#8FA3C8' }}>
-                Bog&lsquo;lanishlar
-              </Text>
+            <Text style={styles.bigNumber}>{connections}</Text>
+            <View style={styles.linkRow}>
+              <Link2 size={12} color={SKY_MUTED} />
+              <Text style={styles.linkLabel}>Bog&lsquo;lanishlar</Text>
             </View>
           </Pressable>
 
@@ -260,15 +219,11 @@ export default function BrainHome({
             onPress={onNewNote}
             accessibilityRole="button"
             accessibilityLabel="Yangi qayd"
-            className="items-center justify-center active:opacity-80"
-            style={[
-              {
-                width: 62,
-                height: 62,
-                borderRadius: 20,
-                backgroundColor: 'rgba(255,255,255,0.94)',
-              },
+            style={({ pressed }) => [
+              styles.newNote,
               raised('md'),
+              pressed && styles.pressed80,
+              styles.focusable,
             ]}
           >
             <Plus size={27} color={GLASS.blue} strokeWidth={2.6} />
@@ -280,14 +235,9 @@ export default function BrainHome({
       {/* Natural height, so the sky above gets everything that is left. Every
           size here is therefore load-bearing for "one screen, no scroll":
           growing a row by 6px takes 18px off the sky. */}
-      <GlassCard style={{ padding: 12 }} radius={26}>
-        <View className="flex-row items-center justify-between px-1 mb-2.5">
-          <Text
-            className="text-[17px] font-bold"
-            style={{ color: GLASS.ink, letterSpacing: -0.2 }}
-          >
-            So&lsquo;nggi yozuvlar
-          </Text>
+      <GlassCard style={styles.listCard} radius={26}>
+        <View style={styles.listHeader}>
+          <Text style={styles.listTitle}>So&lsquo;nggi yozuvlar</Text>
           {/* "Barchasi", beside a list of notes, means the rest of the LIST.
               It used to open the bare graph — the one screen that does not
               show a note's name until you tap a planet. */}
@@ -296,23 +246,23 @@ export default function BrainHome({
             accessibilityRole="button"
             accessibilityLabel="Barcha qaydlar"
             hitSlop={8}
-            className="flex-row items-center gap-1 active:opacity-70"
+            style={({ pressed }) => [
+              styles.allButton,
+              pressed && styles.pressed70,
+              styles.focusable,
+            ]}
           >
-            <Text className="text-[14px] font-semibold" style={{ color: GLASS.blue }}>
-              Barchasi
-            </Text>
+            <Text style={styles.allLabel}>Barchasi</Text>
             <ChevronRight size={15} color={GLASS.blue} strokeWidth={2.5} />
           </Pressable>
         </View>
 
         {recent.length === 0 ? (
-          <View style={{ paddingVertical: 18, alignItems: 'center' }}>
-            <Text className="text-[13px]" style={{ color: GLASS.muted }}>
-              Hali qayd yo&lsquo;q
-            </Text>
+          <View style={styles.emptyList}>
+            <Text style={styles.emptyListText}>Hali qayd yo&lsquo;q</Text>
           </View>
         ) : (
-          <View style={{ gap: 7 }}>
+          <View style={styles.rows}>
             {recent.map((n, i) => {
               const Icon = ROW_ICONS[i % ROW_ICONS.length];
               const tint = ROW_TINTS[i % ROW_TINTS.length];
@@ -323,50 +273,23 @@ export default function BrainHome({
                   onPress={() => onOpenNote?.(n.id)}
                   accessibilityRole="button"
                   accessibilityLabel={`${n.title} — ${noteTimeLabel(n.updated_at)}`}
-                  className="flex-row items-center gap-3 active:opacity-70"
-                  style={[
-                    {
-                      borderRadius: 17,
-                      paddingHorizontal: 11,
-                      paddingVertical: 8,
-                      backgroundColor: GLASS.surfaceSoft,
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.8)',
-                    },
+                  style={({ pressed }) => [
+                    styles.row,
                     raised('sm'),
+                    pressed && styles.pressed70,
+                    styles.focusable,
                   ]}
                 >
-                  <View
-                    className="items-center justify-center"
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 12,
-                      backgroundColor: `${tint}22`,
-                    }}
-                  >
+                  <View style={[styles.rowIcon, { backgroundColor: `${tint}22` }]}>
                     <Icon size={18} color={tint} strokeWidth={2.2} />
                   </View>
 
-                  <Text
-                    numberOfLines={1}
-                    className="flex-1 text-[15px] font-semibold"
-                    style={{ color: GLASS.ink }}
-                  >
+                  <Text numberOfLines={1} style={styles.rowTitle}>
                     {n.title}
                   </Text>
 
-                  <Text className="text-[12.5px]" style={{ color: GLASS.muted }}>
-                    {noteTimeLabel(n.updated_at)}
-                  </Text>
-                  <View
-                    style={{
-                      width: 9,
-                      height: 9,
-                      borderRadius: 5,
-                      backgroundColor: dot,
-                    }}
-                  />
+                  <Text style={styles.rowTime}>{noteTimeLabel(n.updated_at)}</Text>
+                  <View style={[styles.rowDot, { backgroundColor: dot }]} />
                 </Pressable>
               );
             })}
@@ -376,3 +299,121 @@ export default function BrainHome({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // The browser draws a square focus ring on whatever was last pressed; every
+  // control here is rounded, so the default ring is simply wrong.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  // `active:opacity-*` had no meaning once the classes went; these carry it.
+  pressed70: { opacity: 0.7 },
+  pressed80: { opacity: 0.8 },
+  fill: { flex: 1 },
+
+  page: { flex: 1, paddingHorizontal: 16, paddingTop: 4, gap: 12 },
+
+  sky: {
+    flex: 1,
+    minHeight: HERO_MIN,
+    borderRadius: 30,
+    overflow: 'hidden',
+    backgroundColor: GLASS.sky,
+  },
+
+  emptySky: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: SKY_TEXT },
+  emptyBody: { fontSize: 13, marginTop: 6, color: SKY_MUTED },
+
+  titleBlock: { position: 'absolute', top: 22, left: 22, right: 22 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  skyTitle: {
+    color: '#FFFFFF',
+    fontSize: 27,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  skySubtitle: { fontSize: 13, marginTop: 4, color: SKY_SUBTITLE },
+  expandButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  footRow: {
+    position: 'absolute',
+    left: 22,
+    right: 18,
+    bottom: 18,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  bigNumber: {
+    color: GLASS.blueSoft,
+    fontSize: 38,
+    lineHeight: 42,
+    fontWeight: '700',
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  linkLabel: { fontSize: 13, color: SKY_MUTED },
+  newNote: {
+    width: 62,
+    height: 62,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  listCard: { padding: 12 },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 10,
+  },
+  listTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: GLASS.ink,
+    letterSpacing: -0.2,
+  },
+  allButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  allLabel: { fontSize: 14, fontWeight: '600', color: GLASS.blue },
+
+  emptyList: { paddingVertical: 18, alignItems: 'center' },
+  emptyListText: { fontSize: 13, color: GLASS.muted },
+
+  rows: { gap: 7 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 17,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    backgroundColor: GLASS.surfaceSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+  },
+  rowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: GLASS.ink },
+  rowTime: { fontSize: 12.5, color: GLASS.muted },
+  rowDot: { width: 9, height: 9, borderRadius: 5 },
+});

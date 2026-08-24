@@ -9,6 +9,8 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,8 +23,23 @@ import {
   useReportFriend,
   useSendPeerMessage,
 } from '@/hooks/use-social';
+import { glass, lift } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, the same one goal-mates hands this screen off from ───────
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const PLACEHOLDER = '#7693C2';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+/** The safety notice: warm enough to be noticed, dark enough to be read on
+ *  a pale page. */
+const WARN = '#A76314';
+const WARN_FILL = 'rgba(240,161,52,0.16)';
+const WARN_EDGE = 'rgba(240,161,52,0.34)';
 
 const MAX_LEN = 500;
 
@@ -30,16 +47,14 @@ function Bubble({ message }: { message: PeerMessage }) {
   const mine = message.mine;
   return (
     <View
-      className={`max-w-[80%] rounded-xl px-4 py-3 ${
-        mine ? 'self-end' : 'self-start'
-      }`}
-      style={{
-        backgroundColor: mine ? '#60A5FA' : 'rgba(148,163,184,0.18)',
-      }}
+      style={
+        mine
+          ? [styles.bubble, styles.bubbleMine]
+          : [glass(20, 'sm', 0.62), styles.bubble, styles.bubbleTheirs]
+      }
     >
       <Text
-        className="text-base"
-        style={{ color: mine ? '#0A1628' : undefined }}
+        style={[styles.bubbleText, mine && styles.bubbleTextMine]}
         // Peer text is untrusted; selectable so a child can copy it into a
         // report conversation with an adult if they need to.
         selectable
@@ -51,7 +66,6 @@ function Bubble({ message }: { message: PeerMessage }) {
 }
 
 export default function PeerChatScreen() {
-  const isDark = useIsDark();
   const params = useLocalSearchParams<{
     friendshipId: string;
     peerName: string;
@@ -137,92 +151,77 @@ export default function PeerChatScreen() {
     ]);
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
+    <View style={styles.root}>
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.96, y: 0.2 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="h-16 px-4 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2 flex-1">
+      <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
             <Pressable
               onPress={() => router.back()}
               accessibilityRole="button"
               accessibilityLabel="Orqaga"
               hitSlop={10}
-              className="p-1"
+              style={[glass(20, 'sm'), styles.headerButton, styles.focusable]}
             >
-              <ArrowLeft size={24} color={isDark ? '#E0E7FF' : '#102033'} />
+              <ArrowLeft size={24} color={PRIMARY} />
             </Pressable>
-            <Text
-              className="text-lg font-bold text-foreground dark:text-dark-text"
-              numberOfLines={1}
-            >
+            <Text style={styles.peerName} numberOfLines={1}>
               {peerName}
             </Text>
           </View>
           {/* Block and report are always visible and never buried in a menu. */}
-          <View className="flex-row gap-1">
+          <View style={styles.headerActions}>
             <Pressable
               onPress={confirmBlock}
               accessibilityRole="button"
               accessibilityLabel="Bloklash"
               hitSlop={8}
-              className="p-2"
+              style={[glass(20, 'sm'), styles.headerButton, styles.focusable]}
             >
-              <ShieldAlert size={20} color="#94A3B8" />
+              <ShieldAlert size={20} color={MUTED} />
             </Pressable>
             <Pressable
               onPress={confirmReport}
               accessibilityRole="button"
               accessibilityLabel="Shikoyat qilish"
               hitSlop={8}
-              className="p-2"
+              style={[glass(20, 'sm'), styles.headerButton, styles.focusable]}
             >
-              <Flag size={20} color="#94A3B8" />
+              <Flag size={20} color={MUTED} />
             </Pressable>
           </View>
         </View>
 
         {/* Never dismissible — the rule has to be present, not read once. */}
-        <View
-          className="mx-4 mb-2 rounded-md px-3 py-2"
-          style={{ backgroundColor: 'rgba(251,146,60,0.15)' }}
-        >
-          <Text className="text-xs" style={{ color: '#FB923C' }}>
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>
             Xavfsizlik uchun xabarlar tekshiriladi. Telefon raqam, manzil yoki
             maktabingni yozma.
           </Text>
         </View>
 
-        <KeyboardAvoidingView className="flex-1">
+        <KeyboardAvoidingView style={styles.fill}>
           {messagesQuery.isLoading ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator color="#60A5FA" />
+            <View style={styles.loading}>
+              <ActivityIndicator color={PRIMARY} />
             </View>
           ) : (
             <FlatList
               data={data}
               inverted
               keyExtractor={(m) => m.id}
-              contentContainerStyle={{ padding: 16, gap: 10 }}
+              contentContainerStyle={styles.listContent}
               renderItem={({ item }) => <Bubble message={item} />}
               ListEmptyComponent={
-                <View className="items-center" style={{ paddingTop: 40 }}>
-                  <Text className="text-4xl">👋</Text>
-                  <Text className="text-base font-bold text-foreground dark:text-dark-text mt-2">
-                    Suhbatni boshlang
-                  </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center px-6">
+                <View style={styles.empty}>
+                  <Text style={styles.emptyEmoji}>👋</Text>
+                  <Text style={styles.emptyTitle}>Suhbatni boshlang</Text>
+                  <Text style={styles.emptyBody}>
                     Sizni bir maqsad birlashtirdi — shu haqda gaplashsangiz
                     bo'ladi
                   </Text>
@@ -231,48 +230,43 @@ export default function PeerChatScreen() {
             />
           )}
 
-          {refusal && (
-            <View
-              className="mx-4 mb-2 rounded-md px-3 py-2"
-              style={{ backgroundColor: 'rgba(239,68,68,0.15)' }}
-            >
-              <Text className="text-xs" style={{ color: '#F87171' }}>
-                {refusal}
-              </Text>
+          {/* `? :`, not `&&`: `refusal` is a string, and React renders an empty
+              one as a TEXT NODE, which inside a View is "Unexpected text node". */}
+          {refusal ? (
+            <View style={styles.refusal}>
+              <Text style={styles.refusalText}>{refusal}</Text>
             </View>
-          )}
+          ) : null}
 
-          <View
-            className="flex-row items-end gap-2 px-3 py-3 border-t"
-            style={{ borderColor: 'rgba(148,163,184,0.2)' }}
-          >
+          <View style={[glass(28, 'xl', 0.72), styles.composer]}>
             <TextInput
               value={draft}
               onChangeText={(t) => setDraft(t.slice(0, MAX_LEN))}
               placeholder="Xabar yozing..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={PLACEHOLDER}
               multiline
               maxLength={MAX_LEN}
               accessibilityLabel="Xabar"
-              className="flex-1 max-h-28 px-4 py-3 rounded-md text-base text-foreground dark:text-dark-text"
-              style={{ backgroundColor: isDark ? '#1E3A5F' : '#FFFFFF' }}
+              // See chat.tsx: `glass()` is typed ViewStyle and TextStyle is
+              // not a superset of it, though every property used here is valid
+              // on both.
+              style={[glass(16, 'flush', 0.62) as TextStyle, styles.input]}
             />
             <Pressable
               onPress={handleSend}
               disabled={!canSend}
               accessibilityRole="button"
               accessibilityLabel="Yuborish"
-              className="rounded-md items-center justify-center"
-              style={{
-                width: 44,
-                height: 44,
-                backgroundColor: canSend ? '#60A5FA' : 'rgba(148,163,184,0.2)',
-              }}
+              style={[
+                styles.send,
+                canSend ? styles.sendOn : styles.sendOff,
+                styles.focusable,
+              ]}
             >
               {sendMutation.isPending ? (
-                <ActivityIndicator color="#0A1628" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Send size={20} color={canSend ? '#0A1628' : '#94A3B8'} />
+                <Send size={20} color={canSend ? '#FFFFFF' : MUTED} />
               )}
             </Pressable>
           </View>
@@ -281,3 +275,116 @@ export default function PeerChatScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  fill: { flex: 1 },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  // ── Header ─────────────────────────────────────────────────────────────
+  header: {
+    height: 64,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActions: { flexDirection: 'row', gap: 6 },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  peerName: { flexShrink: 1, fontSize: 18, fontWeight: '700', color: INK },
+
+  notice: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WARN_EDGE,
+    backgroundColor: WARN_FILL,
+  },
+  noticeText: { fontSize: 12, lineHeight: 17, color: WARN },
+
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  // ── Messages ───────────────────────────────────────────────────────────
+  listContent: { padding: 16, gap: 10 },
+  bubble: {
+    maxWidth: '80%',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  // A filled bubble still belongs to the ladder: the same contact/ambient
+  // pair as the glass one opposite, so both sides sit at one height.
+  bubbleMine: {
+    alignSelf: 'flex-end',
+    backgroundColor: PRIMARY,
+    boxShadow: lift('sm'),
+  },
+  bubbleTheirs: { alignSelf: 'flex-start' },
+  bubbleText: { fontSize: 16, lineHeight: 22, color: INK },
+  bubbleTextMine: { color: '#FFFFFF' },
+
+  empty: { alignItems: 'center', paddingTop: 40 },
+  emptyEmoji: { fontSize: 36, lineHeight: 42 },
+  emptyTitle: { marginTop: 8, fontSize: 16, fontWeight: '700', color: INK },
+  emptyBody: {
+    marginTop: 4,
+    paddingHorizontal: 24,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  refusal: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(224,69,94,0.28)',
+    backgroundColor: 'rgba(224,69,94,0.12)',
+  },
+  refusalText: { fontSize: 12, lineHeight: 17, color: DANGER },
+
+  // ── Composer ───────────────────────────────────────────────────────────
+  composer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    // Squared off at the screen edge — only the top of this sheet is seen.
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  input: {
+    flex: 1,
+    maxHeight: 112,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: INK,
+  },
+  send: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendOn: { backgroundColor: PRIMARY },
+  sendOff: { backgroundColor: 'rgba(140,163,203,0.25)' },
+});

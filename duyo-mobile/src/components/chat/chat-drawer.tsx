@@ -13,16 +13,18 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
 import { useConversations, useProjects } from '@/hooks/use-history';
+import { lift } from '@/lib/glass';
 import { shortWhen } from '@/lib/history-groups';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
 
 /**
  * The chat side drawer: new chat, the two libraries, and recent conversations.
@@ -41,8 +43,11 @@ const WIDTH = Math.min(320, Dimensions.get('window').width * 0.84);
 /** Enough to recognise a conversation, few enough to stay scannable. */
 const RECENTS = 8;
 
-const ACCENT = '#60A5FA';
-const MUTED = '#94A3B8';
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
 
 export function ChatDrawer({
   visible,
@@ -53,7 +58,6 @@ export function ChatDrawer({
   onClose: () => void;
   onNewChat: () => void;
 }) {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   // Marks the row the child is already inside, so tapping it is obviously a
   // no-op rather than looking like a fresh conversation they might lose.
@@ -94,8 +98,6 @@ export function ChatDrawer({
   const openConversation = (id: string) =>
     go(() => useChatStore.getState().openConversation(id));
 
-  const hairline = isDark ? 'rgba(96,165,250,0.16)' : 'rgba(16,32,51,0.08)';
-
   return (
     <Modal
       visible={visible}
@@ -103,61 +105,30 @@ export function ChatDrawer({
       animationType="none"
       onRequestClose={onClose}
     >
-      <Animated.View style={{ flex: 1, opacity: fade }}>
+      <Animated.View style={[styles.fill, { opacity: fade }]}>
         <Pressable
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Yopish"
-          style={{ flex: 1, backgroundColor: 'rgba(4,10,22,0.55)' }}
+          style={styles.scrim}
         />
       </Animated.View>
 
       <Animated.View
-        style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          left: 0,
-          width: WIDTH,
-          transform: [{ translateX: slide }],
-          backgroundColor: isDark ? '#0E1626' : '#FFFFFF',
-          borderRightWidth: 1,
-          borderRightColor: hairline,
-        }}
+        style={[styles.panel, { transform: [{ translateX: slide }] }]}
       >
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
           {/* Brand row. The child's own name sits under it — this drawer is
               the one place the app says whose memories and chats these are,
               which matters on a phone siblings share. */}
-          <View
-            className="flex-row items-center gap-3"
-            style={{ paddingHorizontal: 18, paddingTop: 6, paddingBottom: 14 }}
-          >
-            <View
-              className="items-center justify-center"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 11,
-                backgroundColor: `${ACCENT}1F`,
-              }}
-            >
-              <Text
-                className="font-bold"
-                style={{ color: ACCENT, fontSize: 15 }}
-              >
-                D
-              </Text>
+          <View style={styles.brandRow}>
+            <View style={styles.logo}>
+              <Text style={styles.logoText}>D</Text>
             </View>
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-foreground dark:text-dark-text">
-                DUYO
-              </Text>
+            <View style={styles.brandText}>
+              <Text style={styles.brandName}>DUYO</Text>
               {!!child?.name && (
-                <Text
-                  className="text-xs text-muted-foreground dark:text-dark-muted"
-                  numberOfLines={1}
-                >
+                <Text style={styles.childName} numberOfLines={1}>
                   {child.name}
                 </Text>
               )}
@@ -166,32 +137,23 @@ export function ChatDrawer({
 
           {/* The primary action, and the only filled control in the drawer —
               everything below it is navigation, so it should not compete. */}
-          <View style={{ paddingHorizontal: 12 }}>
+          <View style={styles.gutter}>
             <Pressable
               onPress={() => go(onNewChat)}
               accessibilityRole="button"
               accessibilityLabel="Yangi suhbat"
-              className="flex-row items-center gap-3 active:opacity-80"
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 12,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: `${ACCENT}59`,
-                backgroundColor: `${ACCENT}14`,
-              }}
+              style={({ pressed }) => [
+                styles.newChat,
+                pressed && styles.pressedStrong,
+                styles.focusable,
+              ]}
             >
-              <SquarePen size={18} color={ACCENT} />
-              <Text
-                className="text-base font-bold flex-1"
-                style={{ color: ACCENT }}
-              >
-                Yangi suhbat
-              </Text>
+              <SquarePen size={18} color={PRIMARY} />
+              <Text style={styles.newChatText}>Yangi suhbat</Text>
             </Pressable>
           </View>
 
-          <View style={{ paddingHorizontal: 12, paddingTop: 6 }}>
+          <View style={[styles.gutter, styles.links]}>
             <DrawerLink
               icon={MessagesSquare}
               label="Suhbatlar"
@@ -206,24 +168,12 @@ export function ChatDrawer({
             />
           </View>
 
-          <View
-            style={{
-              height: 1,
-              backgroundColor: hairline,
-              marginHorizontal: 18,
-              marginVertical: 12,
-            }}
-          />
+          <View style={styles.divider} />
 
-          <Text
-            className="text-xs font-bold uppercase text-muted-foreground dark:text-dark-muted"
-            style={{ paddingHorizontal: 18, letterSpacing: 0.6, marginBottom: 4 }}
-          >
-            So‘nggi suhbatlar
-          </Text>
+          <Text style={styles.sectionLabel}>So‘nggi suhbatlar</Text>
 
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 20 }}
+            contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           >
             {recents.map((conv) => {
@@ -235,49 +185,31 @@ export function ChatDrawer({
                   accessibilityRole="button"
                   accessibilityLabel={conv.title}
                   accessibilityState={{ selected: active }}
-                  className="flex-row items-center gap-2.5 active:opacity-70"
-                  style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 10,
-                    borderRadius: 11,
-                    backgroundColor: active ? `${ACCENT}14` : 'transparent',
-                  }}
+                  style={({ pressed }) => [
+                    styles.recent,
+                    active && styles.recentOn,
+                    pressed && styles.pressed,
+                    styles.focusable,
+                  ]}
                 >
-                  <MessageSquare
-                    size={15}
-                    color={active ? ACCENT : MUTED}
-                  />
+                  <MessageSquare size={15} color={active ? PRIMARY : MUTED} />
                   <Text
-                    className="text-sm flex-1"
                     numberOfLines={1}
-                    style={{
-                      // Set outright rather than nesting a className'd Text
-                      // inside a styled one: a nested Text inherits the
-                      // parent's colour on Android and the child's on iOS,
-                      // so the two platforms disagreed about the title.
-                      color: active ? ACCENT : isDark ? '#E0E7FF' : '#102033',
-                      fontWeight: active ? '600' : '400',
-                    }}
+                    // Set on this Text itself rather than left to inherit: a
+                    // nested Text takes the parent's colour on Android and its
+                    // own on iOS, so the two platforms disagreed about the
+                    // title.
+                    style={[styles.recentTitle, active && styles.recentTitleOn]}
                   >
                     {conv.title}
                   </Text>
-                  <Text
-                    className="text-xs text-muted-foreground dark:text-dark-muted"
-                    style={{ fontVariant: ['tabular-nums'] }}
-                  >
-                    {shortWhen(conv.updated_at)}
-                  </Text>
+                  <Text style={styles.when}>{shortWhen(conv.updated_at)}</Text>
                 </Pressable>
               );
             })}
 
             {recents.length === 0 && (
-              <Text
-                className="text-sm text-muted-foreground dark:text-dark-muted"
-                style={{ paddingHorizontal: 10, paddingVertical: 8 }}
-              >
-                Hali suhbat yo‘q
-              </Text>
+              <Text style={styles.empty}>Hali suhbat yo‘q</Text>
             )}
 
             {all.length > RECENTS && (
@@ -285,17 +217,14 @@ export function ChatDrawer({
                 onPress={() => go(() => router.push('/(main)/history'))}
                 accessibilityRole="button"
                 accessibilityLabel="Barcha suhbatlarni ko'rish"
-                className="flex-row items-center gap-1 active:opacity-70"
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 11,
-                  marginTop: 2,
-                }}
+                style={({ pressed }) => [
+                  styles.seeAll,
+                  pressed && styles.pressed,
+                  styles.focusable,
+                ]}
               >
-                <Text className="text-sm font-medium" style={{ color: ACCENT }}>
-                  Barchasini ko‘rish
-                </Text>
-                <ChevronRight size={14} color={ACCENT} />
+                <Text style={styles.seeAllText}>Barchasini ko‘rish</Text>
+                <ChevronRight size={14} color={PRIMARY} />
               </Pressable>
             )}
           </ScrollView>
@@ -324,32 +253,158 @@ function DrawerLink({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={count > 0 ? `${label}, ${count} ta` : label}
-      className="flex-row items-center gap-3 active:opacity-70"
-      style={{ paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12 }}
+      style={({ pressed }) => [
+        styles.link,
+        pressed && styles.pressed,
+        styles.focusable,
+      ]}
     >
       <Icon size={18} color={MUTED} />
-      <Text className="text-base font-medium text-foreground dark:text-dark-text flex-1">
-        {label}
-      </Text>
+      <Text style={styles.linkLabel}>{label}</Text>
       {count > 0 && (
-        <View
-          className="items-center justify-center"
-          style={{
-            minWidth: 22,
-            paddingHorizontal: 6,
-            paddingVertical: 2,
-            borderRadius: 9,
-            backgroundColor: `${MUTED}24`,
-          }}
-        >
-          <Text
-            className="text-xs font-semibold text-muted-foreground dark:text-dark-muted"
-            style={{ fontVariant: ['tabular-nums'] }}
-          >
-            {count}
-          </Text>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{count}</Text>
         </View>
       )}
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  fill: { flex: 1 },
+  scrim: { flex: 1, backgroundColor: 'rgba(4,10,22,0.55)' },
+
+  // The drawer is chrome sliding over the whole screen, so it sits at the top
+  // of the ladder — 'xl'. A bare surface rather than a `glass()` pane: it runs
+  // edge to edge with no radius, and a near-opaque fill is what stops the
+  // darkened chat behind it from greying the rows.
+  panel: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: WIDTH,
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderRightWidth: 1,
+    borderRightColor: HAIRLINE,
+    boxShadow: lift('xl'),
+  },
+
+  gutter: { paddingHorizontal: 12 },
+  links: { paddingTop: 6 },
+
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 14,
+  },
+  logo: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.12)',
+  },
+  logoText: { color: PRIMARY, fontSize: 15, fontWeight: '700' },
+  brandText: { flex: 1 },
+  brandName: { fontSize: 18, fontWeight: '700', color: TITLE },
+  childName: { fontSize: 12, color: MUTED },
+
+  // 'sm' — the one control in the drawer that is an object resting on the
+  // panel. The navigation rows below stay flat, and that difference is what
+  // keeps this row reading as the action.
+  newChat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(47,111,228,0.35)',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+    boxShadow: lift('sm'),
+  },
+  newChatText: { flex: 1, fontSize: 16, fontWeight: '700', color: PRIMARY },
+
+  link: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  linkLabel: { flex: 1, fontSize: 16, fontWeight: '500', color: INK },
+  badge: {
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(140,163,203,0.20)',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MUTED,
+    fontVariant: ['tabular-nums'],
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: HAIRLINE,
+    marginHorizontal: 18,
+    marginVertical: 12,
+  },
+  sectionLabel: {
+    paddingHorizontal: 18,
+    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: MUTED,
+  },
+
+  listContent: { paddingHorizontal: 12, paddingBottom: 20 },
+  recent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 11,
+    backgroundColor: 'transparent',
+  },
+  recentOn: { backgroundColor: 'rgba(47,111,228,0.10)' },
+  recentTitle: { flex: 1, fontSize: 14, fontWeight: '400', color: INK },
+  recentTitleOn: { fontWeight: '600', color: PRIMARY },
+  when: { fontSize: 12, color: MUTED, fontVariant: ['tabular-nums'] },
+  empty: {
+    fontSize: 14,
+    color: MUTED,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+
+  seeAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 11,
+    marginTop: 2,
+  },
+  seeAllText: { fontSize: 14, fontWeight: '500', color: PRIMARY },
+
+  pressed: { opacity: 0.7 },
+  pressedStrong: { opacity: 0.8 },
+});

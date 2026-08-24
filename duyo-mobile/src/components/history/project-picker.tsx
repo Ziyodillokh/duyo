@@ -1,9 +1,20 @@
 import { Check, Folder, FolderMinus } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView } from 'react-native';
-import { Text } from '@/components/text';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  type ViewStyle,
+} from 'react-native';
 
+import { Text } from '@/components/text';
 import { type Project } from '@/api/endpoints/conversations';
-import { useIsDark } from '@/store/theme';
+import { glass } from '@/lib/glass';
+
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const PRIMARY = '#2F6FE4';
+const GREEN = '#22B573';
 
 /**
  * "Which project does this conversation belong to?"
@@ -24,8 +35,6 @@ export function ProjectPicker({
   onClose: () => void;
   onPick: (projectId: string | null) => void;
 }) {
-  const isDark = useIsDark();
-
   return (
     <Modal
       visible={visible}
@@ -37,28 +46,15 @@ export function ProjectPicker({
         onPress={onClose}
         accessibilityRole="button"
         accessibilityLabel="Yopish"
-        className="flex-1 justify-end"
-        style={{ backgroundColor: 'rgba(4,10,22,0.6)' }}
+        style={styles.scrim}
       >
-        <Pressable
-          onPress={() => {}}
-          className="rounded-t-3xl border-t border-neon-blue/20"
-          style={{
-            backgroundColor: isDark ? '#121B2E' : '#FFFFFF',
-            paddingHorizontal: 20,
-            paddingTop: 18,
-            paddingBottom: 32,
-            maxHeight: '70%',
-          }}
-        >
-          <Text className="text-base font-bold text-foreground dark:text-dark-text mb-3">
-            Loyihaga solish
-          </Text>
+        <Pressable onPress={() => {}} style={styles.sheet}>
+          <Text style={styles.title}>Loyihaga solish</Text>
 
           <ScrollView>
             <PickerRow
               label="Loyihasiz"
-              icon={<FolderMinus size={18} color="#94A3B8" />}
+              icon={<FolderMinus size={18} color={MUTED} />}
               selected={currentProjectId === null}
               onPress={() => onPick(null)}
             />
@@ -66,13 +62,13 @@ export function ProjectPicker({
               <PickerRow
                 key={project.id}
                 label={project.name}
-                icon={<Folder size={18} color={project.colour ?? '#60A5FA'} />}
+                icon={<Folder size={18} color={project.colour ?? PRIMARY} />}
                 selected={currentProjectId === project.id}
                 onPress={() => onPick(project.id)}
               />
             ))}
             {projects.length === 0 && (
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted py-3">
+              <Text style={styles.empty}>
                 Hali loyiha yo‘q. Loyihalar bo‘limidan yaratishing mumkin.
               </Text>
             )}
@@ -100,13 +96,65 @@ function PickerRow({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      className="flex-row items-center gap-3 py-3 active:opacity-70"
+      style={({ pressed }) => [
+        styles.row,
+        pressed && styles.pressed,
+        styles.focusable,
+      ]}
     >
       {icon}
-      <Text className="text-base text-foreground dark:text-dark-text flex-1">
-        {label}
-      </Text>
-      {selected && <Check size={18} color="#05DF72" />}
+      <Text style={styles.rowLabel}>{label}</Text>
+      {selected && <Check size={18} color={GREEN} />}
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  scrim: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(4,10,22,0.6)',
+  },
+  // 'xl' — this is chrome floating over the whole screen, the top of the
+  // ladder. The fill is near-opaque rather than the usual 0.55: behind it is
+  // the darkened scrim, and a half-transparent pane over that reads grey
+  // instead of white.
+  sheet: {
+    ...glass(30, 'xl', 0.96),
+    // A sheet only meets the screen at the bottom, so only the top corners
+    // and the top edge are drawn.
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 32,
+    maxHeight: '70%',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    marginBottom: 12,
+  },
+  empty: {
+    fontSize: 14,
+    color: MUTED,
+    paddingVertical: 12,
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  pressed: { opacity: 0.7 },
+  rowLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: INK,
+  },
+});

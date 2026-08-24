@@ -1,6 +1,25 @@
 import { Fragment } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+
 import { Text } from '@/components/text';
+import { lift } from '@/lib/glass';
+
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const GREEN = '#22B573';
+const PLACEHOLDER = '#7693C2';
+
+/**
+ * A #tag's gold.
+ *
+ * The tag used to be `text-neon-yellow` (#FDC700), which was picked for a note
+ * card that was always dark navy. On the light glass card that yellow is a
+ * highlighter stripe with no letters in it, so it steps down to the palette's
+ * darker gold — the same hue family, still unmistakably not a [[link]], and
+ * readable on white.
+ */
+const TAG = '#D08700';
 
 interface Props {
   body: string;
@@ -157,12 +176,9 @@ function EmbedCard({
   depth: number;
 } & Pick<Props, 'onLinkPress' | 'onLinkHold' | 'onTagPress' | 'existing'>) {
   return (
-    <View
-      className="rounded-md border-l-2 border-neon-blue my-2"
-      style={{ paddingLeft: 12, paddingVertical: 8, backgroundColor: 'rgba(96,165,250,0.07)' }}
-    >
+    <View style={styles.embed}>
       <Text
-        className="text-xs text-neon-blue mb-1"
+        style={styles.embedTitle}
         onPress={onLinkPress ? () => onLinkPress(title) : undefined}
       >
         📄 {title}
@@ -177,7 +193,7 @@ function EmbedCard({
           depth={depth + 1}
         />
       ) : (
-        <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+        <Text style={styles.stub}>
           {body === undefined ? 'Bu qayd hali yozilmagan.' : '…'}
         </Text>
       )}
@@ -197,19 +213,16 @@ function Callout({
   const style = CALLOUTS[block.type] ?? CALLOUTS.note;
   return (
     <View
-      className="rounded-md my-2"
-      style={{
-        padding: 12,
-        borderLeftWidth: 3,
-        borderLeftColor: style.colour,
-        backgroundColor: `${style.colour}14`,
-      }}
+      style={[
+        styles.callout,
+        { borderLeftColor: style.colour, backgroundColor: `${style.colour}14` },
+      ]}
     >
-      <Text className="text-sm font-bold mb-1" style={{ color: style.colour }}>
+      <Text style={[styles.calloutTitle, { color: style.colour }]}>
         {style.icon} {block.title || style.label}
       </Text>
       {block.lines.map((l, i) => (
-        <Text key={i} className="text-base text-foreground dark:text-dark-text leading-6">
+        <Text key={i} style={styles.body}>
           <Inline
             text={l}
             onLinkPress={onLinkPress}
@@ -235,20 +248,17 @@ function Line({
   text: string;
   index: number;
 } & Pick<Props, 'onLinkPress' | 'onLinkHold' | 'onTagPress' | 'existing' | 'onToggleCheck'>) {
-  if (text.trim() === '') return <View style={{ height: 10 }} />;
+  if (text.trim() === '') return <View style={styles.blank} />;
 
   const heading = /^(#{1,3})\s+(.*)$/.exec(text);
   if (heading) {
     const level = heading[1].length;
     return (
       <Text
-        className="text-foreground dark:text-dark-text"
-        style={{
-          fontSize: level === 1 ? 22 : level === 2 ? 19 : 17,
-          fontWeight: '700',
-          marginTop: 12,
-          marginBottom: 4,
-        }}
+        style={[
+          styles.heading,
+          level === 1 ? styles.h1 : level === 2 ? styles.h2 : styles.h3,
+        ]}
       >
         {heading[2]}
       </Text>
@@ -260,7 +270,11 @@ function Line({
   if (check) {
     const done = check[2] !== ' ';
     return (
-      <View className="flex-row items-start" style={{ marginVertical: 3 }}>
+      <View style={styles.checkRow}>
+        {/* The touch target is 30x30 and the drawn box stays 20x20 inside it:
+            hitSlop enlarges nothing on web, and a 20pt box is below every
+            minimum-target guideline there is. The negative margins keep the
+            box exactly where it sat before it gained the padding. */}
         <Pressable
           onPress={onToggleCheck ? () => onToggleCheck(index) : undefined}
           disabled={!onToggleCheck}
@@ -268,32 +282,14 @@ function Line({
           accessibilityState={{ checked: done }}
           accessibilityLabel={check[3]}
           hitSlop={8}
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 5,
-            borderWidth: 1.5,
-            borderColor: done ? '#4ADE80' : '#7A93B5',
-            backgroundColor: done ? '#4ADE80' : 'transparent',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 2,
-            marginRight: 8,
-          }}
+          style={[styles.checkTarget, styles.focusable]}
         >
-          {done && (
-            <Text style={{ color: '#0A1628', fontSize: 12, fontWeight: '700' }}>✓</Text>
-          )}
+          <View style={[styles.checkBox, done ? styles.checkOn : styles.checkOff]}>
+            {done ? <Text style={styles.tick}>✓</Text> : null}
+          </View>
         </Pressable>
-        <Text
-          className="text-base flex-1 leading-6"
-          style={
-            done
-              ? { textDecorationLine: 'line-through', color: '#7A93B5' }
-              : undefined
-          }
-        >
-          <Text className={done ? '' : 'text-foreground dark:text-dark-text'}>
+        <Text style={[styles.checkText, done ? styles.struck : null]}>
+          <Text style={done ? undefined : styles.ink}>
             <Inline
               text={check[3]}
               onLinkPress={onLinkPress}
@@ -310,11 +306,9 @@ function Line({
   const bullet = /^\s*[-*]\s+(.*)$/.exec(text);
   if (bullet) {
     return (
-      <View className="flex-row" style={{ marginVertical: 2 }}>
-        <Text className="text-muted-foreground dark:text-dark-muted" style={{ width: 16 }}>
-          •
-        </Text>
-        <Text className="text-base text-foreground dark:text-dark-text flex-1 leading-6">
+      <View style={styles.bulletRow}>
+        <Text style={styles.bulletGlyph}>•</Text>
+        <Text style={[styles.body, styles.bulletText]}>
           <Inline
             text={bullet[1]}
             onLinkPress={onLinkPress}
@@ -328,7 +322,7 @@ function Line({
   }
 
   return (
-    <Text className="text-base text-foreground dark:text-dark-text leading-6" style={{ marginVertical: 2 }}>
+    <Text style={[styles.body, styles.paragraph]}>
       <Inline
         text={text}
         onLinkPress={onLinkPress}
@@ -370,12 +364,7 @@ function Inline({
       parts.push(
         <Text
           key={key++}
-          style={
-            written
-              ? undefined
-              : { color: '#8FA6C4', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }
-          }
-          className={written ? 'text-neon-blue' : ''}
+          style={written ? styles.link : styles.linkBroken}
           onPress={onLinkPress ? () => onLinkPress(title) : undefined}
           onLongPress={onLinkHold ? () => onLinkHold(title) : undefined}
         >
@@ -384,19 +373,19 @@ function Inline({
       );
     } else if (token.startsWith('`')) {
       parts.push(
-        <Text key={key++} style={{ fontFamily: 'monospace', color: '#9BE8A8' }}>
+        <Text key={key++} style={styles.code}>
           {token.slice(1, -1)}
         </Text>,
       );
     } else if (token.startsWith('**')) {
       parts.push(
-        <Text key={key++} style={{ fontWeight: '700' }}>
+        <Text key={key++} style={styles.bold}>
           {token.slice(2, -2)}
         </Text>,
       );
     } else if (token.startsWith('*')) {
       parts.push(
-        <Text key={key++} style={{ fontStyle: 'italic' }}>
+        <Text key={key++} style={styles.italic}>
           {token.slice(1, -1)}
         </Text>,
       );
@@ -408,7 +397,7 @@ function Inline({
       parts.push(
         <Text
           key={key++}
-          className="text-neon-yellow"
+          style={styles.tag}
           onPress={onTagPress ? () => onTagPress(tag.toLowerCase()) : undefined}
         >
           #{tag}
@@ -439,3 +428,87 @@ export function toggleCheckbox(body: string, index: number): string {
   lines[index] = `${m[1]}- [${m[2] === ' ' ? 'x' : ' '}] ${m[3]}`;
   return lines.join('\n');
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  // ── Blocks ────────────────────────────────────────────────────────────────
+  // An embed and a callout are drawn ON the note's own card, so they take the
+  // glass edges and no shadow at all — 'flush'. A pane that casts a shadow
+  // onto the pane it is part of is the tell that a design stacks styles
+  // instead of modelling depth.
+  embed: {
+    marginVertical: 8,
+    borderRadius: 14,
+    paddingLeft: 12,
+    paddingVertical: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: PRIMARY,
+    backgroundColor: 'rgba(47,111,228,0.06)',
+    boxShadow: lift('flush'),
+  },
+  embedTitle: { fontSize: 12, marginBottom: 4, color: PRIMARY },
+  stub: { fontSize: 12, color: MUTED },
+
+  callout: {
+    marginVertical: 8,
+    borderRadius: 14,
+    padding: 12,
+    borderLeftWidth: 3,
+    boxShadow: lift('flush'),
+  },
+  calloutTitle: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+
+  // ── Lines ─────────────────────────────────────────────────────────────────
+  blank: { height: 10 },
+
+  heading: { fontWeight: '700', marginTop: 12, marginBottom: 4, color: INK },
+  h1: { fontSize: 22 },
+  h2: { fontSize: 19 },
+  h3: { fontSize: 17 },
+
+  body: { fontSize: 16, lineHeight: 24, color: INK },
+  paragraph: { marginVertical: 2 },
+
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: 3 },
+  checkTarget: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -3,
+    marginRight: 3,
+  },
+  checkBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkOff: { borderColor: PLACEHOLDER, backgroundColor: 'transparent' },
+  checkOn: { borderColor: GREEN, backgroundColor: GREEN },
+  tick: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  checkText: { fontSize: 16, lineHeight: 24, flex: 1 },
+  struck: { textDecorationLine: 'line-through', color: MUTED },
+  ink: { color: INK },
+
+  bulletRow: { flexDirection: 'row', marginVertical: 2 },
+  bulletGlyph: { width: 16, color: MUTED },
+  bulletText: { flex: 1 },
+
+  // ── Spans ─────────────────────────────────────────────────────────────────
+  link: { color: PRIMARY },
+  linkBroken: {
+    color: MUTED,
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'dotted',
+  },
+  // The mint the code span used to wear (#9BE8A8) was mixed for a navy card
+  // and disappears on glass; the palette's green says the same thing.
+  code: { fontFamily: 'monospace', color: GREEN },
+  bold: { fontWeight: '700' },
+  italic: { fontStyle: 'italic' },
+  tag: { color: TAG },
+});

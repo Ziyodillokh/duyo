@@ -1,4 +1,3 @@
-import { useIsDark } from '@/store/theme';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -16,40 +15,61 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isContentNotFound } from '@/api/endpoints/content';
+import { Text } from '@/components/text';
 import { useContentItem } from '@/hooks/use-content';
+import { glass, lift } from '@/lib/glass';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// The old navy build predated the glass system; the screen now reads as the
+// same app as the library it was opened from.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+
+/** The page sky, drawn behind every state this screen can be in. */
+function Sky() {
+  return (
+    <LinearGradient
+      colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+      locations={[0, 0.55, 1]}
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
 
 export default function LibraryItemScreen() {
-  const isDark = useIsDark();
   const params = useLocalSearchParams<{ id: string }>();
   const id = params.id ?? '';
 
   const { data: item, isLoading, isError, error } = useContentItem(id);
 
   const renderMessage = (emoji: string, message: string) => (
-    <View
-      style={[
-        StyleSheet.absoluteFill,
-        { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-      ]}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="flex-1 items-center justify-center px-6 gap-3">
-          <Text className="text-5xl">{emoji}</Text>
-          <Text className="text-lg font-medium text-foreground dark:text-dark-text text-center">
-            {message}
-          </Text>
+    <View style={StyleSheet.absoluteFill}>
+      <Sky />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.centered}>
+          <Text style={styles.messageEmoji}>{emoji}</Text>
+          <Text style={styles.messageText}>{message}</Text>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="mt-4 px-6 py-3 rounded-md bg-neon-blue"
+            style={({ pressed }) => [
+              styles.messageButton,
+              styles.focusable,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text className="text-sm font-medium text-dark-bg-to">Orqaga</Text>
+            <Text style={styles.filledLabel}>Orqaga</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -58,17 +78,11 @@ export default function LibraryItemScreen() {
 
   if (isLoading) {
     return (
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      >
-        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          <View className="flex-1 items-center justify-center px-6">
-            <Text className="text-base font-medium text-foreground dark:text-dark-text">
-              Yuklanmoqda…
-            </Text>
+      <View style={StyleSheet.absoluteFill}>
+        <Sky />
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <View style={styles.centered}>
+            <Text style={styles.loadingText}>Yuklanmoqda…</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -103,127 +117,91 @@ export default function LibraryItemScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
-      <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 0.4 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <Sky />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="flex-row items-center justify-between px-6 py-4">
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <View className="flex-row gap-2">
+          <View style={styles.headerRight}>
             {likes > 0 && (
               <View
                 accessibilityLabel={`${likes} ta yoqtirish`}
-                className="h-10 flex-row items-center gap-1.5 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20"
-                style={{ paddingHorizontal: 12 }}
+                style={[glass(18, 'sm', 0.6), styles.likes]}
               >
-                <Heart size={16} color="#FB64B6" fill="#FB64B6" />
-                <Text className="text-sm font-medium text-foreground dark:text-dark-text">
-                  {likes}
-                </Text>
+                <Heart size={16} color={DANGER} fill={DANGER} />
+                <Text style={styles.likesCount}>{likes}</Text>
               </View>
             )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Ulashish"
-              className="w-10 h-10 items-center justify-center rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20"
+              style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
             >
-              <Share2 size={18} color="#94A3B8" />
+              <Share2 size={19} color={MUTED} strokeWidth={2} />
             </Pressable>
           </View>
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          {item.image_url && (
-            <Image
-              source={{ uri: item.image_url }}
-              style={{
-                width: '100%',
-                height: isPhoto ? 360 : 200,
-                borderRadius: 16,
-              }}
-              contentFit="cover"
-              accessibilityLabel={item.title}
-            />
-          )}
+          {/* The image sits in its own frame so the corner radius can clip it
+              while the shadow stays outside the clip. */}
+          {item.image_url ? (
+            <View style={[styles.cover, isPhoto && styles.coverPhoto]}>
+              <Image
+                source={{ uri: item.image_url }}
+                style={styles.coverImage}
+                contentFit="cover"
+                accessibilityLabel={item.title}
+              />
+            </View>
+          ) : null}
 
-          <View
-            className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
-            style={{ padding: 32 }}
-          >
-            {!item.image_url && <Text className="text-7xl mb-3">📖</Text>}
-            <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text text-center tracking-tight">
-              {item.title}
-            </Text>
-            {author !== '' && (
-              <Text className="text-base text-muted-foreground dark:text-dark-muted mt-1">
-                {author}
-              </Text>
-            )}
-            {item.audio_url && (
-              <View className="flex-row items-center gap-2 mt-3">
-                <Music size={14} color="#60A5FA" />
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  Audio mavjud
-                </Text>
+          <View style={[glass(26, 'lg', 0.62), styles.titleCard]}>
+            {!item.image_url && <Text style={styles.titleEmoji}>📖</Text>}
+            <Text style={styles.title}>{item.title}</Text>
+            {author !== '' && <Text style={styles.author}>{author}</Text>}
+            {item.audio_url ? (
+              <View style={styles.audioRow}>
+                <Music size={14} color={PRIMARY} strokeWidth={2.2} />
+                <Text style={styles.audioText}>Audio mavjud</Text>
               </View>
-            )}
+            ) : null}
           </View>
 
-          {item.pdf_url && (
+          {item.pdf_url ? (
             <Pressable
               onPress={openPdf}
               accessibilityRole="button"
               accessibilityLabel="PDF hujjatni ochish"
-              className="flex-row items-center justify-center gap-2 rounded-md bg-neon-blue active:opacity-80"
-              style={{ height: 56 }}
+              style={({ pressed }) => [
+                styles.filled,
+                styles.filledRow,
+                styles.focusable,
+                pressed && styles.pressed,
+              ]}
             >
-              <FileText size={18} color="#0A1628" />
-              <Text
-                className="text-base font-medium"
-                style={{ color: '#0A1628' }}
-              >
-                PDF hujjatni ochish
-              </Text>
+              <FileText size={18} color="#FFFFFF" strokeWidth={2.2} />
+              <Text style={styles.filledLabel}>PDF hujjatni ochish</Text>
             </Pressable>
-          )}
+          ) : null}
 
           {!(isPdf && !hasBody) && (
-            <View
-              className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
-              style={{ padding: 20 }}
-            >
-              <View className="flex-row items-center gap-2 mb-4">
-                <BookOpen size={18} color="#60A5FA" />
-                <Text className="text-base font-bold text-foreground dark:text-dark-text">
-                  Mazmun
-                </Text>
+            <View style={[glass(24, 'md', 0.55), styles.bodyCard]}>
+              <View style={styles.bodyHead}>
+                <BookOpen size={18} color={PRIMARY} strokeWidth={2.2} />
+                <Text style={styles.bodyHeadText}>Mazmun</Text>
               </View>
-              <Text
-                className="text-foreground dark:text-dark-text"
-                style={{ fontSize: 22, lineHeight: 32 }}
-              >
-                {body}
-              </Text>
+              <Text style={styles.bodyText}>{body}</Text>
             </View>
           )}
 
@@ -231,15 +209,133 @@ export default function LibraryItemScreen() {
             onPress={() => router.push('/(main)/(tabs)/chat')}
             accessibilityRole="button"
             accessibilityLabel="DUYO bilan muhokama"
-            className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-            style={{ height: 56 }}
+            style={({ pressed }) => [
+              styles.filled,
+              styles.focusable,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text className="text-base font-medium" style={{ color: '#0A1628' }}>
-              DUYO bilan muhokama
-            </Text>
+            <Text style={styles.filledLabel}>DUYO bilan muhokama</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  messageEmoji: { fontSize: 48, lineHeight: 56 },
+  messageText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: INK,
+    textAlign: 'center',
+  },
+  messageButton: {
+    marginTop: 16,
+    minHeight: 44,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    boxShadow: lift('md'),
+  },
+  loadingText: { fontSize: 16, fontWeight: '500', color: INK },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  likes: {
+    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  likesCount: { fontSize: 14, fontWeight: '600', color: INK },
+
+  scroll: { padding: 24, gap: 24, paddingBottom: 48 },
+
+  cover: {
+    width: '100%',
+    height: 200,
+    borderRadius: 20,
+    overflow: 'hidden',
+    boxShadow: lift('md'),
+  },
+  coverPhoto: { height: 360 },
+  coverImage: { width: '100%', height: '100%' },
+
+  titleCard: { padding: 32, alignItems: 'center' },
+  titleEmoji: { marginBottom: 12, fontSize: 72, lineHeight: 84 },
+  title: {
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+    letterSpacing: -0.4,
+  },
+  author: { marginTop: 4, fontSize: 16, color: MUTED },
+  audioRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  audioText: { fontSize: 14, color: MUTED },
+
+  bodyCard: { padding: 20 },
+  bodyHead: {
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bodyHeadText: { fontSize: 16, fontWeight: '700', color: INK },
+  bodyText: { fontSize: 22, lineHeight: 32, color: INK },
+
+  // A filled button styles its own surface, so it takes the light on its own
+  // (`lift`) rather than the whole glass material.
+  filled: {
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    boxShadow: lift('md'),
+  },
+  filledRow: { flexDirection: 'row', gap: 8 },
+  filledLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+
+  pressed: { opacity: 0.8 },
+  // The browser's default focus ring is a black rectangle around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+});

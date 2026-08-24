@@ -9,7 +9,14 @@ import {
   X,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { Text } from '@/components/text';
 
 import {
@@ -18,7 +25,7 @@ import {
   type GoalMate,
 } from '@/api/endpoints/social';
 import { HandleEditor } from '@/components/goals/handle-editor';
-import { DarkCard } from '@/components/v2/dark/dark-card';
+import { glass, lift } from '@/lib/glass';
 import {
   useAcceptFriend,
   useDeclineFriend,
@@ -29,16 +36,23 @@ import {
   useUpdateSocialSettings,
 } from '@/hooks/use-social';
 
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// This section used to draw DarkCard islands — navy panes with a neon border —
+// into a page that is now pale blue glass. A dark card on a light page does not
+// read as "a different card", it reads as a different app, so the peers list
+// joins the same material as settings and notifications.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+/** The washes the tinted wells and quiet buttons are painted with. */
+const PRIMARY_WASH = 'rgba(47,111,228,0.10)';
+const MUTED_WASH = 'rgba(140,163,203,0.16)';
+
 /** Avatar stand-in — peers are pseudonymous, so there is no photo to show. */
 function PeerAvatar({ name }: { name: string }) {
   return (
-    <View
-      className="rounded-full items-center justify-center"
-      style={{ width: 44, height: 44, backgroundColor: 'rgba(96,165,250,0.18)' }}
-    >
-      <Text className="text-base font-bold" style={{ color: '#60A5FA' }}>
-        {name.slice(0, 1).toUpperCase()}
-      </Text>
+    <View style={styles.avatar}>
+      <Text style={styles.avatarLetter}>{name.slice(0, 1).toUpperCase()}</Text>
     </View>
   );
 }
@@ -53,19 +67,13 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <View className="flex-row items-center gap-3">
+    <View style={styles.row}>
       <PeerAvatar name={title} />
-      <View className="flex-1">
-        <Text
-          className="text-base font-bold text-foreground dark:text-dark-text"
-          numberOfLines={1}
-        >
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
           {title}
         </Text>
-        <Text
-          className="text-sm text-muted-foreground dark:text-dark-muted"
-          numberOfLines={1}
-        >
+        <Text style={styles.rowSubtitle} numberOfLines={1}>
           {subtitle}
         </Text>
       </View>
@@ -126,22 +134,20 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
 
   return (
     <>
-      <View className="flex-row items-center justify-between mt-2">
-        <Text className="text-base font-bold text-foreground dark:text-dark-text">
-          Maqsaddoshlar
-        </Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Maqsaddoshlar</Text>
         {discoverable && !!settingsQuery.data && (
           <Pressable
             onPress={() => setEditingHandle(true)}
             accessibilityRole="button"
             accessibilityLabel="Taxallusni o'zgartirish"
             hitSlop={8}
-            className="flex-row items-center gap-1.5"
+            style={[styles.handleLink, styles.focusable]}
           >
-            <Text className="text-sm font-medium" style={{ color: '#60A5FA' }}>
+            <Text style={styles.handleLinkText}>
               {settingsQuery.data.display_name}
             </Text>
-            <Pencil size={13} color="#60A5FA" />
+            <Pencil size={13} color={PRIMARY} />
           </Pressable>
         )}
       </View>
@@ -155,22 +161,17 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
 
       {/* Opt-in. Off by default: a child is never discoverable by accident. */}
       {!discoverable && (
-        <DarkCard>
-          <View className="items-center">
-            <View
-              className="rounded-full items-center justify-center"
-              style={{
-                width: 56,
-                height: 56,
-                backgroundColor: 'rgba(96,165,250,0.15)',
-              }}
-            >
-              <Users size={26} color="#60A5FA" />
+        // The one thing the section leads with while it is switched off, so it
+        // is the only pane here that sits at 'lg'.
+        <View style={styles.optInCard}>
+          <View style={{ alignItems: 'center' }}>
+            <View style={styles.optInWell}>
+              <Users size={26} color={PRIMARY} />
             </View>
-            <Text className="text-base font-bold text-foreground dark:text-dark-text mt-3 text-center">
+            <Text style={styles.optInTitle}>
               Bir maqsaddagi bolalar bilan tanish
             </Text>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+            <Text style={styles.optInBody}>
               Ular sening ismingni ko'rmaydi — faqat taxallusing. Xohlagan
               paytda o'chirib qo'yasan.
             </Text>
@@ -179,13 +180,12 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
                 onPress={() => setEditingHandle(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Taxallusni o'zgartirish"
-                className="flex-row items-center gap-2 rounded-full px-4 py-2 mt-3"
-                style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+                style={[styles.handlePill, styles.focusable]}
               >
-                <Text className="text-sm font-bold" style={{ color: '#60A5FA' }}>
+                <Text style={styles.handlePillText}>
                   {settingsQuery.data.display_name}
                 </Text>
-                <Pencil size={14} color="#60A5FA" />
+                <Pencil size={14} color={PRIMARY} />
               </Pressable>
             )}
             <Pressable
@@ -193,74 +193,65 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
               disabled={updateSettings.isPending}
               accessibilityRole="button"
               accessibilityLabel="Maqsaddoshlarni yoqish"
-              className="bg-neon-blue rounded-md items-center justify-center mt-4 px-6"
-              style={{ height: 44 }}
+              style={[styles.enableButton, styles.focusable]}
             >
               {updateSettings.isPending ? (
-                <ActivityIndicator color="#0A1628" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text className="text-sm font-bold" style={{ color: '#0A1628' }}>
-                  Yoqish
-                </Text>
+                <Text style={styles.enableLabel}>Yoqish</Text>
               )}
             </Pressable>
           </View>
-        </DarkCard>
+        </View>
       )}
 
       {/* Incoming requests first — this is the one thing needing a decision. */}
       {incoming.map((f) => (
-        <DarkCard key={f.id} glow="pink">
+        // The old build said "answer me" with a neon-pink glow border. Here it
+        // is said with height and a primary edge instead: the pane a child has
+        // to act on sits nearer than the ones that are only news.
+        <View key={f.id} style={styles.decideCard}>
           <Row
             title={f.peer.display_name}
             subtitle="Sen bilan do'stlashmoqchi"
           >
-            <View className="flex-row gap-2">
+            <View style={styles.actions}>
               <Pressable
                 onPress={() => acceptRequest.mutate(f.id)}
                 accessibilityRole="button"
                 accessibilityLabel="Qabul qilish"
-                className="rounded-md items-center justify-center bg-neon-blue"
-                style={{ width: 40, height: 40 }}
+                style={[styles.iconButton, styles.solid, styles.focusable]}
               >
-                <Check size={20} color="#0A1628" />
+                <Check size={20} color="#FFFFFF" />
               </Pressable>
               <Pressable
                 onPress={() => declineRequest.mutate(f.id)}
                 accessibilityRole="button"
                 accessibilityLabel="Rad etish"
-                className="rounded-md items-center justify-center"
-                style={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: 'rgba(148,163,184,0.15)',
-                }}
+                style={[styles.iconButton, styles.quiet, styles.focusable]}
               >
-                <X size={20} color="#94A3B8" />
+                <X size={20} color={MUTED} />
               </Pressable>
             </View>
           </Row>
-        </DarkCard>
+        </View>
       ))}
 
       {/* Friends */}
       {accepted.map((f) => (
-        <DarkCard key={f.id}>
+        <View key={f.id} style={styles.card}>
           <Row title={f.peer.display_name} subtitle="Do'stingiz">
             <Pressable
               onPress={() => openThread(f)}
               accessibilityRole="button"
               accessibilityLabel={`${f.peer.display_name} bilan suhbat`}
-              className="rounded-md items-center justify-center bg-neon-blue flex-row gap-2 px-4"
-              style={{ height: 40 }}
+              style={[styles.pillButton, styles.solid, styles.focusable]}
             >
-              <MessageSquare size={16} color="#0A1628" />
-              <Text className="text-sm font-bold" style={{ color: '#0A1628' }}>
-                Yozish
-              </Text>
+              <MessageSquare size={16} color="#FFFFFF" />
+              <Text style={styles.solidLabel}>Yozish</Text>
             </Pressable>
           </Row>
-        </DarkCard>
+        </View>
       ))}
 
       {/* Requests this child has SENT and is waiting on.
@@ -270,25 +261,20 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           "Yuborildi" pill on the suggestion card could never be reached for
           the same reason. */}
       {outgoing.map((f) => (
-        <DarkCard key={f.id}>
+        <View key={f.id} style={styles.card}>
           <Row title={f.peer.display_name} subtitle="Javobini kutyapmiz">
-            <View
-              className="rounded-md items-center justify-center flex-row gap-2 px-4"
-              style={{ height: 40, backgroundColor: 'rgba(148,163,184,0.15)' }}
-            >
-              <Clock size={15} color="#94A3B8" />
-              <Text className="text-sm font-medium" style={{ color: '#94A3B8' }}>
-                Yuborildi
-              </Text>
+            <View style={[styles.pillButton, styles.quiet]}>
+              <Clock size={15} color={MUTED} />
+              <Text style={styles.quietLabel}>Yuborildi</Text>
             </View>
           </Row>
-        </DarkCard>
+        </View>
       ))}
 
       {/* Suggestions */}
       {discoverable && matesQuery.isLoading && (
-        <View className="items-center" style={{ padding: 20 }}>
-          <ActivityIndicator color="#60A5FA" />
+        <View style={{ alignItems: 'center', padding: 20 }}>
+          <ActivityIndicator color={PRIMARY} />
         </View>
       )}
 
@@ -298,7 +284,7 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
             (f) => f.peer.child_id === mate.peer.child_id,
           );
           return (
-            <DarkCard key={mate.peer.child_id}>
+            <View key={mate.peer.child_id} style={styles.card}>
               <Row
                 title={mate.peer.display_name}
                 subtitle={`Umumiy maqsad: ${mate.shared_goal}`}
@@ -308,24 +294,21 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
                   disabled={pending || sendRequest.isPending}
                   accessibilityRole="button"
                   accessibilityLabel="Do'stlashish"
-                  className="rounded-md items-center justify-center flex-row gap-2 px-4"
-                  style={{
-                    height: 40,
-                    backgroundColor: pending
-                      ? 'rgba(148,163,184,0.15)'
-                      : 'rgba(96,165,250,0.18)',
-                  }}
+                  style={[
+                    styles.pillButton,
+                    pending ? styles.quiet : styles.tinted,
+                    styles.focusable,
+                  ]}
                 >
-                  {!pending && <UserPlus size={16} color="#60A5FA" />}
+                  {!pending && <UserPlus size={16} color={PRIMARY} />}
                   <Text
-                    className="text-sm font-medium"
-                    style={{ color: pending ? '#94A3B8' : '#60A5FA' }}
+                    style={pending ? styles.quietLabel : styles.tintedLabel}
                   >
                     {pending ? 'Yuborildi' : "Do'stlashish"}
                   </Text>
                 </Pressable>
               </Row>
-            </DarkCard>
+            </View>
           );
         })}
 
@@ -335,16 +318,14 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
         !accepted.length &&
         !outgoing.length &&
         !incoming.length && (
-          <DarkCard className="items-center">
-            <Text className="text-4xl">🔍</Text>
-            <Text className="text-base font-bold text-foreground dark:text-dark-text mt-2 text-center">
-              Hozircha maqsaddosh topilmadi
-            </Text>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+          <View style={[styles.emptyCard, styles.centered]}>
+            <Text style={styles.emptyGlyph}>🔍</Text>
+            <Text style={styles.emptyTitle}>Hozircha maqsaddosh topilmadi</Text>
+            <Text style={styles.emptyBody}>
               Maqsad qo'shsang, xuddi shu maqsaddagi tengdoshlaring bu yerda
               paydo bo'ladi
             </Text>
-          </DarkCard>
+          </View>
         )}
 
       {/* The opt-in card promises "Xohlagan paytda o'chirib qo'yasan", and
@@ -356,9 +337,9 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           disabled={updateSettings.isPending}
           accessibilityRole="button"
           accessibilityLabel="Maqsaddoshlarga ko'rinishni o'chirish"
-          className="items-center py-3"
+          style={[styles.optOut, styles.focusable]}
         >
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <Text style={styles.optOutLabel}>
             Maqsaddoshlarga ko'rinishni o'chirish
           </Text>
         </Pressable>
@@ -366,3 +347,145 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  // The browser draws a square focus ring around whatever was last clicked,
+  // which is the wrong shape on every rounded control below.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  centered: { alignItems: 'center' },
+
+  header: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: INK },
+  handleLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    // hitSlop does not grow the clickable box on web, so the padding does.
+    paddingVertical: 6,
+    paddingLeft: 6,
+  },
+  handleLinkText: { fontSize: 13.5, fontWeight: '600', color: PRIMARY },
+
+  // ── Panes ─────────────────────────────────────────────────────────────────
+  card: { ...glass(22, 'md', 0.6), padding: 18 },
+  decideCard: {
+    ...glass(22, 'lg', 0.8),
+    padding: 18,
+    borderWidth: 2,
+    borderColor: PRIMARY,
+  },
+  emptyCard: { ...glass(22, 'md', 0.5), padding: 24 },
+  optInCard: { ...glass(28, 'lg', 0.65), padding: 24 },
+
+  // ── Peer row ──────────────────────────────────────────────────────────────
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY_WASH,
+  },
+  avatarLetter: { fontSize: 16, fontWeight: '700', color: PRIMARY },
+  rowTitle: { fontSize: 15, fontWeight: '700', color: INK },
+  rowSubtitle: { fontSize: 13, color: MUTED },
+
+  // ── Controls ──────────────────────────────────────────────────────────────
+  actions: { flexDirection: 'row', gap: 8 },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillButton: {
+    height: 40,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  // A filled control resting on the card it belongs to: 'sm', never more.
+  solid: { backgroundColor: PRIMARY, boxShadow: lift('sm') },
+  solidLabel: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  quiet: { backgroundColor: MUTED_WASH },
+  quietLabel: { fontSize: 13, fontWeight: '600', color: MUTED },
+  tinted: { backgroundColor: PRIMARY_WASH },
+  tintedLabel: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+
+  // ── Opt-in card ───────────────────────────────────────────────────────────
+  optInWell: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY_WASH,
+  },
+  optInTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  optInBody: {
+    marginTop: 4,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  handlePill: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: PRIMARY_WASH,
+  },
+  handlePillText: { fontSize: 13.5, fontWeight: '700', color: PRIMARY },
+  enableButton: {
+    marginTop: 16,
+    height: 44,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    boxShadow: lift('sm'),
+  },
+  enableLabel: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+
+  // ── Empty state ───────────────────────────────────────────────────────────
+  emptyGlyph: { fontSize: 36, lineHeight: 44 },
+  emptyTitle: {
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    marginTop: 4,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  optOut: { alignItems: 'center', paddingVertical: 12 },
+  optOutLabel: { fontSize: 13, color: MUTED },
+});

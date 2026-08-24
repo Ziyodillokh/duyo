@@ -7,18 +7,27 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useConversations, useProjects } from '@/hooks/use-history';
+import { glass, lift } from '@/lib/glass';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, shared with "Suhbatlar" and "Loyihalar" ──────────────────
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 /** One project: its standing instructions, and the chats filed inside it. */
 export default function ProjectDetailScreen() {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
   const { projectId, name } = useLocalSearchParams<{
@@ -41,58 +50,43 @@ export default function ProjectDetailScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="flex-row items-center gap-3 px-5 py-3">
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <View className="flex-1">
-            <Text
-              className="text-xl font-bold text-foreground dark:text-dark-text"
-              numberOfLines={1}
-            >
+          <View style={styles.headerText}>
+            <Text style={styles.title} numberOfLines={1}>
               {project?.name ?? name ?? 'Loyiha'}
             </Text>
-            <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-              {rows.length} ta suhbat
-            </Text>
+            <Text style={styles.subtitle}>{rows.length} ta suhbat</Text>
           </View>
         </View>
 
-        <View className="px-5 pb-2 gap-3">
+        <View style={styles.top}>
           {!!project?.instructions && (
-            <View
-              className="rounded-xl border border-neon-blue/20"
-              style={{ padding: 14, backgroundColor: 'rgba(96,165,250,0.08)' }}
-            >
-              <View className="flex-row items-center gap-2 mb-1">
-                <Sparkles size={14} color="#60A5FA" />
-                <Text className="text-xs font-bold text-neon-blue">
+            // A tinted pane rather than a plain one: the standing instructions
+            // are the project's defining property, not another row of content.
+            <View style={[glass(20, 'md'), styles.instructions]}>
+              <View style={styles.instructionsHead}>
+                <Sparkles size={14} color={PRIMARY} strokeWidth={2.2} />
+                <Text style={styles.instructionsLabel}>
                   Loyiha ko‘rsatmalari
                 </Text>
               </View>
-              <Text className="text-sm text-foreground dark:text-dark-text leading-5">
-                {project.instructions}
-              </Text>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-2">
+              <Text style={styles.instructionsBody}>{project.instructions}</Text>
+              <Text style={styles.instructionsNote}>
                 Bu ko‘rsatma shu loyihadagi har bir suhbatda hisobga olinadi.
               </Text>
             </View>
@@ -102,19 +96,20 @@ export default function ProjectDetailScreen() {
             onPress={startChatHere}
             accessibilityRole="button"
             accessibilityLabel="Shu loyihada yangi suhbat"
-            className="flex-row items-center justify-center gap-2 rounded-xl bg-neon-blue active:opacity-80"
-            style={{ height: 46 }}
+            style={({ pressed }) => [
+              styles.cta,
+              styles.focusable,
+              pressed && styles.ctaPressed,
+            ]}
           >
-            <Plus size={18} color="#FFFFFF" />
-            <Text className="text-base font-bold text-white">
-              Shu loyihada yangi suhbat
-            </Text>
+            <Plus size={18} color="#FFFFFF" strokeWidth={2.4} />
+            <Text style={styles.ctaText}>Shu loyihada yangi suhbat</Text>
           </Pressable>
         </View>
 
         {conversations.isLoading ? (
-          <View className="items-center" style={{ padding: 32 }}>
-            <ActivityIndicator color="#60A5FA" />
+          <View style={styles.loading}>
+            <ActivityIndicator color={PRIMARY} />
           </View>
         ) : (
           <FlatList
@@ -129,32 +124,25 @@ export default function ProjectDetailScreen() {
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={item.title}
-                className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface active:opacity-80"
-                style={{ padding: 14 }}
+                style={({ pressed }) => [
+                  glass(20, 'md'),
+                  styles.row,
+                  pressed && styles.rowPressed,
+                ]}
               >
-                <View className="flex-row items-start gap-3">
-                  <View
-                    className="rounded-md items-center justify-center"
-                    style={{
-                      width: 34,
-                      height: 34,
-                      backgroundColor: 'rgba(96,165,250,0.12)',
-                    }}
-                  >
-                    <MessageSquare size={16} color="#60A5FA" />
+                <View style={styles.rowInner}>
+                  {/* 38 / radius 12 / 12%-tint — the icon tile shared with the
+                      history and projects rows, so the three read as one
+                      surface rather than three screens built separately. */}
+                  <View style={styles.iconTile}>
+                    <MessageSquare size={17} color={PRIMARY} strokeWidth={2} />
                   </View>
-                  <View className="flex-1">
-                    <Text
-                      className="text-base font-medium text-foreground dark:text-dark-text"
-                      numberOfLines={1}
-                    >
+                  <View style={styles.rowBody}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>
                       {item.title}
                     </Text>
                     {!!item.preview && (
-                      <Text
-                        className="text-sm text-muted-foreground dark:text-dark-muted mt-0.5"
-                        numberOfLines={1}
-                      >
+                      <Text style={styles.rowPreview} numberOfLines={1}>
                         {item.preview}
                       </Text>
                     )}
@@ -163,12 +151,12 @@ export default function ProjectDetailScreen() {
               </Pressable>
             )}
             ListEmptyComponent={
-              <View className="items-center" style={{ paddingVertical: 40 }}>
-                <Text className="text-4xl">💬</Text>
-                <Text className="text-base font-bold text-foreground dark:text-dark-text mt-3 text-center">
+              <View style={styles.empty}>
+                <Text style={styles.emptyGlyph}>💬</Text>
+                <Text style={styles.emptyTitle}>
                   Bu loyihada hali suhbat yo‘q
                 </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center px-6">
+                <Text style={styles.emptyBody}>
                   Yuqoridagi tugma bilan boshla, yoki tarixdan mavjud suhbatni
                   shu loyihaga sol.
                 </Text>
@@ -180,3 +168,130 @@ export default function ProjectDetailScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // ── Header: the inner-screen glass pattern ─────────────────────────────
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  headerText: { flex: 1 },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: TITLE,
+  },
+  subtitle: {
+    marginTop: 1,
+    fontSize: 12,
+    color: MUTED,
+  },
+
+  top: { paddingHorizontal: 20, paddingBottom: 8, gap: 12 },
+
+  // ── Standing instructions ──────────────────────────────────────────────
+  instructions: {
+    padding: 14,
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  instructionsHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  instructionsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: PRIMARY,
+  },
+  instructionsBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: INK,
+  },
+  instructionsNote: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 17,
+    color: MUTED,
+  },
+
+  // ── The one standalone action, so it carries a shadow of its own ───────
+  cta: {
+    height: 50,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: PRIMARY,
+    boxShadow: lift('md'),
+  },
+  ctaPressed: { opacity: 0.8 },
+  ctaText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  loading: { alignItems: 'center', padding: 32 },
+
+  // ── Conversation rows ──────────────────────────────────────────────────
+  row: { padding: 14 },
+  rowPressed: { opacity: 0.8 },
+  rowInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  iconTile: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.12)',
+  },
+  rowBody: { flex: 1 },
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: INK,
+  },
+  rowPreview: {
+    marginTop: 2,
+    fontSize: 14,
+    color: MUTED,
+  },
+
+  // ── Empty state ────────────────────────────────────────────────────────
+  empty: { alignItems: 'center', paddingVertical: 40 },
+  emptyGlyph: { fontSize: 36, lineHeight: 44 },
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    marginTop: 4,
+    paddingHorizontal: 24,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+});

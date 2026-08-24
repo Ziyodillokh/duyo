@@ -1,4 +1,3 @@
-import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react-native';
@@ -9,17 +8,34 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DTM_QUESTION_COUNT } from '@/api/endpoints/dtm';
+import { Text } from '@/components/text';
 import { useDtmQuestions } from '@/hooks/use-dtm';
+import { glass, lift } from '@/lib/glass';
 import { DTM_SUBJECTS, type DTMSubject } from '@/mocks/dtm';
 
 type Stage = 'subject-select' | 'prepare' | 'quiz' | 'result';
 
-const FULL_SCREEN_BG = '#0A1628';
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue. The
+// navy build this replaces predated the glass system and read as a different
+// app bolted onto this one.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const GREEN = '#22B573';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+/** The disabled fill. Not `PRIMARY` at low opacity: a translucent button lets
+ *  the page's gradient through and reads as a hole rather than a dimmed one. */
+const PRIMARY_OFF = '#A8C2EA';
 
 /** Exam pacing, not data — DTM allows roughly a minute a question. */
 const TIMER_SECONDS_PER_QUESTION = 60;
@@ -32,7 +48,6 @@ const labelOf = (key: DTMSubject | null) =>
   DTM_SUBJECTS.find((s) => s.key === key)?.label ?? '';
 
 export default function DTMScreen() {
-  const isDark = useIsDark();
   const [stage, setStage] = useState<Stage>('subject-select');
   const [subject, setSubject] = useState<DTMSubject | null>(null);
   const [qIndex, setQIndex] = useState(0);
@@ -103,18 +118,19 @@ export default function DTMScreen() {
     [answers, questions],
   );
 
+  const lowTime = secondsLeft < 10;
+
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: FULL_SCREEN_BG }]} />
+    <View style={styles.root}>
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.15)', 'rgba(96, 165, 250, 0.05)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+        {/* ── Header: 48pt glass rounds, the inner-screen pattern ────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => {
               if (stage === 'subject-select') router.back();
@@ -122,22 +138,25 @@ export default function DTMScreen() {
             }}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">DTM mashq</Text>
+          <Text style={styles.title}>DTM mashq</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
         </View>
 
         {stage === 'subject-select' && (
           <ScrollView
-            contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
+            contentContainerStyle={styles.page}
+            showsVerticalScrollIndicator={false}
           >
-            <View className="gap-1">
-              <Text className="text-base text-muted-foreground dark:text-dark-muted">
+            <View style={styles.intro}>
+              <Text style={styles.introTitle}>
                 Qaysi fan bo'yicha mashq qilamiz?
               </Text>
-              <Text className="text-sm text-muted-foreground dark:text-dark-subtitle">
+              <Text style={styles.introBody}>
                 Har safar darsliklar asosida {DTM_QUESTION_COUNT} tagacha yangi
                 savol tuziladi.
               </Text>
@@ -148,26 +167,16 @@ export default function DTMScreen() {
                 onPress={() => startQuiz(s.key)}
                 accessibilityRole="button"
                 accessibilityLabel={s.label}
-                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
-                style={{ padding: 20 }}
+                style={[glass(22, 'md'), styles.subject, styles.focusable]}
               >
-                <View className="flex-row items-center gap-4">
-                  <View
-                    className="items-center justify-center rounded-md"
-                    style={{
-                      width: 48,
-                      height: 48,
-                      backgroundColor: `${s.color}20`,
-                    }}
-                  >
-                    <Text className="text-2xl">{s.emoji}</Text>
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                      {s.label}
-                    </Text>
-                  </View>
+                {/* The subject's own accent survives the restyle — it is the
+                    only thing telling five identical panes apart. */}
+                <View
+                  style={[styles.subjectWell, { backgroundColor: `${s.color}26` }]}
+                >
+                  <Text style={styles.subjectEmoji}>{s.emoji}</Text>
                 </View>
+                <Text style={styles.subjectLabel}>{s.label}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -177,41 +186,35 @@ export default function DTMScreen() {
             and never an invented question. */}
         {stage === 'prepare' && (
           <ScrollView
-            contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
+            contentContainerStyle={styles.pageWide}
+            showsVerticalScrollIndicator={false}
           >
-            <View
-              className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
-              style={{ padding: 32 }}
-            >
+            <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
               {generate.isPending ? (
                 <>
-                  <ActivityIndicator size="large" color="#60A5FA" />
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text mt-4 text-center">
+                  <ActivityIndicator size="large" color={PRIMARY} />
+                  <Text style={styles.statusTitle}>
                     Savollar tayyorlanmoqda...
                   </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-2 text-center">
+                  <Text style={styles.statusBody}>
                     {labelOf(subject)} bo'yicha yangi test tuzilyapti. Bu bir
                     necha soniya olishi mumkin.
                   </Text>
                 </>
               ) : generate.isError ? (
                 <>
-                  <Text className="text-5xl mb-3">📡</Text>
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text text-center">
-                    Savollarni ololmadim
-                  </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-2 text-center">
+                  <Text style={styles.statusEmoji}>📡</Text>
+                  <Text style={styles.statusTitle}>Savollarni ololmadim</Text>
+                  <Text style={styles.statusBody}>
                     Aloqada yoki xizmatda muammo bor shekilli. Bir necha
                     daqiqadan keyin qayta urinib ko'r.
                   </Text>
                 </>
               ) : (
                 <>
-                  <Text className="text-5xl mb-3">📚</Text>
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text text-center">
-                    Hozircha savol yo'q
-                  </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-2 text-center">
+                  <Text style={styles.statusEmoji}>📚</Text>
+                  <Text style={styles.statusTitle}>Hozircha savol yo'q</Text>
+                  <Text style={styles.statusBody}>
                     {labelOf(subject)} bo'yicha savol tuza olmadim — bu fanning
                     darslik materiali hali tayyor emas. Boshqa fanni sinab ko'r
                     yoki keyinroq qayta kir.
@@ -221,31 +224,22 @@ export default function DTMScreen() {
             </View>
 
             {!generate.isPending && (
-              <View className="flex-row gap-3">
+              <View style={styles.buttonRow}>
                 <Pressable
                   onPress={() => subject && startQuiz(subject)}
                   accessibilityRole="button"
                   accessibilityLabel="Qayta urinish"
-                  className="flex-1 rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-                  style={{ height: 56 }}
+                  style={[styles.button, styles.buttonOn, styles.focusable]}
                 >
-                  <Text
-                    className="text-base font-medium"
-                    style={{ color: '#0A1628' }}
-                  >
-                    Qayta urinish
-                  </Text>
+                  <Text style={styles.buttonOnText}>Qayta urinish</Text>
                 </Pressable>
                 <Pressable
                   onPress={backToSubjects}
                   accessibilityRole="button"
                   accessibilityLabel="Boshqa fan"
-                  className="flex-1 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
-                  style={{ height: 56 }}
+                  style={[glass(18, 'md'), styles.button, styles.focusable]}
                 >
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                    Boshqa fan
-                  </Text>
+                  <Text style={styles.buttonText}>Boshqa fan</Text>
                 </Pressable>
               </View>
             )}
@@ -253,50 +247,40 @@ export default function DTMScreen() {
         )}
 
         {stage === 'quiz' && question && (
-          <View className="flex-1 px-6 pb-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={styles.quiz}>
+            <View style={styles.quizHead}>
+              <Text style={styles.counter}>
                 Savol {qIndex + 1} / {questions.length}
               </Text>
-              <View className="flex-row items-center gap-1">
-                <Clock
-                  size={16}
-                  color={secondsLeft < 10 ? '#FB64B6' : '#94A3B8'}
-                />
-                <Text
-                  className="text-sm font-medium"
-                  style={{
-                    color: secondsLeft < 10 ? '#FB64B6' : isDark ? '#E0E7FF' : '#102033',
-                  }}
-                >
+              {/* The clock is a chip, not loose text: it is the one thing on
+                  the page that changes every second. */}
+              <View style={[glass(14, 'sm'), styles.timer]}>
+                <Clock size={15} color={lowTime ? DANGER : MUTED} strokeWidth={2.2} />
+                <Text style={[styles.timerText, lowTime && styles.timerTextLow]}>
                   {secondsLeft}s
                 </Text>
               </View>
             </View>
 
-            <View
-              className="rounded-full overflow-hidden mb-6"
-              style={{ height: 4, backgroundColor: 'rgba(96, 165, 250, 0.20)' }}
-            >
+            <View style={styles.track}>
               <View
-                className="bg-neon-blue h-full"
-                style={{
-                  width: `${((qIndex + 1) / questions.length) * 100}%`,
-                }}
+                style={[
+                  styles.trackFill,
+                  { width: `${((qIndex + 1) / questions.length) * 100}%` },
+                ]}
               />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-              <View
-                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 mb-6"
-                style={{ padding: 24 }}
-              >
-                <Text className="text-lg text-foreground dark:text-dark-text leading-7">
-                  {question.text}
-                </Text>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={styles.quizScroll}
+              contentContainerStyle={styles.quizBody}
+            >
+              <View style={[glass(24, 'md', 0.6), styles.questionCard]}>
+                <Text style={styles.questionText}>{question.text}</Text>
               </View>
 
-              <View className="gap-3">
+              <View style={styles.choices}>
                 {question.choices.map((choice, idx) => {
                   const isSel = selected === idx;
                   return (
@@ -306,32 +290,21 @@ export default function DTMScreen() {
                       accessibilityRole="radio"
                       accessibilityState={{ selected: isSel }}
                       accessibilityLabel={choice}
-                      className={`rounded-xl border active:opacity-80 ${
-                        isSel
-                          ? 'bg-neon-blue/20 border-neon-blue'
-                          : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                      }`}
-                      style={{ padding: 16 }}
+                      style={[
+                        glass(18, 'sm'),
+                        styles.choice,
+                        isSel && styles.choiceOn,
+                        styles.focusable,
+                      ]}
                     >
-                      <View className="flex-row items-center gap-3">
-                        <View
-                          className="w-7 h-7 items-center justify-center rounded-full border"
-                          style={{
-                            borderColor: isSel ? '#60A5FA' : '#94A3B8',
-                            backgroundColor: isSel ? '#60A5FA' : 'transparent',
-                          }}
+                      <View style={[styles.letter, isSel && styles.letterOn]}>
+                        <Text
+                          style={[styles.letterText, isSel && styles.letterTextOn]}
                         >
-                          <Text
-                            className="text-xs font-bold"
-                            style={{ color: isSel ? '#0A1628' : '#94A3B8' }}
-                          >
-                            {String.fromCharCode(65 + idx)}
-                          </Text>
-                        </View>
-                        <Text className="text-base text-foreground dark:text-dark-text flex-1">
-                          {choice}
+                          {String.fromCharCode(65 + idx)}
                         </Text>
                       </View>
+                      <Text style={styles.choiceText}>{choice}</Text>
                     </Pressable>
                   );
                 })}
@@ -342,16 +315,16 @@ export default function DTMScreen() {
               onPress={() => selected !== null && handleNext(selected)}
               disabled={selected === null}
               accessibilityRole="button"
+              accessibilityState={{ disabled: selected === null }}
               accessibilityLabel={isLast ? 'Tugatish' : 'Keyingi savol'}
-              className={`rounded-md items-center justify-center mt-4 ${
-                selected !== null ? 'bg-neon-blue' : 'bg-neon-blue/40'
-              }`}
-              style={{ height: 56 }}
+              style={[
+                styles.button,
+                selected !== null ? styles.buttonOn : styles.buttonOff,
+                styles.next,
+                styles.focusable,
+              ]}
             >
-              <Text
-                className="text-base font-medium"
-                style={{ color: '#0A1628' }}
-              >
+              <Text style={styles.buttonOnText}>
                 {isLast ? 'Tugatish' : 'Keyingi'}
               </Text>
             </Pressable>
@@ -360,86 +333,69 @@ export default function DTMScreen() {
 
         {stage === 'result' && (
           <ScrollView
-            contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
+            contentContainerStyle={styles.pageWide}
+            showsVerticalScrollIndicator={false}
           >
-            <View
-              className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
-              style={{ padding: 32 }}
-            >
-              <Text className="text-6xl mb-3">
+            {/* The score is the one hero object on this page, so it sits
+                highest — every review card below it is deliberately lower. */}
+            <View style={[glass(30, 'lg', 0.62), styles.statusCard]}>
+              <Text style={styles.scoreEmoji}>
                 {correctCount >= questions.length * 0.7 ? '🎉' : '💪'}
               </Text>
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text">
+              <Text style={styles.score}>
                 {correctCount} / {questions.length}
               </Text>
-              <Text className="text-base text-muted-foreground dark:text-dark-muted mt-2 text-center">
+              <Text style={styles.statusBody}>
                 {correctCount === questions.length
                   ? "Ajoyib! Hammasi to'g'ri!"
                   : correctCount >= questions.length * 0.7
                     ? 'Yaxshi natija!'
-                    : "Yana mashq qilaylik"}
+                    : 'Yana mashq qilaylik'}
               </Text>
             </View>
 
-            <View className="gap-3">
+            <View style={styles.reviewList}>
               {questions.map((q, i) => {
                 const isCorrect = answers[i] === q.correct_index;
                 return (
-                  <View
-                    key={i}
-                    className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
-                    style={{ padding: 16 }}
-                  >
-                    <View className="flex-row items-start gap-2">
-                      {isCorrect ? (
-                        <CheckCircle2 size={20} color="#05DF72" />
-                      ) : (
-                        <XCircle size={20} color="#FB64B6" />
-                      )}
-                      <View className="flex-1">
-                        <Text className="text-sm text-foreground dark:text-dark-text mb-2">
-                          {q.text}
+                  <View key={i} style={[glass(20, 'sm', 0.5), styles.review]}>
+                    {isCorrect ? (
+                      <CheckCircle2 size={20} color={GREEN} strokeWidth={2.2} />
+                    ) : (
+                      <XCircle size={20} color={DANGER} strokeWidth={2.2} />
+                    )}
+                    <View style={styles.reviewBody}>
+                      <Text style={styles.reviewQuestion}>{q.text}</Text>
+                      <Text style={styles.reviewAnswer}>
+                        To'g'ri javob: {q.choices[q.correct_index]}
+                      </Text>
+                      {q.explanation ? (
+                        <Text style={styles.reviewExplanation}>
+                          {q.explanation}
                         </Text>
-                        <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-                          To'g'ri javob: {q.choices[q.correct_index]}
-                        </Text>
-                        {q.explanation ? (
-                          <Text className="text-xs text-muted-foreground dark:text-dark-subtitle mt-1">
-                            {q.explanation}
-                          </Text>
-                        ) : null}
-                      </View>
+                      ) : null}
                     </View>
                   </View>
                 );
               })}
             </View>
 
-            <View className="flex-row gap-3">
+            <View style={styles.buttonRow}>
               <Pressable
                 onPress={() => subject && startQuiz(subject)}
                 accessibilityRole="button"
                 accessibilityLabel="Yana sinash"
-                className="flex-1 rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-                style={{ height: 56 }}
+                style={[styles.button, styles.buttonOn, styles.focusable]}
               >
-                <Text
-                  className="text-base font-medium"
-                  style={{ color: '#0A1628' }}
-                >
-                  Yana sinash
-                </Text>
+                <Text style={styles.buttonOnText}>Yana sinash</Text>
               </Pressable>
               <Pressable
                 onPress={backToSubjects}
                 accessibilityRole="button"
                 accessibilityLabel="Boshqa fan"
-                className="flex-1 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
-                style={{ height: 56 }}
+                style={[glass(18, 'md'), styles.button, styles.focusable]}
               >
-                <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                  Boshqa fan
-                </Text>
+                <Text style={styles.buttonText}>Boshqa fan</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -448,3 +404,185 @@ export default function DTMScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  // The browser's default focus ring is a square drawn around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+
+  page: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 44,
+    gap: 14,
+  },
+  pageWide: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 44,
+    gap: 20,
+  },
+
+  // ── Subject picker ─────────────────────────────────────────────────────
+  intro: { gap: 4, paddingHorizontal: 4, paddingBottom: 2 },
+  introTitle: { fontSize: 17, fontWeight: '700', color: INK },
+  introBody: { fontSize: 13.5, lineHeight: 19, color: MUTED },
+  subject: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+  },
+  subjectWell: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subjectEmoji: { fontSize: 24 },
+  subjectLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: INK },
+
+  // ── Prepare / result hero ──────────────────────────────────────────────
+  statusCard: { alignItems: 'center', padding: 28 },
+  statusEmoji: { fontSize: 42 },
+  statusTitle: {
+    marginTop: 14,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  statusBody: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  scoreEmoji: { fontSize: 52 },
+  score: { marginTop: 10, fontSize: 30, fontWeight: '800', color: TITLE },
+
+  // ── Buttons ────────────────────────────────────────────────────────────
+  buttonRow: { flexDirection: 'row', gap: 12 },
+  button: {
+    flex: 1,
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // A raised button on the glass page: the same shadow ladder as every other
+  // object, so the eye can tell how high it sits relative to the cards near it.
+  buttonOn: { backgroundColor: PRIMARY, boxShadow: lift('md') },
+  buttonOff: { backgroundColor: PRIMARY_OFF },
+  buttonOnText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  buttonText: { fontSize: 17, fontWeight: '600', color: INK, letterSpacing: -0.2 },
+
+  // ── Quiz ───────────────────────────────────────────────────────────────
+  quiz: { flex: 1, paddingHorizontal: 20, paddingBottom: 20 },
+  quizHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  counter: { fontSize: 13.5, fontWeight: '600', color: MUTED },
+  timer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 32,
+    paddingHorizontal: 12,
+  },
+  timerText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: INK,
+    fontVariant: ['tabular-nums'],
+  },
+  timerTextLow: { color: DANGER },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(47,111,228,0.12)',
+    marginBottom: 18,
+  },
+  trackFill: { height: '100%', borderRadius: 3, backgroundColor: PRIMARY },
+  quizScroll: { flex: 1 },
+  quizBody: { paddingBottom: 10 },
+  questionCard: { padding: 20, marginBottom: 16 },
+  questionText: { fontSize: 17, lineHeight: 26, color: INK },
+  choices: { gap: 10 },
+  choice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+  },
+  choiceOn: {
+    backgroundColor: 'rgba(47,111,228,0.14)',
+    borderColor: PRIMARY,
+  },
+  choiceText: { flex: 1, fontSize: 15.5, lineHeight: 21, color: INK },
+  letter: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: MUTED,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterOn: { borderColor: PRIMARY, backgroundColor: PRIMARY },
+  letterText: { fontSize: 13, fontWeight: '700', color: MUTED },
+  letterTextOn: { color: '#FFFFFF' },
+  next: { flex: 0, marginTop: 14 },
+
+  // ── Result review ──────────────────────────────────────────────────────
+  reviewList: { gap: 10 },
+  reviewBody: { flex: 1 },
+  review: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 14,
+  },
+  reviewQuestion: { fontSize: 14, lineHeight: 20, color: INK },
+  reviewAnswer: { marginTop: 6, fontSize: 13, lineHeight: 18, color: MUTED },
+  reviewExplanation: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(140,163,203,0.9)',
+  },
+});

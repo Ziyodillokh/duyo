@@ -1,4 +1,3 @@
-import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
@@ -16,11 +15,24 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
 import { useT, type TranslationKey } from '@/i18n';
+import { glass } from '@/lib/glass';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue. Like
+// its parent screen this one commits to the light look, so there is no theme
+// branch left to read here.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 interface FAQItem {
   id: string;
@@ -58,7 +70,6 @@ const FAQ_ITEMS: readonly FAQItem[] = [
 
 export default function HelpSettingsScreen() {
   const t = useT();
-  const isDark = useIsDark();
   const [openId, setOpenId] = useState<string | null>(null);
 
   const toggle = (id: string) =>
@@ -66,34 +77,34 @@ export default function HelpSettingsScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: 48pt glass round, the inner-screen pattern ─────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-            {t('settings.help')}
-          </Text>
+          <Text style={styles.title}>{t('settings.help')}</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
         >
-          <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
               {t('settings.helpScreen.faqSection')}
             </Text>
             {FAQ_ITEMS.map((f) => {
@@ -105,31 +116,32 @@ export default function HelpSettingsScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ expanded: isOpen }}
                   accessibilityLabel={t(f.questionKey)}
-                  className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
-                  style={{ padding: 16 }}
+                  // An open card lifts a step and frosts over, so the answer
+                  // being read is the nearest thing on the page.
+                  style={({ pressed }) => [
+                    glass(20, isOpen ? 'lg' : 'md', isOpen ? 0.72 : 0.55),
+                    styles.card,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-base font-medium text-foreground dark:text-dark-text flex-1 mr-2">
-                      {t(f.questionKey)}
-                    </Text>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.question}>{t(f.questionKey)}</Text>
                     {isOpen ? (
-                      <ChevronUp size={20} color="#94A3B8" />
+                      <ChevronUp size={20} color={MUTED} strokeWidth={2.2} />
                     ) : (
-                      <ChevronDown size={20} color="#94A3B8" />
+                      <ChevronDown size={20} color={MUTED} strokeWidth={2.2} />
                     )}
                   </View>
-                  {isOpen && (
-                    <Text className="text-sm text-muted-foreground dark:text-dark-muted leading-6 mt-3">
-                      {t(f.answerKey)}
-                    </Text>
-                  )}
+                  {isOpen ? (
+                    <Text style={styles.answer}>{t(f.answerKey)}</Text>
+                  ) : null}
                 </Pressable>
               );
             })}
           </View>
 
-          <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
               {t('settings.helpScreen.contact')}
             </Text>
             <Pressable
@@ -141,25 +153,23 @@ export default function HelpSettingsScreen() {
               }
               accessibilityRole="button"
               accessibilityLabel="Email"
-              className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
-              style={{ padding: 16 }}
+              style={({ pressed }) => [
+                glass(20, 'md'),
+                styles.card,
+                pressed && styles.pressed,
+              ]}
             >
-              <View className="flex-row items-center gap-3">
-                <View
-                  className="w-10 h-10 items-center justify-center rounded-md"
-                  style={{ backgroundColor: 'rgba(96, 165, 250, 0.10)' }}
-                >
-                  <Mail size={18} color="#60A5FA" />
+              <View style={styles.contactRow}>
+                <View style={styles.iconWell}>
+                  <Mail size={18} color={PRIMARY} strokeWidth={2} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
+                <View style={styles.contactBody}>
+                  <Text style={styles.contactLabel}>
                     {t('settings.helpScreen.email')}
                   </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
-                    support@duyo.uz
-                  </Text>
+                  <Text style={styles.contactValue}>support@duyo.uz</Text>
                 </View>
-                <ExternalLink size={18} color="#94A3B8" />
+                <ExternalLink size={18} color={MUTED} strokeWidth={2.2} />
               </View>
             </Pressable>
 
@@ -172,37 +182,133 @@ export default function HelpSettingsScreen() {
               }
               accessibilityRole="button"
               accessibilityLabel="Telegram"
-              className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
-              style={{ padding: 16 }}
+              style={({ pressed }) => [
+                glass(20, 'md'),
+                styles.card,
+                pressed && styles.pressed,
+              ]}
             >
-              <View className="flex-row items-center gap-3">
-                <View
-                  className="w-10 h-10 items-center justify-center rounded-md"
-                  style={{ backgroundColor: 'rgba(96, 165, 250, 0.10)' }}
-                >
-                  <MessageSquare size={18} color="#60A5FA" />
+              <View style={styles.contactRow}>
+                <View style={styles.iconWell}>
+                  <MessageSquare size={18} color={PRIMARY} strokeWidth={2} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
+                <View style={styles.contactBody}>
+                  <Text style={styles.contactLabel}>
                     {t('settings.helpScreen.telegram')}
                   </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
-                    @duyo_support
-                  </Text>
+                  <Text style={styles.contactValue}>@duyo_support</Text>
                 </View>
-                <ExternalLink size={18} color="#94A3B8" />
+                <ExternalLink size={18} color={MUTED} strokeWidth={2.2} />
               </View>
             </Pressable>
           </View>
 
-          <View className="items-center gap-1 pt-4">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">DUYO v1.0.0</Text>
-            <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-              {t('common.copyright')}
-            </Text>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>DUYO v1.0.0</Text>
+            <Text style={styles.footerFine}>{t('common.copyright')}</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 48,
+    gap: 24,
+  },
+  section: { gap: 10 },
+  sectionTitle: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: MUTED,
+  },
+
+  card: { padding: 16 },
+  pressed: { opacity: 0.8 },
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  question: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+  },
+  answer: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 22,
+    color: MUTED,
+  },
+
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  contactBody: { flex: 1, gap: 2 },
+  contactLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+  },
+  contactValue: {
+    fontSize: 13,
+    color: MUTED,
+  },
+
+  footer: {
+    alignItems: 'center',
+    gap: 2,
+    paddingTop: 8,
+  },
+  footerText: {
+    fontSize: 13,
+    color: MUTED,
+  },
+  footerFine: {
+    fontSize: 12,
+    color: MUTED,
+  },
+});

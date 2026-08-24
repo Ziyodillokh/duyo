@@ -4,14 +4,6 @@ import { KeyboardAvoidingView as NativeKAV } from 'react-native-keyboard-control
 
 type Behavior = NonNullable<ComponentProps<typeof NativeKAV>['behavior']>;
 
-interface Props {
-  children: ReactNode;
-  className?: string;
-  style?: ViewStyle;
-  /** Forwarded to the native view; ignored on web. */
-  behavior?: Behavior;
-}
-
 /**
  * KeyboardAvoidingView that also lays out correctly on web.
  *
@@ -22,22 +14,25 @@ interface Props {
  * mid-screen instead of sitting at the bottom.
  *
  * Web therefore gets a plain filling View; iOS/Android keep the real thing.
+ *
+ * The `className` passthrough this used to carry is gone: it existed for
+ * callers on nativewind, and every one of them now passes `style`.
  */
 export function KeyboardAvoidingView({
   children,
-  className,
   style,
   behavior = 'translate-with-padding',
-}: Props) {
+}: {
+  children: ReactNode;
+  style?: ViewStyle;
+  /** Forwarded to the native view; ignored on web. */
+  behavior?: Behavior;
+}) {
   if (Platform.OS === 'web') {
-    return (
-      <View className={className} style={style}>
-        {children}
-      </View>
-    );
+    return <View style={style}>{children}</View>;
   }
   return (
-    <NativeKAV behavior={behavior} className={className} style={style}>
+    <NativeKAV behavior={behavior} style={style}>
       {children}
     </NativeKAV>
   );

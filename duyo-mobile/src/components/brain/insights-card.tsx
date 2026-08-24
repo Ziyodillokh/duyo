@@ -1,9 +1,10 @@
 import { BrainCircuit } from 'lucide-react-native';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from '@/components/text';
 
 import type { InsightSummary } from '@/lib/brain-insights';
 import { colourForTag } from '@/lib/galaxy-layout';
+import { glass, lift } from '@/lib/glass';
 
 /**
  * The "AI insights" card of the mock, kept honest: every sentence it shows is
@@ -19,7 +20,11 @@ export interface InsightsCardProps {
   onNewNote: () => void;
 }
 
-const ACCENT = '#C27AFF';
+const INK = '#22406F';
+/** The card's own voice. The map's #C27AFF is mixed for the dark sky and turns
+ *  to pastel on a white pane, so the eyebrow and the button take the same hue
+ *  several steps deeper. */
+const ACCENT = '#7A4BD6';
 
 export function InsightsCard({
   summary,
@@ -42,9 +47,9 @@ export function InsightsCard({
           body: (
             <>
               G'oyalaringiz {summary.clusters} ta to'plamga bog'langan.{' '}
-              <Text style={{ color: colourForTag(insight.a) }}>#{insight.a}</Text>
+              <Text style={[styles.tag, { color: colourForTag(insight.a) }]}>#{insight.a}</Text>
               {' '}va{' '}
-              <Text style={{ color: colourForTag(insight.b) }}>#{insight.b}</Text>
+              <Text style={[styles.tag, { color: colourForTag(insight.b) }]}>#{insight.b}</Text>
               {' '}orasida hali bog'lanish yo'q — ularni bog'lab ko'ring.
             </>
           ),
@@ -74,36 +79,55 @@ export function InsightsCard({
   })();
 
   return (
-    <View
-      className="w-full rounded-2xl"
-      style={{
-        backgroundColor: 'rgba(11, 16, 32, 0.72)',
-        borderColor: 'rgba(150, 180, 255, 0.18)',
-        borderWidth: 1,
-        padding: 16,
-      }}
-    >
-      <View className="flex-row items-center gap-2 mb-2">
+    <View style={[glass(22, 'md'), styles.card]}>
+      <View style={styles.header}>
         <BrainCircuit size={14} color={ACCENT} />
-        <Text
-          className="font-bold"
-          style={{ color: ACCENT, fontSize: 10, letterSpacing: 2 }}
-        >
-          TAHLIL
-        </Text>
+        <Text style={styles.eyebrow}>TAHLIL</Text>
       </View>
-      <Text style={{ color: '#E8EEFF', fontSize: 14, lineHeight: 21 }}>
-        {body}
-      </Text>
+      <Text style={styles.body}>{body}</Text>
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={action}
-        className="self-start rounded-md px-3 py-2 mt-3 active:opacity-70"
-        style={{ backgroundColor: 'rgba(194,122,255,0.16)' }}
+        style={({ pressed }) => [
+          styles.action,
+          pressed && styles.pressed,
+          styles.focusable,
+        ]}
       >
-        <Text style={{ color: ACCENT, fontSize: 12 }}>{action}</Text>
+        <Text style={styles.actionLabel}>{action}</Text>
       </Pressable>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  card: { width: '100%', padding: 16 },
+
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  eyebrow: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: ACCENT },
+
+  body: { fontSize: 14, lineHeight: 21, color: INK },
+  // A map colour is mixed to glow on deep space; carried onto glass it needs
+  // the extra weight to stay legible while keeping the tag's identity.
+  tag: { fontWeight: '600' },
+
+  // The button is tinted rather than frosted: it speaks with the card's accent,
+  // so it takes its own fill and borrows only the light — 'sm', because it sits
+  // ON the card and must not cast the card's shadow.
+  action: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(122,75,214,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(122,75,214,0.22)',
+    boxShadow: lift('sm'),
+  },
+  actionLabel: { fontSize: 12, fontWeight: '600', color: ACCENT },
+  pressed: { opacity: 0.7 },
+});

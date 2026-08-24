@@ -1,8 +1,10 @@
 import { Pause, Play, RotateCcw } from 'lucide-react-native';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from '@/components/text';
 import Svg, { Circle } from 'react-native-svg';
+
+import { glass } from '@/lib/glass';
 
 /**
  * A 25-minute Pomodoro card for the brain dashboard. Remaining time is derived
@@ -10,6 +12,17 @@ import Svg, { Circle } from 'react-native-svg';
  * freeze while the app is backgrounded, and coming back to a stretched timer
  * would teach the child that focus time is negotiable.
  */
+
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const GREEN = '#22B573';
+/** The arc's purple. #C27AFF is built for the dark sky and goes to pastel on a
+ *  white pane, so the ring carries the same hue several steps deeper. */
+const VIOLET = '#7A4BD6';
+/** The unrun part of the ring: PRIMARY at low alpha, so the track belongs to
+ *  the page's light instead of reading as a grey groove. */
+const TRACK = 'rgba(47,111,228,0.12)';
 
 const TOTAL_MS = 25 * 60 * 1000;
 
@@ -72,20 +85,8 @@ export function FocusTimerCard() {
   const progress = 1 - remainingMs / TOTAL_MS;
 
   return (
-    <View
-      className="rounded-2xl p-4 items-center"
-      style={{
-        backgroundColor: 'rgba(11, 16, 32, 0.72)',
-        borderColor: 'rgba(150, 180, 255, 0.18)',
-        borderWidth: 1,
-      }}
-    >
-      <Text
-        className="text-[10px] font-bold self-start"
-        style={{ color: '#8FA3C8', letterSpacing: 2 }}
-      >
-        FOKUS TAYMER
-      </Text>
+    <View style={[glass(22, 'md'), styles.card]}>
+      <Text style={styles.eyebrow}>FOKUS TAYMER</Text>
 
       {/* Rotated so the arc grows clockwise from 12 o'clock. */}
       <Svg
@@ -97,7 +98,7 @@ export function FocusTimerCard() {
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RING_RADIUS}
-          stroke="rgba(150,180,255,0.15)"
+          stroke={TRACK}
           strokeWidth={RING_STROKE}
           fill="none"
         />
@@ -105,7 +106,7 @@ export function FocusTimerCard() {
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RING_RADIUS}
-          stroke="#C27AFF"
+          stroke={VIOLET}
           strokeWidth={RING_STROKE}
           strokeLinecap="round"
           fill="none"
@@ -114,40 +115,31 @@ export function FocusTimerCard() {
         />
       </Svg>
 
-      <Text
-        className="text-3xl font-bold mt-2"
-        style={{ color: '#E8EEFF', fontVariant: ['tabular-nums'] }}
-      >
-        {formatRemaining(remainingMs)}
-      </Text>
+      <Text style={styles.clock}>{formatRemaining(remainingMs)}</Text>
 
       {phase === 'done' ? (
-        <Text className="text-[11px] font-bold mt-1" style={{ color: '#05DF72' }}>
-          Bo'ldi! Ajoyib ish ✨
-        </Text>
+        <Text style={styles.done}>Bo'ldi! Ajoyib ish ✨</Text>
       ) : (
-        <Text className="text-[11px] mt-1" style={{ color: '#8FA3C8' }}>
-          Chuqur ish
-        </Text>
+        <Text style={styles.hint}>Chuqur ish</Text>
       )}
 
-      <View className="flex-row gap-2.5 mt-3">
+      <View style={styles.controls}>
         {(phase === 'idle' || phase === 'paused') && (
           <TimerButton
             label={phase === 'idle' ? 'Boshlash' : 'Davom ettirish'}
             onPress={start}
           >
-            <Play size={16} color="#E8EEFF" />
+            <Play size={16} color={PRIMARY} />
           </TimerButton>
         )}
         {phase === 'running' && (
           <TimerButton label="Pauza" onPress={pause}>
-            <Pause size={16} color="#E8EEFF" />
+            <Pause size={16} color={PRIMARY} />
           </TimerButton>
         )}
         {(phase === 'paused' || phase === 'done') && (
           <TimerButton label="Qayta boshlash" onPress={reset}>
-            <RotateCcw size={16} color="#E8EEFF" />
+            <RotateCcw size={16} color={PRIMARY} />
           </TimerButton>
         )}
       </View>
@@ -169,17 +161,46 @@ function TimerButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="items-center justify-center active:opacity-80"
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(150,180,255,0.22)',
-        backgroundColor: 'rgba(96,165,250,0.12)',
-      }}
+      style={({ pressed }) => [
+        // An icon well sitting ON the card is 'sm' — it belongs to the card it
+        // rests on, and a control that cast the card's own shadow would read as
+        // floating free of it.
+        glass(20, 'sm', 0.86),
+        styles.button,
+        pressed && styles.pressed,
+        styles.focusable,
+      ]}
     >
       {children}
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  card: { padding: 16, alignItems: 'center' },
+
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: MUTED,
+    letterSpacing: 2,
+    alignSelf: 'flex-start',
+  },
+
+  clock: {
+    fontSize: 30,
+    fontWeight: '700',
+    marginTop: 8,
+    color: INK,
+    fontVariant: ['tabular-nums'],
+  },
+
+  done: { fontSize: 11, fontWeight: '700', marginTop: 4, color: GREEN },
+  hint: { fontSize: 11, marginTop: 4, color: MUTED },
+
+  controls: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  button: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  pressed: { opacity: 0.8 },
+});

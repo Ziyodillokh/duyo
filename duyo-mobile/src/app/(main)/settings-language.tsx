@@ -6,16 +6,26 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { updateChild } from '@/api/endpoints/children';
+import { Text } from '@/components/text';
 import { FlagIcon } from '@/components/v2/flag-icon';
 import { LANGUAGE_NAMES, useT, type TranslationKey } from '@/i18n';
+import { glass } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
 import { type Language, useLanguageStore } from '@/store/language';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 interface LanguageOption {
   code: Language;
@@ -30,7 +40,6 @@ const OPTIONS: readonly LanguageOption[] = [
 
 export default function LanguageSettingsScreen() {
   const t = useT();
-  const isDark = useIsDark();
   const language = useLanguageStore((s) => s.language);
   const setLanguage = useLanguageStore((s) => s.setLanguage);
   const child = useChildStore((s) => s.child);
@@ -51,33 +60,33 @@ export default function LanguageSettingsScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: 48pt glass round, the inner-screen pattern ─────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-            {t('settings.language')}
-          </Text>
+          <Text style={styles.title}>{t('settings.language')}</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 12, paddingBottom: 48 }}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
         >
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted mb-2">
+          <Text style={styles.subtitle}>
             {t('settings.languageScreen.subtitle')}
           </Text>
           {OPTIONS.map((opt) => {
@@ -89,24 +98,26 @@ export default function LanguageSettingsScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSel }}
                 accessibilityLabel={LANGUAGE_NAMES[opt.code]}
-                className={`rounded-xl border active:opacity-80 ${
-                  isSel
-                    ? 'bg-neon-blue/10 border-neon-blue'
-                    : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                }`}
-                style={{ padding: 16 }}
+                // The chosen language sits a step nearer the reader and takes
+                // the primary edge — the tick alone is easy to miss at a glance.
+                style={({ pressed }) => [
+                  glass(20, isSel ? 'lg' : 'md', isSel ? 0.75 : 0.55),
+                  styles.option,
+                  isSel && styles.optionSelected,
+                  pressed && styles.pressed,
+                ]}
               >
-                <View className="flex-row items-center gap-3">
+                <View style={styles.optionRow}>
                   <FlagIcon code={opt.code} width={32} />
-                  <View className="flex-1">
-                    <Text className="text-base font-medium text-foreground dark:text-dark-text">
+                  <View style={styles.optionBody}>
+                    <Text style={styles.optionLabel}>
                       {LANGUAGE_NAMES[opt.code]}
                     </Text>
-                    <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                      {t(opt.hintKey)}
-                    </Text>
+                    <Text style={styles.optionHint}>{t(opt.hintKey)}</Text>
                   </View>
-                  {isSel && <Check size={20} color="#60A5FA" />}
+                  {isSel ? (
+                    <Check size={20} color={PRIMARY} strokeWidth={2.4} />
+                  ) : null}
                 </View>
               </Pressable>
             );
@@ -116,3 +127,61 @@ export default function LanguageSettingsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 48,
+    gap: 12,
+  },
+  subtitle: {
+    marginLeft: 6,
+    marginBottom: 2,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+  },
+
+  option: { padding: 16 },
+  optionSelected: { borderColor: 'rgba(47,111,228,0.45)' },
+  pressed: { opacity: 0.8 },
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  optionBody: { flex: 1, gap: 2 },
+  optionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+  },
+  optionHint: {
+    fontSize: 13,
+    color: MUTED,
+  },
+});

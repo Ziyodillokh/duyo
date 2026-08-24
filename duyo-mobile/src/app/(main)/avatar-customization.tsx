@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, Coins } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,13 +9,26 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
 import { useAvatar, useUpdateAvatar } from '@/hooks/use-gamification';
-import { useIsDark } from '@/store/theme';
+import { glass, lift } from '@/lib/glass';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue. The
+// screen commits to the light look the way its siblings do.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+/** The price coin, deepened from the neon gold that only worked on navy. */
+const GOLD = '#E0A21C';
 
 // Each customizer tab maps 1:1 to a backend avatar field (body→body_shape,
 // color→primary_color, accent→accent, face→face_style) and the option keys
@@ -72,7 +85,6 @@ const DEFAULTS: Record<TabKey, string> = {
 };
 
 export default function AvatarCustomizationScreen() {
-  const isDark = useIsDark();
   const [activeTab, setActiveTab] = useState<TabKey>('body');
   const [config, setConfig] = useState<Record<TabKey, string>>({ ...DEFAULTS });
 
@@ -123,53 +135,45 @@ export default function AvatarCustomizationScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 0.3 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: the inner-screen glass pattern ─────────────────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-            Avatar sozlash
-          </Text>
+          <Text style={styles.title}>Avatar sozlash</Text>
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 24 }}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          <View
-            className="rounded-2xl items-center justify-center"
-            style={{ height: 280 }}
-          >
+          {/* ── The stage: the one hero object on the screen ──────────── */}
+          <View style={[glass(30, 'lg'), styles.stage]}>
+            {/* A sheen down the pane, so the mascot reads as lit from the same
+                sky the page is. */}
             <LinearGradient
-              colors={['#FFFFFF', 'rgba(255, 199, 0, 0.20)']}
+              colors={['rgba(255,255,255,0.85)', 'rgba(214,232,255,0.35)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[
-                StyleSheet.absoluteFill,
-                { borderRadius: 16, opacity: 0.1 },
-              ]}
+              style={[StyleSheet.absoluteFill, styles.stageSheen]}
             />
             <MascotImage size={240} glow="cosmic" />
           </View>
 
-          <View
-            className="flex-row rounded-2xl"
-            style={{ backgroundColor: isDark ? '#1E3A5F' : '#FFFFFF', padding: 3 }}
-          >
+          {/* ── Segmented control ─────────────────────────────────────── */}
+          <View style={[glass(20, 'sm'), styles.tabs]}>
             {TABS.map((t) => {
               const isActive = t.key === activeTab;
               return (
@@ -179,15 +183,9 @@ export default function AvatarCustomizationScreen() {
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isActive }}
                   accessibilityLabel={t.label}
-                  className={`flex-1 rounded-2xl items-center justify-center ${
-                    isActive ? 'bg-neon-blue' : ''
-                  }`}
-                  style={{ paddingVertical: 8 }}
+                  style={[styles.tab, isActive && styles.tabOn, styles.focusable]}
                 >
-                  <Text
-                    className="text-sm font-medium"
-                    style={{ color: isActive ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033' }}
-                  >
+                  <Text style={[styles.tabText, isActive && styles.tabTextOn]}>
                     {t.label}
                   </Text>
                 </Pressable>
@@ -195,7 +193,7 @@ export default function AvatarCustomizationScreen() {
             })}
           </View>
 
-          <View className="flex-row flex-wrap" style={{ gap: 12 }}>
+          <View style={styles.grid}>
             {OPTIONS[activeTab].map((opt) => {
               const isSelected = config[activeTab] === opt.key;
               const owned = opt.isOwned ?? false;
@@ -206,33 +204,21 @@ export default function AvatarCustomizationScreen() {
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={opt.label}
-                  className={`rounded-xl border active:opacity-80 ${
-                    isSelected
-                      ? 'bg-neon-blue/20 border-neon-blue'
-                      : owned
-                        ? 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                        : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                  }`}
-                  style={{
-                    width: '47%',
-                    padding: 16,
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
+                  style={({ pressed }) => [
+                    glass(20, 'md'),
+                    styles.option,
+                    isSelected && styles.optionOn,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text className="text-4xl">{opt.emoji}</Text>
-                  <Text className="text-sm font-medium text-foreground dark:text-dark-text">
-                    {opt.label}
-                  </Text>
-                  {!owned && (
-                    <View
-                      className="flex-row items-center gap-1 rounded-md border border-neon-blue/20"
-                      style={{ paddingHorizontal: 9, paddingVertical: 3 }}
-                    >
-                      <Coins size={12} color="#FCD34D" />
-                      <Text className="text-xs text-foreground dark:text-dark-text">{opt.price}</Text>
+                  <Text style={styles.optionEmoji}>{opt.emoji}</Text>
+                  <Text style={styles.optionLabel}>{opt.label}</Text>
+                  {!owned ? (
+                    <View style={styles.price}>
+                      <Coins size={12} color={GOLD} strokeWidth={2.2} />
+                      <Text style={styles.priceText}>{opt.price}</Text>
                     </View>
-                  )}
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -244,18 +230,17 @@ export default function AvatarCustomizationScreen() {
             accessibilityRole="button"
             accessibilityLabel="Saqlash"
             accessibilityState={{ disabled: updateAvatar.isPending }}
-            className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-            style={{ height: 56, opacity: updateAvatar.isPending ? 0.6 : 1 }}
+            style={({ pressed }) => [
+              styles.save,
+              styles.focusable,
+              { opacity: updateAvatar.isPending ? 0.6 : 1 },
+              pressed && styles.pressed,
+            ]}
           >
             {updateAvatar.isPending ? (
-              <ActivityIndicator color="#0A1628" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text
-                className="text-base font-medium"
-                style={{ color: '#0A1628' }}
-              >
-                Saqlash
-              </Text>
+              <Text style={styles.saveText}>Saqlash</Text>
             )}
           </Pressable>
         </ScrollView>
@@ -263,3 +248,81 @@ export default function AvatarCustomizationScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  pressed: { opacity: 0.8 },
+  title: { fontSize: 22, fontWeight: '700', color: INK },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 32, gap: 18 },
+
+  stage: {
+    height: 280,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  stageSheen: { borderRadius: 30, opacity: 0.5 },
+
+  tabs: { flexDirection: 'row', padding: 4 },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabOn: { backgroundColor: PRIMARY },
+  tabText: { fontSize: 14, fontWeight: '600', color: INK },
+  tabTextOn: { color: '#FFFFFF', fontWeight: '700' },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  option: {
+    width: '47%',
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  optionOn: {
+    backgroundColor: 'rgba(47,111,228,0.14)',
+    borderColor: PRIMARY,
+  },
+  optionEmoji: { fontSize: 34, lineHeight: 42 },
+  optionLabel: { fontSize: 14, fontWeight: '600', color: INK },
+  price: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  priceText: { fontSize: 12, fontWeight: '600', color: MUTED },
+
+  save: {
+    height: 56,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    boxShadow: lift('md'),
+  },
+  saveText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+});

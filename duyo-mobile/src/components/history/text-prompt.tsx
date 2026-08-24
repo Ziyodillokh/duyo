@@ -1,8 +1,20 @@
 import { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
-import { Text, TextInput } from '@/components/text';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 
-import { useIsDark } from '@/store/theme';
+import { Text, TextInput } from '@/components/text';
+import { glass } from '@/lib/glass';
+
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const PRIMARY = '#2F6FE4';
+const PLACEHOLDER = '#7693C2';
 
 /**
  * A one-field prompt.
@@ -36,7 +48,6 @@ export function TextPrompt({
   onCancel: () => void;
   onSubmit: (value: string) => void;
 }) {
-  const isDark = useIsDark();
   const [value, setValue] = useState(initialValue);
   const trimmed = value.trim();
 
@@ -51,49 +62,38 @@ export function TextPrompt({
         onPress={onCancel}
         accessibilityRole="button"
         accessibilityLabel="Yopish"
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: 'rgba(4,10,22,0.6)', padding: 24 }}
+        style={styles.scrim}
       >
         {/* Stops a tap inside the card from closing it. */}
-        <Pressable
-          onPress={() => {}}
-          className="w-full rounded-2xl border border-neon-blue/20"
-          style={{
-            backgroundColor: isDark ? '#121B2E' : '#FFFFFF',
-            padding: 20,
-            maxWidth: 420,
-          }}
-        >
-          <Text className="text-base font-bold text-foreground dark:text-dark-text">
-            {title}
-          </Text>
+        <Pressable onPress={() => {}} style={styles.card}>
+          <Text style={styles.title}>{title}</Text>
 
           <TextInput
             value={value}
             onChangeText={setValue}
             placeholder={placeholder}
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={PLACEHOLDER}
             maxLength={maxLength}
             multiline={multiline}
             autoFocus
             accessibilityLabel={title}
-            className="text-base text-foreground dark:text-dark-text rounded-lg border border-neon-blue/25 mt-3 px-3"
-            style={{
-              paddingVertical: 10,
-              minHeight: multiline ? 96 : undefined,
-              textAlignVertical: multiline ? 'top' : 'center',
-            }}
+            style={[
+              styles.input,
+              {
+                minHeight: multiline ? 96 : undefined,
+                textAlignVertical: multiline ? 'top' : 'center',
+              },
+            ]}
           />
 
-          <View className="flex-row justify-end gap-5 mt-4">
+          <View style={styles.actions}>
             <Pressable
               onPress={onCancel}
               accessibilityRole="button"
               hitSlop={8}
+              style={styles.action}
             >
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                Bekor qilish
-              </Text>
+              <Text style={styles.cancel}>Bekor qilish</Text>
             </Pressable>
             <Pressable
               onPress={() => trimmed && onSubmit(trimmed)}
@@ -101,11 +101,9 @@ export function TextPrompt({
               accessibilityRole="button"
               accessibilityState={{ disabled: !trimmed }}
               hitSlop={8}
+              style={styles.action}
             >
-              <Text
-                className="text-sm font-bold"
-                style={{ color: trimmed ? '#60A5FA' : '#94A3B8' }}
-              >
+              <Text style={[styles.confirm, trimmed ? styles.on : styles.off]}>
                 {confirmLabel}
               </Text>
             </Pressable>
@@ -115,3 +113,61 @@ export function TextPrompt({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  scrim: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(4,10,22,0.6)',
+    padding: 24,
+  },
+  // A dialog floats over everything, but it is a small object next to a
+  // full-width sheet — 'lg' keeps it below the sheet's 'xl' on the ladder.
+  // Near-opaque for the same reason the sheet is: the scrim behind it would
+  // otherwise show through as grey.
+  card: {
+    ...glass(24, 'lg', 0.96),
+    width: '100%',
+    maxWidth: 420,
+    padding: 20,
+  },
+  title: { fontSize: 16, fontWeight: '700', color: INK },
+
+  input: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(47,111,228,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    fontSize: 16,
+    color: INK,
+    // The field is drawn inside the card, so it carries no drop shadow — and
+    // the browser's focus ring is a square outside the radius, so it goes.
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as unknown as TextStyle,
+
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 20,
+    marginTop: 16,
+  },
+  // hitSlop does not grow the clickable box on web, so the target is real
+  // padding instead.
+  action: {
+    minHeight: 34,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as unknown as ViewStyle,
+  cancel: { fontSize: 14, color: MUTED },
+  confirm: { fontSize: 14, fontWeight: '700' },
+  on: { color: PRIMARY },
+  off: { color: MUTED },
+});

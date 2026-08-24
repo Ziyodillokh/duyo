@@ -1,4 +1,3 @@
-import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, Check, Play } from 'lucide-react-native';
@@ -9,11 +8,22 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
 import { useT, type TranslationKey } from '@/i18n';
+import { glass, lift } from '@/lib/glass';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 interface VoiceOption {
   key: string;
@@ -42,40 +52,39 @@ const SPEED_OPTIONS: readonly {
 
 export default function VoiceSettingsScreen() {
   const t = useT();
-  const isDark = useIsDark();
   const [selectedVoice, setSelectedVoice] = useState('kore');
   const [selectedSpeed, setSelectedSpeed] = useState('normal');
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: 48pt glass round, the inner-screen pattern ─────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-            {t('settings.voice')}
-          </Text>
+          <Text style={styles.title}>{t('settings.voice')}</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
         >
-          <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
               {t('settings.voiceScreen.duyoVoice')}
             </Text>
             {VOICE_OPTIONS.map((v) => {
@@ -87,19 +96,19 @@ export default function VoiceSettingsScreen() {
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSel }}
                   accessibilityLabel={v.label}
-                  className={`rounded-xl border active:opacity-80 ${
-                    isSel
-                      ? 'bg-neon-blue/10 border-neon-blue'
-                      : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                  }`}
-                  style={{ padding: 16 }}
+                  // The chosen voice sits a step nearer the reader and takes
+                  // the primary edge — the tick alone is easy to miss.
+                  style={({ pressed }) => [
+                    glass(20, isSel ? 'lg' : 'md', isSel ? 0.75 : 0.55),
+                    styles.option,
+                    isSel && styles.optionSelected,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <View className="flex-row items-center gap-3">
-                    <View className="flex-1">
-                      <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                        {v.label}
-                      </Text>
-                      <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
+                  <View style={styles.optionRow}>
+                    <View style={styles.optionBody}>
+                      <Text style={styles.optionLabel}>{v.label}</Text>
+                      <Text style={styles.optionHint}>
                         {t(v.descriptionKey)}
                       </Text>
                     </View>
@@ -114,22 +123,29 @@ export default function VoiceSettingsScreen() {
                       }
                       accessibilityRole="button"
                       accessibilityLabel={t('settings.voiceScreen.listen')}
-                      className="w-10 h-10 rounded-full bg-neon-blue/20 items-center justify-center active:opacity-80"
+                      style={({ pressed }) => [
+                        glass(20, 'sm', 0.7),
+                        styles.play,
+                        styles.focusable,
+                        pressed && styles.pressed,
+                      ]}
                     >
-                      <Play size={16} color="#60A5FA" fill="#60A5FA" />
+                      <Play size={16} color={PRIMARY} fill={PRIMARY} />
                     </Pressable>
-                    {isSel && <Check size={20} color="#60A5FA" />}
+                    {isSel ? (
+                      <Check size={20} color={PRIMARY} strokeWidth={2.4} />
+                    ) : null}
                   </View>
                 </Pressable>
               );
             })}
           </View>
 
-          <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
               {t('settings.voiceScreen.speed')}
             </Text>
-            <View className="flex-row gap-3">
+            <View style={styles.speedRow}>
               {SPEED_OPTIONS.map((s) => {
                 const isSel = s.key === selectedSpeed;
                 return (
@@ -139,26 +155,27 @@ export default function VoiceSettingsScreen() {
                     accessibilityRole="radio"
                     accessibilityState={{ selected: isSel }}
                     accessibilityLabel={t(s.labelKey)}
-                    className={`flex-1 rounded-xl border items-center active:opacity-80 ${
-                      isSel
-                        ? 'bg-neon-blue border-neon-blue'
-                        : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                    }`}
-                    style={{ paddingVertical: 16 }}
+                    style={({ pressed }) => [
+                      glass(16, 'sm'),
+                      styles.speed,
+                      isSel && styles.speedSelected,
+                      styles.focusable,
+                      pressed && styles.pressed,
+                    ]}
                   >
                     <Text
-                      className="text-base font-medium"
-                      style={{
-                        color: isSel ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033',
-                      }}
+                      style={[
+                        styles.speedLabel,
+                        isSel && styles.speedLabelSelected,
+                      ]}
                     >
                       {t(s.labelKey)}
                     </Text>
                     <Text
-                      className="text-xs mt-1"
-                      style={{
-                        color: isSel ? '#0A1628' : '#94A3B8',
-                      }}
+                      style={[
+                        styles.speedValue,
+                        isSel && styles.speedValueSelected,
+                      ]}
                     >
                       {s.multiplier}x
                     </Text>
@@ -177,18 +194,124 @@ export default function VoiceSettingsScreen() {
             }
             accessibilityRole="button"
             accessibilityLabel={t('common.save')}
-            className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-            style={{ height: 56 }}
+            style={({ pressed }) => [
+              styles.save,
+              styles.focusable,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text
-              className="text-base font-medium"
-              style={{ color: '#0A1628' }}
-            >
-              {t('common.save')}
-            </Text>
+            <Text style={styles.saveText}>{t('common.save')}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 48,
+    gap: 24,
+  },
+  section: { gap: 10 },
+  sectionTitle: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: MUTED,
+  },
+  pressed: { opacity: 0.8 },
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  option: { padding: 16 },
+  optionSelected: { borderColor: 'rgba(47,111,228,0.45)' },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  optionBody: { flex: 1, gap: 2 },
+  optionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+  },
+  optionHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: MUTED,
+  },
+  play: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  speedRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  speed: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 14,
+  },
+  speedSelected: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+  speedLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: INK,
+  },
+  speedLabelSelected: { color: '#FFFFFF' },
+  speedValue: {
+    fontSize: 12,
+    color: MUTED,
+  },
+  speedValueSelected: { color: 'rgba(255,255,255,0.85)' },
+
+  // The one solid button on the screen, so it takes the shadow ladder from
+  // lift() rather than glass() — a filled pane, not a frosted one.
+  save: {
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    boxShadow: lift('md'),
+  },
+  saveText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});

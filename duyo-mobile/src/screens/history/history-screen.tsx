@@ -15,6 +15,8 @@ import {
   SectionList,
   StyleSheet,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,10 +31,22 @@ import {
   useProjects,
   useRenameConversation,
 } from '@/hooks/use-history';
+import { glass } from '@/lib/glass';
 import { groupConversations, shortWhen } from '@/lib/history-groups';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, the same pale morning as settings and goal-mates ──────────
+// The screen commits to the light look its siblings carry, so the theme hook
+// that used to swap a navy backdrop in is gone: there is one look now.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const PLACEHOLDER = '#7693C2';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 /**
  * "Suhbatlar" — every conversation this child has had, newest first.
@@ -42,7 +56,6 @@ import { useIsDark } from '@/store/theme';
  * timestamps.
  */
 export default function HistoryScreen() {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
 
@@ -109,68 +122,53 @@ export default function HistoryScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="flex-row items-center gap-3 px-5 py-3">
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text flex-1">
-            Suhbatlar
-          </Text>
+          <Text style={styles.title}>Suhbatlar</Text>
           <Pressable
             onPress={() => router.push('/(main)/projects')}
             accessibilityRole="button"
             accessibilityLabel="Loyihalar"
-            className="w-10 h-10 items-center justify-center rounded-md"
-            style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <FolderPlus size={18} color="#60A5FA" />
+            <FolderPlus size={21} color={PRIMARY} strokeWidth={2} />
           </Pressable>
         </View>
 
         {/* Search only. "Yangi suhbat" lives in the chat drawer now — at the
             top of this list it competed with the list itself, and the child
             arrives here to FIND a conversation, not to leave for a new one. */}
-        <View className="px-5 pb-2">
-          <View
-            className="flex-row items-center gap-2 rounded-xl border border-neon-blue/20 px-3"
-            style={{
-              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
-            }}
-          >
-            <Search size={16} color="#94A3B8" />
+        <View style={styles.searchWrap}>
+          <View style={[glass(20, 'sm'), styles.search]}>
+            <Search size={20} color={PRIMARY} strokeWidth={2.1} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Suhbatlardan qidirish..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={PLACEHOLDER}
               accessibilityLabel="Suhbatlardan qidirish"
-              className="flex-1 py-3 text-base text-foreground dark:text-dark-text"
+              style={styles.searchInput}
             />
           </View>
         </View>
 
         {conversations.isLoading ? (
-          <View className="items-center" style={{ padding: 32 }}>
-            <ActivityIndicator color="#60A5FA" />
+          <View style={styles.loading}>
+            <ActivityIndicator color={PRIMARY} />
           </View>
         ) : (
           <SectionList
@@ -179,9 +177,7 @@ export default function HistoryScreen() {
             contentContainerStyle={{ padding: 20, paddingBottom: 48, gap: 8 }}
             stickySectionHeadersEnabled={false}
             renderSectionHeader={({ section }) => (
-              <Text className="text-xs font-bold uppercase text-muted-foreground dark:text-dark-muted mt-3 mb-1">
-                {section.title}
-              </Text>
+              <Text style={styles.sectionHeader}>{section.title}</Text>
             )}
             renderItem={({ item }) => (
               <ConversationRow
@@ -201,12 +197,12 @@ export default function HistoryScreen() {
               />
             )}
             ListEmptyComponent={
-              <View className="items-center" style={{ paddingVertical: 48 }}>
-                <Text className="text-4xl">💬</Text>
-                <Text className="text-base font-bold text-foreground dark:text-dark-text mt-3 text-center">
+              <View style={styles.empty}>
+                <Text style={styles.emptyGlyph}>💬</Text>
+                <Text style={styles.emptyTitle}>
                   {query ? 'Hech narsa topilmadi' : 'Hali suhbat yo‘q'}
                 </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                <Text style={styles.emptyBody}>
                   {query
                     ? 'Boshqa so‘z bilan qidirib ko‘r'
                     : 'DUYO bilan gaplashsang, suhbatlaring shu yerda saqlanadi'}
@@ -262,61 +258,44 @@ function ConversationRow({
       onPress={onOpen}
       accessibilityRole="button"
       accessibilityLabel={conversation.title}
-      className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface active:opacity-80"
-      style={{ padding: 14 }}
+      style={({ pressed }) => [
+        glass(20, 'md'),
+        styles.row,
+        pressed && styles.rowPressed,
+      ]}
     >
-      <View className="flex-row items-start gap-3">
+      <View style={styles.rowInner}>
         {/* 38 / radius 12 / 12%-tint is the icon tile used by every row in
             this area — projects, history, and the drawer — so the three read
-            as one surface rather than three screens built at different times. */}
-        <View
-          className="items-center justify-center"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            backgroundColor: 'rgba(96,165,250,0.12)',
-          }}
-        >
-          <MessageSquare size={17} color="#60A5FA" />
+            as one surface rather than three screens built at different times.
+            Only the tint moved, from the old neon blue to the glass primary. */}
+        <View style={styles.iconTile}>
+          <MessageSquare size={17} color={PRIMARY} strokeWidth={2} />
         </View>
 
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <Text
-              className="text-base font-medium text-foreground dark:text-dark-text flex-1"
-              numberOfLines={1}
-            >
+        <View style={styles.rowBody}>
+          <View style={styles.rowTop}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
               {conversation.title}
             </Text>
-            <Text
-              className="text-xs text-muted-foreground dark:text-dark-muted"
-              style={{ fontVariant: ['tabular-nums'] }}
-            >
+            <Text style={styles.rowWhen}>
               {shortWhen(conversation.updated_at)}
             </Text>
           </View>
           {!!conversation.preview && (
-            <Text
-              className="text-sm text-muted-foreground dark:text-dark-muted mt-0.5"
-              numberOfLines={1}
-            >
+            <Text style={styles.rowPreview} numberOfLines={1}>
               {conversation.preview}
             </Text>
           )}
           {!!projectName && (
-            <View className="flex-row items-center gap-1.5 mt-1.5">
+            <View style={styles.projectRow}>
               <View
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: projectColour ?? '#60A5FA',
-                }}
+                style={[
+                  styles.projectDot,
+                  { backgroundColor: projectColour ?? PRIMARY },
+                ]}
               />
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-                {projectName}
-              </Text>
+              <Text style={styles.projectName}>{projectName}</Text>
             </View>
           )}
         </View>
@@ -326,11 +305,134 @@ function ConversationRow({
           accessibilityRole="button"
           accessibilityLabel="Amallar"
           hitSlop={10}
-          className="w-8 h-8 items-center justify-center"
+          style={[styles.moreButton, styles.focusable]}
         >
-          <MoreVertical size={16} color="#94A3B8" />
+          <MoreVertical size={16} color={MUTED} strokeWidth={2.2} />
         </Pressable>
       </View>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  // ── Header: the inner-screen glass pattern ─────────────────────────────
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  title: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: '700',
+    color: TITLE,
+  },
+
+  // ── Search: an inline control, so it rests on the page rather than above it
+  searchWrap: { paddingHorizontal: 20, paddingBottom: 8 },
+  search: {
+    height: 52,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: INK,
+    paddingVertical: 0,
+  },
+
+  loading: { alignItems: 'center', padding: 32 },
+
+  sectionHeader: {
+    marginTop: 12,
+    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: MUTED,
+  },
+
+  // ── Conversation rows ──────────────────────────────────────────────────
+  row: { padding: 14 },
+  rowPressed: { opacity: 0.8 },
+  rowInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  iconTile: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.12)',
+  },
+  rowBody: { flex: 1 },
+  rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: INK,
+  },
+  // Cast because a bare `['tabular-nums']` widens to string[] inside
+  // StyleSheet.create, which TextStyle's FontVariant[] will not take.
+  rowWhen: {
+    fontSize: 12,
+    color: MUTED,
+    fontVariant: ['tabular-nums'],
+  } as TextStyle,
+  rowPreview: {
+    marginTop: 2,
+    fontSize: 14,
+    color: MUTED,
+  },
+  projectRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  projectDot: { width: 8, height: 8, borderRadius: 4 },
+  projectName: { fontSize: 12, color: MUTED },
+  // 32pt was below the comfortable target and `hitSlop` does not grow the
+  // clickable box on web, so the Pressable itself carries the size.
+  moreButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Empty state ────────────────────────────────────────────────────────
+  empty: { alignItems: 'center', paddingVertical: 48 },
+  emptyGlyph: { fontSize: 36, lineHeight: 44 },
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+});

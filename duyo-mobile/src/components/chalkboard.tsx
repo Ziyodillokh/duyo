@@ -1,6 +1,6 @@
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import type { ViewStyle } from 'react-native';
 import Animated, {
@@ -25,6 +25,21 @@ export const WOOD_DARK = '#6B4526';
 export const CHALK = '#F2EFE4';
 export const CHALK_DIM = '#A9BDAF';
 export const CHALK_YELLOW = '#FFE08A';
+
+/**
+ * The drop shadow under the board, exported so PuzzleChalkboard casts the very
+ * same one — the two boards are meant to read as one object, not as two that
+ * happen to look alike.
+ *
+ * Black rather than the blue of lib/glass.ts, because this is a lump of wood
+ * lying on the page and not a pane of glass lit by the same sky. It is still a
+ * CONTACT + AMBIENT pair, for the reason that file gives: one blurred
+ * rectangle has no ratio in it and reads as a smear someone drew. And it is a
+ * `boxShadow` because shadowColor/shadowOffset/elevation are deprecated under
+ * the New Architecture and warn at runtime.
+ */
+export const BOARD_SHADOW =
+  '0 3px 8px rgba(0,0,0,0.22), 0 10px 22px rgba(0,0,0,0.32)';
 
 // Writing pace. Per-character so a long line takes longer to "write" than a
 // short one, which is what makes it read as handwriting rather than a fade-in.
@@ -110,21 +125,18 @@ export function ChalkLine({
   };
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <View style={styles.line}>
       {/* Measurer — never visible, only reports its natural width. */}
       <Text
         numberOfLines={1}
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        style={[textStyle, { position: 'absolute', opacity: 0 }]}
+        style={[textStyle, styles.measurer]}
       >
         {text}
       </Text>
 
       <Animated.View
-        style={[
-          overflows ? { flex: 1 } : { overflow: 'hidden' },
-          clipStyle,
-        ]}
+        style={[overflows ? styles.grow : styles.clip, clipStyle]}
       >
         <Text numberOfLines={overflows ? 2 : 1} style={textStyle}>
           {text}
@@ -196,16 +208,7 @@ function ChalkTip({ height }: { height: number }) {
 
   return (
     <Animated.View
-      style={[
-        {
-          width: 3,
-          height: height * 0.9,
-          marginLeft: 3,
-          borderRadius: 2,
-          backgroundColor: CHALK,
-        },
-        style,
-      ]}
+      style={[styles.tip, { height: height * 0.9 }, style]}
     />
   );
 }
@@ -261,45 +264,23 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
       delay={0}
       duration={420}
       rise={14}
-      style={{
-        width: '100%',
-        borderRadius: 18,
-        padding: 7,
-        backgroundColor: WOOD,
-        borderWidth: 2,
-        borderColor: WOOD_DARK,
-        shadowColor: '#000',
-        shadowOpacity: 0.32,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 12,
-      }}
+      style={styles.frame}
       accessibilityLabel={`Doska: ${problem}. Javob: ${answer}`}
     >
       {/* Slate */}
       <View
-        style={{
-          borderRadius: 12,
-          backgroundColor: SLATE,
-          borderWidth: 1,
-          borderColor: SLATE_EDGE,
-          paddingHorizontal: compact ? 16 : 22,
-          paddingTop: compact ? 12 : 16,
-          paddingBottom: compact ? 14 : 18,
-          overflow: 'hidden',
-        }}
+        style={[
+          styles.slate,
+          {
+            paddingHorizontal: compact ? 16 : 22,
+            paddingTop: compact ? 12 : 16,
+            paddingBottom: compact ? 14 : 18,
+          },
+        ]}
       >
         {/* Heading row — chalk-dust rule underneath */}
-        <View className="flex-row items-center justify-between">
-          <Text
-            style={{
-              fontSize: noteSize + 1,
-              color: CHALK_DIM,
-              letterSpacing: 1.6,
-              textTransform: 'uppercase',
-              fontWeight: '600',
-            }}
-          >
+        <View style={styles.headRow}>
+          <Text style={[styles.headLabel, { fontSize: noteSize + 1 }]}>
             {title || 'Masala'}
           </Text>
           <Pressable
@@ -307,20 +288,12 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
             accessibilityRole="button"
             accessibilityLabel="Doskani yopish"
             hitSlop={12}
-            className="p-1"
+            style={styles.close}
           >
             <X size={16} color={CHALK_DIM} />
           </Pressable>
         </View>
-        <View
-          style={{
-            height: 1,
-            backgroundColor: CHALK_DIM,
-            opacity: 0.18,
-            marginTop: 6,
-            marginBottom: compact ? 10 : 14,
-          }}
-        />
+        <View style={[styles.rule, { marginBottom: compact ? 10 : 14 }]} />
 
         {/* Writing area — scrolls when a hard problem runs long. nestedScroll
             lets it work inside the screen's own scroll container on Android. */}
@@ -367,14 +340,7 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
                   delay={stepDelays[i] + writeDuration(step.expr)}
                   duration={300}
                 >
-                  <Text
-                    style={{
-                      fontSize: noteSize,
-                      color: CHALK_DIM,
-                      marginTop: 1,
-                      fontStyle: 'italic',
-                    }}
-                  >
+                  <Text style={[styles.note, { fontSize: noteSize }]}>
                     {step.note}
                   </Text>
                 </FadeInView>
@@ -410,15 +376,63 @@ export function Chalkboard({ solution, onClose, compact = false }: ChalkboardPro
       </View>
 
       {/* Chalk tray */}
-      <View
-        style={{
-          height: 6,
-          marginTop: 6,
-          marginHorizontal: 10,
-          borderRadius: 3,
-          backgroundColor: WOOD_DARK,
-        }}
-      />
+      <View style={styles.tray} />
     </FadeInView>
   );
 }
+
+// The board is a physical object — wood, slate and chalk — so these are the
+// colours declared at the top of this file, not the app's glass ones.
+const styles = StyleSheet.create({
+  frame: {
+    width: '100%',
+    borderRadius: 18,
+    padding: 7,
+    backgroundColor: WOOD,
+    borderWidth: 2,
+    borderColor: WOOD_DARK,
+    boxShadow: BOARD_SHADOW,
+  },
+  slate: {
+    borderRadius: 12,
+    backgroundColor: SLATE,
+    borderWidth: 1,
+    borderColor: SLATE_EDGE,
+    overflow: 'hidden',
+  },
+  tray: {
+    height: 6,
+    marginTop: 6,
+    marginHorizontal: 10,
+    borderRadius: 3,
+    backgroundColor: WOOD_DARK,
+  },
+
+  headRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headLabel: {
+    color: CHALK_DIM,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  // A real 30x30 element rather than 24x24 plus hitSlop: hitSlop enlarges the
+  // touch target on native only, and on web this X is the only way off the board.
+  close: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rule: { height: 1, backgroundColor: CHALK_DIM, opacity: 0.18, marginTop: 6 },
+
+  line: { flexDirection: 'row', alignItems: 'center' },
+  measurer: { position: 'absolute', opacity: 0 },
+  clip: { overflow: 'hidden' },
+  grow: { flex: 1 },
+  tip: { width: 3, marginLeft: 3, borderRadius: 2, backgroundColor: CHALK },
+  note: { color: CHALK_DIM, marginTop: 1, fontStyle: 'italic' },
+});

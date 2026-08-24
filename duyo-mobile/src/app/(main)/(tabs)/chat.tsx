@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useNavigation } from 'expo-router';
 import {
   ArrowLeft,
@@ -15,7 +16,10 @@ import {
   Alert,
   FlatList,
   Pressable,
+  StyleSheet,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,15 +41,29 @@ import { TypingIndicator } from '@/components/typing-indicator';
 import { ChatDrawer } from '@/components/chat/chat-drawer';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
+import { glass, lift } from '@/lib/glass';
 import { selectRelevantMemories, toMemoryContextLines } from '@/lib/memory-retrieval';
 import { type ChatMessage, useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
 import { useMemoryStore } from '@/store/memory';
-import { useIsDark } from '@/store/theme';
 
 interface AxiosErrorShape {
   response?: { data?: { detail?: string } };
 }
+
+// ── The glass sky, the same pale blue morning the rest of the app woke in ────
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const PLACEHOLDER = '#7693C2';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
+/** The two states the status dot ever has: settled, and mid-thought. */
+const GREEN = '#22B573';
+const AMBER = '#F0B429';
 
 // Free tier daily limit — backend enforces real limits once subscription
 // system lands (Faza 1). Until then we show a soft local count.
@@ -92,7 +110,6 @@ export default function ChatScreen() {
   const [ratings, setRatings] = useState<Record<string, FeedbackRating>>({});
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const isDark = useIsDark();
   // Sibling tabs are reached through this screen's navigator; router.push
   // into the (tabs) group from inside it is a silent no-op on web.
   const navigation = useNavigation() as { navigate(name: string): void };
@@ -296,187 +313,194 @@ export default function ChatScreen() {
     input.trim().length > 0 && !send.isPending && !!child && !limitReached;
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-card dark:bg-dark-surface"
-      edges={['top']}
-    >
-      {/* Header: menu — identity — new chat. The two unlabelled icons that
-          used to sit here moved into the drawer, where they have names. */}
-      <View className="bg-card dark:bg-dark-surface border-b border-neon-blue/20 px-2 py-2 flex-row items-center gap-2">
-        {/* The dock is three doors now; the hub is reached by going back, so
-            every section carries this. */}
-        <Pressable
-          onPress={() => navigation.navigate('index')}
-          accessibilityRole="button"
-          accessibilityLabel="Bosh sahifa"
-          hitSlop={8}
-          className="w-10 h-10 items-center justify-center"
-        >
-          <ArrowLeft size={22} color={isDark ? '#E0E7FF' : '#102033'} />
-        </Pressable>
-        <Pressable
-          onPress={() => setDrawerOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Menyu"
-          hitSlop={8}
-          className="w-10 h-10 items-center justify-center"
-        >
-          <Menu size={22} color={isDark ? '#E0E7FF' : '#102033'} />
-        </Pressable>
-
-        <View className="w-11 h-11">
-          <MascotImage size={44} glow="cosmic" />
-        </View>
-        <View className="flex-1">
-          <Text
-            className="font-bold text-base text-foreground dark:text-dark-text"
-            numberOfLines={1}
-          >
-            DUYO
-          </Text>
-          <View className="flex-row items-center gap-2">
-            {/* The dot carries the same state as the words beside it, so the
-                status reads at a glance without being parsed. */}
-            <View
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: send.isPending ? '#FDC700' : '#05DF72',
-              }}
-            />
-            <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-              {send.isPending ? "O'ylayapti..." : 'Xursand'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Tinted, unlike the plain menu glyph on the left: this one performs
-            an action rather than opening navigation, and a child reported not
-            realising it was tappable at all. */}
-        <Pressable
-          onPress={handleNewChat}
-          accessibilityRole="button"
-          accessibilityLabel="Yangi suhbat"
-          hitSlop={8}
-          className="w-10 h-10 items-center justify-center rounded-full active:opacity-70"
-          style={{ backgroundColor: 'rgba(96,165,250,0.14)' }}
-        >
-          <SquarePen size={19} color="#60A5FA" />
-        </Pressable>
-      </View>
-
-      <ChatDrawer
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onNewChat={handleNewChat}
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
       />
 
-      {loadingHistory && (
-        <View className="items-center py-3">
-          <ActivityIndicator color="#60A5FA" />
-        </View>
-      )}
+      <SafeAreaView style={styles.fill} edges={['top']}>
+        {/* Header: menu — identity — new chat. The two unlabelled icons that
+            used to sit here moved into the drawer, where they have names. */}
+        <View style={styles.header}>
+          {/* The dock is three doors now; the hub is reached by going back, so
+              every section carries this. */}
+          <Pressable
+            onPress={() => navigation.navigate('index')}
+            accessibilityRole="button"
+            accessibilityLabel="Bosh sahifa"
+            hitSlop={8}
+            style={[styles.headerIcon, styles.focusable]}
+          >
+            <ArrowLeft size={22} color={PRIMARY} />
+          </Pressable>
+          <Pressable
+            onPress={() => setDrawerOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Menyu"
+            hitSlop={8}
+            style={[styles.headerIcon, styles.focusable]}
+          >
+            <Menu size={22} color={PRIMARY} />
+          </Pressable>
 
-      <KeyboardAvoidingView className="flex-1 bg-card dark:bg-dark-surface">
-        <FlatList
-          data={items}
-          keyExtractor={(item, i) => {
-            if (item.kind === 'typing') return 'typing-indicator';
-            if (item.kind === 'puzzle') return `puzzle-${item.puzzle.puzzle_id}`;
-            if (item.kind === 'suggested-replies') return 'suggested-replies';
-            if (item.kind === 'counter') return 'daily-counter';
-            return `${item.message.id}-${i}`;
-          }}
-          inverted
-          // Without flex-1 the list is only as tall as its content, so with a
-          // few messages it sat at the top and the composer floated in the
-          // middle of the screen. Filling the space pins the composer to the
-          // bottom and (being inverted) keeps the newest message just above it.
-          className="flex-1"
-          contentContainerStyle={{ padding: 16, gap: 12 }}
-          renderItem={({ item }) => {
-            if (item.kind === 'typing') return <TypingIndicator />;
-            if (item.kind === 'puzzle') {
-              return child ? (
-                <PuzzleChalkboard
-                  puzzle={item.puzzle}
-                  childId={child.id}
-                  onDone={() => setPuzzle(null)}
-                />
-              ) : null;
-            }
-            if (item.kind === 'suggested-replies') {
-              return <SuggestedReplies onSelect={setInput} />;
-            }
-            if (item.kind === 'counter') {
-              return (
-                <View className="bg-secondary dark:bg-card dark:bg-dark-surface-soft border border-glow-blue rounded-xl px-4 py-3">
-                  <Text className="text-sm text-foreground dark:text-dark-text text-center">
-                    Bugun{' '}
-                    <Text className="font-bold text-neon-cyan">
-                      {remaining}/{DAILY_LIMIT}
-                    </Text>{' '}
-                    suhbat qoldi
-                  </Text>
-                </View>
-              );
-            }
-            return (
-              <MessageBubble
-                message={item.message}
-                onQuickReply={handleQuickReply}
-                rating={ratings[item.message.id]}
-                onRate={handleRate}
+          <View style={styles.mascot}>
+            <MascotImage size={44} glow="cosmic" />
+          </View>
+          <View style={styles.identity}>
+            <Text style={styles.name} numberOfLines={1}>
+              DUYO
+            </Text>
+            <View style={styles.statusRow}>
+              {/* The dot carries the same state as the words beside it, so the
+                  status reads at a glance without being parsed. */}
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: send.isPending ? AMBER : GREEN },
+                ]}
               />
-            );
-          }}
+              <Text style={styles.statusText}>
+                {send.isPending ? "O'ylayapti..." : 'Xursand'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Tinted, unlike the plain menu glyph on the left: this one performs
+              an action rather than opening navigation, and a child reported not
+              realising it was tappable at all. */}
+          <Pressable
+            onPress={handleNewChat}
+            accessibilityRole="button"
+            accessibilityLabel="Yangi suhbat"
+            hitSlop={8}
+            style={[glass(20, 'sm'), styles.headerAction, styles.focusable]}
+          >
+            <SquarePen size={19} color={PRIMARY} />
+          </Pressable>
+        </View>
+
+        <ChatDrawer
+          visible={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          onNewChat={handleNewChat}
         />
 
-        {/* The tab bar floats over this screen now, so the composer keeps
-            its own clearance beneath it (see NAV_CLEARANCE). */}
-        <View
-          className="bg-card dark:bg-dark-surface border-t border-neon-blue/20 px-3 pt-3 flex-row items-end gap-2"
-          style={{ paddingBottom: composerPad }}
-        >
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder={
-              limitReached
-                ? 'Bugungi limit tugadi. Ertaga davom etamiz.'
-                : 'Xabar yozing...'
-            }
-            placeholderTextColor="#94A3B8"
-            multiline
-            maxLength={2000}
-            editable={!send.isPending && !limitReached}
-            accessibilityLabel="Chat xabari"
-            className="flex-1 max-h-32 px-4 py-3 rounded-md text-base text-foreground dark:text-dark-text"
-            style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+        {loadingHistory && (
+          <View style={styles.loading}>
+            <ActivityIndicator color={PRIMARY} />
+          </View>
+        )}
+
+        <KeyboardAvoidingView style={styles.fill}>
+          <FlatList
+            data={items}
+            keyExtractor={(item, i) => {
+              if (item.kind === 'typing') return 'typing-indicator';
+              if (item.kind === 'puzzle') return `puzzle-${item.puzzle.puzzle_id}`;
+              if (item.kind === 'suggested-replies') return 'suggested-replies';
+              if (item.kind === 'counter') return 'daily-counter';
+              return `${item.message.id}-${i}`;
+            }}
+            inverted
+            // Without `flex: 1` the list is only as tall as its content, so with
+            // a few messages it sat at the top and the composer floated in the
+            // middle of the screen. Filling the space pins the composer to the
+            // bottom and (being inverted) keeps the newest message just above it.
+            style={styles.fill}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => {
+              if (item.kind === 'typing') return <TypingIndicator />;
+              if (item.kind === 'puzzle') {
+                return child ? (
+                  <PuzzleChalkboard
+                    puzzle={item.puzzle}
+                    childId={child.id}
+                    onDone={() => setPuzzle(null)}
+                  />
+                ) : null;
+              }
+              if (item.kind === 'suggested-replies') {
+                return <SuggestedReplies onSelect={setInput} />;
+              }
+              if (item.kind === 'counter') {
+                return (
+                  <View style={[glass(18, 'sm', 0.5), styles.counter]}>
+                    <Text style={styles.counterText}>
+                      Bugun{' '}
+                      <Text style={styles.counterCount}>
+                        {remaining}/{DAILY_LIMIT}
+                      </Text>{' '}
+                      suhbat qoldi
+                    </Text>
+                  </View>
+                );
+              }
+              return (
+                <MessageBubble
+                  message={item.message}
+                  onQuickReply={handleQuickReply}
+                  rating={ratings[item.message.id]}
+                  onRate={handleRate}
+                />
+              );
+            }}
           />
-          <Pressable
-            onPress={() => router.push('/(main)/voice')}
-            accessibilityRole="button"
-            accessibilityLabel="Ovozli suhbat"
-            className="w-11 h-11 rounded-md items-center justify-center"
+
+          {/* The tab bar floats over this screen now, so the composer keeps
+              its own clearance beneath it (see NAV_CLEARANCE). */}
+          <View
+            style={[
+              glass(28, 'xl', 0.72),
+              styles.composer,
+              { paddingBottom: composerPad },
+            ]}
           >
-            <Mic size={22} color="#94A3B8" />
-          </Pressable>
-          <Pressable
-            onPress={handleSend}
-            disabled={!canSend}
-            accessibilityRole="button"
-            accessibilityLabel="Yuborish"
-            className={`w-11 h-11 rounded-md items-center justify-center ${
-              canSend ? 'bg-neon-blue' : 'bg-secondary dark:bg-card dark:bg-dark-surface-soft'
-            }`}
-          >
-            <Send size={20} color={canSend ? '#FFFFFF' : '#94A3B8'} />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              placeholder={
+                limitReached
+                  ? 'Bugungi limit tugadi. Ertaga davom etamiz.'
+                  : 'Xabar yozing...'
+              }
+              placeholderTextColor={PLACEHOLDER}
+              multiline
+              maxLength={2000}
+              editable={!send.isPending && !limitReached}
+              accessibilityLabel="Chat xabari"
+              // `glass()` is typed ViewStyle, and React Native's TextStyle is
+              // NOT a superset of it — the two disagree about `userSelect`. The
+              // properties actually used here (fill, radius, border) are valid
+              // on both, so the cast is the narrow lie rather than a wrong one.
+              style={[glass(16, 'flush', 0.62) as TextStyle, styles.input]}
+            />
+            <Pressable
+              onPress={() => router.push('/(main)/voice')}
+              accessibilityRole="button"
+              accessibilityLabel="Ovozli suhbat"
+              style={[glass(16, 'flush', 0.62), styles.composerButton, styles.focusable]}
+            >
+              <Mic size={22} color={PRIMARY} />
+            </Pressable>
+            <Pressable
+              onPress={handleSend}
+              disabled={!canSend}
+              accessibilityRole="button"
+              accessibilityLabel="Yuborish"
+              style={[
+                styles.composerButton,
+                canSend ? styles.sendOn : styles.sendOff,
+                styles.focusable,
+              ]}
+            >
+              <Send size={20} color={canSend ? '#FFFFFF' : MUTED} />
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -501,25 +525,21 @@ function MessageBubble({
   const canRate =
     !isChild && message.id !== GREETING_ID && !message.id.startsWith('local-');
   return (
-    <View className={`flex-row ${isChild ? 'justify-end' : 'justify-start'}`}>
-      <View className="max-w-[80%]">
+    <View style={isChild ? styles.rowEnd : styles.rowStart}>
+      <View style={styles.bubbleColumn}>
         <View
-          className={`rounded-2xl px-4 py-3 ${
+          style={
             isChild
-              ? 'bg-neon-blue'
-              : 'bg-card dark:bg-dark-surface border border-neon-blue/20'
-          }`}
+              ? [styles.bubble, styles.bubbleChild]
+              : [glass(22, 'sm', 0.62), styles.bubble]
+          }
         >
-          <Text
-            className={`text-base leading-6 ${
-              isChild ? 'text-white' : 'text-foreground dark:text-dark-text'
-            }`}
-          >
+          <Text style={[styles.bubbleText, isChild && styles.bubbleTextChild]}>
             {message.content}
           </Text>
         </View>
         {source && source.type !== 'none' && (
-          <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1 ml-2">
+          <Text style={styles.sourceText}>
             {source.type === 'textbook' ? '📚 ' : '🌐 '}
             {source.type === 'web'
               ? source.refs.map((r) => r.title).join(', ') || source.label
@@ -527,33 +547,31 @@ function MessageBubble({
           </Text>
         )}
         {!!quickReplies?.length && (
-          <View className="flex-row gap-2 mt-1.5 ml-2">
+          <View style={styles.quickRow}>
             {quickReplies.map((qr) => (
               <Pressable
                 key={qr.label}
                 onPress={() => onQuickReply(message.id, qr)}
                 accessibilityRole="button"
                 accessibilityLabel={qr.label}
-                className="py-1.5 px-4 rounded-2xl bg-neon-blue/15 border border-neon-blue/30"
+                style={[glass(16, 'sm', 0.55), styles.quickReply, styles.focusable]}
               >
-                <Text className="text-neon-blue font-semibold">{qr.label}</Text>
+                <Text style={styles.quickReplyText}>{qr.label}</Text>
               </Pressable>
             ))}
           </View>
         )}
         {canRate && (
-          <View className="flex-row gap-3 mt-1.5 ml-2">
+          <View style={styles.rateRow}>
             <Pressable
               onPress={() => onRate(message.id, 'up')}
               accessibilityRole="button"
               accessibilityLabel="Bu javob yoqdi"
               accessibilityState={{ selected: rating === 'up' }}
               hitSlop={8}
+              style={[styles.rateButton, styles.focusable]}
             >
-              <ThumbsUp
-                size={16}
-                color={rating === 'up' ? '#05DF72' : '#94A3B8'}
-              />
+              <ThumbsUp size={16} color={rating === 'up' ? GREEN : MUTED} />
             </Pressable>
             <Pressable
               onPress={() => onRate(message.id, 'down')}
@@ -561,11 +579,9 @@ function MessageBubble({
               accessibilityLabel="Bu javob yoqmadi"
               accessibilityState={{ selected: rating === 'down' }}
               hitSlop={8}
+              style={[styles.rateButton, styles.focusable]}
             >
-              <ThumbsDown
-                size={16}
-                color={rating === 'down' ? '#FB64B6' : '#94A3B8'}
-              />
+              <ThumbsDown size={16} color={rating === 'down' ? DANGER : MUTED} />
             </Pressable>
           </View>
         )}
@@ -573,3 +589,119 @@ function MessageBubble({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  fill: { flex: 1 },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  // ── Header ─────────────────────────────────────────────────────────────
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: HAIRLINE,
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAction: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Overrides the pane's white fill: this chip is the one that acts.
+    backgroundColor: 'rgba(47,111,228,0.14)',
+  },
+  mascot: { width: 44, height: 44 },
+  identity: { flex: 1 },
+  name: { fontSize: 16, fontWeight: '700', color: INK },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusText: { fontSize: 12, color: MUTED },
+
+  loading: { alignItems: 'center', paddingVertical: 12 },
+
+  // ── List ───────────────────────────────────────────────────────────────
+  listContent: { padding: 16, gap: 12 },
+  counter: { paddingHorizontal: 16, paddingVertical: 12 },
+  counterText: { fontSize: 14, lineHeight: 20, color: INK, textAlign: 'center' },
+  counterCount: { fontWeight: '700', color: PRIMARY },
+
+  // ── Bubbles ────────────────────────────────────────────────────────────
+  rowStart: { flexDirection: 'row', justifyContent: 'flex-start' },
+  rowEnd: { flexDirection: 'row', justifyContent: 'flex-end' },
+  bubbleColumn: { maxWidth: '80%' },
+  bubble: { borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12 },
+  // A filled bubble still belongs to the ladder: same contact/ambient pair as
+  // the glass one beside it, so the two sides sit at the same height.
+  bubbleChild: { backgroundColor: PRIMARY, boxShadow: lift('sm') },
+  bubbleText: { fontSize: 16, lineHeight: 24, color: INK },
+  bubbleTextChild: { color: '#FFFFFF' },
+  sourceText: { marginTop: 4, marginLeft: 8, fontSize: 12, color: MUTED },
+
+  quickRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginLeft: 8 },
+  quickReply: {
+    minHeight: 34,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickReplyText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
+
+  // 32pt boxes rather than the bare 16pt glyphs these used to be: hitSlop
+  // does not enlarge the clickable element on web.
+  rateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    marginLeft: 2,
+  },
+  rateButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Composer ───────────────────────────────────────────────────────────
+  composer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    // Squared off at the screen edge — only the top of this sheet is ever
+    // seen, and rounding the bottom would leak the gradient into the corners.
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  input: {
+    flex: 1,
+    maxHeight: 128,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: INK,
+  },
+  composerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendOn: { backgroundColor: PRIMARY },
+  sendOff: { backgroundColor: 'rgba(140,163,203,0.25)' },
+});

@@ -1,13 +1,19 @@
 import { Gift } from 'lucide-react-native';
-import { View } from 'react-native';
-import { Text } from '@/components/text';
+import { StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/text';
 import type { BallsTransactionWire } from '@/api/endpoints/gamification';
 import { useBallsHistory } from '@/hooks/use-gamification';
+import { glass } from '@/lib/glass';
 
 import { PANEL_MUTED, PANEL_TEXT, Panel } from './panel';
 
 const MAX_ROWS = 4;
+
+// Both accents are the navy-era neons deepened for the light page: #FB64B6
+// and #FDC700 were chosen to glow on a dark ground and wash out on glass.
+const PINK = '#C7519C';
+const GOLD = '#E0A21C';
 
 // Award reasons are free-form strings on the wire; these are the ones the
 // backend emits today. Anything unknown still renders, just with a generic
@@ -59,42 +65,30 @@ export function RecentRewardsCard() {
     .slice(0, MAX_ROWS);
 
   return (
-    <Panel title="Oxirgi mukofotlar" icon={<Gift size={18} color="#FB64B6" />}>
+    <Panel title="Oxirgi mukofotlar" icon={<Gift size={18} color={PINK} />}>
       {history.isPending ? (
-        <Text style={{ color: PANEL_MUTED, fontSize: 12 }}>Yuklanmoqda...</Text>
+        <Text style={styles.note}>Yuklanmoqda...</Text>
       ) : rewards.length === 0 ? (
-        <Text style={{ color: PANEL_MUTED, fontSize: 12, lineHeight: 18 }}>
+        <Text style={[styles.note, styles.empty]}>
           Hozircha mukofot yo'q. DUYO bilan suhbatlashing va maqsadlarni
           bajaring — XP shu yerda ko'rinadi.
         </Text>
       ) : (
-        <View style={{ gap: 10 }}>
+        <View style={styles.list}>
           {rewards.map((tx, i) => {
             const meta = metaFor(tx.reason);
             return (
-              <View
-                key={`${tx.created_at}-${i}`}
-                className="flex-row items-center justify-between rounded-lg"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                }}
-              >
-                <View className="flex-row items-center gap-3 flex-1">
-                  <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
-                  <View className="flex-1">
-                    <Text style={{ color: PANEL_TEXT, fontSize: 14 }} numberOfLines={1}>
+              <View key={`${tx.created_at}-${i}`} style={[styles.row, styles.rowPane]}>
+                <View style={styles.left}>
+                  <Text style={styles.emoji}>{meta.emoji}</Text>
+                  <View style={styles.lines}>
+                    <Text style={styles.label} numberOfLines={1}>
                       {meta.label}
                     </Text>
-                    <Text style={{ color: PANEL_MUTED, fontSize: 11, marginTop: 1 }}>
-                      {whenLabel(tx.created_at, now)}
-                    </Text>
+                    <Text style={styles.when}>{whenLabel(tx.created_at, now)}</Text>
                   </View>
                 </View>
-                <Text style={{ color: '#FDC700', fontSize: 13, fontWeight: '700' }}>
-                  +{tx.amount} XP
-                </Text>
+                <Text style={styles.amount}>+{tx.amount} XP</Text>
               </View>
             );
           })}
@@ -103,3 +97,27 @@ export function RecentRewardsCard() {
     </Panel>
   );
 }
+
+const styles = StyleSheet.create({
+  note: { fontSize: 12, color: PANEL_MUTED },
+  empty: { lineHeight: 18 },
+
+  list: { gap: 10 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  // A row belongs to the panel it is ruled on — 'flush' keeps it from casting
+  // a shadow onto its own parent.
+  rowPane: glass(16, 'flush', 0.42),
+
+  left: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  emoji: { fontSize: 20 },
+  lines: { flex: 1 },
+  label: { fontSize: 14, color: PANEL_TEXT },
+  when: { marginTop: 1, fontSize: 11, color: PANEL_MUTED },
+  amount: { fontSize: 13, fontWeight: '700', color: GOLD },
+});

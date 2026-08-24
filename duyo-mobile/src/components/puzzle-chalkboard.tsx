@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 
 import {
@@ -8,6 +8,7 @@ import {
   type PuzzleAnswer,
 } from '@/api/endpoints/puzzles';
 import {
+  BOARD_SHADOW,
   CHALK,
   CHALK_DIM,
   CHALK_YELLOW,
@@ -79,54 +80,24 @@ export function PuzzleChalkboard({ puzzle, childId, onDone, compact = false }: P
       delay={0}
       duration={420}
       rise={14}
-      style={{
-        width: '100%',
-        borderRadius: 18,
-        padding: 7,
-        backgroundColor: WOOD,
-        borderWidth: 2,
-        borderColor: WOOD_DARK,
-        shadowColor: '#000',
-        shadowOpacity: 0.32,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 12,
-      }}
+      style={styles.frame}
       accessibilityLabel={`Doskadagi jumboq: ${puzzle.text}`}
     >
       <View
         onLayout={(e) => setSlateWidth(e.nativeEvent.layout.width)}
-        style={{
-          borderRadius: 12,
-          backgroundColor: SLATE,
-          borderWidth: 1,
-          borderColor: SLATE_EDGE,
-          paddingHorizontal: compact ? 16 : 22,
-          paddingTop: compact ? 12 : 16,
-          paddingBottom: compact ? 14 : 18,
-          overflow: 'hidden',
-        }}
+        style={[
+          styles.slate,
+          {
+            paddingHorizontal: compact ? 16 : 22,
+            paddingTop: compact ? 12 : 16,
+            paddingBottom: compact ? 14 : 18,
+          },
+        ]}
       >
-        <Text
-          style={{
-            fontSize: noteSize + 1,
-            color: CHALK_DIM,
-            letterSpacing: 1.6,
-            textTransform: 'uppercase',
-            fontWeight: '600',
-          }}
-        >
+        <Text style={[styles.headLabel, { fontSize: noteSize + 1 }]}>
           Jumboq
         </Text>
-        <View
-          style={{
-            height: 1,
-            backgroundColor: CHALK_DIM,
-            opacity: 0.25,
-            marginTop: 6,
-            marginBottom: 12,
-          }}
-        />
+        <View style={styles.rule} />
 
         <ChalkLine
           text={puzzle.text}
@@ -135,7 +106,7 @@ export function PuzzleChalkboard({ puzzle, childId, onDone, compact = false }: P
           maxWidth={slateWidth}
         />
 
-        <View style={{ marginTop: 14, gap: 8 }}>
+        <View style={styles.choices}>
           {puzzle.choices.map((choice, i) => {
             const isPicked = picked === i;
             const isAnswer = result !== null && i === result.correct_index;
@@ -161,14 +132,11 @@ export function PuzzleChalkboard({ puzzle, childId, onDone, compact = false }: P
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isPicked }}
                   accessibilityLabel={choice}
-                  className="active:opacity-80"
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: border,
-                  }}
+                  style={({ pressed }) => [
+                    styles.choice,
+                    { borderColor: border },
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <Text style={{ fontSize: choiceSize, color: colour }}>
                     {String.fromCharCode(65 + i)}. {choice}
@@ -180,35 +148,31 @@ export function PuzzleChalkboard({ puzzle, childId, onDone, compact = false }: P
         </View>
 
         {result && (
-          <FadeInView delay={120} rise={8} style={{ marginTop: 14 }}>
+          <FadeInView delay={120} rise={8} style={styles.result}>
             <Text
-              style={{
-                fontSize: choiceSize,
-                fontWeight: '700',
-                color: result.is_correct ? CHALK_GREEN : CHALK_YELLOW,
-              }}
+              style={[
+                styles.verdict,
+                {
+                  fontSize: choiceSize,
+                  color: result.is_correct ? CHALK_GREEN : CHALK_YELLOW,
+                },
+              ]}
             >
               {result.is_correct ? "To'g'ri!" : "Keling, birga ko'ramiz"}
             </Text>
-            <Text style={{ fontSize: noteSize + 2, color: CHALK_DIM, marginTop: 6, lineHeight: 18 }}>
+            <Text style={[styles.explanation, { fontSize: noteSize + 2 }]}>
               {result.explanation}
             </Text>
             <Pressable
               onPress={onDone}
               accessibilityRole="button"
               accessibilityLabel="Suhbatni davom ettirish"
-              className="active:opacity-80"
-              style={{
-                marginTop: 12,
-                height: 38,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: CHALK,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              style={({ pressed }) => [
+                styles.continue,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text style={{ fontSize: choiceSize - 1, color: CHALK, fontWeight: '600' }}>
+              <Text style={[styles.continueLabel, { fontSize: choiceSize - 1 }]}>
                 Davom etamiz
               </Text>
             </Pressable>
@@ -218,3 +182,62 @@ export function PuzzleChalkboard({ puzzle, childId, onDone, compact = false }: P
     </FadeInView>
   );
 }
+
+// Same wood, same slate, same chalk as Chalkboard — imported rather than
+// re-picked, so the two boards stay one object.
+const styles = StyleSheet.create({
+  frame: {
+    width: '100%',
+    borderRadius: 18,
+    padding: 7,
+    backgroundColor: WOOD,
+    borderWidth: 2,
+    borderColor: WOOD_DARK,
+    boxShadow: BOARD_SHADOW,
+  },
+  slate: {
+    borderRadius: 12,
+    backgroundColor: SLATE,
+    borderWidth: 1,
+    borderColor: SLATE_EDGE,
+    overflow: 'hidden',
+  },
+
+  headLabel: {
+    color: CHALK_DIM,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  rule: {
+    height: 1,
+    backgroundColor: CHALK_DIM,
+    opacity: 0.25,
+    marginTop: 6,
+    marginBottom: 12,
+  },
+
+  choices: { marginTop: 14, gap: 8 },
+  // The border colour is the state (picked / right / wrong) and is passed in.
+  choice: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  pressed: { opacity: 0.8 },
+
+  result: { marginTop: 14 },
+  verdict: { fontWeight: '700' },
+  explanation: { color: CHALK_DIM, marginTop: 6, lineHeight: 18 },
+  continue: {
+    marginTop: 12,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: CHALK,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueLabel: { color: CHALK, fontWeight: '600' },
+});

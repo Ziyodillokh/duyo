@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   BookOpen,
@@ -12,14 +13,23 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/text';
 
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
-import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { useT, type TranslationKey } from '@/i18n';
+import { glass } from '@/lib/glass';
 import { useOnboardingStore } from '@/store/onboarding';
+
+// ── The glass sky, the same pale morning the inner screens wake up to ────────
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 interface InterestOption {
   /** Stored on the child profile — never translated. */
@@ -72,120 +82,212 @@ export default function InterestsScreen() {
   };
 
   return (
-    <ScreenGradient>
-      {/* Eight tiles do not fit a short phone under the mascot, so the column
-          centres when there is room and scrolls when there is not. */}
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingHorizontal: 24,
-          paddingVertical: 24,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="items-center w-full max-w-[345px]">
-          <MascotImage size={132} glow="cosmic" />
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-          <Text className="text-[24px] leading-8 font-bold text-foreground text-center mt-5">
-            {t('onboarding.interests.title')}
-          </Text>
-          <Text className="text-base text-muted-foreground text-center mt-1">
-            {t('onboarding.interests.subtitle', { count: MIN_SELECTED })}
-          </Text>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        {/* Eight tiles do not fit a short phone under the mascot, so the column
+            centres when there is room and scrolls when there is not. */}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.column}>
+            <MascotImage size={132} glow="cosmic" />
 
-          <View
-            className="w-full flex-row flex-wrap mt-6"
-            style={{ justifyContent: 'space-between', rowGap: 12 }}
-          >
-            {INTEREST_OPTIONS.map((option) => {
-              const isSelected = selected.includes(option.key);
-              const label = t(option.labelKey);
-              return (
-                <Pressable
-                  key={option.key}
-                  onPress={() => toggle(option.key)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected }}
-                  accessibilityLabel={label}
-                  style={{ width: '48%' }}
-                  className={`rounded-2xl px-3 py-4 items-center active:opacity-80 ${
-                    isSelected
-                      ? 'bg-primary/5 border-2 border-primary'
-                      : 'bg-white border border-primary/10'
-                  }`}
-                >
-                  {/* The well fills in on selection, so the choice is legible
-                      from the icon alone rather than only from the border. */}
-                  <View
-                    className="w-12 h-12 rounded-full items-center justify-center"
-                    style={{
-                      backgroundColor: isSelected
-                        ? option.color
-                        : tint(option.color, 0.12),
-                    }}
+            <Text style={styles.title}>{t('onboarding.interests.title')}</Text>
+            <Text style={styles.subtitle}>
+              {t('onboarding.interests.subtitle', { count: MIN_SELECTED })}
+            </Text>
+
+            <View style={styles.grid}>
+              {INTEREST_OPTIONS.map((option) => {
+                const isSelected = selected.includes(option.key);
+                const label = t(option.labelKey);
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => toggle(option.key)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected }}
+                    accessibilityLabel={label}
+                    style={({ pressed }) => [
+                      glass(20, 'md'),
+                      styles.tile,
+                      isSelected && styles.tileOn,
+                      pressed && styles.tilePressed,
+                    ]}
                   >
-                    <option.Icon
-                      size={24}
-                      color={isSelected ? '#FFFFFF' : option.color}
-                      strokeWidth={2}
-                    />
-                  </View>
-
-                  <Text
-                    className={`text-sm text-center mt-2 ${
-                      isSelected
-                        ? 'text-primary font-semibold'
-                        : 'text-foreground font-medium'
-                    }`}
-                    numberOfLines={2}
-                  >
-                    {label}
-                  </Text>
-
-                  {isSelected && (
-                    <View className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary items-center justify-center">
-                      <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                    {/* The well fills in on selection, so the choice is legible
+                        from the icon alone rather than only from the border. */}
+                    <View
+                      style={[
+                        styles.well,
+                        {
+                          backgroundColor: isSelected
+                            ? option.color
+                            : tint(option.color, 0.12),
+                        },
+                      ]}
+                    >
+                      <option.Icon
+                        size={24}
+                        color={isSelected ? '#FFFFFF' : option.color}
+                        strokeWidth={2}
+                      />
                     </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
 
-          {/* How far off the minimum is, without making the child count tiles. */}
-          <View className="flex-row items-center gap-2 mt-5">
-            {Array.from({ length: MIN_SELECTED }).map((_, i) => (
-              <View
-                key={i}
-                className={`h-1.5 rounded-full ${
-                  i < selected.length ? 'w-6 bg-primary' : 'w-3 bg-primary/15'
-                }`}
-              />
-            ))}
-          </View>
-          <Text
-            className={`text-sm text-center mt-2 ${
-              canContinue ? 'text-primary font-medium' : 'text-muted-foreground'
-            }`}
-          >
-            {canContinue
-              ? t('onboarding.interests.ready')
-              : t('onboarding.interests.selected', { count: selected.length })}
-          </Text>
+                    <Text
+                      style={[styles.tileLabel, isSelected && styles.tileLabelOn]}
+                      numberOfLines={2}
+                    >
+                      {label}
+                    </Text>
 
-          <View className="w-full mt-5">
-            <PrimaryButton
-              onPress={handleContinue}
-              disabled={!canContinue}
-              accessibilityLabel={t('common.continue')}
-            >
-              {t('common.continue')}
-            </PrimaryButton>
+                    {isSelected && (
+                      <View style={styles.tick}>
+                        <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* How far off the minimum is, without making the child count tiles. */}
+            <View style={styles.meter}>
+              {Array.from({ length: MIN_SELECTED }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.meterDash,
+                    i < selected.length
+                      ? styles.meterDashOn
+                      : styles.meterDashOff,
+                  ]}
+                />
+              ))}
+            </View>
+            <Text style={[styles.status, canContinue && styles.statusReady]}>
+              {canContinue
+                ? t('onboarding.interests.ready')
+                : t('onboarding.interests.selected', { count: selected.length })}
+            </Text>
+
+            <View style={styles.cta}>
+              <PrimaryButton
+                onPress={handleContinue}
+                disabled={!canContinue}
+                accessibilityLabel={t('common.continue')}
+              >
+                {t('common.continue')}
+              </PrimaryButton>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </ScreenGradient>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  column: { alignItems: 'center', width: '100%', maxWidth: 345 },
+
+  title: {
+    marginTop: 20,
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  subtitle: {
+    marginTop: 4,
+    fontSize: 16,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  // ── The grid of eight ──────────────────────────────────────────────────
+  grid: {
+    marginTop: 24,
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  tile: {
+    width: '48%',
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  // Selection reads twice over: a heavier edge and a faint wash of the brand
+  // blue, so the picked tiles survive a glance at the whole grid.
+  tileOn: {
+    borderWidth: 2,
+    borderColor: PRIMARY,
+    backgroundColor: 'rgba(47,111,228,0.08)',
+  },
+  tilePressed: { opacity: 0.8 },
+  well: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tileLabel: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '500',
+    color: INK,
+    textAlign: 'center',
+  },
+  tileLabelOn: { fontWeight: '600', color: PRIMARY },
+  tick: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Progress towards the minimum ───────────────────────────────────────
+  meter: {
+    marginTop: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  meterDash: { height: 6, borderRadius: 3 },
+  meterDashOn: { width: 24, backgroundColor: PRIMARY },
+  meterDashOff: { width: 12, backgroundColor: 'rgba(47,111,228,0.15)' },
+  status: {
+    marginTop: 8,
+    fontSize: 14,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  statusReady: { fontWeight: '500', color: PRIMARY },
+
+  cta: { marginTop: 20, width: '100%' },
+});

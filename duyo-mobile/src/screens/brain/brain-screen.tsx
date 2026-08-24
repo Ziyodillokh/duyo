@@ -19,6 +19,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,7 +42,7 @@ import {
 } from '@/api/endpoints/notes';
 import { BrainBackdrop } from '@/components/brain-backdrop';
 import { BrainClusterCard } from '@/components/brain-cluster-card';
-import { GLASS, GlassCircle } from '@/components/brain/glass';
+import { GLASS, GlassCircle, raised } from '@/components/brain/glass';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import {
   extractEmbeds,
@@ -71,6 +72,34 @@ const SORT_LABEL: Record<NoteSort, string> = {
 
 // An unclosed [[ before the caret means the child is picking a link target.
 const OPEN_LINK = /\[\[([^\[\]]*)$/;
+
+// ── Two palettes, because this screen has two grounds ────────────────────────
+// The HOME page is light glass and takes its colours from GLASS
+// (components/brain/glass.ts), the same tokens BrainHome paints with. Anything
+// over the MAP sits on deep space in BOTH themes, so it keeps DUYO's neon
+// vocabulary — a light glass pane there would hide the stars it floats over.
+// Depth for both comes from lib/glass.ts through `raised()`, so the ladder is
+// the app's and nothing here hand-rolls a shadow.
+
+/** The map's chrome ink: the wordmark, and the outlined controls beside it. */
+const SKY_INK = '#E8EEFF';
+const SKY_INK_SOFT = '#DCE6FA';
+/** DUYO's neon blue — every action that sits over the sky wears it. */
+const ACCENT = '#60A5FA';
+/** Ink on top of a filled ACCENT surface. */
+const ON_ACCENT = '#0A1628';
+const PINK = '#FB64B6';
+const YELLOW = '#FDC700';
+/** Body ink per theme — what `text-foreground dark:text-dark-text` resolved to. */
+const INK_LIGHT = '#102033';
+const INK_DARK = '#E0E7FF';
+const MUTED_LIGHT = '#64748B';
+const MUTED_DARK = '#94A3B8';
+const PLACEHOLDER = '#94A3B8';
+/** The hairline and the wash the accent leaves on a dark surface. */
+const ACCENT_LINE = 'rgba(96,165,250,0.20)';
+const ACCENT_WASH = 'rgba(96,165,250,0.15)';
+const ACCENT_WASH_STRONG = 'rgba(96,165,250,0.18)';
 
 export default function BrainScreen() {
   const isDark = useIsDark();
@@ -349,6 +378,9 @@ export default function BrainScreen() {
   }, [graph.data?.edges, tags.data]);
 
   const cardBg = isDark ? '#132340' : '#FFFFFF';
+  // The two theme-dependent inks the classNames used to carry, as values.
+  const inkText = { color: isDark ? INK_DARK : INK_LIGHT };
+  const mutedText = { color: isDark ? MUTED_DARK : MUTED_LIGHT };
   // The note editor/preview is its own header mode; 'home' and 'map' share
   // the plain "Miya" header with a "+" instead of the back/preview/trash row.
   const editingNote = screen.kind === 'note' || screen.kind === 'new';
@@ -401,24 +433,19 @@ export default function BrainScreen() {
           Swap the clip in src/config/brain-backdrop.ts. */}
       {screen.kind !== 'home' && <BrainBackdrop />}
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <KeyboardAvoidingView className="flex-1">
+      <SafeAreaView style={styles.fill} edges={['top']}>
+        <KeyboardAvoidingView style={styles.fill}>
           {/* Header. The map gets its own: a wordmark between two bordered
               controls, and search folded behind a button so the sky keeps the
               whole screen until it is asked for. */}
           {screen.kind === 'map' ? (
-            <View className="flex-row items-center gap-2 px-4 py-3">
+            <View style={styles.mapHeader}>
               <MapButton
                 Icon={ArrowLeft}
                 label="Bosh sahifaga qaytish"
                 onPress={() => setScreen({ kind: 'home' })}
               />
-              <Text
-                className="flex-1 text-center text-[15px] font-bold"
-                style={{ color: '#E8EEFF', letterSpacing: 4 }}
-              >
-                DUYO MIYA
-              </Text>
+              <Text style={styles.mapWordmark}>DUYO MIYA</Text>
               <MapButton
                 Icon={Search}
                 label="Qidirish"
@@ -440,79 +467,59 @@ export default function BrainScreen() {
                doors (Bir maqsad · DUYO · Neo Miyya) and the hub is reached by
                going back, so every section carries one; Profil is one tap away
                on the home header. */
-            <View className="flex-row items-center px-4" style={{ paddingVertical: 10 }}>
+            <View style={styles.homeHeader}>
               <Pressable
                 onPress={() => toHomeTab()}
                 accessibilityRole="button"
                 accessibilityLabel="Bosh sahifa"
-                className="active:opacity-70"
+                style={({ pressed }) => [styles.focusable, pressed && styles.pressed70]}
               >
                 <GlassCircle size={52}>
                   <ArrowLeft size={22} color={GLASS.blue} strokeWidth={2.2} />
                 </GlassCircle>
               </Pressable>
 
-              <Text
-                className="flex-1 text-center font-bold"
-                style={{ color: GLASS.blue, fontSize: 25, letterSpacing: 7 }}
-              >
-                DUYO
-              </Text>
+              <Text style={styles.homeWordmark}>DUYO</Text>
 
               <Pressable
                 onPress={() => router.push('/(main)/notifications')}
                 accessibilityRole="button"
                 accessibilityLabel="Bildirishnomalar"
-                className="active:opacity-70"
+                style={({ pressed }) => [styles.focusable, pressed && styles.pressed70]}
               >
                 <GlassCircle size={52}>
                   <Bell size={21} color={GLASS.blue} strokeWidth={2.2} />
                   {/* The unread dot. Shown only when there is something to
                       read — a badge that is always on stops being a signal. */}
-                  {unread > 0 && (
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 13,
-                        width: 9,
-                        height: 9,
-                        borderRadius: 5,
-                        backgroundColor: GLASS.blue,
-                        borderWidth: 1.5,
-                        borderColor: '#FFFFFF',
-                      }}
-                    />
-                  )}
+                  {unread > 0 && <View style={styles.bellDot} />}
                 </GlassCircle>
               </Pressable>
             </View>
           ) : (
-          <View className="flex-row items-center gap-2 px-6 py-4">
+          <View style={styles.noteHeader}>
             <Pressable
               onPress={() => setScreen({ kind: 'map' })}
               accessibilityRole="button"
               accessibilityLabel="Xaritaga qaytish"
-              className="w-10 h-10 items-center justify-center"
+              style={styles.iconButton}
             >
-              <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+              <ArrowLeft size={20} color={inkText.color} />
             </Pressable>
-            <Text className="text-xl font-bold text-foreground dark:text-dark-text flex-1">
+            <Text style={[styles.noteHeaderTitle, inkText]}>
               {preview ? title || 'Qayd' : 'Tahrir'}
             </Text>
 
-            <View className="flex-row items-center gap-1">
+            <View style={styles.noteHeaderActions}>
               <Pressable
                 onPress={() => setPreview((p) => !p)}
                 accessibilityRole="button"
                 accessibilityLabel={preview ? 'Tahrirlash' : "Ko'rish"}
-                className="w-10 h-10 items-center justify-center rounded-md"
-                style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+                style={styles.previewToggle}
               >
                 {preview ? (
-                  <Pencil size={18} color="#60A5FA" />
+                  <Pencil size={18} color={ACCENT} />
                 ) : (
-                  <Eye size={18} color="#60A5FA" />
+                  <Eye size={18} color={ACCENT} />
                 )}
               </Pressable>
               {screen.kind === 'note' && (
@@ -520,9 +527,9 @@ export default function BrainScreen() {
                   onPress={() => remove.mutate(screen.id)}
                   accessibilityRole="button"
                   accessibilityLabel="Qaydni o'chirish"
-                  className="w-10 h-10 items-center justify-center"
+                  style={styles.iconButton}
                 >
-                  <Trash2 size={18} color="#FB64B6" />
+                  <Trash2 size={18} color={PINK} />
                 </Pressable>
               )}
             </View>
@@ -530,7 +537,7 @@ export default function BrainScreen() {
           )}
 
           {screen.kind === 'home' ? (
-            <View className="flex-1">
+            <View style={styles.fill}>
               <BrainHome
                 notes={notes.data ?? []}
                 graphNodes={graph.data?.nodes ?? []}
@@ -558,7 +565,7 @@ export default function BrainScreen() {
             <ScrollView contentContainerStyle={{ padding: 24, gap: 14, paddingBottom: navClearance + 24 }}>
               {preview ? (
                 <>
-                  <View className="rounded-xl" style={{ padding: 16, backgroundColor: cardBg }}>
+                  <View style={[styles.card, { backgroundColor: cardBg }]}>
                     {body.trim() ? (
                       <MarkdownNote
                         body={body}
@@ -574,15 +581,15 @@ export default function BrainScreen() {
                         }}
                       />
                     ) : (
-                      <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                      <Text style={[styles.bodyText, mutedText]}>
                         Bu qayd hali bo'sh. Yozish uchun qalam tugmasini bos.
                       </Text>
                     )}
                   </View>
 
                   {!!backlinks.data?.length && (
-                    <View className="rounded-xl" style={{ padding: 16, backgroundColor: cardBg }}>
-                      <Text className="text-sm font-bold text-foreground dark:text-dark-text mb-2">
+                    <View style={[styles.card, { backgroundColor: cardBg }]}>
+                      <Text style={[styles.cardTitle, inkText]}>
                         Bu qaydga bog'langanlar ({backlinks.data.length})
                       </Text>
                       {backlinks.data.map((b) => (
@@ -591,9 +598,12 @@ export default function BrainScreen() {
                           onPress={() => open.mutate(b.id)}
                           accessibilityRole="button"
                           accessibilityLabel={b.title}
-                          className="py-2 active:opacity-70"
+                          style={({ pressed }) => [
+                            styles.backlinkRow,
+                            pressed && styles.pressed70,
+                          ]}
                         >
-                          <Text className="text-sm text-neon-blue">← {b.title}</Text>
+                          <Text style={styles.linkText}>← {b.title}</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -602,27 +612,30 @@ export default function BrainScreen() {
                   {/* Obsidian's "unlinked mentions": notes that name this one
                       without linking it. The button does the typing. */}
                   {!!mentions.data?.length && (
-                    <View className="rounded-xl" style={{ padding: 16, backgroundColor: cardBg }}>
-                      <Text className="text-sm font-bold text-foreground dark:text-dark-text mb-1">
+                    <View style={[styles.card, { backgroundColor: cardBg }]}>
+                      <Text style={[styles.cardTitle, styles.cardTitleTight, inkText]}>
                         Nomi tilga olingan ({mentions.data.length})
                       </Text>
-                      <Text className="text-xs text-muted-foreground dark:text-dark-muted mb-3">
+                      <Text style={[styles.caption, styles.cardNote, mutedText]}>
                         Bu qaydlar seni eslatgan, lekin hali bog'lanmagan.
                       </Text>
                       {mentions.data.map((m) => (
-                        <View key={m.id} className="flex-row items-center gap-3 py-2">
+                        <View key={m.id} style={styles.mentionRow}>
                           <Pressable
                             onPress={() => open.mutate(m.id)}
                             accessibilityRole="button"
                             accessibilityLabel={m.title}
-                            className="flex-1 active:opacity-70"
+                            style={({ pressed }) => [
+                              styles.mentionBody,
+                              pressed && styles.pressed70,
+                            ]}
                           >
-                            <Text className="text-sm text-foreground dark:text-dark-text">
+                            <Text style={[styles.bodyText, inkText]}>
                               {m.title}
                             </Text>
                             {m.excerpt !== '' && (
                               <Text
-                                className="text-xs text-muted-foreground dark:text-dark-muted"
+                                style={[styles.caption, mutedText]}
                                 numberOfLines={1}
                               >
                                 {m.excerpt}
@@ -634,10 +647,13 @@ export default function BrainScreen() {
                             disabled={link.isPending}
                             accessibilityRole="button"
                             accessibilityLabel={`${m.title} ni bog'lash`}
-                            className="rounded-md px-3 py-1.5 active:opacity-70"
-                            style={{ backgroundColor: 'rgba(96,165,250,0.18)' }}
+                            style={({ pressed }) => [
+                              styles.smallButton,
+                              styles.accentFillStrong,
+                              pressed && styles.pressed70,
+                            ]}
                           >
-                            <Text className="text-xs text-neon-blue">Bog'lash</Text>
+                            <Text style={styles.smallLinkText}>Bog'lash</Text>
                           </Pressable>
                         </View>
                       ))}
@@ -650,27 +666,25 @@ export default function BrainScreen() {
                     value={title}
                     onChangeText={setTitle}
                     placeholder="Sarlavha"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={PLACEHOLDER}
                     maxLength={120}
                     accessibilityLabel="Qayd sarlavhasi"
-                    className="text-lg font-bold text-foreground dark:text-dark-text rounded-md px-4 py-3"
-                    style={{ backgroundColor: cardBg }}
+                    style={[styles.titleInput, inkText, { backgroundColor: cardBg }]}
                   />
                   <TextInput
                     value={body}
                     onChangeText={setBody}
                     placeholder={"Yozishni boshla…\n\n# Sarlavha\n- ro'yxat\n**qalin**  *qiya*\n[[boshqa qayd]]  #teg"}
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={PLACEHOLDER}
                     multiline
                     textAlignVertical="top"
                     maxLength={20000}
                     accessibilityLabel="Qayd matni"
-                    className="text-base text-foreground dark:text-dark-text rounded-md px-4 py-3"
-                    style={{ backgroundColor: cardBg, minHeight: 220 }}
+                    style={[styles.bodyInput, inkText, { backgroundColor: cardBg }]}
                   />
 
-                  <View className="flex-row justify-end">
-                    <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                  <View style={styles.countRow}>
+                    <Text style={[styles.caption, mutedText]}>
                       {words} so'z · {body.length} belgi
                     </Text>
                   </View>
@@ -678,24 +692,30 @@ export default function BrainScreen() {
                   {/* A child will not discover "[[" on their own, and a note
                       that links to nothing leaves the map a field of loose
                       dots. These two buttons are how the graph gets built. */}
-                  <View className="flex-row gap-2">
+                  <View style={styles.actionRow}>
                     <Pressable
                       onPress={() => setBody((p) => `${p}[[`)}
                       accessibilityRole="button"
                       accessibilityLabel="Boshqa qaydga bog'lash"
-                      className="flex-1 rounded-md items-center justify-center active:opacity-70"
-                      style={{ height: 42, backgroundColor: 'rgba(96,165,250,0.15)' }}
+                      style={({ pressed }) => [
+                        styles.wideButton,
+                        styles.accentFill,
+                        pressed && styles.pressed70,
+                      ]}
                     >
-                      <Text className="text-sm text-neon-blue">🔗 Qaydga bog'lash</Text>
+                      <Text style={styles.buttonLinkText}>🔗 Qaydga bog'lash</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => setBody((p) => `${p}${p.endsWith(' ') || p === '' ? '' : ' '}#`)}
                       accessibilityRole="button"
                       accessibilityLabel="Teg qo'shish"
-                      className="flex-1 rounded-md items-center justify-center active:opacity-70"
-                      style={{ height: 42, backgroundColor: 'rgba(253,199,0,0.15)' }}
+                      style={({ pressed }) => [
+                        styles.wideButton,
+                        styles.tagFill,
+                        pressed && styles.pressed70,
+                      ]}
                     >
-                      <Text className="text-sm" style={{ color: '#FDC700' }}>
+                      <Text style={styles.buttonTagText}>
                         # Teg qo'shish
                       </Text>
                     </Pressable>
@@ -709,36 +729,35 @@ export default function BrainScreen() {
                       — otherwise adding a tag looks like it broke the
                       feature. */}
                   {hasTag ? (
-                    <View
-                      className="rounded-md px-3 py-2"
-                      style={{ backgroundColor: 'rgba(253,199,0,0.10)' }}
-                    >
-                      <Text className="text-xs" style={{ color: '#FDC700' }}>
+                    <View style={styles.tagNotice}>
+                      <Text style={styles.tagNoticeText}>
                         Rangni #teg belgilaydi — bir xil tegli qaydlar xaritada
                         bir rangda turadi.
                       </Text>
                     </View>
                   ) : (
-                    <View className="gap-2">
-                      <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                    <View style={styles.colourBlock}>
+                      <Text style={[styles.caption, mutedText]}>
                         Xaritadagi rangi
                       </Text>
-                      <View className="flex-row flex-wrap gap-2">
+                      <View style={styles.swatchRow}>
                         <Pressable
                           onPress={() => setColour(null)}
                           accessibilityRole="button"
                           accessibilityLabel="Rang: avtomatik"
                           accessibilityState={{ selected: colour === null }}
-                          className="rounded-full items-center justify-center active:opacity-70"
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderWidth: colour === null ? 2 : 1,
-                            borderColor: colour === null ? '#E0E7FF' : 'rgba(150,180,255,0.35)',
-                            backgroundColor: UNTAGGED,
-                          }}
+                          style={({ pressed }) => [
+                            styles.swatch,
+                            styles.focusable,
+                            {
+                              borderWidth: colour === null ? 2 : 1,
+                              borderColor: colour === null ? '#E0E7FF' : 'rgba(150,180,255,0.35)',
+                              backgroundColor: UNTAGGED,
+                            },
+                            pressed && styles.pressed70,
+                          ]}
                         >
-                          <Text style={{ fontSize: 11, color: '#0B1020' }}>A</Text>
+                          <Text style={styles.swatchAutoText}>A</Text>
                         </Pressable>
                         {PALETTE.map((c) => (
                           <Pressable
@@ -747,14 +766,16 @@ export default function BrainScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={`Rang ${c}`}
                             accessibilityState={{ selected: colour === c }}
-                            className="rounded-full active:opacity-70"
-                            style={{
-                              width: 34,
-                              height: 34,
-                              backgroundColor: c,
-                              borderWidth: colour === c ? 3 : 0,
-                              borderColor: '#FFFFFF',
-                            }}
+                            style={({ pressed }) => [
+                              styles.swatch,
+                              styles.focusable,
+                              {
+                                backgroundColor: c,
+                                borderWidth: colour === c ? 3 : 0,
+                                borderColor: '#FFFFFF',
+                              },
+                              pressed && styles.pressed70,
+                            ]}
                           />
                         ))}
                       </View>
@@ -765,7 +786,7 @@ export default function BrainScreen() {
                       retyping it, and keeps #kosmos from becoming #kosmoss. */}
                   {!!tags.data?.length && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View className="flex-row gap-2">
+                      <View style={styles.chipRow}>
                         {tags.data.slice(0, 12).map((t) => (
                           <Pressable
                             key={t}
@@ -776,10 +797,13 @@ export default function BrainScreen() {
                             }
                             accessibilityRole="button"
                             accessibilityLabel={`#${t} tegini qo'shish`}
-                            className="rounded-full px-3 py-1.5 active:opacity-70"
-                            style={{ backgroundColor: 'rgba(253,199,0,0.12)' }}
+                            style={({ pressed }) => [
+                              styles.tagChip,
+                              styles.focusable,
+                              pressed && styles.pressed70,
+                            ]}
                           >
-                            <Text className="text-xs" style={{ color: '#FDC700' }}>
+                            <Text style={styles.tagChipText}>
                               #{t}
                             </Text>
                           </Pressable>
@@ -789,16 +813,19 @@ export default function BrainScreen() {
                   )}
 
                   {suggestions.length > 0 && (
-                    <View className="rounded-md" style={{ backgroundColor: cardBg, padding: 6 }}>
+                    <View style={[styles.suggestions, { backgroundColor: cardBg }]}>
                       {suggestions.map((s) => (
                         <Pressable
                           key={s.id}
                           onPress={() => completeLink(s.title)}
                           accessibilityRole="button"
                           accessibilityLabel={`${s.title} ga bog'lash`}
-                          className="px-3 py-2 active:opacity-70"
+                          style={({ pressed }) => [
+                            styles.suggestionRow,
+                            pressed && styles.pressed70,
+                          ]}
                         >
-                          <Text className="text-sm text-neon-blue">[[{s.title}]]</Text>
+                          <Text style={styles.linkText}>[[{s.title}]]</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -809,17 +836,14 @@ export default function BrainScreen() {
                     disabled={!title.trim() || save.isPending}
                     accessibilityRole="button"
                     accessibilityLabel="Saqlash"
-                    className={`rounded-md items-center justify-center ${
-                      title.trim() ? 'bg-neon-blue' : 'bg-neon-blue/40'
-                    }`}
-                    style={{ height: 52 }}
+                    style={[styles.save, title.trim() ? styles.saveOn : styles.saveOff]}
                   >
-                    <Text className="text-base font-medium" style={{ color: '#0A1628' }}>
+                    <Text style={styles.saveText}>
                       {save.isPending ? 'Saqlanmoqda…' : 'Saqlash'}
                     </Text>
                   </Pressable>
                   {save.isError && (
-                    <Text className="text-sm text-neon-pink text-center">
+                    <Text style={styles.error}>
                       Saqlab bo'lmadi — bu nomli qayd allaqachon bormi?
                     </Text>
                   )}
@@ -831,10 +855,10 @@ export default function BrainScreen() {
                Search, tags and the note list float over it or slide up from
                the bottom, so the graph is never a thumbnail in a card with
                the real content underneath it. */
-            <View className="flex-1">
+            <View style={styles.fill}>
               {graph.isLoading ? (
-                <View className="flex-1 items-center justify-center">
-                  <ActivityIndicator color="#60A5FA" />
+                <View style={styles.center}>
+                  <ActivityIndicator color={ACCENT} />
                 </View>
               ) : (
                 <NoteGraph
@@ -845,24 +869,18 @@ export default function BrainScreen() {
               )}
 
               {/* Floating chrome, pinned to the top of the map. */}
-              <View
-                className="absolute left-0 right-0 top-0"
-                style={{ paddingHorizontal: 16, paddingTop: 4, gap: 8, pointerEvents: 'box-none' }}
-              >
+              <View style={styles.mapChrome}>
                 {searchOpen && (
-                  <View
-                    className="flex-row items-center rounded-md gap-2 border border-neon-blue/20"
-                    style={{ backgroundColor: cardBg, paddingHorizontal: 14, height: 42 }}
-                  >
-                    <Search size={17} color="#94A3B8" />
+                  <View style={[styles.mapSearch, { backgroundColor: cardBg }]}>
+                    <Search size={17} color={PLACEHOLDER} />
                     <TextInput
                       value={query}
                       onChangeText={setQuery}
                       placeholder="Qaydlardan qidirish…"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={PLACEHOLDER}
                       accessibilityLabel="Qaydlardan qidirish"
                       autoFocus
-                      className="flex-1 text-base text-foreground dark:text-dark-text"
+                      style={[styles.mapSearchInput, inkText]}
                     />
                   </View>
                 )}
@@ -878,7 +896,7 @@ export default function BrainScreen() {
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+                    contentContainerStyle={styles.clusterStrip}
                   >
                     {/* Each chip wears its tag's own colour — the same one that
                         tag's star and everything filed under it carries on the
@@ -902,11 +920,8 @@ export default function BrainScreen() {
                 )}
 
                 {renaming !== null && (
-                  <View
-                    className="rounded-md border border-neon-yellow/40 flex-row items-center gap-2"
-                    style={{ padding: 8, backgroundColor: cardBg }}
-                  >
-                    <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                  <View style={[styles.renameBar, { backgroundColor: cardBg }]}>
+                    <Text style={[styles.caption, mutedText]}>
                       #{renaming} →
                     </Text>
                     <TextInput
@@ -915,25 +930,31 @@ export default function BrainScreen() {
                       autoFocus
                       maxLength={40}
                       accessibilityLabel="Tegning yangi nomi"
-                      className="flex-1 text-sm text-foreground dark:text-dark-text px-2 py-1"
+                      style={[styles.renameInput, inkText]}
                     />
                     <Pressable
                       onPress={() => renameTo.trim() && rename.mutate()}
                       disabled={!renameTo.trim() || rename.isPending}
                       accessibilityRole="button"
                       accessibilityLabel="Tegni qayta nomlash"
-                      className="rounded-md px-3 py-1.5 active:opacity-70"
-                      style={{ backgroundColor: 'rgba(253,199,0,0.2)' }}
+                      style={({ pressed }) => [
+                        styles.smallButton,
+                        styles.yellowFillStrong,
+                        pressed && styles.pressed70,
+                      ]}
                     >
-                      <Text className="text-xs" style={{ color: '#FDC700' }}>Saqlash</Text>
+                      <Text style={styles.smallTagText}>Saqlash</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => setRenaming(null)}
                       accessibilityRole="button"
                       accessibilityLabel="Bekor qilish"
-                      className="px-2 py-1.5 active:opacity-70"
+                      style={({ pressed }) => [
+                        styles.glyphButton,
+                        pressed && styles.pressed70,
+                      ]}
                     >
-                      <Text className="text-xs text-muted-foreground dark:text-dark-muted">✕</Text>
+                      <Text style={[styles.caption, mutedText]}>✕</Text>
                     </Pressable>
                   </View>
                 )}
@@ -943,15 +964,16 @@ export default function BrainScreen() {
                   reading the shape of everything. */}
               {query.trim() !== '' && (
                 <View
-                  className="absolute left-0 right-0"
-                  style={{
-                    top: 58,
-                    bottom: navClearance,
-                    backgroundColor: isDark ? '#070B1A' : '#F4F8FF',
-                  }}
+                  style={[
+                    styles.resultsSheet,
+                    {
+                      bottom: navClearance,
+                      backgroundColor: isDark ? '#070B1A' : '#F4F8FF',
+                    },
+                  ]}
                 >
-                  <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 8, gap: 8 }}>
-                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                  <ScrollView contentContainerStyle={styles.resultsContent}>
+                    <Text style={[styles.sheetTitle, inkText]}>
                       Topildi ({results.data?.length ?? 0})
                     </Text>
                     {results.data?.map((r) => (
@@ -963,19 +985,22 @@ export default function BrainScreen() {
                         }}
                         accessibilityRole="button"
                         accessibilityLabel={r.title}
-                        className="rounded-md border border-neon-blue/20 active:opacity-80"
-                        style={{ padding: 14, backgroundColor: cardBg }}
+                        style={({ pressed }) => [
+                          styles.resultRow,
+                          { backgroundColor: cardBg },
+                          pressed && styles.pressed80,
+                        ]}
                       >
-                        <Text className="text-base text-foreground dark:text-dark-text">{r.title}</Text>
+                        <Text style={[styles.resultTitle, inkText]}>{r.title}</Text>
                         {r.excerpt !== '' && (
-                          <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1" numberOfLines={2}>
+                          <Text style={[styles.caption, styles.resultExcerpt, mutedText]} numberOfLines={2}>
                             {r.excerpt}
                           </Text>
                         )}
                       </Pressable>
                     ))}
                     {results.data?.length === 0 && (
-                      <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+                      <Text style={[styles.bodyText, mutedText]}>
                         Hech narsa topilmadi.
                       </Text>
                     )}
@@ -989,17 +1014,15 @@ export default function BrainScreen() {
                   onPress={() => setListOpen(true)}
                   accessibilityRole="button"
                   accessibilityLabel="Qaydlar ro'yxati"
-                  className="absolute rounded-full flex-row items-center gap-2 active:opacity-80"
-                  style={{
-                    right: 16,
-                    bottom: navClearance + 8,
-                    paddingHorizontal: 16,
-                    paddingVertical: 11,
-                    backgroundColor: 'rgba(96,165,250,0.92)',
-                  }}
+                  style={({ pressed }) => [
+                    styles.listFab,
+                    styles.focusable,
+                    { bottom: navClearance + 8 },
+                    pressed && styles.pressed80,
+                  ]}
                 >
-                  <List size={16} color="#0A1628" />
-                  <Text className="text-sm font-medium" style={{ color: '#0A1628' }}>
+                  <List size={16} color={ON_ACCENT} />
+                  <Text style={styles.listFabText}>
                     {notes.data.length}
                   </Text>
                 </Pressable>
@@ -1007,14 +1030,16 @@ export default function BrainScreen() {
 
               {listOpen && query.trim() === '' && (
                 <View
-                  className="absolute left-0 right-0 rounded-t-2xl border-t border-neon-blue/20"
-                  style={{ bottom: navClearance, maxHeight: '62%', backgroundColor: cardBg }}
+                  style={[
+                    styles.listSheet,
+                    { bottom: navClearance, backgroundColor: cardBg },
+                  ]}
                 >
-                  <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
-                    <Text className="text-base font-bold text-foreground dark:text-dark-text">
+                  <View style={styles.listHeader}>
+                    <Text style={[styles.sheetTitle, inkText]}>
                       {activeTag ? `#${activeTag}` : 'Qaydlar'} ({notes.data?.length ?? 0})
                     </Text>
-                    <View className="flex-row items-center gap-2">
+                    <View style={styles.listHeaderActions}>
                       <Pressable
                         onPress={() =>
                           setSort((prev) =>
@@ -1023,22 +1048,28 @@ export default function BrainScreen() {
                         }
                         accessibilityRole="button"
                         accessibilityLabel={`Tartib: ${SORT_LABEL[sort]}`}
-                        className="rounded-md px-3 py-1.5 active:opacity-70"
-                        style={{ backgroundColor: 'rgba(96,165,250,0.12)' }}
+                        style={({ pressed }) => [
+                          styles.smallButton,
+                          styles.accentFillSoft,
+                          pressed && styles.pressed70,
+                        ]}
                       >
-                        <Text className="text-xs text-neon-blue">⇅ {SORT_LABEL[sort]}</Text>
+                        <Text style={styles.smallLinkText}>⇅ {SORT_LABEL[sort]}</Text>
                       </Pressable>
                       <Pressable
                         onPress={() => setListOpen(false)}
                         accessibilityRole="button"
                         accessibilityLabel="Ro'yxatni yopish"
-                        className="px-2 py-1.5 active:opacity-70"
+                        style={({ pressed }) => [
+                          styles.glyphButton,
+                          pressed && styles.pressed70,
+                        ]}
                       >
-                        <Text className="text-sm text-muted-foreground dark:text-dark-muted">✕</Text>
+                        <Text style={[styles.bodyText, mutedText]}>✕</Text>
                       </Pressable>
                     </View>
                   </View>
-                  <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 8 }}>
+                  <ScrollView contentContainerStyle={styles.listContent}>
                     {notes.data?.map((n) => (
                       <Pressable
                         key={n.id}
@@ -1048,10 +1079,12 @@ export default function BrainScreen() {
                         }}
                         accessibilityRole="button"
                         accessibilityLabel={n.title}
-                        className="rounded-md border border-neon-blue/20 active:opacity-80"
-                        style={{ padding: 14 }}
+                        style={({ pressed }) => [
+                          styles.listRow,
+                          pressed && styles.pressed80,
+                        ]}
                       >
-                        <Text className="text-base text-foreground dark:text-dark-text">
+                        <Text style={[styles.resultTitle, inkText]}>
                           {n.title}
                         </Text>
                       </Pressable>
@@ -1071,26 +1104,20 @@ export default function BrainScreen() {
           onPress={() => setPeek(null)}
           accessibilityRole="button"
           accessibilityLabel="Ko'rinishni yopish"
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: 'rgba(4,10,22,0.6)', justifyContent: 'center', padding: 24 },
-          ]}
+          style={[StyleSheet.absoluteFill, styles.peekBackdrop]}
         >
-          <View
-            className="rounded-xl border border-neon-blue/25"
-            style={{ padding: 18, backgroundColor: cardBg, maxHeight: 380 }}
-          >
-            <Text className="text-base font-bold text-foreground dark:text-dark-text mb-2">
+          <View style={[styles.peekCard, { backgroundColor: cardBg }]}>
+            <Text style={[styles.peekTitle, inkText]}>
               {peek}
             </Text>
             {peeked.isLoading ? (
-              <ActivityIndicator color="#60A5FA" />
+              <ActivityIndicator color={ACCENT} />
             ) : peeked.data ? (
               <ScrollView>
                 <MarkdownNote body={peeked.data.body} existing={existing} />
               </ScrollView>
             ) : (
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+              <Text style={[styles.bodyText, mutedText]}>
                 Bu qayd hali yozilmagan.
               </Text>
             )}
@@ -1102,10 +1129,9 @@ export default function BrainScreen() {
               }}
               accessibilityRole="button"
               accessibilityLabel="Qaydni ochish"
-              className="rounded-md items-center justify-center mt-3 active:opacity-70"
-              style={{ height: 42, backgroundColor: 'rgba(96,165,250,0.18)' }}
+              style={({ pressed }) => [styles.peekOpen, pressed && styles.pressed70]}
             >
-              <Text className="text-sm text-neon-blue">Ochish</Text>
+              <Text style={styles.linkText}>Ochish</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -1137,14 +1163,357 @@ function MapButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: on }}
-      className="w-10 h-10 items-center justify-center rounded-xl active:opacity-70"
-      style={{
-        borderWidth: 1,
-        borderColor: on ? '#60A5FA' : 'rgba(150, 180, 255, 0.22)',
-        backgroundColor: on ? 'rgba(96, 165, 250, 0.18)' : 'rgba(11, 16, 32, 0.55)',
-      }}
+      style={({ pressed }) => [
+        styles.mapButton,
+        styles.focusable,
+        {
+          borderColor: on ? ACCENT : 'rgba(150, 180, 255, 0.22)',
+          backgroundColor: on ? 'rgba(96, 165, 250, 0.18)' : 'rgba(11, 16, 32, 0.55)',
+        },
+        pressed && styles.pressed70,
+      ]}
     >
-      <Icon size={18} color={on ? '#60A5FA' : '#DCE6FA'} />
+      <Icon size={18} color={on ? ACCENT : SKY_INK_SOFT} />
     </Pressable>
   );
 }
+
+// Depth comes from `raised()` — lib/glass.ts's ladder — never from a shadow
+// written here. Over the sky it is applied to the screen's own dark surfaces
+// rather than through `glass()`, whose white fill is built for the light page
+// and would fog the stars a floating pane is supposed to sit in front of.
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  pressed70: { opacity: 0.7 },
+  pressed80: { opacity: 0.8 },
+
+  // ── Headers ────────────────────────────────────────────────────────────
+  mapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  mapWordmark: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '700',
+    color: SKY_INK,
+    letterSpacing: 4,
+  },
+  homeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  homeWordmark: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 25,
+    fontWeight: '700',
+    color: GLASS.blue,
+    letterSpacing: 7,
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 12,
+    right: 13,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: GLASS.blue,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  noteHeaderTitle: { flex: 1, fontSize: 20, lineHeight: 28, fontWeight: '700' },
+  noteHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  iconButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewToggle: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: ACCENT_WASH,
+  },
+
+  // ── Type ───────────────────────────────────────────────────────────────
+  bodyText: { fontSize: 14, lineHeight: 20 },
+  caption: { fontSize: 12, lineHeight: 16 },
+  cardTitle: { fontSize: 14, lineHeight: 20, fontWeight: '700', marginBottom: 8 },
+  cardTitleTight: { marginBottom: 4 },
+  cardNote: { marginBottom: 12 },
+  linkText: { fontSize: 14, lineHeight: 20, color: ACCENT },
+  smallLinkText: { fontSize: 12, lineHeight: 16, color: ACCENT },
+  smallTagText: { fontSize: 12, lineHeight: 16, color: YELLOW },
+
+  // ── The note, read ─────────────────────────────────────────────────────
+  card: { borderRadius: 20, padding: 16, ...raised('md') },
+  backlinkRow: { paddingVertical: 8 },
+  mentionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  mentionBody: { flex: 1 },
+  // A labelled button, so the 32pt floor comes from minHeight rather than
+  // from the 6pt padding the class used to give it.
+  smallButton: {
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accentFill: { backgroundColor: ACCENT_WASH },
+  accentFillSoft: { backgroundColor: 'rgba(96,165,250,0.12)' },
+  accentFillStrong: { backgroundColor: ACCENT_WASH_STRONG },
+  tagFill: { backgroundColor: 'rgba(253,199,0,0.15)' },
+  yellowFillStrong: { backgroundColor: 'rgba(253,199,0,0.20)' },
+
+  // ── The note, written ──────────────────────────────────────────────────
+  titleInput: {
+    fontSize: 18,
+    fontWeight: '700',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  bodyInput: {
+    fontSize: 16,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 220,
+  },
+  countRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  actionRow: { flexDirection: 'row', gap: 8 },
+  wideButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLinkText: { fontSize: 14, lineHeight: 20, color: ACCENT },
+  buttonTagText: { fontSize: 14, lineHeight: 20, color: YELLOW },
+
+  tagNotice: {
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(253,199,0,0.10)',
+  },
+  tagNoticeText: { fontSize: 12, lineHeight: 16, color: YELLOW },
+
+  colourBlock: { gap: 8 },
+  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  swatch: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swatchAutoText: { fontSize: 11, color: '#0B1020' },
+
+  chipRow: { flexDirection: 'row', gap: 8 },
+  tagChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(253,199,0,0.12)',
+  },
+  tagChipText: { fontSize: 12, lineHeight: 16, color: YELLOW },
+
+  suggestions: { borderRadius: 14, padding: 6, ...raised('sm') },
+  suggestionRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+
+  save: {
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Only the live button is lifted; a button that cannot be pressed has no
+  // business floating off the page.
+  saveOn: { backgroundColor: ACCENT, ...raised('md') },
+  saveOff: { backgroundColor: 'rgba(96,165,250,0.40)' },
+  saveText: { fontSize: 16, lineHeight: 24, fontWeight: '500', color: ON_ACCENT },
+  error: { fontSize: 14, lineHeight: 20, color: PINK, textAlign: 'center' },
+
+  // ── Chrome floating over the map ───────────────────────────────────────
+  mapChrome: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    gap: 8,
+    pointerEvents: 'box-none',
+  },
+  mapSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 42,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: ACCENT_LINE,
+    ...raised('md'),
+  },
+  // paddingVertical 0: a web <input> brings its own and would push the bar
+  // past the 42pt the map's chrome is measured on.
+  mapSearchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
+  clusterStrip: { gap: 8, paddingRight: 16 },
+  renameBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(253,199,0,0.40)',
+    ...raised('md'),
+  },
+  renameInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  // A glyph is not an icon component, so it carries no size of its own —
+  // without this the ✕ was a 19pt target.
+  glyphButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Search results, over the map ───────────────────────────────────────
+  resultsSheet: { position: 'absolute', left: 0, right: 0, top: 58 },
+  resultsContent: { padding: 16, paddingTop: 8, gap: 8 },
+  sheetTitle: { fontSize: 16, lineHeight: 24, fontWeight: '700' },
+  // Rows drawn ON another surface: edges only, no drop. A pane that casts a
+  // shadow onto the pane it belongs to is what makes glass look stacked.
+  resultRow: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: ACCENT_LINE,
+    ...raised('flush'),
+  },
+  resultTitle: { fontSize: 16, lineHeight: 24 },
+  resultExcerpt: { marginTop: 4 },
+
+  // ── The note list ──────────────────────────────────────────────────────
+  listFab: {
+    position: 'absolute',
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    backgroundColor: 'rgba(96,165,250,0.92)',
+    ...raised('xl'),
+  },
+  listFabText: { fontSize: 14, lineHeight: 20, fontWeight: '500', color: ON_ACCENT },
+  listSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    maxHeight: '62%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderTopColor: ACCENT_LINE,
+    ...raised('xl'),
+  },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  listHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  listContent: { padding: 16, paddingTop: 4, gap: 8 },
+  listRow: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: ACCENT_LINE,
+    ...raised('flush'),
+  },
+
+  // ── The press-and-hold preview ─────────────────────────────────────────
+  peekBackdrop: {
+    backgroundColor: 'rgba(4,10,22,0.6)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  peekCard: {
+    padding: 18,
+    maxHeight: 380,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.25)',
+    ...raised('xl'),
+  },
+  peekTitle: { fontSize: 16, lineHeight: 24, fontWeight: '700', marginBottom: 8 },
+  peekOpen: {
+    height: 42,
+    marginTop: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ACCENT_WASH_STRONG,
+  },
+
+  // ── The map's own header controls ──────────────────────────────────────
+  // radius 20 on a 40pt box is a circle, which is why it takes `focusable`.
+  mapButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+});

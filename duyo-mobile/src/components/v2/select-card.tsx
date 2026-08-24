@@ -1,43 +1,53 @@
 import type { ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
-interface SelectCardProps {
-  selected: boolean;
-  onPress: () => void;
-  children: ReactNode;
-  accessibilityLabel?: string;
-}
+import { glass } from '@/lib/glass';
+
+const PRIMARY = '#2F6FE4';
 
 export function SelectCard({
   selected,
   onPress,
   children,
   accessibilityLabel,
-}: SelectCardProps) {
+}: {
+  selected: boolean;
+  onPress: () => void;
+  children: ReactNode;
+  accessibilityLabel?: string;
+}) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       accessibilityLabel={accessibilityLabel}
-      style={
-        selected
-          ? {
-              shadowColor: '#000',
-              shadowOpacity: 0.1,
-              shadowRadius: 15,
-              shadowOffset: { width: 0, height: 10 },
-              elevation: 4,
-            }
-          : undefined
-      }
-      className={`w-full rounded-xl px-[26px] py-[26px] flex-row items-center ${
-        selected
-          ? 'bg-primary/[0.05] border-2 border-primary'
-          : 'bg-white border border-primary/10'
-      }`}
+      style={[styles.card, selected ? styles.on : styles.off, styles.focusable]}
     >
-      <View className="flex-row items-center gap-4">{children}</View>
+      <View style={styles.row}>{children}</View>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  card: {
+    width: '100%',
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // Chosen means nearer: 'lg' against the unchosen 'sm'. The old version said
+  // the same thing with a single grey `shadowColor` drop, which Android could
+  // not colour and iOS could only draw once.
+  off: glass(22, 'sm'),
+  on: {
+    ...glass(22, 'lg', 0.8),
+    borderWidth: 2,
+    borderColor: PRIMARY,
+  },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+});

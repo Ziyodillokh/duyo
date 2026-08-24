@@ -1,4 +1,3 @@
-import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
@@ -16,11 +15,23 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
 import { useT } from '@/i18n';
+import { glass } from '@/lib/glass';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 interface PrivacyAction {
   key: string;
@@ -33,7 +44,6 @@ interface PrivacyAction {
 
 export default function PrivacySettingsScreen() {
   const t = useT();
-  const isDark = useIsDark();
   const handleExport = () => {
     Alert.alert(
       t('settings.privacyScreen.exportLabel'),
@@ -111,43 +121,42 @@ export default function PrivacySettingsScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: 48pt glass round, the inner-screen pattern ─────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-            {t('settings.privacy')}
-          </Text>
+          <Text style={styles.title}>{t('settings.privacy')}</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
         >
-          <View
-            className="rounded-xl border border-neon-blue/20"
-            style={{ padding: 16 }}
-          >
-            <View className="flex-row items-center gap-2 mb-2">
-              <FileText size={18} color="#60A5FA" />
-              <Text className="text-base font-medium text-foreground dark:text-dark-text">
+          {/* The policy is what the screen leads with, so it is the one pane
+              held highest off the page. */}
+          <View style={[glass(24, 'lg', 0.62), styles.policy]}>
+            <View style={styles.policyHead}>
+              <FileText size={18} color={PRIMARY} strokeWidth={2} />
+              <Text style={styles.policyTitle}>
                 {t('settings.privacyScreen.policyTitle')}
               </Text>
             </View>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted leading-5 mb-3">
+            <Text style={styles.policyBody}>
               {t('settings.privacyScreen.policyBody')}
             </Text>
             <Pressable
@@ -159,17 +168,22 @@ export default function PrivacySettingsScreen() {
               }
               accessibilityRole="link"
               accessibilityLabel={t('settings.privacyScreen.readFullA11y')}
-              className="flex-row items-center gap-1 active:opacity-80"
+              style={({ pressed }) => [
+                glass(15, 'sm', 0.7),
+                styles.readFull,
+                styles.focusable,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text className="text-sm font-medium text-neon-blue">
+              <Text style={styles.readFullText}>
                 {t('settings.privacyScreen.readFull')}
               </Text>
-              <ExternalLink size={14} color="#60A5FA" />
+              <ExternalLink size={14} color={PRIMARY} strokeWidth={2.2} />
             </Pressable>
           </View>
 
-          <View className="gap-3">
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
               {t('settings.privacyScreen.dataSection')}
             </Text>
             {ACTIONS.map((a) => (
@@ -178,37 +192,37 @@ export default function PrivacySettingsScreen() {
                 onPress={a.onPress}
                 accessibilityRole="button"
                 accessibilityLabel={a.label}
-                className="rounded-xl bg-card dark:bg-dark-surface border border-neon-blue/20 active:opacity-80"
-                style={{ padding: 16 }}
+                style={({ pressed }) => [
+                  glass(20, 'md'),
+                  styles.action,
+                  pressed && styles.pressed,
+                ]}
               >
-                <View className="flex-row items-center gap-3">
+                <View style={styles.actionRow}>
                   <View
-                    className="w-10 h-10 items-center justify-center rounded-md"
-                    style={{
-                      backgroundColor: a.destructive
-                        ? 'rgba(251, 100, 182, 0.10)'
-                        : 'rgba(96, 165, 250, 0.10)',
-                    }}
+                    style={[
+                      styles.iconWell,
+                      a.destructive && styles.iconWellDanger,
+                    ]}
                   >
                     <a.Icon
                       size={18}
-                      color={a.destructive ? '#FB64B6' : '#60A5FA'}
+                      color={a.destructive ? DANGER : PRIMARY}
+                      strokeWidth={2}
                     />
                   </View>
-                  <View className="flex-1">
+                  <View style={styles.actionBody}>
                     <Text
-                      className="text-base font-medium"
-                      style={{
-                        color: a.destructive ? '#FB64B6' : '#E0E7FF',
-                      }}
+                      style={[
+                        styles.actionLabel,
+                        a.destructive && styles.actionLabelDanger,
+                      ]}
                     >
                       {a.label}
                     </Text>
-                    <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
-                      {a.description}
-                    </Text>
+                    <Text style={styles.actionDesc}>{a.description}</Text>
                   </View>
-                  <ChevronRight size={18} color="#94A3B8" />
+                  <ChevronRight size={18} color={MUTED} strokeWidth={2.2} />
                 </View>
               </Pressable>
             ))}
@@ -218,3 +232,106 @@ export default function PrivacySettingsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 48,
+    gap: 18,
+  },
+  pressed: { opacity: 0.8 },
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  policy: { padding: 18 },
+  policyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  policyTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: INK,
+  },
+  policyBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: MUTED,
+    marginBottom: 14,
+  },
+  readFull: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  readFullText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
+
+  section: { gap: 10 },
+  sectionTitle: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: MUTED,
+  },
+
+  action: { padding: 16 },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  iconWellDanger: { backgroundColor: 'rgba(224,69,94,0.10)' },
+  actionBody: { flex: 1, gap: 2 },
+  actionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+  },
+  actionLabelDanger: { color: DANGER },
+  actionDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: MUTED,
+  },
+});

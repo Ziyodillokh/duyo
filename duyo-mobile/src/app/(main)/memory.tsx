@@ -1,4 +1,3 @@
-import { useIsDark } from '@/store/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
@@ -19,10 +18,12 @@ import {
   Share,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { glass } from '@/lib/glass';
 import {
   MEMORY_CATEGORY_COLOURS,
   MEMORY_CATEGORY_ICONS,
@@ -40,6 +41,26 @@ import { describeGuardReasons, screenMemoryContent } from '@/lib/memory-guard';
 import { useChildStore } from '@/store/child';
 import { MemoryGuardError, useMemoryStore } from '@/store/memory';
 
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue. The
+// screen commits to the light look the way its siblings do.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const GREEN = '#22B573';
+const PLACEHOLDER = '#7693C2';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+
+/* The category accents (lib/memory-categories.ts) were picked to glow on a
+   navy page: on white glass, #05DF72 label text sits under 2:1 contrast. The
+   colour coding therefore moves onto the shapes — the card's left rail, the
+   icon, the chip's dot and tint — and every LABEL is read in ink. The list
+   stays scannable by colour and stays readable. */
+
 type CategoryFilter = 'all' | MemoryCategory;
 
 /** Shared Uzbek explanation for a Guard rejection, from either write path. */
@@ -52,7 +73,6 @@ function alertGuardBlocked(reasons: readonly string[]) {
 }
 
 export default function MemoryScreen() {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const items = useMemoryStore((s) => s.items);
   const counts = useMemoryStore((s) => s.counts);
@@ -168,69 +188,64 @@ export default function MemoryScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+        {/* ── Header: the inner-screen glass pattern ─────────────────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text flex-1">
-            Mening Xotiram
-          </Text>
+          <Text style={styles.title}>Mening Xotiram</Text>
           <Pressable
             onPress={() => setShowAdd((v) => !v)}
             accessibilityRole="button"
             accessibilityLabel="Qo'lda xotira qo'shish"
-            className="w-10 h-10 items-center justify-center rounded-md bg-neon-blue/15"
+            style={[
+              glass(22, 'sm'),
+              styles.headerButton,
+              showAdd && styles.headerButtonOn,
+              styles.focusable,
+            ]}
           >
             {showAdd ? (
-              <X size={18} color="#60A5FA" />
+              <X size={20} color={PRIMARY} strokeWidth={2.2} />
             ) : (
-              <Plus size={18} color="#60A5FA" />
+              <Plus size={20} color={PRIMARY} strokeWidth={2.2} />
             )}
           </Pressable>
         </View>
 
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted -mt-2">
+          <Text style={styles.note}>
             Bu ma'lumotlar faqat shu qurilmada, shifrlangan holda saqlanadi.
             Ular hech qachon serverga doimiy saqlash uchun yuborilmaydi.
           </Text>
 
-          {undecryptable > 0 && (
-            <View
-              className="rounded-xl border"
-              style={{
-                padding: 14,
-                borderColor: 'rgba(251, 100, 182, 0.4)',
-                backgroundColor: 'rgba(251, 100, 182, 0.08)',
-              }}
-            >
-              <Text className="text-sm" style={{ color: '#FB64B6' }}>
+          {undecryptable > 0 ? (
+            <View style={[glass(20, 'md'), styles.warning]}>
+              <Text style={styles.warningText}>
                 {undecryptable} ta yozuvni ochib bo'lmadi. Ular shu qurilmada
                 boshqa kalit bilan shifrlangan bo'lishi mumkin (masalan ilova
                 qayta o'rnatilgandan keyin). Ularni tiklab bo'lmaydi —
                 "Barcha xotiralarni o'chirish" orqali tozalash mumkin.
               </Text>
             </View>
-          )}
+          ) : null}
 
-          {showAdd && child && (
+          {showAdd && child ? (
             <AddMemoryForm
               onCancel={() => setShowAdd(false)}
               onSave={async (category, content) => {
@@ -245,25 +260,22 @@ export default function MemoryScreen() {
                 }
               }}
             />
-          )}
+          ) : null}
 
-          <View
-            className="flex-row items-center gap-2 rounded-xl border border-neon-blue/20 px-3"
-            style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF' }}
-          >
-            <Search size={16} color="#94A3B8" />
+          <View style={[glass(20, 'sm'), styles.search]}>
+            <Search size={20} color={PRIMARY} strokeWidth={2.1} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Qidirish..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={PLACEHOLDER}
               accessibilityLabel="Xotiradan qidirish"
-              className="flex-1 py-3 text-base text-foreground dark:text-dark-text"
+              style={styles.searchInput}
             />
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
+            <View style={styles.chipRow}>
               <CategoryChip
                 label={`Barchasi (${totalCount})`}
                 active={filter === 'all'}
@@ -282,15 +294,15 @@ export default function MemoryScreen() {
           </ScrollView>
 
           {filtered.length === 0 ? (
-            <View className="items-center py-12 gap-2">
-              <Text className="text-base text-muted-foreground dark:text-dark-muted text-center">
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>
                 {totalCount === 0
                   ? "Hali hech narsa eslab qolinmagan.\nSuhbat davomida DUYO nimadir eslab qolishni taklif qilsa, shu yerda ko'rasiz."
                   : 'Hech narsa topilmadi.'}
               </Text>
             </View>
           ) : (
-            <View className="gap-3">
+            <View style={styles.list}>
               {filtered.map((memory) => (
                 <MemoryCard
                   key={memory.id}
@@ -304,34 +316,37 @@ export default function MemoryScreen() {
             </View>
           )}
 
-          <View className="gap-3 pt-4">
+          <View style={styles.actions}>
             <Pressable
               onPress={handleExport}
               accessibilityRole="button"
               accessibilityLabel="Xotirani eksport qilish"
-              className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface active:opacity-80"
-              style={{ padding: 16 }}
+              style={({ pressed }) => [
+                glass(20, 'md'),
+                styles.action,
+                pressed && styles.pressed,
+              ]}
             >
-              <View className="flex-row items-center gap-3">
-                <Download size={18} color="#60A5FA" />
-                <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                  Xotirani eksport qilish (JSON)
-                </Text>
-              </View>
+              <Download size={18} color={PRIMARY} strokeWidth={2.2} />
+              <Text style={styles.actionText}>
+                Xotirani eksport qilish (JSON)
+              </Text>
             </Pressable>
             <Pressable
               onPress={handleDeleteAll}
               accessibilityRole="button"
               accessibilityLabel="Barcha xotiralarni o'chirish"
-              className="rounded-xl border border-destructive/30 bg-card dark:bg-dark-surface active:opacity-80"
-              style={{ padding: 16 }}
+              style={({ pressed }) => [
+                glass(20, 'md'),
+                styles.action,
+                styles.actionDanger,
+                pressed && styles.pressed,
+              ]}
             >
-              <View className="flex-row items-center gap-3">
-                <Trash2 size={18} color="#FB64B6" />
-                <Text className="text-base font-medium" style={{ color: '#FB64B6' }}>
-                  Barcha xotiralarni o'chirish
-                </Text>
-              </View>
+              <Trash2 size={18} color={DANGER} strokeWidth={2.2} />
+              <Text style={[styles.actionText, styles.actionTextDanger]}>
+                Barcha xotiralarni o'chirish
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -344,7 +359,7 @@ function CategoryChip({
   label,
   active,
   onPress,
-  accent = '#60A5FA',
+  accent = PRIMARY,
 }: {
   label: string;
   active: boolean;
@@ -357,27 +372,18 @@ function CategoryChip({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
-      className="flex-row items-center gap-1.5 rounded-full mr-2 active:opacity-80"
-      style={{
-        paddingHorizontal: 13,
-        paddingVertical: 7,
-        borderWidth: 1,
-        borderColor: active ? accent : `${accent}44`,
-        backgroundColor: active ? accent : `${accent}12`,
-      }}
+      style={({ pressed }) => [
+        glass(16, 'sm'),
+        styles.chip,
+        active && {
+          backgroundColor: `${accent}26`,
+          borderColor: accent,
+        },
+        pressed && styles.pressed,
+      ]}
     >
-      <View
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: active ? '#0A1628' : accent,
-        }}
-      />
-      <Text
-        className="text-sm font-medium"
-        style={{ color: active ? '#0A1628' : accent }}
-      >
+      <View style={[styles.chipDot, { backgroundColor: accent }]} />
+      <Text style={[styles.chipLabel, active && styles.chipLabelOn]}>
         {label}
       </Text>
     </Pressable>
@@ -424,30 +430,23 @@ function MemoryCard({
   };
 
   // One accent per category, so a long list is scannable by colour before it
-  // is read — see lib/memory-categories.ts.
-  const accent = MEMORY_CATEGORY_COLOURS[memory.category] ?? '#60A5FA';
+  // is read — see lib/memory-categories.ts. Here it is the left rail and the
+  // icon; the label itself is ink (see the note at the top of this file).
+  const accent = MEMORY_CATEGORY_COLOURS[memory.category] ?? PRIMARY;
 
   return (
-    <View
-      className="rounded-xl bg-card dark:bg-dark-surface"
-      style={{
-        padding: 16,
-        borderWidth: 1,
-        borderColor: `${accent}33`,
-        borderLeftWidth: 3,
-        borderLeftColor: accent,
-      }}
-    >
-      <View className="flex-row items-center gap-2 mb-2">
+    <View style={[glass(22, 'md'), styles.card, { borderLeftColor: accent }]}>
+      <View style={styles.cardHead}>
         <Icon size={15} color={accent} />
-        <Text className="text-xs font-semibold" style={{ color: accent }}>
+        <Text style={styles.cardCategory}>
           {MEMORY_CATEGORY_LABELS[memory.category]}
         </Text>
-        <View className="flex-1" />
-        {/* hitSlop 14 around a 16px icon clears the 44px minimum tap target.
-            At the previous 8 these two sat ~32px apart, close enough that a
-            child aiming for the pencil could delete the memory instead. */}
-        {!editing && (
+        <View style={styles.spacer} />
+        {/* These two used to be bare 16px icons relying on hitSlop, which does
+            nothing to the clickable box on web — a child aiming for the pencil
+            could delete the memory instead. They are real 34pt targets now,
+            and the hitSlop stays for native's benefit. */}
+        {!editing ? (
           <Pressable
             onPress={() => {
               setDraft(memory.content);
@@ -455,66 +454,82 @@ function MemoryCard({
             }}
             accessibilityRole="button"
             accessibilityLabel="Tahrirlash"
-            hitSlop={14}
-            className="active:opacity-60"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.iconButton,
+              styles.focusable,
+              pressed && styles.pressedHard,
+            ]}
           >
-            <Pencil size={16} color="#94A3B8" />
+            <Pencil size={16} color={MUTED} strokeWidth={2.2} />
           </Pressable>
-        )}
+        ) : null}
         <Pressable
           onPress={onDelete}
           accessibilityRole="button"
           accessibilityLabel="O'chirish"
-          hitSlop={14}
-          className="active:opacity-60"
-          style={{ marginLeft: 6 }}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.iconButton,
+            styles.focusable,
+            pressed && styles.pressedHard,
+          ]}
         >
-          <Trash2 size={16} color="#94A3B8" />
+          <Trash2 size={16} color={MUTED} strokeWidth={2.2} />
         </Pressable>
       </View>
 
       {editing ? (
-        <View className="gap-2">
+        <View style={styles.editWrap}>
           <TextInput
             value={draft}
             onChangeText={setDraft}
             multiline
             maxLength={200}
             autoFocus
-            className="text-base text-foreground dark:text-dark-text border border-neon-blue/20 rounded-lg px-3 py-2"
+            style={styles.input}
           />
-          <View className="flex-row justify-end gap-3">
-            <Pressable onPress={() => setEditing(false)} accessibilityRole="button">
-              <X size={20} color="#94A3B8" />
+          <View style={styles.editActions}>
+            <Pressable
+              onPress={() => setEditing(false)}
+              accessibilityRole="button"
+              style={[styles.iconButton, styles.focusable]}
+            >
+              <X size={20} color={MUTED} strokeWidth={2.2} />
             </Pressable>
-            <Pressable onPress={handleSave} accessibilityRole="button">
-              <Check size={20} color="#05DF72" />
+            <Pressable
+              onPress={handleSave}
+              accessibilityRole="button"
+              style={[styles.iconButton, styles.focusable]}
+            >
+              <Check size={20} color={GREEN} strokeWidth={2.4} />
             </Pressable>
           </View>
         </View>
       ) : (
-        <Text className="text-base text-foreground dark:text-dark-text leading-6">
-          {memory.content}
-        </Text>
+        <Text style={styles.cardContent}>{memory.content}</Text>
       )}
 
-      {related.length > 0 && (
-        <View className="flex-row flex-wrap gap-2 mt-3">
+      {related.length > 0 ? (
+        <View style={styles.relatedRow}>
           {related.map((r) => (
             <Pressable
               key={r.id}
               onPress={() => Alert.alert(MEMORY_CATEGORY_LABELS[r.category], r.content)}
               accessibilityRole="button"
-              className="px-2.5 py-1 rounded-2xl bg-neon-blue/10 border border-neon-blue/20"
+              style={({ pressed }) => [
+                styles.relatedChip,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text className="text-xs text-neon-blue" numberOfLines={1}>
+              <Text style={styles.relatedText} numberOfLines={1}>
                 🔗 {r.content.slice(0, 24)}
                 {r.content.length > 24 ? '…' : ''}
               </Text>
             </Pressable>
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -546,15 +561,10 @@ function AddMemoryForm({
   };
 
   return (
-    <View
-      className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface gap-3"
-      style={{ padding: 16 }}
-    >
-      <Text className="text-sm font-medium text-foreground dark:text-dark-text">
-        Qo'lda xotira qo'shish
-      </Text>
+    <View style={[glass(24, 'lg'), styles.form]}>
+      <Text style={styles.formTitle}>Qo'lda xotira qo'shish</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View className="flex-row gap-2">
+        <View style={styles.chipRow}>
           {MEMORY_CATEGORIES.map((c) => (
             <CategoryChip
               key={c}
@@ -570,21 +580,153 @@ function AddMemoryForm({
         value={content}
         onChangeText={setContent}
         placeholder="Nimani eslab qolish kerak?"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={PLACEHOLDER}
         multiline
         maxLength={200}
-        className="text-base text-foreground dark:text-dark-text border border-neon-blue/20 rounded-lg px-3 py-2"
+        style={styles.input}
       />
-      <View className="flex-row justify-end gap-4">
-        <Pressable onPress={onCancel} accessibilityRole="button">
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-            Bekor qilish
-          </Text>
+      <View style={styles.formActions}>
+        <Pressable
+          onPress={onCancel}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.formButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.formCancel}>Bekor qilish</Text>
         </Pressable>
-        <Pressable onPress={handleSave} accessibilityRole="button">
-          <Text className="text-sm font-semibold text-neon-blue">Saqlash</Text>
+        <Pressable
+          onPress={handleSave}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.formButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.formSave}>Saqlash</Text>
         </Pressable>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerButtonOn: { backgroundColor: 'rgba(47,111,228,0.16)' },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  pressed: { opacity: 0.8 },
+  pressedHard: { opacity: 0.6 },
+  title: { flex: 1, fontSize: 22, fontWeight: '700', color: INK },
+
+  scroll: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 48,
+    gap: 14,
+  },
+  note: { fontSize: 13, lineHeight: 19, color: MUTED },
+
+  warning: {
+    padding: 14,
+    backgroundColor: 'rgba(224,69,94,0.08)',
+    borderColor: 'rgba(224,69,94,0.35)',
+  },
+  warningText: { fontSize: 13, lineHeight: 19, color: DANGER },
+
+  search: {
+    height: 52,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchInput: { flex: 1, fontSize: 15, color: INK, paddingVertical: 0 },
+
+  chipRow: { flexDirection: 'row', gap: 8, paddingRight: 8 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  chipDot: { width: 6, height: 6, borderRadius: 3 },
+  chipLabel: { fontSize: 13, fontWeight: '600', color: INK },
+  chipLabelOn: { fontWeight: '700' },
+
+  empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', color: MUTED },
+
+  list: { gap: 12 },
+  card: { padding: 16, borderLeftWidth: 3 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardCategory: { fontSize: 12, fontWeight: '700', color: INK },
+  spacer: { flex: 1 },
+  iconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardContent: { marginTop: 8, fontSize: 15, lineHeight: 22, color: INK },
+
+  editWrap: { marginTop: 8, gap: 8 },
+  input: {
+    minHeight: 72,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    fontSize: 15,
+    lineHeight: 21,
+    color: INK,
+  },
+  editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+
+  relatedRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  relatedChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    backgroundColor: 'rgba(47,111,228,0.08)',
+  },
+  relatedText: { fontSize: 12, color: PRIMARY },
+
+  actions: { gap: 12, paddingTop: 4 },
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+  },
+  actionDanger: { borderColor: 'rgba(224,69,94,0.30)' },
+  actionText: { flex: 1, fontSize: 15, fontWeight: '600', color: INK },
+  actionTextDanger: { color: DANGER },
+
+  form: { padding: 16, gap: 12 },
+  formTitle: { fontSize: 14, fontWeight: '700', color: INK },
+  formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  formButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 14,
+  },
+  formCancel: { fontSize: 14, fontWeight: '600', color: MUTED },
+  formSave: { fontSize: 14, fontWeight: '700', color: PRIMARY },
+});

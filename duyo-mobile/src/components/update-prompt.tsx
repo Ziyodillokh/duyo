@@ -1,10 +1,21 @@
 import * as Application from 'expo-application';
 import { useEffect, useState } from 'react';
-import { Linking, Modal, Platform, Pressable, View } from 'react-native';
-import { Text } from '@/components/text';
+import {
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
+import { Text } from '@/components/text';
 import { Card } from '@/components/v2/card';
 import { PrimaryButton } from '@/components/v2/primary-button';
+import { glass } from '@/lib/glass';
+
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
 
 // Statik fayl — build-apk.yml har APK chiqarganda yangilab turadi.
 const VERSION_URL = 'https://admin.duyo.uz/apk/version.json';
@@ -78,25 +89,21 @@ export function UpdatePrompt() {
       animationType="fade"
       onRequestClose={() => setDismissed(true)}
     >
-      <View className="flex-1 bg-black/60 justify-center px-6">
-        <View className="w-full max-w-[345px] self-center">
-          <Card>
-            <View className="gap-2 items-center">
-              <Text className="text-[24px] leading-8 font-bold text-foreground text-center">
-                Yangi versiya chiqdi! 🎉
-              </Text>
-              <Text className="text-base text-muted-foreground text-center">
+      <View style={styles.scrim}>
+        <View style={styles.holder}>
+          <Card style={styles.sheet}>
+            <View style={styles.heading}>
+              <Text style={styles.title}>Yangi versiya chiqdi! 🎉</Text>
+              <Text style={styles.body}>
                 DUYO {info.version} tayyor. Yangilab olsangiz, eng so'nggi
                 imkoniyatlar va tuzatishlar qo'shiladi.
               </Text>
               {info.notes ? (
-                <Text className="text-sm text-muted-foreground text-center mt-1">
-                  {info.notes}
-                </Text>
+                <Text style={styles.notes}>{info.notes}</Text>
               ) : null}
             </View>
 
-            <View className="mt-6">
+            <View style={styles.cta}>
               <PrimaryButton
                 onPress={() => Linking.openURL(info.url)}
                 accessibilityLabel="Yangilash"
@@ -109,9 +116,9 @@ export function UpdatePrompt() {
               onPress={() => setDismissed(true)}
               accessibilityRole="button"
               accessibilityLabel="Keyinroq"
-              className="items-center mt-4"
+              style={styles.later}
             >
-              <Text className="text-sm text-muted-foreground">Keyinroq</Text>
+              <Text style={styles.laterText}>Keyinroq</Text>
             </Pressable>
           </Card>
         </View>
@@ -119,3 +126,46 @@ export function UpdatePrompt() {
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  // A navy scrim rather than a black one: the shade over a pale blue page is
+  // still lit by the same sky the glass is (see lib/glass.ts), and neutral
+  // black over this palette reads as dirt on the screen.
+  scrim: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(16,32,58,0.55)',
+  },
+  holder: { width: '100%', maxWidth: 345, alignSelf: 'center' },
+
+  // The Card's own 'md' is for a card lying on a page; this one floats OVER a
+  // darkened one, so it takes the top of the ladder and a sheet's radius. The
+  // fill goes nearly opaque too — 55% white over the scrim would let the
+  // darkness through and grey the text out.
+  sheet: { ...glass(28, 'xl', 0.96), padding: 24 },
+
+  heading: { gap: 8, alignItems: 'center' },
+  title: {
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  body: { fontSize: 16, lineHeight: 22, color: MUTED, textAlign: 'center' },
+  notes: {
+    marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  cta: { marginTop: 24 },
+
+  // Padded rather than hitSlopped: hitSlop does not grow the element on web,
+  // and this is the only way to dismiss the dialog.
+  later: { marginTop: 16, paddingVertical: 8, alignItems: 'center' },
+  laterText: { fontSize: 14, color: MUTED },
+});

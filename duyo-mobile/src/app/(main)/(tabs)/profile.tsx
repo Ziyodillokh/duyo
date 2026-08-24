@@ -12,14 +12,18 @@ import {
   Star,
   Trophy,
 } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InventorySummary } from '@/components/inventory-summary';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
-import { DarkCard } from '@/components/v2/dark/dark-card';
-import { ProgressBar } from '@/components/v2/dark/progress-bar';
 import { MascotImage } from '@/components/v2/mascot-image';
 import {
   useAchievements,
@@ -28,16 +32,40 @@ import {
   useStreak,
 } from '@/hooks/use-gamification';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
+import { glass, lift } from '@/lib/glass';
 import { buildWeeklyActivity } from '@/lib/weekly-activity';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue. The
+// screen commits to the light look the way its siblings do — the old navy
+// build predated the glass system and read as a different app bolted on.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+
+/* The three stat icons and the two doorways keep their colour coding — it is
+   what makes the row scannable before it is read — but each is deepened from
+   its old neon-on-navy value. #FDC700 and #05DF72 were chosen to glow on a
+   dark ground; on white glass they are barely there. */
+const FLAME = '#F0812F';
+const GOLD = '#E0A21C';
+const TROPHY = '#C7519C';
+const GREEN = '#22B573';
+
+/** Deep warm brown reads on the gold gradient the way navy ink does not. */
+const PREMIUM_INK = '#4A2E05';
 
 // Achievements, weekly activity and recent rewards moved to the dashboard
 // (screens/home/companion-home.tsx) where they are the main content. What
 // stays here is the identity card: who the child is, their level and streak.
 
 export default function ProfileScreen() {
-  const isDark = useIsDark();
   // Sibling tabs go through this screen's navigator; router.push into
   // the (tabs) group from inside it is a silent no-op on web.
   const navigation = useNavigation() as { navigate(name: string): void };
@@ -70,175 +98,155 @@ export default function ProfileScreen() {
   // The week strip below marks the days the child actually showed up.
   const week = buildWeeklyActivity(streak.data, history.data);
 
+  // The old ProgressBar clamped for us; the glass track is drawn here, so the
+  // clamp comes with it — a level segment can read slightly over 1 mid-refetch.
+  const levelPct = Math.max(0, Math.min(1, levelProgress)) * 100;
+
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.95, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: navClearance + 24 }}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: navClearance + 24 },
+          ]}
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-row justify-between">
+          <View style={styles.header}>
             {/* The dock is three doors now; the hub is reached by going back,
                 so every section carries this. */}
             <Pressable
               onPress={() => navigation.navigate('index')}
               accessibilityRole="button"
               accessibilityLabel="Bosh sahifa"
-              className="w-10 h-10 rounded-md items-center justify-center bg-card dark:bg-dark-surface border border-neon-blue/20"
+              style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
             >
-              <ArrowLeft size={20} color="#94A3B8" />
+              <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
             </Pressable>
-            <View className="flex-row gap-2">
-            <Pressable
-              onPress={() => router.push('/(main)/notifications')}
-              accessibilityRole="button"
-              accessibilityLabel="Bildirishnomalar"
-              className="w-10 h-10 rounded-md items-center justify-center bg-card dark:bg-dark-surface border border-neon-blue/20"
-            >
-              <Bell size={20} color="#94A3B8" />
-              {unreadCount > 0 && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: -2,
-                    right: -2,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: '#FB64B6',
-                    borderWidth: 1.5,
-                    borderColor: isDark ? '#0A1628' : '#F4F8FF',
-                  }}
-                />
-              )}
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/(main)/settings')}
-              accessibilityRole="button"
-              accessibilityLabel="Sozlamalar"
-              className="w-10 h-10 rounded-md items-center justify-center bg-card dark:bg-dark-surface border border-neon-blue/20"
-            >
-              <SettingsIcon size={20} color="#94A3B8" />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push('/(main)/notifications')}
+                accessibilityRole="button"
+                accessibilityLabel="Bildirishnomalar"
+                style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
+              >
+                <Bell size={22} color={PRIMARY} strokeWidth={1.9} />
+                {unreadCount > 0 ? <View style={styles.bellDot} /> : null}
+              </Pressable>
+              <Pressable
+                onPress={() => router.push('/(main)/settings')}
+                accessibilityRole="button"
+                accessibilityLabel="Sozlamalar"
+                style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
+              >
+                <SettingsIcon size={22} color={PRIMARY} strokeWidth={1.9} />
+              </Pressable>
             </View>
           </View>
 
-          <DarkCard className="items-center">
+          {/* ── Identity: the one hero this screen leads with ─────────── */}
+          <View style={[glass(28, 'lg'), styles.hero]}>
             <MascotImage size={180} glow="cosmic" />
-            <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-              {childName}
-            </Text>
-            {childAge !== undefined && (
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">{childAge} yosh</Text>
-            )}
-            <View className="bg-neon-purple rounded-md px-4 py-1.5 mt-3">
-              <Text className="text-sm font-medium text-dark-bg-to">
+            <Text style={styles.heroName}>{childName}</Text>
+            {childAge !== undefined ? (
+              <Text style={styles.heroAge}>{childAge} yosh</Text>
+            ) : null}
+            <View style={styles.levelPill}>
+              <Text style={styles.levelText}>
                 ⭐ Level {level} · {levelName}
               </Text>
             </View>
-          </DarkCard>
+          </View>
 
-          <DarkCard>
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={[glass(22, 'md'), styles.card]}>
+            <View style={styles.levelHead}>
+              <Text style={styles.caption}>
                 {isMaxLevel ? 'Eng yuqori daraja' : 'Keyingi daraja'}
               </Text>
-              <Text className="text-sm font-bold text-neon-cyan">
-                {isMaxLevel
-                  ? `${balance} XP`
-                  : `${balance}/${nextThreshold} XP`}
+              <Text style={styles.levelXp}>
+                {isMaxLevel ? `${balance} XP` : `${balance}/${nextThreshold} XP`}
               </Text>
             </View>
-            <ProgressBar value={levelProgress} color="blue" />
-            <Text className="text-xs text-muted-foreground dark:text-dark-muted text-right mt-2">
+            {/* The old ProgressBar was a dark-theme part — a navy track under a
+                neon fill. Same shape, lit for this page. */}
+            <View style={styles.track}>
+              <LinearGradient
+                colors={['#4F86EE', '#7FB2FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.trackFill, { width: `${levelPct}%` }]}
+              />
+            </View>
+            <Text style={styles.levelHint}>
               {isMaxLevel
                 ? "Barcha darajalar ochilgan 🎉"
                 : `${ballsToNext} XP keyingi darajaga`}
             </Text>
-          </DarkCard>
+          </View>
 
-          <View className="flex-row gap-3">
-            <DarkCard className="flex-1 items-center">
-              <Flame size={28} color="#FF8904" />
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {currentStreak}
-              </Text>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Kun seriya</Text>
-            </DarkCard>
-            <DarkCard className="flex-1 items-center">
-              <Star size={28} color="#FDC700" />
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {balance}
-              </Text>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Jami XP</Text>
-            </DarkCard>
-            <DarkCard className="flex-1 items-center">
-              <Trophy size={28} color="#FB64B6" />
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                {earnedCount}
-              </Text>
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">Yutuqlar</Text>
-            </DarkCard>
+          <View style={styles.statRow}>
+            <View style={[glass(22, 'md'), styles.statCard]}>
+              <Flame size={28} color={FLAME} />
+              <Text style={styles.statValue}>{currentStreak}</Text>
+              <Text style={styles.statLabel}>Kun seriya</Text>
+            </View>
+            <View style={[glass(22, 'md'), styles.statCard]}>
+              <Star size={28} color={GOLD} />
+              <Text style={styles.statValue}>{balance}</Text>
+              <Text style={styles.statLabel}>Jami XP</Text>
+            </View>
+            <View style={[glass(22, 'md'), styles.statCard]}>
+              <Trophy size={28} color={TROPHY} />
+              <Text style={styles.statValue}>{earnedCount}</Text>
+              <Text style={styles.statLabel}>Yutuqlar</Text>
+            </View>
           </View>
 
           {/* Week streak calendar */}
-          <DarkCard>
-            <View className="flex-row justify-between mb-3">
+          <View style={[glass(22, 'md'), styles.card]}>
+            <View style={styles.week}>
               {week.days.map((day) => (
-                <View key={day.label} className="items-center gap-1">
+                <View key={day.label} style={styles.day}>
                   <View
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 17,
-                      backgroundColor: day.active
-                        ? '#60A5FA'
-                        : 'rgba(96,165,250,0.12)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: day.isToday ? 2 : 0,
-                      borderColor: '#60A5FA',
-                    }}
+                    style={[
+                      styles.dayDisc,
+                      day.active && styles.dayDiscOn,
+                      day.isToday && styles.dayDiscToday,
+                    ]}
                   >
-                    {day.active && (
-                      <Text style={{ color: '#0A1628', fontSize: 14, fontWeight: '700' }}>✓</Text>
-                    )}
+                    {day.active ? <Text style={styles.dayCheck}>✓</Text> : null}
                   </View>
-                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-                    {day.label}
-                  </Text>
+                  <Text style={styles.dayLabel}>{day.label}</Text>
                 </View>
               ))}
             </View>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted text-center">
+            <Text style={styles.weekCaption}>
               {currentStreak > 0
                 ? `${currentStreak} kunlik seriya davom etmoqda!`
                 : 'Seriyani boshlash uchun DUYO bilan suhbatlashing'}
             </Text>
-          </DarkCard>
+          </View>
 
-          <View style={{ marginBottom: 16 }}>
+          <View style={styles.inventoryWrap}>
             <InventorySummary />
           </View>
 
           {/* Kutubxona left the tab bar on the promise it stays reachable
               from home — the glass dashboard dropped those cards, so the
               doorway lives here now (and lesson-help with it). */}
-          <DarkCard>
+          <View style={[glass(22, 'md'), styles.doorCard]}>
             {(
               [
                 {
                   key: 'library',
                   Icon: BookOpen,
-                  colour: '#FDC700',
+                  colour: GOLD,
                   label: 'Kutubxona',
                   hint: "She'r, ertak va darsliklar",
                   href: '/(main)/library',
@@ -246,7 +254,7 @@ export default function ProfileScreen() {
                 {
                   key: 'lessons',
                   Icon: PenLine,
-                  colour: '#05DF72',
+                  colour: GREEN,
                   label: 'Dars yordami',
                   hint: 'Uy vazifasiga qadamma-qadam yordam',
                   href: '/(main)/lesson-help',
@@ -258,51 +266,34 @@ export default function ProfileScreen() {
                 onPress={() => router.push(href)}
                 accessibilityRole="button"
                 accessibilityLabel={label}
-                className="flex-row items-center gap-3 py-3"
-                style={i > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(148,163,184,0.35)' } : undefined}
+                style={[styles.door, i > 0 && styles.doorDivider]}
               >
-                <View
-                  className="w-10 h-10 rounded-md items-center justify-center"
-                  style={{ backgroundColor: `${colour}22` }}
-                >
-                  <Icon size={20} color={colour} />
+                <View style={[styles.doorWell, { backgroundColor: `${colour}22` }]}>
+                  <Icon size={20} color={colour} strokeWidth={2} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-base font-semibold text-foreground dark:text-dark-text">
-                    {label}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground dark:text-dark-muted">
-                    {hint}
-                  </Text>
+                <View style={styles.doorText}>
+                  <Text style={styles.doorLabel}>{label}</Text>
+                  <Text style={styles.doorHint}>{hint}</Text>
                 </View>
-                <ChevronRight size={18} color="#94A3B8" />
+                <ChevronRight size={18} color={MUTED} strokeWidth={2.2} />
               </Pressable>
             ))}
-          </DarkCard>
+          </View>
 
           <Pressable
             onPress={() => router.push('/(main)/subscription')}
             accessibilityRole="button"
             accessibilityLabel="Premium'ga o'tish"
-            className="bg-gradient-to-r rounded-xl overflow-hidden"
+            style={[styles.premium, styles.focusable]}
           >
             <LinearGradient
               colors={['#FDC700', '#FF8904']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={{
-                paddingVertical: 16,
-                paddingHorizontal: 24,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
+              style={styles.premiumFill}
             >
-              <Crown size={20} color="#0A1628" />
-              <Text className="text-base font-bold text-dark-bg-to">
-                Premium'ga o'tish
-              </Text>
+              <Crown size={20} color={PREMIUM_INK} strokeWidth={2.2} />
+              <Text style={styles.premiumText}>Premium'ga o'tish</Text>
             </LinearGradient>
           </Pressable>
         </ScrollView>
@@ -310,3 +301,116 @@ export default function ProfileScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  scroll: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
+
+  header: { flexDirection: 'row', justifyContent: 'space-between' },
+  headerActions: { flexDirection: 'row', gap: 10 },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  bellDot: {
+    position: 'absolute',
+    top: 9,
+    right: 10,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#F04438',
+  },
+
+  hero: { alignItems: 'center', paddingVertical: 22, paddingHorizontal: 20 },
+  heroName: { marginTop: 8, fontSize: 24, fontWeight: '700', color: TITLE },
+  heroAge: { marginTop: 2, fontSize: 13, color: MUTED },
+  levelPill: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: 'rgba(47,111,228,0.12)',
+  },
+  levelText: { fontSize: 13.5, fontWeight: '700', color: PRIMARY },
+
+  card: { padding: 18 },
+  caption: { fontSize: 13, color: MUTED },
+  levelHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  levelXp: { fontSize: 13, fontWeight: '700', color: PRIMARY },
+  track: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(79,134,238,0.16)',
+    overflow: 'hidden',
+  },
+  trackFill: { height: 12, borderRadius: 6 },
+  levelHint: { marginTop: 8, fontSize: 12, textAlign: 'right', color: MUTED },
+
+  statRow: { flexDirection: 'row', gap: 12 },
+  statCard: { flex: 1, alignItems: 'center', paddingVertical: 16 },
+  statValue: { marginTop: 8, fontSize: 24, fontWeight: '700', color: INK },
+  statLabel: { marginTop: 2, fontSize: 12, color: MUTED },
+
+  week: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  day: { alignItems: 'center', gap: 6 },
+  dayDisc: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  dayDiscOn: { backgroundColor: PRIMARY },
+  dayDiscToday: { borderWidth: 2, borderColor: PRIMARY },
+  dayCheck: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  dayLabel: { fontSize: 12, color: MUTED },
+  weekCaption: { fontSize: 13, textAlign: 'center', color: MUTED },
+
+  inventoryWrap: { marginBottom: 2 },
+
+  doorCard: { paddingHorizontal: 16 },
+  door: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+  },
+  doorDivider: { borderTopWidth: 1, borderTopColor: HAIRLINE },
+  doorWell: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doorText: { flex: 1 },
+  doorLabel: { fontSize: 15, fontWeight: '600', color: INK },
+  doorHint: { marginTop: 2, fontSize: 12, color: MUTED },
+
+  premium: { borderRadius: 22, overflow: 'hidden', boxShadow: lift('md') },
+  premiumFill: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  premiumText: { fontSize: 16, fontWeight: '700', color: PREMIUM_INK },
+});

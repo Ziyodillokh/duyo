@@ -1,20 +1,34 @@
 import { Check, RefreshCw, X } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { handleRejectionMessage } from '@/api/endpoints/social';
 import { useHandleSuggestions, useUpdateSocialSettings } from '@/hooks/use-social';
-import { useIsDark } from '@/store/theme';
+import { glass, lift } from '@/lib/glass';
 
 const MAX_LEN = 20;
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// The sheet opens over the goals page and the peers list, both of which are
+// pale blue glass now, so it is one light material too — the navy variant it
+// used to carry would have dropped a different app over a light page.
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const PLACEHOLDER = '#7693C2';
+const MUTED_WASH = 'rgba(140,163,203,0.16)';
 
 interface Props {
   visible: boolean;
@@ -35,7 +49,6 @@ interface Props {
  * message, so it gets the same contact-detail screening a message body does.
  */
 export function HandleEditor({ visible, childId, current, onClose }: Props) {
-  const isDark = useIsDark();
   const [value, setValue] = useState(current);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,36 +87,28 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <View style={styles.scrim}>
         <KeyboardAvoidingView behavior="padding">
-          <View
-            className="rounded-t-3xl"
-            style={{
-              backgroundColor: isDark ? '#0F2038' : '#FFFFFF',
-              padding: 24,
-              paddingBottom: 36,
-            }}
-          >
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-lg font-bold text-foreground dark:text-dark-text">
-                Taxallusingni tanla
-              </Text>
+          {/* Chrome floating over the page: the top of the ladder, 'xl'. */}
+          <View style={styles.sheet}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Taxallusingni tanla</Text>
               <Pressable
                 onPress={onClose}
                 accessibilityRole="button"
                 accessibilityLabel="Yopish"
                 hitSlop={10}
-                className="p-1"
+                style={[styles.closeButton, styles.focusable]}
               >
-                <X size={20} color="#94A3B8" />
+                <X size={20} color={MUTED} />
               </Pressable>
             </View>
-            <Text className="text-sm text-muted-foreground dark:text-dark-muted mb-4">
+            <Text style={styles.subtitle}>
               Boshqa bolalar seni shu nom bilan ko'radi. Haqiqiy isming
               ko'rinmaydi.
             </Text>
 
-            <View className="flex-row items-center gap-2">
+            <View style={styles.inputRow}>
               <TextInput
                 value={value}
                 onChangeText={(t) => {
@@ -111,68 +116,57 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
                   setError(null);
                 }}
                 placeholder="Masalan: Burgut-42"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={PLACEHOLDER}
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={MAX_LEN}
                 accessibilityLabel="Taxallus"
-                className="flex-1 px-4 rounded-md text-base text-foreground dark:text-dark-text"
-                style={{
-                  height: 48,
-                  backgroundColor: isDark ? '#1E3A5F' : '#F4F8FF',
-                }}
+                style={styles.input}
               />
               <Pressable
                 onPress={save}
                 disabled={!canSave}
                 accessibilityRole="button"
                 accessibilityLabel="Saqlash"
-                className="rounded-md items-center justify-center"
-                style={{
-                  width: 48,
-                  height: 48,
-                  backgroundColor: canSave ? '#60A5FA' : 'rgba(148,163,184,0.2)',
-                }}
+                style={[
+                  styles.saveButton,
+                  canSave ? styles.saveOn : styles.saveOff,
+                  styles.focusable,
+                ]}
               >
                 {update.isPending ? (
-                  <ActivityIndicator color="#0A1628" />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Check size={22} color={canSave ? '#0A1628' : '#94A3B8'} />
+                  <Check size={22} color={canSave ? '#FFFFFF' : MUTED} />
                 )}
               </Pressable>
             </View>
 
-            {error && (
-              <View
-                className="mt-3 rounded-md px-3 py-2"
-                style={{ backgroundColor: 'rgba(239,68,68,0.15)' }}
-              >
-                <Text className="text-xs" style={{ color: '#F87171' }}>
-                  {error}
-                </Text>
+            {/* `? :`, not `&&`: an empty rejection string would reach React as
+                a bare text node, which inside a View is a hard error on
+                react-native-web. */}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
               </View>
-            )}
+            ) : null}
 
-            <View className="flex-row items-center justify-between mt-5 mb-2">
-              <Text className="text-sm font-medium text-muted-foreground dark:text-dark-muted">
-                Tayyor variantlar
-              </Text>
+            <View style={styles.suggestHead}>
+              <Text style={styles.suggestLabel}>Tayyor variantlar</Text>
               <Pressable
                 onPress={() => suggestions.refetch()}
                 accessibilityRole="button"
                 accessibilityLabel="Yangi variantlar"
                 hitSlop={8}
-                className="flex-row items-center gap-1 p-1"
+                style={[styles.refresh, styles.focusable]}
               >
-                <RefreshCw size={14} color="#60A5FA" />
-                <Text className="text-xs" style={{ color: '#60A5FA' }}>
-                  Yangilash
-                </Text>
+                <RefreshCw size={14} color={PRIMARY} />
+                <Text style={styles.refreshText}>Yangilash</Text>
               </Pressable>
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View className="flex-row gap-2">
+              <View style={styles.suggestRow}>
                 {(suggestions.data ?? []).map((s) => (
                   <Pressable
                     key={s}
@@ -182,15 +176,18 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={s}
-                    className="rounded-full px-4 py-2"
-                    style={{
-                      backgroundColor:
-                        value === s ? '#60A5FA' : 'rgba(96,165,250,0.15)',
-                    }}
+                    style={[
+                      styles.suggestion,
+                      value === s ? styles.suggestionOn : styles.suggestionOff,
+                      styles.focusable,
+                    ]}
                   >
                     <Text
-                      className="text-sm font-medium"
-                      style={{ color: value === s ? '#0A1628' : '#60A5FA' }}
+                      style={
+                        value === s
+                          ? styles.suggestionLabelOn
+                          : styles.suggestionLabel
+                      }
                     >
                       {s}
                     </Text>
@@ -204,3 +201,116 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  // The browser draws a square focus ring around whatever was last clicked,
+  // which is the wrong shape on every rounded control below.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  // Tinted rather than neutral black: the page behind is pale blue, and a grey
+  // scrim over it reads as dirt on the glass the same way a grey shadow does.
+  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(16,38,74,0.38)' },
+  sheet: {
+    ...glass(30, 'xl', 0.96),
+    // Only the top corners are visible; the bottom edge runs off the screen.
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    padding: 24,
+    paddingBottom: 36,
+  },
+
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  title: { fontSize: 19, fontWeight: '700', color: INK },
+  // 34pt, because hitSlop does not grow the clickable box on web and an
+  // icon-only control needs a real target there.
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: MUTED_WASH,
+  },
+  subtitle: { fontSize: 13.5, lineHeight: 19, color: MUTED, marginBottom: 16 },
+
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  input: {
+    flex: 1,
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    fontSize: 16,
+    color: INK,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(47,111,228,0.12)',
+    boxShadow: lift('sm'),
+    // The browser's own focus ring is a square drawn outside the radius.
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as unknown as TextStyle,
+  saveButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveOn: { backgroundColor: PRIMARY, boxShadow: lift('sm') },
+  // Not PRIMARY at low opacity: a translucent button lets the sheet through
+  // and reads as a hole rather than a dimmed control.
+  saveOff: { backgroundColor: MUTED_WASH },
+
+  errorBox: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(224,69,94,0.10)',
+  },
+  errorText: { fontSize: 12, lineHeight: 17, color: DANGER },
+
+  suggestHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  suggestLabel: { fontSize: 13.5, fontWeight: '600', color: MUTED },
+  refresh: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+  },
+  refreshText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
+
+  suggestRow: { flexDirection: 'row', gap: 8 },
+  suggestion: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Unchosen chips are 'flush' — they are drawn ON the sheet, and a pane that
+  // shadows the pane it is part of is the tell that depth is being faked. The
+  // chosen one lifts off it by exactly one rung, which is the whole signal.
+  suggestionOff: glass(999, 'flush', 0.72),
+  // Same 1pt border as the unchosen chips, so choosing one does not resize it.
+  suggestionOn: {
+    backgroundColor: PRIMARY,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    boxShadow: lift('sm'),
+  },
+  suggestionLabel: { fontSize: 13.5, fontWeight: '600', color: INK },
+  suggestionLabelOn: { fontSize: 13.5, fontWeight: '600', color: '#FFFFFF' },
+});

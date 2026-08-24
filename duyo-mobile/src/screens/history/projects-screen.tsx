@@ -14,6 +14,7 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,8 +31,17 @@ import {
   useProjects,
   useUpdateProject,
 } from '@/hooks/use-history';
+import { glass } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, shared with "Suhbatlar" so the pair reads as one place ────
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
 
 /**
  * "Loyihalar" — folders a child groups related conversations into.
@@ -41,7 +51,6 @@ import { useIsDark } from '@/store/theme';
  * it, so they need not be repeated at the top of each one.
  */
 export default function ProjectsScreen() {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
 
@@ -98,46 +107,36 @@ export default function ProjectsScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.15)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="flex-row items-center gap-3 px-5 py-3">
+        <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text flex-1">
-            Loyihalar
-          </Text>
+          <Text style={styles.title}>Loyihalar</Text>
           <Pressable
             onPress={() => setCreating(true)}
             accessibilityRole="button"
             accessibilityLabel="Yangi loyiha"
-            className="w-10 h-10 items-center justify-center rounded-md"
-            style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <Plus size={18} color="#60A5FA" />
+            <Plus size={22} color={PRIMARY} strokeWidth={2.2} />
           </Pressable>
         </View>
 
         {projects.isLoading ? (
-          <View className="items-center" style={{ padding: 32 }}>
-            <ActivityIndicator color="#60A5FA" />
+          <View style={styles.loading}>
+            <ActivityIndicator color={PRIMARY} />
           </View>
         ) : (
           <FlatList
@@ -157,12 +156,10 @@ export default function ProjectsScreen() {
               />
             )}
             ListEmptyComponent={
-              <View className="items-center" style={{ paddingVertical: 48 }}>
-                <Text className="text-4xl">📁</Text>
-                <Text className="text-base font-bold text-foreground dark:text-dark-text mt-3 text-center">
-                  Hali loyiha yo‘q
-                </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center px-6">
+              <View style={styles.empty}>
+                <Text style={styles.emptyGlyph}>📁</Text>
+                <Text style={styles.emptyTitle}>Hali loyiha yo‘q</Text>
+                <Text style={styles.emptyBody}>
                   Loyiha — bir mavzudagi suhbatlarni bir joyga yig‘ish uchun.
                   Masalan "Matematika" yoki "Ilmiy ishim".
                 </Text>
@@ -243,35 +240,33 @@ function ProjectRow({
   onOpen: () => void;
   onActions: () => void;
 }) {
+  // The project's own colour is data, not theme — it is what tells two folders
+  // apart in the history list, so the tile keeps tinting with it.
+  const colour = project.colour ?? PRIMARY;
+
   return (
     <Pressable
       onPress={onOpen}
       accessibilityRole="button"
       accessibilityLabel={project.name}
-      className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface active:opacity-80"
-      style={{ padding: 14 }}
+      style={({ pressed }) => [
+        glass(20, 'md'),
+        styles.row,
+        pressed && styles.rowPressed,
+      ]}
     >
-      <View className="flex-row items-center gap-3">
-        <View
-          className="items-center justify-center"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            backgroundColor: `${project.colour ?? '#60A5FA'}22`,
-          }}
-        >
-          <Folder size={17} color={project.colour ?? '#60A5FA'} />
+      <View style={styles.rowInner}>
+        {/* 38 / radius 12 / 12%-tint — the icon tile shared with the history
+            rows and the chat drawer, so the three read as one surface. */}
+        <View style={[styles.iconTile, { backgroundColor: `${colour}22` }]}>
+          <Folder size={17} color={colour} strokeWidth={2} />
         </View>
 
-        <View className="flex-1">
-          <Text
-            className="text-base font-medium text-foreground dark:text-dark-text"
-            numberOfLines={1}
-          >
+        <View style={styles.rowBody}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
             {project.name}
           </Text>
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-0.5">
+          <Text style={styles.rowMeta}>
             {project.conversation_count} ta suhbat
             {project.instructions ? ' · ko‘rsatmali' : ''}
           </Text>
@@ -282,11 +277,91 @@ function ProjectRow({
           accessibilityRole="button"
           accessibilityLabel="Amallar"
           hitSlop={10}
-          className="w-8 h-8 items-center justify-center"
+          style={[styles.moreButton, styles.focusable]}
         >
-          <MoreVertical size={16} color="#94A3B8" />
+          <MoreVertical size={16} color={MUTED} strokeWidth={2.2} />
         </Pressable>
       </View>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  // ── Header: the inner-screen glass pattern ─────────────────────────────
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  title: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: '700',
+    color: TITLE,
+  },
+
+  loading: { alignItems: 'center', padding: 32 },
+
+  // ── Project rows ───────────────────────────────────────────────────────
+  row: { padding: 14 },
+  rowPressed: { opacity: 0.8 },
+  rowInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconTile: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowBody: { flex: 1 },
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: INK,
+  },
+  rowMeta: {
+    marginTop: 2,
+    fontSize: 14,
+    color: MUTED,
+  },
+  // 32pt was below the comfortable target and `hitSlop` does not grow the
+  // clickable box on web, so the Pressable itself carries the size.
+  moreButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Empty state ────────────────────────────────────────────────────────
+  empty: { alignItems: 'center', paddingVertical: 48 },
+  emptyGlyph: { fontSize: 36, lineHeight: 44 },
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    marginTop: 4,
+    paddingHorizontal: 24,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+});

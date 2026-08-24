@@ -1,12 +1,28 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import Svg, { Circle } from 'react-native-svg';
+
+import { glass } from '@/lib/glass';
 
 /**
  * The week's linking activity condensed into one glanceable pulse — a ring for
  * the overall percentage and a bar per weekday. Purely presentational: the
  * screen computes the numbers so this card stays dumb and reusable.
  */
+
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+/** The purple a tag wears on the map (#C27AFF) is built for the dark sky and
+ *  washes out on a white pane, so the bars carry the same hue several steps
+ *  deeper — the move the Miya palette already makes for its blue. */
+const VIOLET = '#7A4BD6';
+/** The unfilled parts of the pulse: the ring track, and the days with nothing
+ *  on them. PRIMARY at low alpha, so empty still belongs to the same light
+ *  rather than reading as grey dirt on the glass. */
+const TRACK = 'rgba(47,111,228,0.12)';
+const BAR_EMPTY = 'rgba(47,111,228,0.16)';
+const BAR_FUTURE = 'rgba(47,111,228,0.07)';
 
 export interface PulseDay {
   label: string;
@@ -31,9 +47,9 @@ const BAR_MAX_HEIGHT = 26;
 const BAR_STUB_HEIGHT = 3;
 
 function barColour(day: PulseDay): string {
-  if (day.isToday) return '#60A5FA';
-  if (day.isFuture) return 'rgba(150, 180, 255, 0.10)';
-  return day.count > 0 ? '#8B5CF6' : 'rgba(150, 180, 255, 0.18)';
+  if (day.isToday) return PRIMARY;
+  if (day.isFuture) return BAR_FUTURE;
+  return day.count > 0 ? VIOLET : BAR_EMPTY;
 }
 
 export function KnowledgePulseCard({ pulse, days, weekTotal }: KnowledgePulseCardProps) {
@@ -41,23 +57,11 @@ export function KnowledgePulseCard({ pulse, days, weekTotal }: KnowledgePulseCar
   const peak = Math.max(...days.map((d) => d.count), 1);
 
   return (
-    <View
-      className="flex-1 rounded-2xl p-4"
-      style={{
-        backgroundColor: 'rgba(11, 16, 32, 0.72)',
-        borderColor: 'rgba(150, 180, 255, 0.18)',
-        borderWidth: 1,
-      }}
-    >
-      <Text
-        className="text-[10px] font-bold"
-        style={{ color: '#8FA3C8', letterSpacing: 1.5 }}
-      >
-        BILIM PULSI
-      </Text>
+    <View style={[glass(22, 'md'), styles.card]}>
+      <Text style={styles.eyebrow}>BILIM PULSI</Text>
 
-      <View className="items-center mt-3">
-        <View style={{ width: RING_SIZE, height: RING_SIZE }}>
+      <View style={styles.ringBlock}>
+        <View style={styles.ring}>
           {/* Rotated so the arc grows clockwise from twelve o'clock. */}
           <Svg
             width={RING_SIZE}
@@ -68,7 +72,7 @@ export function KnowledgePulseCard({ pulse, days, weekTotal }: KnowledgePulseCar
               cx={RING_SIZE / 2}
               cy={RING_SIZE / 2}
               r={RING_RADIUS}
-              stroke="rgba(150, 180, 255, 0.15)"
+              stroke={TRACK}
               strokeWidth={RING_STROKE}
               fill="none"
             />
@@ -77,7 +81,7 @@ export function KnowledgePulseCard({ pulse, days, weekTotal }: KnowledgePulseCar
                 cx={RING_SIZE / 2}
                 cy={RING_SIZE / 2}
                 r={RING_RADIUS}
-                stroke="#60A5FA"
+                stroke={PRIMARY}
                 strokeWidth={RING_STROKE}
                 strokeLinecap="round"
                 fill="none"
@@ -86,32 +90,19 @@ export function KnowledgePulseCard({ pulse, days, weekTotal }: KnowledgePulseCar
               />
             )}
           </Svg>
-          <View className="absolute inset-0 flex-row items-center justify-center">
-            <Text className="text-xl font-bold" style={{ color: '#E8EEFF' }}>
-              {pulse ?? '—'}
-            </Text>
-            {pulse !== null && (
-              <Text className="text-[10px] font-bold" style={{ color: '#8FA3C8' }}>
-                %
-              </Text>
-            )}
+          <View style={[StyleSheet.absoluteFill, styles.ringCentre]}>
+            <Text style={styles.pulseValue}>{pulse ?? '—'}</Text>
+            {pulse !== null && <Text style={styles.pulseUnit}>%</Text>}
           </View>
         </View>
 
-        <Text className="text-[10px] mt-2" style={{ color: '#8FA3C8' }}>
-          bog'langan qaydlar
-        </Text>
-        <Text className="text-[11px] mt-0.5" style={{ color: '#E8EEFF' }}>
-          {weekTotal} ta qayd shu hafta
-        </Text>
+        <Text style={styles.caption}>bog'langan qaydlar</Text>
+        <Text style={styles.total}>{weekTotal} ta qayd shu hafta</Text>
       </View>
 
-      <View
-        className="flex-row items-end justify-between mt-3"
-        style={{ height: BAR_MAX_HEIGHT + 14 }}
-      >
+      <View style={styles.week}>
         {days.map((day, index) => (
-          <View key={index} className="items-center gap-1 flex-1">
+          <View key={index} style={styles.day}>
             <View
               style={{
                 width: 8,
@@ -126,7 +117,7 @@ export function KnowledgePulseCard({ pulse, days, weekTotal }: KnowledgePulseCar
             <Text
               style={{
                 fontSize: 8,
-                color: day.isToday ? '#E8EEFF' : '#8FA3C8',
+                color: day.isToday ? INK : MUTED,
                 fontWeight: day.isToday ? '700' : '400',
               }}
             >
@@ -138,3 +129,28 @@ export function KnowledgePulseCard({ pulse, days, weekTotal }: KnowledgePulseCar
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { flex: 1, padding: 16 },
+
+  eyebrow: { fontSize: 10, fontWeight: '700', color: MUTED, letterSpacing: 1.5 },
+
+  ringBlock: { alignItems: 'center', marginTop: 12 },
+  ring: { width: RING_SIZE, height: RING_SIZE },
+  ringCentre: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+
+  pulseValue: { fontSize: 20, fontWeight: '700', color: INK },
+  pulseUnit: { fontSize: 10, fontWeight: '700', color: MUTED },
+
+  caption: { fontSize: 10, marginTop: 8, color: MUTED },
+  total: { fontSize: 11, marginTop: 2, color: INK },
+
+  week: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    height: BAR_MAX_HEIGHT + 14,
+  },
+  day: { flex: 1, alignItems: 'center', gap: 4 },
+});

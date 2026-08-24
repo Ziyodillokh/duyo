@@ -1,14 +1,25 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Compass, Gamepad2, GraduationCap, Minus, Plus, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/text';
 
 import { MascotImage } from '@/components/v2/mascot-image';
 import { PrimaryButton } from '@/components/v2/primary-button';
-import { ScreenGradient } from '@/components/v2/screen-gradient';
 import { useT, type TranslationKey } from '@/i18n';
+import { glass } from '@/lib/glass';
 import { useOnboardingStore } from '@/store/onboarding';
+
+// ── The glass sky, the same pale morning the inner screens wake up to ────────
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+/** The unpicked ticks on the ruler — quiet enough to read as "not this one". */
+const TICK_OFF = '#94A3B8';
 
 const MIN_AGE = 7;
 const MAX_AGE = 16;
@@ -57,149 +68,126 @@ export default function AgeScreen() {
   };
 
   return (
-    <ScreenGradient>
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingHorizontal: 24,
-          paddingVertical: 24,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="items-center w-full max-w-[345px]">
-          <MascotImage size={132} glow="cosmic" />
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-          <Text className="text-[24px] leading-8 font-bold text-foreground text-center mt-5">
-            {t('onboarding.age.title')}
-          </Text>
-          <Text className="text-base text-muted-foreground text-center mt-1">
-            {t('onboarding.age.subtitle')}
-          </Text>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.column}>
+            <MascotImage size={132} glow="cosmic" />
 
-          {/* The number, flanked by steppers. Big and coloured by band. */}
-          <View className="flex-row items-center justify-center mt-7" style={{ gap: 22 }}>
-            <StepButton
-              Icon={Minus}
-              disabled={age <= MIN_AGE}
-              onPress={() => setAge((a) => Math.max(MIN_AGE, a - 1))}
-              label={t('onboarding.age.decrease')}
-              colour={seg.colour}
-            />
-            <View className="items-center" style={{ minWidth: 118 }}>
-              <Text
-                className="font-bold"
-                style={{
-                  fontSize: 84,
-                  lineHeight: 92,
-                  color: seg.colour,
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {age}
-              </Text>
-              <Text className="text-sm font-medium -mt-1" style={{ color: seg.colour }}>
-                {t('onboarding.age.years')}
-              </Text>
-            </View>
-            <StepButton
-              Icon={Plus}
-              disabled={age >= MAX_AGE}
-              onPress={() => setAge((a) => Math.min(MAX_AGE, a + 1))}
-              label={t('onboarding.age.increase')}
-              colour={seg.colour}
-            />
-          </View>
+            <Text style={styles.title}>{t('onboarding.age.title')}</Text>
+            <Text style={styles.subtitle}>{t('onboarding.age.subtitle')}</Text>
 
-          {/* A ruler of every age, one tap each. Bands are readable from the
-              tick colours alone, and the chosen age stands proud. */}
-          <View
-            className="w-full flex-row items-end justify-between mt-6 px-1"
-            accessibilityRole="radiogroup"
-          >
-            {AGES.map((a) => {
-              const s = segmentOf(a);
-              const active = a === age;
-              return (
-                <Pressable
-                  key={a}
-                  onPress={() => setAge(a)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={`${a} ${t('onboarding.age.years')}`}
-                  hitSlop={6}
-                  className="items-center"
-                  style={{ width: 28 }}
-                >
-                  <View
-                    className="rounded-full"
-                    style={{
-                      width: active ? 12 : 8,
-                      height: active ? 12 : 8,
-                      backgroundColor: active ? s.colour : tint(s.colour, 0.28),
-                      borderWidth: active ? 2 : 0,
-                      borderColor: '#FFFFFF',
-                    }}
-                  />
-                  <Text
-                    className={active ? 'text-xs font-bold mt-1.5' : 'text-[11px] mt-1.5'}
-                    style={{ color: active ? s.colour : '#94A3B8' }}
-                  >
-                    {a}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Band card — what this age unlocks. */}
-          <View
-            className="w-full flex-row items-center rounded-2xl px-4 py-3.5 mt-5"
-            style={{
-              backgroundColor: tint(seg.colour, 0.1),
-              borderWidth: 1,
-              borderColor: tint(seg.colour, 0.28),
-              gap: 12,
-            }}
-          >
-            <View
-              className="w-11 h-11 rounded-full items-center justify-center"
-              style={{ backgroundColor: seg.colour }}
-            >
-              <seg.Icon size={22} color="#FFFFFF" strokeWidth={2.2} />
-            </View>
-            <View className="flex-1">
-              <View className="flex-row items-center" style={{ gap: 8 }}>
-                <Text className="text-base font-bold text-foreground">
-                  {t(seg.nameKey)}
+            {/* The number, flanked by steppers. Big and coloured by band. */}
+            <View style={styles.stepperRow}>
+              <StepButton
+                Icon={Minus}
+                disabled={age <= MIN_AGE}
+                onPress={() => setAge((a) => Math.max(MIN_AGE, a - 1))}
+                label={t('onboarding.age.decrease')}
+                colour={seg.colour}
+              />
+              <View style={styles.ageWell}>
+                <Text style={[styles.ageNumber, { color: seg.colour }]}>{age}</Text>
+                <Text style={[styles.ageUnit, { color: seg.colour }]}>
+                  {t('onboarding.age.years')}
                 </Text>
-                <View
-                  className="rounded-full px-2 py-0.5"
-                  style={{ backgroundColor: tint(seg.colour, 0.18) }}
-                >
-                  <Text className="text-[11px] font-semibold" style={{ color: seg.colour }}>
-                    {seg.from}–{seg.to}
-                  </Text>
-                </View>
               </View>
-              <Text className="text-[13px] text-muted-foreground mt-0.5">
-                {t(seg.descKey)}
-              </Text>
+              <StepButton
+                Icon={Plus}
+                disabled={age >= MAX_AGE}
+                onPress={() => setAge((a) => Math.min(MAX_AGE, a + 1))}
+                label={t('onboarding.age.increase')}
+                colour={seg.colour}
+              />
+            </View>
+
+            {/* A ruler of every age, one tap each. Bands are readable from the
+                tick colours alone, and the chosen age stands proud. */}
+            <View style={styles.ruler} accessibilityRole="radiogroup">
+              {AGES.map((a) => {
+                const s = segmentOf(a);
+                const active = a === age;
+                return (
+                  <Pressable
+                    key={a}
+                    onPress={() => setAge(a)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`${a} ${t('onboarding.age.years')}`}
+                    hitSlop={6}
+                    style={[styles.tickColumn, styles.focusable]}
+                  >
+                    <View
+                      style={{
+                        width: active ? 12 : 8,
+                        height: active ? 12 : 8,
+                        borderRadius: active ? 6 : 4,
+                        backgroundColor: active ? s.colour : tint(s.colour, 0.28),
+                        borderWidth: active ? 2 : 0,
+                        borderColor: '#FFFFFF',
+                      }}
+                    />
+                    <Text
+                      style={[
+                        active ? styles.tickLabelOn : styles.tickLabel,
+                        { color: active ? s.colour : TICK_OFF },
+                      ]}
+                    >
+                      {a}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Band card — what this age unlocks. The pane stays glass and the
+                band speaks through its edge, its disc and its badge. */}
+            <View
+              style={[
+                glass(22, 'md'),
+                styles.bandCard,
+                { borderColor: tint(seg.colour, 0.35) },
+              ]}
+            >
+              <View style={[styles.bandDisc, { backgroundColor: seg.colour }]}>
+                <seg.Icon size={22} color="#FFFFFF" strokeWidth={2.2} />
+              </View>
+              <View style={styles.bandBody}>
+                <View style={styles.bandHeading}>
+                  <Text style={styles.bandName}>{t(seg.nameKey)}</Text>
+                  <View
+                    style={[styles.bandBadge, { backgroundColor: tint(seg.colour, 0.18) }]}
+                  >
+                    <Text style={[styles.bandBadgeText, { color: seg.colour }]}>
+                      {seg.from}–{seg.to}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.bandDesc}>{t(seg.descKey)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.cta}>
+              <PrimaryButton
+                onPress={handleContinue}
+                accessibilityLabel={t('common.continue')}
+              >
+                {t('common.continue')}
+              </PrimaryButton>
             </View>
           </View>
-
-          <View className="w-full mt-6">
-            <PrimaryButton
-              onPress={handleContinue}
-              accessibilityLabel={t('common.continue')}
-            >
-              {t('common.continue')}
-            </PrimaryButton>
-          </View>
-        </View>
-      </ScrollView>
-    </ScreenGradient>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -223,17 +211,117 @@ function StepButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
-      className="items-center justify-center rounded-full active:opacity-70"
-      style={{
-        width: 52,
-        height: 52,
-        backgroundColor: disabled ? 'rgba(148, 163, 184, 0.12)' : tint(colour, 0.12),
-        borderWidth: 1.5,
-        borderColor: disabled ? 'rgba(148, 163, 184, 0.25)' : tint(colour, 0.35),
-        opacity: disabled ? 0.55 : 1,
-      }}
+      style={({ pressed }) => [
+        glass(26, 'sm'),
+        styles.step,
+        styles.focusable,
+        {
+          backgroundColor: disabled ? 'rgba(148, 163, 184, 0.12)' : tint(colour, 0.12),
+          borderColor: disabled ? 'rgba(148, 163, 184, 0.25)' : tint(colour, 0.35),
+          // What `active:opacity-70` used to do, plus the disabled dim.
+          opacity: disabled ? 0.55 : pressed ? 0.7 : 1,
+        },
+      ]}
     >
-      <Icon size={22} color={disabled ? '#94A3B8' : colour} strokeWidth={2.4} />
+      <Icon size={22} color={disabled ? TICK_OFF : colour} strokeWidth={2.4} />
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  column: { alignItems: 'center', width: '100%', maxWidth: 345 },
+
+  title: {
+    marginTop: 20,
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  subtitle: {
+    marginTop: 4,
+    fontSize: 16,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  // ── Steppers and the number ────────────────────────────────────────────
+  stepperRow: {
+    marginTop: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 22,
+  },
+  step: {
+    width: 52,
+    height: 52,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  ageWell: { alignItems: 'center', minWidth: 118 },
+  ageNumber: {
+    fontSize: 84,
+    lineHeight: 92,
+    fontWeight: '700',
+    // Tabular figures: 7 and 11 must not shuffle the steppers sideways.
+    fontVariant: ['tabular-nums'],
+  },
+  ageUnit: { marginTop: -4, fontSize: 14, fontWeight: '500' },
+
+  // ── The ruler ──────────────────────────────────────────────────────────
+  ruler: {
+    marginTop: 24,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  // 30 wide and padded to ~43 tall: hitSlop does not enlarge the element on
+  // web, so the tap target has to be real.
+  tickColumn: { width: 30, alignItems: 'center', paddingVertical: 5 },
+  tickLabel: { marginTop: 6, fontSize: 11 },
+  tickLabelOn: { marginTop: 6, fontSize: 12, fontWeight: '700' },
+
+  // ── Band card ──────────────────────────────────────────────────────────
+  bandCard: {
+    marginTop: 20,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  bandDisc: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bandBody: { flex: 1 },
+  bandHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bandName: { fontSize: 16, fontWeight: '700', color: INK },
+  bandBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  bandBadgeText: { fontSize: 11, fontWeight: '600' },
+  bandDesc: { marginTop: 2, fontSize: 13, color: MUTED },
+
+  cta: { marginTop: 24, width: '100%' },
+});

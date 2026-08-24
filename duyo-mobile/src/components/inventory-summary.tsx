@@ -1,12 +1,23 @@
 import { router } from 'expo-router';
 import { ChevronRight, Sparkles } from 'lucide-react-native';
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Text } from '@/components/text';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 
+import { Text } from '@/components/text';
 import { useBalls, useInventory } from '@/hooks/use-gamification';
+import { glass, lift } from '@/lib/glass';
 import { INVENTORY_ITEMS } from '@/mocks/inventory';
-import { useIsDark } from '@/store/theme';
+
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
 
 const PREVIEW_LIMIT = 8;
 
@@ -18,7 +29,6 @@ const PREVIEW_LIMIT = 8;
  * because that is a shop and does not belong in the middle of a profile.
  */
 export function InventorySummary() {
-  const isDark = useIsDark();
   const balls = useBalls();
   const inventory = useInventory();
 
@@ -27,77 +37,57 @@ export function InventorySummary() {
     return INVENTORY_ITEMS.filter((item) => keys.has(item.id));
   }, [inventory.data]);
 
-  const chipBg = isDark ? '#1E3A5F' : '#F1F5F9';
-
   return (
-    <View
-      className="rounded-xl border border-neon-blue/20"
-      style={{ padding: 16, backgroundColor: isDark ? '#132340' : '#FFFFFF' }}
-    >
-      <View className="flex-row items-center gap-3">
-        <Text style={{ fontSize: 26 }}>⭐</Text>
-        <View className="flex-1">
-          <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-            Balansim
-          </Text>
+    <View style={[styles.card, styles.cardPane]}>
+      <View style={styles.balanceRow}>
+        <Text style={styles.star}>⭐</Text>
+        <View style={styles.balanceText}>
+          <Text style={styles.balanceLabel}>Balansim</Text>
           {balls.isLoading ? (
-            <ActivityIndicator color={isDark ? '#E0E7FF' : '#102033'} />
+            <ActivityIndicator color={PRIMARY} />
           ) : (
-            <Text className="text-[22px] leading-7 font-bold text-foreground dark:text-dark-text">
-              {balls.data?.balance ?? 0}
-            </Text>
+            <Text style={styles.balanceValue}>{balls.data?.balance ?? 0}</Text>
           )}
         </View>
         <Pressable
           onPress={() => router.push('/(main)/avatar-customization')}
           accessibilityRole="button"
           accessibilityLabel="Avatar sozlash"
-          className="rounded-md bg-neon-blue flex-row items-center gap-1.5 active:opacity-80"
-          style={{ paddingHorizontal: 12, height: 34 }}
+          style={({ pressed }) => [
+            styles.avatarButton,
+            pressed && styles.pressed,
+            styles.focusable,
+          ]}
         >
-          <Sparkles size={14} color="#0A1628" />
-          <Text className="text-sm font-medium" style={{ color: '#0A1628' }}>
-            Avatar
-          </Text>
+          <Sparkles size={14} color="#FFFFFF" />
+          <Text style={styles.avatarLabel}>Avatar</Text>
         </Pressable>
       </View>
 
-      <View
-        style={{
-          height: 1,
-          backgroundColor: 'rgba(96,165,250,0.15)',
-          marginVertical: 14,
-        }}
-      />
+      <View style={styles.divider} />
 
       {owned.length > 0 ? (
-        <View className="flex-row flex-wrap gap-2">
+        <View style={styles.chips}>
           {owned.slice(0, PREVIEW_LIMIT).map((item) => (
             <View
               key={item.id}
-              className="rounded-md flex-row items-center gap-1.5"
-              style={{ backgroundColor: chipBg, paddingHorizontal: 10, paddingVertical: 7 }}
+              style={[styles.chip, styles.chipPane]}
               accessibilityLabel={item.name}
             >
-              <Text style={{ fontSize: 15 }}>{item.emoji}</Text>
-              <Text className="text-xs text-foreground dark:text-dark-text">
-                {item.name}
-              </Text>
+              <Text style={styles.chipEmoji}>{item.emoji}</Text>
+              <Text style={styles.chipLabel}>{item.name}</Text>
             </View>
           ))}
-          {owned.length > PREVIEW_LIMIT && (
-            <View
-              className="rounded-md items-center justify-center"
-              style={{ backgroundColor: chipBg, paddingHorizontal: 10, paddingVertical: 7 }}
-            >
-              <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+          {owned.length > PREVIEW_LIMIT ? (
+            <View style={[styles.chip, styles.chipPane, styles.chipMore]}>
+              <Text style={styles.chipMoreLabel}>
                 +{owned.length - PREVIEW_LIMIT}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
       ) : (
-        <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+        <Text style={styles.empty}>
           Hali buyum yo'q. Ball to'plab, do'kondan tanla.
         </Text>
       )}
@@ -106,14 +96,72 @@ export function InventorySummary() {
         onPress={() => router.push('/(main)/inventory')}
         accessibilityRole="button"
         accessibilityLabel="Do'konni ochish"
-        className="flex-row items-center justify-center gap-1 active:opacity-80"
-        style={{ marginTop: 14 }}
+        style={({ pressed }) => [
+          styles.shopLink,
+          pressed && styles.pressed,
+          styles.focusable,
+        ]}
       >
-        <Text className="text-sm font-medium text-neon-blue">
-          Do'konga o'tish
-        </Text>
-        <ChevronRight size={16} color="#60A5FA" />
+        <Text style={styles.shopLabel}>Do'konga o'tish</Text>
+        <ChevronRight size={16} color={PRIMARY} />
       </Pressable>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  pressed: { opacity: 0.8 },
+
+  // A card among the profile's other cards — same radius and same rung on the
+  // ladder, so the profile reads as one surface family.
+  cardPane: glass(22, 'md'),
+  card: { padding: 16 },
+
+  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  star: { fontSize: 26 },
+  balanceText: { flex: 1 },
+  balanceLabel: { fontSize: 14, lineHeight: 20, color: MUTED },
+  balanceValue: { fontSize: 22, lineHeight: 28, fontWeight: '700', color: INK },
+
+  // A solid button, not a pane — it takes the light from `lift` alone.
+  avatarButton: {
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: PRIMARY,
+    boxShadow: lift('sm'),
+  },
+  avatarLabel: { fontSize: 14, fontWeight: '500', color: '#FFFFFF' },
+
+  divider: { height: 1, marginVertical: 14, backgroundColor: HAIRLINE },
+
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  // The owned items are drawn on the card, so they sit flush against it.
+  chipPane: glass(14, 'flush', 0.5),
+  chipMore: { justifyContent: 'center' },
+  chipEmoji: { fontSize: 15 },
+  chipLabel: { fontSize: 12, lineHeight: 16, color: INK },
+  chipMoreLabel: { fontSize: 12, lineHeight: 16, color: MUTED },
+
+  empty: { fontSize: 14, lineHeight: 20, color: MUTED },
+
+  shopLink: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  shopLabel: { fontSize: 14, fontWeight: '500', color: PRIMARY },
+});

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, Pressable, View } from 'react-native';
+import {
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { Text } from '@/components/text';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -28,6 +34,7 @@ import {
   UNTAGGED,
   type OrbitedNode,
 } from '@/lib/galaxy-layout';
+import { lift } from '@/lib/glass';
 
 /** As close to invisible as a line can be and still be findable — the
  *  threads are a secret the selection reveals. */
@@ -41,6 +48,11 @@ const NEON_SELECTED = '#3BFF7E';
 const NEON_LINKED = '#FF3B5C';
 /** Muted, the way Obsidian's labels sit under their dots. */
 const LABEL = '#A9B4CC';
+/** The canvas is deep space in both themes, so the prose over it is always
+ *  light — the pale-blue MUTED of the glass pages would sink into the nebula. */
+const CANVAS_TEXT = '#94A3B8';
+/** The reset pill's lavender, borrowed from the violet it sits in. */
+const RESET_TEXT = '#DAB2FF';
 /** How far outsiders fade while a constellation is selected. Bodies keep a
  *  third of their light — the child asked to still watch the whole sky
  *  mingle — while edges drop to barely-there. */
@@ -380,14 +392,17 @@ function TouchLayer({
             onLongPress={() => onHold(n)}
             accessibilityRole="button"
             accessibilityLabel={labelOf(n)}
-            style={{
-              position: 'absolute',
-              left: n.x - hit,
-              top: n.y - hit,
-              width: hit * 2,
-              height: hit * 2,
-              borderRadius: hit,
-            }}
+            style={[
+              styles.touch,
+              styles.focusable,
+              {
+                left: n.x - hit,
+                top: n.y - hit,
+                width: hit * 2,
+                height: hit * 2,
+                borderRadius: hit,
+              },
+            ]}
           />
         );
       })}
@@ -679,11 +694,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     <GestureDetector gesture={gesture}>
       <View
         onLayout={onLayout}
-        style={
-          height === undefined
-            ? { flex: 1, overflow: 'hidden' }
-            : { height, overflow: 'hidden' }
-        }
+        style={[styles.canvas, height === undefined ? styles.fill : { height }]}
         accessibilityLabel="Qaydlar olami"
       >
         {galaxy && nodes.length > 0 && (
@@ -1061,31 +1072,23 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
           </Animated.View>
         )}
 
-        {focus && (
+        {/* `focus` is a title, so `focus && …` would render the empty string as
+            a bare text node and react-native-web would throw. */}
+        {focus ? (
           <Pressable
             onPress={reset}
             accessibilityRole="button"
             accessibilityLabel="Ko'rinishni tiklash"
-            style={{
-              position: 'absolute',
-              right: 10,
-              top: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-              borderRadius: 8,
-              backgroundColor: 'rgba(130,0,219,0.28)',
-            }}
+            style={[styles.reset, styles.focusable]}
           >
-            <Text className="text-xs text-dark-subtitle">Tiklash</Text>
+            <Text style={styles.resetText}>Tiklash</Text>
           </Pressable>
-        )}
+        ) : null}
 
-        {/* The canvas is deep space in both themes, so text over it is always
-            light — a theme-coloured muted grey would vanish into the nebula. */}
         {nodes.length === 0 && (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-4xl mb-2">🌌</Text>
-            <Text className="text-sm text-center px-8" style={{ color: '#94A3B8' }}>
+          <View style={styles.empty}>
+            <Text style={styles.emptyGlyph}>🌌</Text>
+            <Text style={styles.emptyText}>
               Olaming hali bo'sh. Birinchi qaydni yozsang, shu yerda birinchi
               yulduzing yonadi.
             </Text>
@@ -1096,11 +1099,8 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
             unlinked notebook — a child who doesn't know what makes the lines
             appear will just think the map is broken. */}
         {nodes.length > 0 && edges.length === 0 && (
-          <View
-            className="absolute left-0 right-0 items-center"
-            style={{ bottom: 74, pointerEvents: 'none' }}
-          >
-            <Text className="text-xs text-center px-10" style={{ color: '#94A3B8' }}>
+          <View style={styles.hint}>
+            <Text style={styles.hintText}>
               Qaydlarda #teg yoz yoki bir qaydda boshqasining nomini eslat —
               yulduzlar o'zaro bog'lana boshlaydi.
             </Text>
@@ -1110,3 +1110,58 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     </GestureDetector>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  canvas: { overflow: 'hidden' },
+  fill: { flex: 1 },
+
+  /** A body IS its touch target — position and size follow the simulation. */
+  touch: { position: 'absolute' },
+
+  // A chip resting on the sky: 'sm', the lowest rung that is still an object.
+  // It does NOT use `glass()` — that pane is white-on-pale-blue, and over deep
+  // space a 55%-white fill is a milky blob. The violet wash stays and only the
+  // light comes from the ladder, which is what `lift` is for.
+  reset: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(130,0,219,0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(224,231,255,0.20)',
+    boxShadow: lift('sm'),
+  },
+  resetText: { fontSize: 12, color: RESET_TEXT },
+
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyGlyph: { fontSize: 36, marginBottom: 8 },
+  emptyText: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    color: CANVAS_TEXT,
+  },
+
+  hint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 74,
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  hintText: {
+    fontSize: 12,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    color: CANVAS_TEXT,
+  },
+});

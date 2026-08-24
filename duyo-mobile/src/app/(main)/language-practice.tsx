@@ -9,8 +9,8 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -18,13 +18,23 @@ import {
   type LanguageQuestion,
   type PracticeLanguage,
 } from '@/api/endpoints/language';
+import { Text } from '@/components/text';
 import { FlagIcon } from '@/components/v2/flag-icon';
+import { glass, lift } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
 
 type Stage = 'language-select' | 'quiz' | 'result';
 
-const FULL_SCREEN_BG = '#0A1628';
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const GREEN = '#22B573';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+
 const QUESTION_COUNT = 5;
 
 // Flags are drawn (components/v2/flag-icon), not emoji: the regional-
@@ -40,7 +50,6 @@ const LANGUAGES: readonly {
 ];
 
 export default function LanguagePracticeScreen() {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const [stage, setStage] = useState<Stage>('language-select');
   const [questions, setQuestions] = useState<LanguageQuestion[]>([]);
@@ -90,16 +99,14 @@ export default function LanguagePracticeScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: FULL_SCREEN_BG }]} />
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.15)', 'rgba(96, 165, 250, 0.05)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.header}>
           <Pressable
             onPress={() => {
               if (stage === 'language-select') router.back();
@@ -107,22 +114,16 @@ export default function LanguagePracticeScreen() {
             }}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">
-            Til mashqi
-          </Text>
+          <Text style={styles.headerTitle}>Til mashqi</Text>
         </View>
 
         {stage === 'language-select' && (
-          <ScrollView
-            contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 48 }}
-          >
-            <Text className="text-base text-muted-foreground dark:text-dark-muted">
-              Qaysi tilni mashq qilamiz?
-            </Text>
+          <ScrollView contentContainerStyle={styles.selectScroll}>
+            <Text style={styles.prompt}>Qaysi tilni mashq qilamiz?</Text>
 
             {LANGUAGES.map((l) => (
               <Pressable
@@ -131,25 +132,28 @@ export default function LanguagePracticeScreen() {
                 disabled={generate.isPending}
                 accessibilityRole="button"
                 accessibilityLabel={l.label}
-                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
-                style={{ padding: 20, opacity: generate.isPending ? 0.6 : 1 }}
+                style={({ pressed }) => [
+                  glass(24, 'md'),
+                  styles.languageCard,
+                  generate.isPending && styles.busy,
+                  pressed && styles.pressed,
+                ]}
               >
-                <View className="flex-row items-center gap-4">
+                <View style={styles.languageRow}>
+                  {/* The well keeps the language's own colour — it is the only
+                      thing telling the two cards apart at a glance. */}
                   <View
-                    className="items-center justify-center rounded-md"
-                    style={{
-                      width: 48,
-                      height: 48,
-                      backgroundColor: `${l.color}20`,
-                    }}
+                    style={[
+                      glass(14, 'flush'),
+                      styles.flagWell,
+                      { backgroundColor: `${l.color}22` },
+                    ]}
                   >
                     <FlagIcon code={l.key} width={30} />
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                      {l.label}
-                    </Text>
-                    <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
+                  <View style={styles.languageMeta}>
+                    <Text style={styles.languageLabel}>{l.label}</Text>
+                    <Text style={styles.languageCount}>
                       {QUESTION_COUNT} ta savol
                     </Text>
                   </View>
@@ -158,42 +162,26 @@ export default function LanguagePracticeScreen() {
             ))}
 
             {generate.isPending && (
-              <View className="items-center" style={{ padding: 24 }}>
-                <ActivityIndicator color="#60A5FA" />
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-3">
-                  Savollar tayyorlanmoqda…
-                </Text>
+              <View style={styles.pendingBlock}>
+                <ActivityIndicator color={PRIMARY} />
+                <Text style={styles.pendingText}>Savollar tayyorlanmoqda…</Text>
               </View>
             )}
 
             {generate.isError && (
-              <View
-                className="rounded-xl border"
-                style={{
-                  padding: 16,
-                  borderColor: 'rgba(251, 100, 182, 0.40)',
-                  backgroundColor: 'rgba(251, 100, 182, 0.10)',
-                }}
-              >
-                <Text className="text-sm font-medium text-neon-pink">
-                  Savollarni yuklab bo'lmadi
-                </Text>
-                <Text className="text-xs text-muted-foreground dark:text-dark-muted mt-1">
+              <View style={styles.errorBlock}>
+                <Text style={styles.errorTitle}>Savollarni yuklab bo'lmadi</Text>
+                <Text style={styles.errorBody}>
                   Internetni tekshirib, qaytadan urinib ko'ring
                 </Text>
               </View>
             )}
 
             {generate.isSuccess && generate.data.length === 0 && (
-              <View
-                className="rounded-xl border border-neon-blue/20 items-center"
-                style={{ padding: 24 }}
-              >
-                <Text className="text-4xl">📚</Text>
-                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
-                  Hozircha mashq tayyor emas
-                </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+              <View style={[glass(24, 'md', 0.55), styles.emptyBlock]}>
+                <Text style={styles.emptyEmoji}>📚</Text>
+                <Text style={styles.emptyTitle}>Hozircha mashq tayyor emas</Text>
+                <Text style={styles.emptyBody}>
                   Birozdan keyin qaytadan urinib ko'ring
                 </Text>
               </View>
@@ -202,34 +190,31 @@ export default function LanguagePracticeScreen() {
         )}
 
         {stage === 'quiz' && question && (
-          <View className="flex-1 px-6 pb-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-sm text-muted-foreground dark:text-dark-muted">
+          <View style={styles.quiz}>
+            <View style={styles.quizHead}>
+              <Text style={styles.quizCount}>
                 Savol {qIndex + 1} / {questions.length}
               </Text>
             </View>
 
-            <View
-              className="rounded-full overflow-hidden mb-6"
-              style={{ height: 4, backgroundColor: 'rgba(96, 165, 250, 0.20)' }}
-            >
-              <View
-                className="bg-neon-blue h-full"
-                style={{ width: `${((qIndex + 1) / questions.length) * 100}%` }}
+            <View style={styles.track}>
+              <LinearGradient
+                colors={['#4F86EE', '#7FB2FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[
+                  styles.trackFill,
+                  { width: `${((qIndex + 1) / questions.length) * 100}%` },
+                ]}
               />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-              <View
-                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 mb-6"
-                style={{ padding: 24 }}
-              >
-                <Text className="text-lg text-foreground dark:text-dark-text leading-7">
-                  {question.text}
-                </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.grow}>
+              <View style={[glass(24, 'md', 0.6), styles.questionCard]}>
+                <Text style={styles.questionText}>{question.text}</Text>
               </View>
 
-              <View className="gap-3">
+              <View style={styles.choices}>
                 {question.choices.map((choice, idx) => {
                   const isSel = selected === idx;
                   return (
@@ -239,31 +224,27 @@ export default function LanguagePracticeScreen() {
                       accessibilityRole="radio"
                       accessibilityState={{ selected: isSel }}
                       accessibilityLabel={choice}
-                      className={`rounded-xl border active:opacity-80 ${
-                        isSel
-                          ? 'bg-neon-blue/20 border-neon-blue'
-                          : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                      }`}
-                      style={{ padding: 16 }}
+                      style={({ pressed }) => [
+                        styles.choice,
+                        styles.focusable,
+                        isSel ? styles.choiceOn : glass(20, 'md', 0.55),
+                        pressed && styles.pressed,
+                      ]}
                     >
-                      <View className="flex-row items-center gap-3">
+                      <View style={styles.choiceRow}>
                         <View
-                          className="w-7 h-7 items-center justify-center rounded-full border"
-                          style={{
-                            borderColor: isSel ? '#60A5FA' : '#94A3B8',
-                            backgroundColor: isSel ? '#60A5FA' : 'transparent',
-                          }}
+                          style={[styles.bullet, isSel && styles.bulletOn]}
                         >
                           <Text
-                            className="text-xs font-bold"
-                            style={{ color: isSel ? '#0A1628' : '#94A3B8' }}
+                            style={[
+                              styles.bulletText,
+                              isSel && styles.bulletTextOn,
+                            ]}
                           >
                             {String.fromCharCode(65 + idx)}
                           </Text>
                         </View>
-                        <Text className="text-base text-foreground dark:text-dark-text flex-1">
-                          {choice}
-                        </Text>
+                        <Text style={styles.choiceText}>{choice}</Text>
                       </View>
                     </Pressable>
                   );
@@ -276,12 +257,15 @@ export default function LanguagePracticeScreen() {
               disabled={selected === null}
               accessibilityRole="button"
               accessibilityLabel={isLast ? 'Tugatish' : 'Keyingi savol'}
-              className={`rounded-md items-center justify-center mt-4 ${
-                selected !== null ? 'bg-neon-blue' : 'bg-neon-blue/40'
-              }`}
-              style={{ height: 56 }}
+              style={({ pressed }) => [
+                styles.filled,
+                styles.next,
+                styles.focusable,
+                selected === null && styles.filledOff,
+                pressed && selected !== null && styles.pressed,
+              ]}
             >
-              <Text className="text-base font-medium" style={{ color: '#0A1628' }}>
+              <Text style={styles.filledLabel}>
                 {isLast ? 'Tugatish' : 'Keyingi'}
               </Text>
             </Pressable>
@@ -289,20 +273,15 @@ export default function LanguagePracticeScreen() {
         )}
 
         {stage === 'result' && (
-          <ScrollView
-            contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}
-          >
-            <View
-              className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 items-center"
-              style={{ padding: 32 }}
-            >
-              <Text className="text-6xl mb-3">
+          <ScrollView contentContainerStyle={styles.resultScroll}>
+            <View style={[glass(28, 'lg', 0.62), styles.scoreCard]}>
+              <Text style={styles.scoreEmoji}>
                 {correctCount >= questions.length * 0.7 ? '🎉' : '💪'}
               </Text>
-              <Text className="text-2xl font-bold text-foreground dark:text-dark-text">
+              <Text style={styles.score}>
                 {correctCount} / {questions.length}
               </Text>
-              <Text className="text-base text-muted-foreground dark:text-dark-muted mt-2 text-center">
+              <Text style={styles.scoreCaption}>
                 {correctCount === questions.length
                   ? "Ajoyib! Hammasi to'g'ri!"
                   : correctCount >= questions.length * 0.7
@@ -311,30 +290,24 @@ export default function LanguagePracticeScreen() {
               </Text>
             </View>
 
-            <View className="gap-3">
+            <View style={styles.review}>
               {questions.map((q, i) => {
                 const isCorrect = answers[i] === q.correct_index;
                 return (
-                  <View
-                    key={i}
-                    className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
-                    style={{ padding: 16 }}
-                  >
-                    <View className="flex-row items-start gap-2">
+                  <View key={i} style={[glass(22, 'md', 0.55), styles.reviewCard]}>
+                    <View style={styles.reviewRow}>
                       {isCorrect ? (
-                        <CheckCircle2 size={20} color="#05DF72" />
+                        <CheckCircle2 size={20} color={GREEN} />
                       ) : (
-                        <XCircle size={20} color="#FB64B6" />
+                        <XCircle size={20} color={DANGER} />
                       )}
-                      <View className="flex-1">
-                        <Text className="text-sm text-foreground dark:text-dark-text mb-2">
-                          {q.text}
-                        </Text>
-                        <Text className="text-xs text-muted-foreground dark:text-dark-muted">
+                      <View style={styles.grow}>
+                        <Text style={styles.reviewQuestion}>{q.text}</Text>
+                        <Text style={styles.reviewAnswer}>
                           To'g'ri javob: {q.choices[q.correct_index]}
                         </Text>
                         {q.explanation !== '' && (
-                          <Text className="text-xs text-muted-foreground dark:text-dark-subtitle mt-1">
+                          <Text style={styles.reviewExplanation}>
                             {q.explanation}
                           </Text>
                         )}
@@ -349,12 +322,13 @@ export default function LanguagePracticeScreen() {
               onPress={backToSelect}
               accessibilityRole="button"
               accessibilityLabel="Yana mashq qilish"
-              className="rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-              style={{ height: 56 }}
+              style={({ pressed }) => [
+                styles.filled,
+                styles.focusable,
+                pressed && styles.pressed,
+              ]}
             >
-              <Text className="text-base font-medium" style={{ color: '#0A1628' }}>
-                Yana mashq qilish
-              </Text>
+              <Text style={styles.filledLabel}>Yana mashq qilish</Text>
             </Pressable>
           </ScrollView>
         )}
@@ -362,3 +336,156 @@ export default function LanguagePracticeScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  grow: { flex: 1 },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: INK },
+
+  // ── Language select ────────────────────────────────────────────────────
+  selectScroll: { padding: 24, gap: 16, paddingBottom: 48 },
+  prompt: { fontSize: 16, color: MUTED },
+  languageCard: { padding: 20 },
+  busy: { opacity: 0.6 },
+  languageRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  flagWell: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  languageMeta: { flex: 1 },
+  languageLabel: { fontSize: 16, fontWeight: '600', color: INK },
+  languageCount: { marginTop: 4, fontSize: 14, color: MUTED },
+
+  pendingBlock: { alignItems: 'center', padding: 24 },
+  pendingText: { marginTop: 12, fontSize: 14, color: MUTED },
+
+  // A failure is not a pane of the page's glass — it keeps its own tinted
+  // outline so it reads as a notice rather than as content.
+  errorBlock: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(224,69,94,0.35)',
+    backgroundColor: 'rgba(224,69,94,0.10)',
+  },
+  errorTitle: { fontSize: 14, fontWeight: '600', color: DANGER },
+  errorBody: { marginTop: 4, fontSize: 12, color: MUTED },
+
+  emptyBlock: { padding: 24, alignItems: 'center' },
+  emptyEmoji: { fontSize: 36, lineHeight: 44 },
+  emptyTitle: { marginTop: 8, fontSize: 16, fontWeight: '600', color: INK },
+  emptyBody: {
+    marginTop: 4,
+    fontSize: 14,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  // ── Quiz ───────────────────────────────────────────────────────────────
+  quiz: { flex: 1, paddingHorizontal: 24, paddingBottom: 24 },
+  quizHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  quizCount: { fontSize: 14, color: MUTED },
+  track: {
+    height: 4,
+    marginBottom: 24,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(47,111,228,0.16)',
+  },
+  trackFill: { height: '100%' },
+
+  questionCard: { padding: 24, marginBottom: 24 },
+  questionText: { fontSize: 18, lineHeight: 28, color: INK },
+
+  choices: { gap: 12 },
+  choice: { padding: 16, borderRadius: 20 },
+  // The picked answer stops being a pane and becomes the page's blue — the
+  // same lift as its neighbours, so choosing does not make it hover.
+  choiceOn: {
+    backgroundColor: 'rgba(47,111,228,0.14)',
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    boxShadow: lift('md'),
+  },
+  choiceRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  bullet: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: MUTED,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bulletOn: { borderColor: PRIMARY, backgroundColor: PRIMARY },
+  bulletText: { fontSize: 12, fontWeight: '700', color: MUTED },
+  bulletTextOn: { color: '#FFFFFF' },
+  choiceText: { flex: 1, fontSize: 16, color: INK },
+
+  next: { marginTop: 16 },
+
+  // ── Result ─────────────────────────────────────────────────────────────
+  resultScroll: { padding: 24, gap: 24, paddingBottom: 48 },
+  scoreCard: { padding: 32, alignItems: 'center' },
+  scoreEmoji: { marginBottom: 12, fontSize: 60, lineHeight: 70 },
+  score: { fontSize: 24, fontWeight: '700', color: INK },
+  scoreCaption: {
+    marginTop: 8,
+    fontSize: 16,
+    color: MUTED,
+    textAlign: 'center',
+  },
+
+  review: { gap: 12 },
+  reviewCard: { padding: 16 },
+  reviewRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  reviewQuestion: { marginBottom: 8, fontSize: 14, color: INK },
+  reviewAnswer: { fontSize: 12, color: MUTED },
+  reviewExplanation: { marginTop: 4, fontSize: 12, color: MUTED },
+
+  // A filled button styles its own surface, so it takes the light on its own
+  // (`lift`) rather than the whole glass material.
+  filled: {
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    boxShadow: lift('md'),
+  },
+  // Nothing to press yet, so it sits back down on the page.
+  filledOff: {
+    backgroundColor: 'rgba(47,111,228,0.35)',
+    boxShadow: lift('sm'),
+  },
+  filledLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+
+  pressed: { opacity: 0.8 },
+  // The browser's default focus ring is a black rectangle around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+});

@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   ArrowLeft,
@@ -9,7 +10,13 @@ import {
   Square,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,13 +29,25 @@ import { useMemoryConsent } from '@/hooks/use-memory-consent';
 import { useMicRecorder } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
 import { useVoiceSession } from '@/hooks/use-voice-session';
+import { glass, lift } from '@/lib/glass';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
 import { useMemoryStore } from '@/store/memory';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'responding' | 'error';
 
-const TEAL = '#006687';
+// ── The glass sky — the tutor stands on the same pale blue page as the rest ──
+// The screen used to carry its own teal; one look now, so the tutor borrows
+// the app's blue and keeps only its own layout.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
 
 const STATUS_TEXT: Record<Phase, string> = {
   idle: 'Boshlash uchun tugmani bosing',
@@ -282,257 +301,364 @@ export default function VoiceScreen() {
   const isError = phase === 'error';
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-      {/* Header — frosted bar */}
-      <View
-        className="h-16 px-4 flex-row items-center justify-between border-b border-white/50 bg-white/70"
-        style={{
-          shadowColor: '#000',
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 3,
-        }}
-      >
-        <View className="flex-row items-center gap-2">
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Orqaga"
-            className="p-1"
-          >
-            <ArrowLeft size={28} color={TEAL} />
-          </Pressable>
-          <Text className="text-2xl font-bold text-[#006687]">AI Tutor</Text>
-        </View>
-        <View className="w-10 h-10 rounded-full border-2 border-white bg-[#e6e8ea]" />
-      </View>
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-      {/* Center — avatar with soft glow, or the chalkboard when one is up */}
-      <View className="flex-1 items-center justify-center gap-6 px-6">
-        {!board && puzzle ? (
-          /* Same slate, asking instead of explaining. */
-          <View className="w-full" style={{ paddingBottom: 40 }}>
-            <PuzzleChalkboard
-              puzzle={puzzle}
-              childId={child?.id ?? ''}
-              onDone={() => setPuzzle(null)}
-              compact
-            />
-          </View>
-        ) : board ? (
-          /* Board fills the stage; DUYO steps aside and stands in front of its
-             lower corner, the way a teacher stands beside a blackboard. */
-          <View className="w-full" style={{ paddingBottom: 40 }}>
-            <Chalkboard
-              solution={board}
-              onClose={() => setBoard(null)}
-              compact
-            />
-            <View
-              style={{ position: 'absolute', right: -8, bottom: -14, zIndex: 10 }}
-              pointerEvents="none"
+      <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
+        {/* Header — glass chips on the open page */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Orqaga"
+              style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
             >
-              <DuyoAvatar
-                size="md"
-                state={avatarStateFor(phase, crisisLevel)}
+              <ArrowLeft size={26} color={PRIMARY} />
+            </Pressable>
+            <Text style={styles.title}>AI Tutor</Text>
+          </View>
+          {/* Balances the title against the back chip — no control of its own. */}
+          <View style={[glass(20, 'sm'), styles.headerBalance]} />
+        </View>
+
+        {/* Center — avatar with soft glow, or the chalkboard when one is up */}
+        <View style={styles.stage}>
+          {!board && puzzle ? (
+            /* Same slate, asking instead of explaining. */
+            <View style={styles.slate}>
+              <PuzzleChalkboard
+                puzzle={puzzle}
+                childId={child?.id ?? ''}
+                onDone={() => setPuzzle(null)}
+                compact
               />
             </View>
-          </View>
-        ) : (
-        <View className="items-center justify-center">
-          {/* Soft glow behind avatar */}
-          <View
-            className="absolute w-72 h-72 rounded-full bg-[#006687]/5"
-            style={{
-              shadowColor: TEAL,
-              shadowOpacity: 0.15,
-              shadowRadius: 40,
-              shadowOffset: { width: 0, height: 0 },
-            }}
-          />
-          {isError ? (
-            <DuyoAvatar size="xl" state="puzzled" />
-          ) : (
-            <DuyoAvatar size="xl" state={avatarStateFor(phase, crisisLevel)} />
-          )}
-
-          {/* Offline signal-error badge */}
-          {isError && (
-            <View
-              className="absolute top-2 right-2 w-12 h-12 rounded-full items-center justify-center border-2 border-white bg-[#ba1a1a]"
-              style={{
-                shadowColor: '#000',
-                shadowOpacity: 0.2,
-                shadowRadius: 6,
-                shadowOffset: { width: 0, height: 2 },
-                elevation: 4,
-              }}
-            >
-              <CloudOff size={24} color="#FFFFFF" />
-            </View>
-          )}
-        </View>
-        )}
-
-        {/* Non-error status text */}
-        {!isError && (
-          <Text className="text-base text-foreground text-center">
-            {STATUS_TEXT[phase]}
-          </Text>
-        )}
-
-        {/* Crisis banner — preserved */}
-        {crisisLevel && (
-          <View className="bg-destructive/10 border border-destructive rounded-xl px-4 py-2">
-            <Text className="text-sm font-semibold text-destructive">
-              Yordam kerakmi? 1142 raqamiga qo'ng'iroq qiling
-            </Text>
-          </View>
-        )}
-
-        {/* Offline / error card */}
-        {isError && (
-          <View className="w-full items-center gap-3">
-            <View
-              className="w-full items-center gap-4 rounded-[32px] border border-white/50 bg-white/70 p-8"
-              style={{
-                shadowColor: '#000',
-                shadowOpacity: 0.08,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 4,
-              }}
-            >
-              <View className="w-16 h-16 rounded-full items-center justify-center bg-[#e6e8ea]">
-                <CloudOff size={32} color="#3f484e" />
+          ) : board ? (
+            /* Board fills the stage; DUYO steps aside and stands in front of its
+               lower corner, the way a teacher stands beside a blackboard. */
+            <View style={styles.slate}>
+              <Chalkboard
+                solution={board}
+                onClose={() => setBoard(null)}
+                compact
+              />
+              <View style={styles.slateAvatar} pointerEvents="none">
+                <DuyoAvatar
+                  size="md"
+                  state={avatarStateFor(phase, crisisLevel)}
+                />
               </View>
-              <Text className="text-[28px] font-bold text-[#191c1e] text-center">
-                {errorMessage ?? "Internet aloqasi yo'q"}
+            </View>
+          ) : (
+          <View style={styles.avatarStage}>
+            {/* Soft glow behind avatar. Symmetric and unoffset on purpose: it
+                is light around DUYO, not a height cue, so it must not read as
+                one of the ladder's drop shadows. */}
+            <View style={styles.glow} />
+            {isError ? (
+              <DuyoAvatar size="xl" state="puzzled" />
+            ) : (
+              <DuyoAvatar size="xl" state={avatarStateFor(phase, crisisLevel)} />
+            )}
+
+            {/* Offline signal-error badge */}
+            {isError && (
+              <View style={styles.errorBadge}>
+                <CloudOff size={24} color="#FFFFFF" />
+              </View>
+            )}
+          </View>
+          )}
+
+          {/* Non-error status text */}
+          {!isError && (
+            <Text style={styles.status}>{STATUS_TEXT[phase]}</Text>
+          )}
+
+          {/* Crisis banner — preserved */}
+          {crisisLevel ? (
+            <View style={styles.crisis}>
+              <Text style={styles.crisisText}>
+                Yordam kerakmi? 1142 raqamiga qo'ng'iroq qiling
               </Text>
-              <Text className="text-base text-[#3f484e] text-center">
-                DUYO hozircha biroz dam olyapti. Aloqa tiklanganda suhbatni
-                davom ettiramiz.
-              </Text>
+            </View>
+          ) : null}
+
+          {/* Offline / error card */}
+          {isError && (
+            <View style={styles.errorBlock}>
+              <View style={[glass(32, 'lg', 0.7), styles.errorCard]}>
+                <View style={styles.errorWell}>
+                  <CloudOff size={32} color={PRIMARY} />
+                </View>
+                <Text style={styles.errorTitle}>
+                  {errorMessage ?? "Internet aloqasi yo'q"}
+                </Text>
+                <Text style={styles.errorBody}>
+                  DUYO hozircha biroz dam olyapti. Aloqa tiklanganda suhbatni
+                  davom ettiramiz.
+                </Text>
+                <Pressable
+                  onPress={handleTap}
+                  accessibilityRole="button"
+                  accessibilityLabel="Keyinroq urinib ko'ramiz"
+                  style={[styles.retry, styles.focusable]}
+                >
+                  <RefreshCw size={18} color="#FFFFFF" />
+                  <Text style={styles.retryText}>
+                    Keyinroq urinib ko'ramiz
+                  </Text>
+                </Pressable>
+              </View>
               <Pressable
-                onPress={handleTap}
+                onPress={() => router.push('/(main)/settings-voice')}
                 accessibilityRole="button"
-                accessibilityLabel="Keyinroq urinib ko'ramiz"
-                className="w-full h-14 rounded-full flex-row items-center justify-center gap-2 bg-[#006687]"
+                accessibilityLabel="Sozlamalarni tekshirish"
+                style={styles.errorLink}
               >
-                <RefreshCw size={18} color="#FFFFFF" />
-                <Text className="text-sm font-semibold text-white">
-                  Keyinroq urinib ko'ramiz
+                <Text style={styles.errorLinkText}>
+                  Sozlamalarni tekshirish
                 </Text>
               </Pressable>
             </View>
-            <Pressable
-              onPress={() => router.push('/(main)/settings-voice')}
-              accessibilityRole="button"
-              accessibilityLabel="Sozlamalarni tekshirish"
-            >
-              <Text className="text-sm text-[#006687]">
-                Sozlamalarni tekshirish
-              </Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-
-      {/* Transcripts — hidden while the board is up; it already shows the
-          working, and both together overflow shorter screens. */}
-      {/* `? :` rather than `&&`. Both transcripts start as '', so the guard
-          `(inputTranscript || outputTranscript)` evaluates to '' — and `&&`
-          hands that empty STRING to React, which renders it as a text node
-          inside a View: "Unexpected text node". A falsy string is not nothing. */}
-      {!board && (inputTranscript || outputTranscript) ? (
-        <ScrollView
-          className="max-h-48 px-6 mb-4"
-          contentContainerStyle={{ gap: 8 }}
-        >
-          {/* `? :`, not `&&`: these start as '' and React renders an empty
-              string as a TEXT NODE, which inside a View is the error
-              "Unexpected text node". A falsy string is not nothing. */}
-          {inputTranscript ? (
-            <View className="bg-primary/10 rounded-xl p-3">
-              <Text className="text-xs text-muted-foreground mb-1">Siz:</Text>
-              <Text className="text-base text-foreground">
-                {inputTranscript}
-              </Text>
-            </View>
-          ) : null}
-          {outputTranscript ? (
-            <View className="bg-card border border-border rounded-xl p-3">
-              <Text className="text-xs text-muted-foreground mb-1">DUYO:</Text>
-              <Text className="text-base text-foreground">
-                {outputTranscript}
-              </Text>
-            </View>
-          ) : null}
-        </ScrollView>
-      ) : null}
-
-      {/* Bottom nav — frosted bar with elevated mic */}
-      <View
-        className="h-20 flex-row items-center justify-between px-10 rounded-t-xl border-t border-white/50 bg-white/70"
-        style={{
-          shadowColor: '#000',
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: -2 },
-          elevation: 6,
-        }}
-      >
-        {/* Left — translate (visual placeholder) */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Tarjima"
-          className="w-12 h-12 rounded-full items-center justify-center"
-          onPress={() => {
-            // TODO: wire translate control
-          }}
-        >
-          <Languages size={28} color={TEAL} />
-        </Pressable>
-
-        {/* Center — elevated push-to-talk mic */}
-        <Pressable
-          onPress={handleTap}
-          disabled={buttonDisabled}
-          accessibilityRole="button"
-          accessibilityLabel={
-            isRecording ? "Yozishni to'xtatish" : 'Yozishni boshlash'
-          }
-          className={`w-20 h-20 rounded-full items-center justify-center bg-[#006687] -mt-10 ${
-            buttonDisabled ? 'opacity-50' : ''
-          }`}
-          style={{
-            shadowColor: TEAL,
-            shadowOpacity: 0.4,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: 6 },
-            elevation: 8,
-          }}
-        >
-          {isRecording ? (
-            <Square size={28} color="#FFFFFF" fill="#FFFFFF" />
-          ) : (
-            <Mic size={32} color="#FFFFFF" />
           )}
-        </Pressable>
+        </View>
 
-        {/* Right — lightbulb (visual placeholder) */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Maslahat"
-          className="w-12 h-12 rounded-full items-center justify-center"
-          onPress={() => {
-            // TODO: wire hint control
-          }}
-        >
-          <Lightbulb size={28} color={TEAL} />
-        </Pressable>
-      </View>
-    </SafeAreaView>
+        {/* Transcripts — hidden while the board is up; it already shows the
+            working, and both together overflow shorter screens. */}
+        {/* `? :` rather than `&&`. Both transcripts start as '', so the guard
+            `(inputTranscript || outputTranscript)` evaluates to '' — and `&&`
+            hands that empty STRING to React, which renders it as a text node
+            inside a View: "Unexpected text node". A falsy string is not nothing. */}
+        {!board && (inputTranscript || outputTranscript) ? (
+          <ScrollView
+            style={styles.transcripts}
+            contentContainerStyle={styles.transcriptsContent}
+          >
+            {/* `? :`, not `&&`: these start as '' and React renders an empty
+                string as a TEXT NODE, which inside a View is the error
+                "Unexpected text node". A falsy string is not nothing. */}
+            {inputTranscript ? (
+              <View style={[glass(18, 'sm'), styles.transcriptMine]}>
+                <Text style={styles.transcriptLabel}>Siz:</Text>
+                <Text style={styles.transcriptBody}>
+                  {inputTranscript}
+                </Text>
+              </View>
+            ) : null}
+            {outputTranscript ? (
+              <View style={[glass(18, 'sm'), styles.transcript]}>
+                <Text style={styles.transcriptLabel}>DUYO:</Text>
+                <Text style={styles.transcriptBody}>
+                  {outputTranscript}
+                </Text>
+              </View>
+            ) : null}
+          </ScrollView>
+        ) : null}
+
+        {/* Bottom nav — a glass sheet with the mic raised out of it */}
+        <View style={[glass(28, 'xl', 0.72), styles.dock]}>
+          {/* Left — translate (visual placeholder) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tarjima"
+            style={[glass(24, 'flush', 0.5), styles.dockButton, styles.focusable]}
+            onPress={() => {
+              // TODO: wire translate control
+            }}
+          >
+            <Languages size={28} color={PRIMARY} />
+          </Pressable>
+
+          {/* Center — elevated push-to-talk mic */}
+          <Pressable
+            onPress={handleTap}
+            disabled={buttonDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isRecording ? "Yozishni to'xtatish" : 'Yozishni boshlash'
+            }
+            style={[
+              styles.micButton,
+              styles.focusable,
+              buttonDisabled && styles.micDisabled,
+            ]}
+          >
+            {isRecording ? (
+              <Square size={28} color="#FFFFFF" fill="#FFFFFF" />
+            ) : (
+              <Mic size={32} color="#FFFFFF" />
+            )}
+          </Pressable>
+
+          {/* Right — lightbulb (visual placeholder) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Maslahat"
+            style={[glass(24, 'flush', 0.5), styles.dockButton, styles.focusable]}
+            onPress={() => {
+              // TODO: wire hint control
+            }}
+          >
+            <Lightbulb size={28} color={PRIMARY} />
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  fill: { flex: 1 },
+  // The browser's default focus ring is a black rectangle around a round
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  // ── Header ─────────────────────────────────────────────────────────────
+  header: {
+    height: 64,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: HAIRLINE,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBalance: { width: 40, height: 40 },
+  title: { fontSize: 24, fontWeight: '700', color: TITLE },
+
+  // ── Stage ──────────────────────────────────────────────────────────────
+  stage: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    paddingHorizontal: 24,
+  },
+  slate: { width: '100%', paddingBottom: 40 },
+  slateAvatar: { position: 'absolute', right: -8, bottom: -14, zIndex: 10 },
+
+  avatarStage: { alignItems: 'center', justifyContent: 'center' },
+  glow: {
+    position: 'absolute',
+    width: 288,
+    height: 288,
+    borderRadius: 144,
+    backgroundColor: 'rgba(47,111,228,0.07)',
+    boxShadow: '0 0 64px 24px rgba(70,108,168,0.10)',
+  },
+  errorBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: DANGER,
+    boxShadow: lift('md'),
+  },
+
+  status: { fontSize: 16, fontWeight: '600', color: INK, textAlign: 'center' },
+
+  crisis: {
+    backgroundColor: 'rgba(224,69,94,0.10)',
+    borderWidth: 1,
+    borderColor: DANGER,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  crisisText: { fontSize: 14, fontWeight: '600', color: DANGER },
+
+  // ── Offline card: the one hero object this state leads with ────────────
+  errorBlock: { width: '100%', alignItems: 'center', gap: 12 },
+  errorCard: { width: '100%', alignItems: 'center', gap: 16, padding: 32 },
+  errorWell: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  errorTitle: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  errorBody: { fontSize: 16, lineHeight: 22, color: MUTED, textAlign: 'center' },
+  // No shadow: a button sitting ON the card it belongs to should not cast one
+  // onto it.
+  retry: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: PRIMARY,
+  },
+  retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  errorLink: { paddingHorizontal: 12, paddingVertical: 8 },
+  errorLinkText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
+
+  // ── Transcripts ────────────────────────────────────────────────────────
+  transcripts: { maxHeight: 192, paddingHorizontal: 24, marginBottom: 16 },
+  transcriptsContent: { gap: 8 },
+  transcript: { padding: 12 },
+  // The child's own words, tinted the way their chat bubble is.
+  transcriptMine: { padding: 12, backgroundColor: 'rgba(47,111,228,0.10)' },
+  transcriptLabel: { marginBottom: 4, fontSize: 12, color: MUTED },
+  transcriptBody: { fontSize: 16, lineHeight: 22, color: INK },
+
+  // ── Dock ───────────────────────────────────────────────────────────────
+  dock: {
+    height: 80,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 40,
+    // Squared off at the screen edge — only the top of this sheet is seen.
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  dockButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY,
+    marginTop: -40,
+    boxShadow: lift('xl'),
+  },
+  micDisabled: { opacity: 0.5 },
+});

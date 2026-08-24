@@ -16,16 +16,34 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { lessonHelpErrorMessage } from '@/api/endpoints/lesson-help';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
+import { Text, TextInput } from '@/components/text';
 import { useLessonHelp } from '@/hooks/use-lesson-help';
+import { glass, lift } from '@/lib/glass';
 import { DTM_SUBJECTS, type DTMSubject } from '@/mocks/dtm';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings and notifications: frosted panes on pale blue.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const DANGER = '#E0455E';
+const GREEN = '#22B573';
+const PLACEHOLDER = '#7693C2';
+const HAIRLINE = 'rgba(47,111,228,0.10)';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+/** The disabled fill. Not `PRIMARY` at low opacity: a translucent button lets
+ *  the page's gradient through and reads as a hole rather than a dimmed one. */
+const PRIMARY_OFF = '#A8C2EA';
 
 // `stage` is DERIVED from the request, never set by hand. The old screen kept
 // its own state machine and moved to "result" on a 1.5s setTimeout, which is
@@ -33,7 +51,6 @@ import { useIsDark } from '@/store/theme';
 type Stage = 'input' | 'solving' | 'result' | 'error';
 
 export default function LessonHelpScreen() {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const [subject, setSubject] = useState<DTMSubject>('math');
   const [question, setQuestion] = useState('');
@@ -66,17 +83,16 @@ export default function LessonHelpScreen() {
   };
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' }]} />
+    <View style={styles.root}>
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.15)', 'rgba(252, 211, 77, 0.10)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.97, y: 0.5 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View className="flex-row items-center gap-3 px-6 py-4">
+      <SafeAreaView style={styles.root} edges={['top']}>
+        {/* ── Header: 48pt glass rounds, the inner-screen pattern ────── */}
+        <View style={styles.header}>
           <Pressable
             onPress={() => {
               if (stage === 'input') router.back();
@@ -84,24 +100,27 @@ export default function LessonHelpScreen() {
             }}
             accessibilityRole="button"
             accessibilityLabel="Orqaga"
-            className="w-10 h-10 items-center justify-center"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
-            <ArrowLeft size={20} color={isDark ? '#E0E7FF' : '#102033'} />
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text className="text-xl font-bold text-foreground dark:text-dark-text">Dars yordami</Text>
+          <Text style={styles.title}>Dars yordami</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
         </View>
 
-        <KeyboardAvoidingView behavior="padding" className="flex-1">
+        <KeyboardAvoidingView behavior="padding" style={styles.root}>
           {stage === 'input' && (
             <ScrollView
-              contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 48 }}
+              contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}
             >
-              <View className="gap-2">
-                <Text className="text-base text-foreground dark:text-dark-text">Fan tanlang</Text>
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Fan tanlang</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 12 }}
+                  contentContainerStyle={styles.chips}
                 >
                   {DTM_SUBJECTS.map((s) => {
                     const sel = s.key === subject;
@@ -111,20 +130,15 @@ export default function LessonHelpScreen() {
                         onPress={() => setSubject(s.key)}
                         accessibilityRole="button"
                         accessibilityLabel={s.label}
-                        className={`flex-row items-center gap-2 rounded-md border active:opacity-80 ${
-                          sel
-                            ? 'bg-neon-blue border-neon-blue'
-                            : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                        }`}
-                        style={{ paddingHorizontal: 16, paddingVertical: 10 }}
+                        style={[
+                          glass(18, 'sm'),
+                          styles.chip,
+                          sel && styles.chipOn,
+                          styles.focusable,
+                        ]}
                       >
-                        <Text className="text-base">{s.emoji}</Text>
-                        <Text
-                          className="text-sm font-medium"
-                          style={{
-                            color: sel ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033',
-                          }}
-                        >
+                        <Text style={styles.chipEmoji}>{s.emoji}</Text>
+                        <Text style={[styles.chipText, sel && styles.chipTextOn]}>
                           {s.label}
                         </Text>
                       </Pressable>
@@ -133,6 +147,8 @@ export default function LessonHelpScreen() {
                 </ScrollView>
               </View>
 
+              {/* Dashed on purpose: the one drop target on the page should not
+                  look like the solid panes around it. */}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Vazifani yuklash"
@@ -142,52 +158,33 @@ export default function LessonHelpScreen() {
                     "Kamera/galereya integratsiyasi Faza 1'da qo'shiladi",
                   )
                 }
-                className="rounded-xl border border-dashed items-center justify-center active:opacity-80"
-                style={{
-                  borderColor: 'rgba(96, 165, 250, 0.40)',
-                  padding: 32,
-                  backgroundColor: 'rgba(96, 165, 250, 0.05)',
-                }}
+                style={[styles.upload, styles.focusable]}
               >
-                <Camera size={32} color="#60A5FA" />
-                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-3">
-                  Vazifani yuklash
-                </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
+                <Camera size={30} color={PRIMARY} strokeWidth={1.9} />
+                <Text style={styles.uploadTitle}>Vazifani yuklash</Text>
+                <Text style={styles.uploadBody}>
                   Rasm chiqaring yoki galereyadan tanlang
                 </Text>
               </Pressable>
 
-              <View className="flex-row items-center gap-3">
-                <View
-                  className="flex-1 h-px"
-                  style={{ backgroundColor: 'rgba(96, 165, 250, 0.20)' }}
-                />
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">yoki yozing</Text>
-                <View
-                  className="flex-1 h-px"
-                  style={{ backgroundColor: 'rgba(96, 165, 250, 0.20)' }}
-                />
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>yoki yozing</Text>
+                <View style={styles.dividerLine} />
               </View>
 
-              <View
-                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
-                style={{ padding: 16 }}
-              >
-                <View className="flex-row items-center gap-2 mb-2">
-                  <PenLine size={16} color="#60A5FA" />
-                  <Text className="text-sm font-medium text-foreground dark:text-dark-text">
-                    Vazifa matni
-                  </Text>
+              <View style={[glass(22, 'md', 0.6), styles.inputCard]}>
+                <View style={styles.inputHead}>
+                  <PenLine size={16} color={PRIMARY} strokeWidth={2.2} />
+                  <Text style={styles.inputLabel}>Vazifa matni</Text>
                 </View>
                 <TextInput
                   value={question}
                   onChangeText={setQuestion}
                   placeholder="Vazifani shu yerga yozing..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={PLACEHOLDER}
                   multiline
-                  className="text-base text-foreground dark:text-dark-text"
-                  style={{ minHeight: 120, textAlignVertical: 'top' }}
+                  style={styles.input}
                   accessibilityLabel="Vazifa matni"
                 />
               </View>
@@ -196,7 +193,7 @@ export default function LessonHelpScreen() {
                   there is nothing honest to send. Said out loud rather than
                   left as a mysteriously dead button. */}
               {!child && (
-                <Text className="text-sm text-neon-orange">
+                <Text style={styles.notice}>
                   Avval profilingni tanla — yordam bolaning yoshiga moslanadi.
                 </Text>
               )}
@@ -205,77 +202,69 @@ export default function LessonHelpScreen() {
                 onPress={handleSubmit}
                 disabled={!canSubmit}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: !canSubmit }}
                 accessibilityLabel="DUYO'dan yordam so'rash"
-                className={`rounded-md items-center justify-center active:opacity-80 flex-row gap-2 ${
-                  canSubmit ? 'bg-neon-blue' : 'bg-neon-blue/40'
-                }`}
-                style={{ height: 56 }}
+                style={[
+                  styles.button,
+                  canSubmit ? styles.buttonOn : styles.buttonOff,
+                  styles.submit,
+                  styles.focusable,
+                ]}
               >
-                <Sparkles size={18} color="#0A1628" />
-                <Text
-                  className="text-base font-medium"
-                  style={{ color: '#0A1628' }}
-                >
-                  DUYO'dan yordam so'rash
-                </Text>
+                <Sparkles size={18} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.buttonOnText}>DUYO'dan yordam so'rash</Text>
               </Pressable>
             </ScrollView>
           )}
 
           {stage === 'solving' && (
-            <View className="flex-1 items-center justify-center px-6 gap-4">
-              <Text className="text-5xl">🤔</Text>
-              <Text className="text-lg font-medium text-foreground dark:text-dark-text">
-                DUYO yechimni o'ylayapti...
-              </Text>
+            <View style={styles.centre}>
+              <Text style={styles.centreEmoji}>🤔</Text>
+              <Text style={styles.centreTitle}>DUYO yechimni o'ylayapti...</Text>
               {/* Indeterminate on purpose. The bar this replaces was frozen at
                   60% — a progress claim nothing was measuring. */}
-              <ActivityIndicator color="#60A5FA" />
+              <ActivityIndicator color={PRIMARY} />
             </View>
           )}
 
           {stage === 'error' && (
-            <View className="flex-1 items-center justify-center px-6 gap-4">
-              <CloudOff size={40} color="#FF8904" />
-              <Text className="text-base text-center text-foreground dark:text-dark-text leading-6">
+            <View style={styles.centre}>
+              <CloudOff size={38} color={DANGER} strokeWidth={1.9} />
+              <Text style={styles.centreBody}>
                 {lessonHelpErrorMessage(solve.error)}
               </Text>
               <Pressable
                 onPress={handleSubmit}
                 accessibilityRole="button"
                 accessibilityLabel="Qayta urinish"
-                className="rounded-md bg-neon-blue items-center justify-center active:opacity-80 px-8"
-                style={{ height: 56 }}
+                style={[
+                  styles.button,
+                  styles.buttonOn,
+                  styles.buttonInline,
+                  styles.focusable,
+                ]}
               >
-                <Text className="text-base font-medium" style={{ color: '#0A1628' }}>
-                  Qayta urinish
-                </Text>
+                <Text style={styles.buttonOnText}>Qayta urinish</Text>
               </Pressable>
               <Pressable
                 onPress={askAgain}
                 accessibilityRole="button"
                 accessibilityLabel="Vazifani tahrirlash"
-                className="active:opacity-80"
+                style={[styles.link, styles.focusable]}
               >
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted">
-                  Vazifani tahrirlash
-                </Text>
+                <Text style={styles.linkText}>Vazifani tahrirlash</Text>
               </Pressable>
             </View>
           )}
 
           {stage === 'result' && solve.data && (
             <ScrollView
-              contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 48 }}
+              contentContainerStyle={styles.page}
+              showsVerticalScrollIndicator={false}
             >
-              <View
-                className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
-                style={{ padding: 20 }}
-              >
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mb-2">
-                  Sizning vazifangiz:
-                </Text>
-                <Text className="text-base text-foreground dark:text-dark-text">
+              <View style={[glass(22, 'md', 0.55), styles.askedCard]}>
+                <Text style={styles.askedCaption}>Sizning vazifangiz:</Text>
+                <Text style={styles.askedText}>
                   {solve.variables?.question ?? question}
                 </Text>
               </View>
@@ -284,47 +273,30 @@ export default function LessonHelpScreen() {
                   `steps` is its apology. Rendering that under "DUYO yechimi"
                   would be the app claiming a solution it does not have. */}
               {!solve.data.available ? (
-                <View
-                  className="rounded-xl border gap-2"
-                  style={{
-                    padding: 20,
-                    borderColor: 'rgba(255, 137, 4, 0.40)',
-                    backgroundColor: 'rgba(255, 137, 4, 0.10)',
-                  }}
-                >
-                  <View className="flex-row items-center gap-2">
-                    <CloudOff size={18} color="#FF8904" />
-                    <Text className="text-sm font-medium text-neon-orange">
+                <View style={styles.apology}>
+                  <View style={styles.apologyHead}>
+                    <CloudOff size={18} color={DANGER} strokeWidth={2.1} />
+                    <Text style={styles.apologyTitle}>
                       {solve.data.steps[0]?.title ?? 'Hozir yordam berolmayman'}
                     </Text>
                   </View>
-                  <Text className="text-base text-foreground dark:text-dark-text leading-6">
+                  <Text style={styles.apologyBody}>
                     {solve.data.steps[0]?.detail ??
                       "Kechir, hozir yechimni tayyorlay olmayapman. Birozdan so'ng yana urinib ko'r."}
                   </Text>
                 </View>
               ) : (
-                <View className="gap-3">
-                  <View className="flex-row items-center gap-2">
-                    <Sparkles size={18} color="#60A5FA" />
-                    <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
-                      DUYO yechimi
-                    </Text>
+                <View style={styles.steps}>
+                  <View style={styles.stepsHead}>
+                    <Sparkles size={18} color={PRIMARY} strokeWidth={2.1} />
+                    <Text style={styles.stepsTitle}>DUYO yechimi</Text>
                   </View>
                   {solve.data.steps.map((step, i) => (
-                    <View
-                      key={i}
-                      className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20"
-                      style={{ padding: 16 }}
-                    >
+                    <View key={i} style={[glass(20, 'sm', 0.55), styles.step]}>
                       {!!step.title && (
-                        <Text className="text-sm font-medium text-neon-cyan mb-1">
-                          {step.title}
-                        </Text>
+                        <Text style={styles.stepTitle}>{step.title}</Text>
                       )}
-                      <Text className="text-base text-foreground dark:text-dark-text leading-6">
-                        {step.detail}
-                      </Text>
+                      <Text style={styles.stepDetail}>{step.detail}</Text>
                     </View>
                   ))}
                 </View>
@@ -335,56 +307,33 @@ export default function LessonHelpScreen() {
                   hard-code. Plenty of real questions ("tushuntirib ber") have
                   steps but no single result line. */}
               {solve.data.available && !!solve.data.answer && (
-                <View
-                  className="rounded-xl border"
-                  style={{
-                    padding: 20,
-                    borderColor: 'rgba(5, 223, 114, 0.40)',
-                    backgroundColor: 'rgba(5, 223, 114, 0.10)',
-                  }}
-                >
-                  <View className="flex-row items-center gap-2">
-                    <CheckCircle2 size={20} color="#05DF72" />
-                    <Text className="text-sm font-medium text-neon-green">
-                      Yakuniy javob
-                    </Text>
+                <View style={styles.finalCard}>
+                  <View style={styles.finalHead}>
+                    <CheckCircle2 size={20} color={GREEN} strokeWidth={2.2} />
+                    <Text style={styles.finalLabel}>Yakuniy javob</Text>
                   </View>
-                  <Text className="text-2xl font-bold text-foreground dark:text-dark-text mt-2">
-                    {solve.data.answer}
-                  </Text>
+                  <Text style={styles.finalAnswer}>{solve.data.answer}</Text>
                 </View>
               )}
 
-              <View className="flex-row gap-3">
+              <View style={styles.buttonRow}>
                 {solve.data.available ? (
                   <Pressable
                     onPress={() => router.push('/(main)/(tabs)/chat')}
                     accessibilityRole="button"
                     accessibilityLabel="Tushuntirish"
-                    className="flex-1 rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-                    style={{ height: 56 }}
+                    style={[styles.button, styles.buttonOn, styles.focusable]}
                   >
-                    <Text
-                      className="text-base font-medium"
-                      style={{ color: '#0A1628' }}
-                    >
-                      Tushuntirish
-                    </Text>
+                    <Text style={styles.buttonOnText}>Tushuntirish</Text>
                   </Pressable>
                 ) : (
                   <Pressable
                     onPress={handleSubmit}
                     accessibilityRole="button"
                     accessibilityLabel="Qayta urinish"
-                    className="flex-1 rounded-md bg-neon-blue items-center justify-center active:opacity-80"
-                    style={{ height: 56 }}
+                    style={[styles.button, styles.buttonOn, styles.focusable]}
                   >
-                    <Text
-                      className="text-base font-medium"
-                      style={{ color: '#0A1628' }}
-                    >
-                      Qayta urinish
-                    </Text>
+                    <Text style={styles.buttonOnText}>Qayta urinish</Text>
                   </Pressable>
                 )}
                 <Pressable
@@ -394,12 +343,9 @@ export default function LessonHelpScreen() {
                   }}
                   accessibilityRole="button"
                   accessibilityLabel="Yangi vazifa"
-                  className="flex-1 rounded-md bg-card dark:bg-dark-surface border border-neon-blue/20 items-center justify-center active:opacity-80"
-                  style={{ height: 56 }}
+                  style={[glass(18, 'md'), styles.button, styles.focusable]}
                 >
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                    Yangi vazifa
-                  </Text>
+                  <Text style={styles.buttonText}>Yangi vazifa</Text>
                 </Pressable>
               </View>
             </ScrollView>
@@ -409,3 +355,188 @@ export default function LessonHelpScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  // The browser's default focus ring is a square drawn around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: INK,
+  },
+
+  page: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 44,
+    gap: 18,
+  },
+
+  // ── Subject chips ──────────────────────────────────────────────────────
+  field: { gap: 10 },
+  fieldLabel: { marginLeft: 4, fontSize: 15, fontWeight: '600', color: INK },
+  // The vertical padding is for the chips' own shadow: a horizontal
+  // ScrollView clips at its content box, and `sm` reaches 11pt below.
+  chips: { gap: 10, paddingRight: 4, paddingVertical: 5 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 42,
+    paddingHorizontal: 14,
+  },
+  chipOn: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  chipEmoji: { fontSize: 16 },
+  chipText: { fontSize: 14.5, fontWeight: '600', color: INK },
+  chipTextOn: { color: '#FFFFFF' },
+
+  // ── Upload well ────────────────────────────────────────────────────────
+  upload: {
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(47,111,228,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.38)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+  },
+  uploadTitle: { marginTop: 12, fontSize: 15.5, fontWeight: '700', color: INK },
+  uploadBody: { marginTop: 3, fontSize: 13, color: MUTED, textAlign: 'center' },
+
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: HAIRLINE },
+  dividerText: { fontSize: 13, color: MUTED },
+
+  // ── Question input ─────────────────────────────────────────────────────
+  inputCard: { padding: 16 },
+  inputHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  inputLabel: { fontSize: 14, fontWeight: '700', color: INK },
+  input: {
+    minHeight: 120,
+    fontSize: 15.5,
+    lineHeight: 22,
+    color: INK,
+    textAlignVertical: 'top',
+    padding: 0,
+  },
+  notice: { fontSize: 13.5, lineHeight: 19, color: DANGER },
+
+  // ── Buttons ────────────────────────────────────────────────────────────
+  buttonRow: { flexDirection: 'row', gap: 12 },
+  button: {
+    flex: 1,
+    height: 56,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  // A raised button on the glass page: the same shadow ladder as every other
+  // object, so the eye can tell how high it sits relative to the cards near it.
+  buttonOn: { backgroundColor: PRIMARY, boxShadow: lift('md') },
+  buttonOff: { backgroundColor: PRIMARY_OFF },
+  // Sole button on a column page: it must not stretch to the page's height.
+  submit: { flex: 0 },
+  // Sits inside a centred column, so it hugs its label instead of filling.
+  buttonInline: { flex: 0, alignSelf: 'center', paddingHorizontal: 28 },
+  buttonOnText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  buttonText: { fontSize: 17, fontWeight: '600', color: INK, letterSpacing: -0.2 },
+  link: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
+  linkText: { fontSize: 14, fontWeight: '600', color: MUTED },
+
+  // ── Solving / error ────────────────────────────────────────────────────
+  centre: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  centreEmoji: { fontSize: 44 },
+  centreTitle: { fontSize: 17, fontWeight: '700', color: INK, textAlign: 'center' },
+  centreBody: { fontSize: 15, lineHeight: 22, color: INK, textAlign: 'center' },
+
+  // ── Result ─────────────────────────────────────────────────────────────
+  askedCard: { padding: 18 },
+  askedCaption: { fontSize: 13, fontWeight: '600', color: MUTED },
+  askedText: { marginTop: 6, fontSize: 15.5, lineHeight: 22, color: INK },
+
+  // The tutor's apology is tinted rather than glass: it is the one pane on
+  // the page that is not a solution, and it should not look like one.
+  apology: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(224,69,94,0.28)',
+    backgroundColor: 'rgba(224,69,94,0.08)',
+    padding: 18,
+    gap: 8,
+  },
+  apologyHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  apologyTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: DANGER },
+  apologyBody: { fontSize: 15, lineHeight: 22, color: INK },
+
+  steps: { gap: 10 },
+  stepsHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 2,
+  },
+  stepsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: TITLE,
+    letterSpacing: -0.3,
+  },
+  step: { padding: 14 },
+  stepTitle: {
+    marginBottom: 4,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
+  stepDetail: { fontSize: 15, lineHeight: 22, color: INK },
+
+  finalCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(34,181,115,0.30)',
+    backgroundColor: 'rgba(34,181,115,0.10)',
+    padding: 18,
+  },
+  finalHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  finalLabel: { fontSize: 13.5, fontWeight: '700', color: GREEN },
+  finalAnswer: { marginTop: 8, fontSize: 22, fontWeight: '800', color: INK },
+});

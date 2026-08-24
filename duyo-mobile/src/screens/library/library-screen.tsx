@@ -1,4 +1,3 @@
-import { useIsDark } from '@/store/theme';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -9,13 +8,27 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type ContentListItem, type ContentType } from '@/api/endpoints/content';
 import { useContentLibrary } from '@/hooks/use-content';
+import { glass, lift } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
+
+// ── The glass sky, the inner screens' cooler morning ─────────────────────────
+// Same family as settings, dtm and goal-mates: frosted panes on pale blue.
+const PRIMARY = '#2F6FE4';
+const TITLE = '#2A63DC';
+const INK = '#22406F';
+const MUTED = '#8CA3CB';
+const BG_TOP = '#E3EFFF';
+const BG_MID = '#EAF3FF';
+const BG_BOTTOM = '#EDF2FD';
+const PLACEHOLDER = '#7693C2';
 
 // ── Categories ───────────────────────────────────────────────────────────────
 // Presentation only: the backend's ContentType is the real taxonomy, this map
@@ -84,73 +97,54 @@ function LibraryCard({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={item.title}
-      className="bg-card dark:bg-dark-surface rounded-xl border border-neon-blue/20 active:opacity-80"
-      style={{ padding: 16 }}
+      style={({ pressed }) => [
+        glass(22, 'md', 0.62),
+        styles.card,
+        pressed && styles.pressed,
+        styles.focusable,
+      ]}
     >
-      <View className="flex-row items-start gap-3">
+      <View style={styles.cardRow}>
         {item.image_url ? (
           <Image
             source={{ uri: item.image_url }}
-            style={{ width: 56, height: 56, borderRadius: 6 }}
+            style={styles.thumb}
             contentFit="cover"
             accessibilityLabel={item.title}
           />
         ) : (
-          <View
-            className="rounded-md items-center justify-center"
-            style={{
-              width: 56,
-              height: 56,
-              backgroundColor: 'rgba(96, 165, 250, 0.10)',
-            }}
-          >
-            <Text className="text-3xl">{meta?.emoji ?? '📖'}</Text>
+          <View style={styles.thumbWell}>
+            <Text style={styles.thumbEmoji}>{meta?.emoji ?? '📖'}</Text>
           </View>
         )}
-        <View className="flex-1 gap-1">
-          <Text
-            className="text-base font-medium text-foreground dark:text-dark-text"
-            numberOfLines={2}
-          >
+        <View style={styles.cardBody}>
+          <Text style={styles.cardTitle} numberOfLines={2}>
             {item.title}
           </Text>
           {author !== '' && (
-            <Text
-              className="text-sm text-muted-foreground dark:text-dark-muted"
-              numberOfLines={1}
-            >
+            <Text style={styles.cardAuthor} numberOfLines={1}>
               {author}
             </Text>
           )}
-          <View className="flex-row items-center gap-2 mt-1 flex-wrap">
-            {meta && (
-              <View
-                className="rounded-md"
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  backgroundColor: `${meta.color}26`,
-                }}
-              >
-                <Text className="text-xs font-medium" style={{ color: meta.color }}>
-                  {meta.label}
-                </Text>
+          <View style={styles.tagRow}>
+            {/* The shelf's accent survives the restyle as the chip's tint —
+                it is what tells seven identical chips apart — but the label
+                stays INK: none of these neon colours is readable as text on
+                a pale ground. */}
+            {meta ? (
+              <View style={[styles.tag, { backgroundColor: `${meta.color}33` }]}>
+                <Text style={styles.tagText}>{meta.label}</Text>
               </View>
-            )}
-            {foreignLanguage && (
-              <View
-                className="rounded-md"
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  backgroundColor: 'rgba(148, 163, 184, 0.18)',
-                }}
-              >
-                <Text className="text-xs font-medium text-muted-foreground dark:text-dark-muted">
+            ) : null}
+            {/* `? :`, not `&&`: a language code that came back empty would
+                reach React as a text node, a hard error on the web build. */}
+            {foreignLanguage ? (
+              <View style={[styles.tag, styles.tagNeutral]}>
+                <Text style={[styles.tagText, styles.tagNeutralText]}>
                   {foreignLanguage}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
       </View>
@@ -173,7 +167,6 @@ function LibraryCard({
  * segment, the screen says so instead of inventing shelves.
  */
 export default function LibraryScreen() {
-  const isDark = useIsDark();
   const ageSegment = useChildStore((s) => s.child?.age_segment);
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -220,96 +213,78 @@ export default function LibraryScreen() {
   const libraryEmpty = (catalogue.data?.length ?? 0) === 0;
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: isDark ? '#0A1628' : '#F4F8FF' },
-        ]}
-      />
+    <View style={styles.root}>
       <LinearGradient
-        colors={['rgba(96, 165, 250, 0.20)', 'rgba(252, 211, 77, 0.20)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.96, y: 0.25 }}
+        colors={[BG_TOP, BG_MID, BG_BOTTOM]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <SafeAreaView style={styles.root} edges={['top']}>
+        {/* Header — this is a pushed screen now (it left the tab bar when
+            Maqsadlar took its slot), so it needs its own way out. It sits
+            outside the ScrollView so the way out never scrolls away. */}
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Orqaga"
+            style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
+          >
+            <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
+          </Pressable>
+          <Text style={styles.title}>Kutubxona</Text>
+          {/* Keeps the title centred. */}
+          <View style={styles.headerButton} />
+        </View>
+
         <ScrollView
-          contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 96 }}
+          contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back row — this is a pushed screen now (it left the tab bar when
-              Maqsadlar took its slot), so it needs its own way out. */}
-          <View className="flex-row items-center gap-2">
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Orqaga"
-              hitSlop={10}
-              className="p-1 -ml-1"
-            >
-              <ArrowLeft size={24} color={isDark ? '#E0E7FF' : '#102033'} />
-            </Pressable>
-            <Text className="text-[24px] leading-8 font-bold text-foreground dark:text-dark-text tracking-tight">
-              Kutubxona
-            </Text>
-          </View>
-
-          <View
-            className="flex-row items-center rounded-lg gap-2 border border-neon-blue/20"
-            style={{
-              backgroundColor: isDark ? '#1E3A5F' : '#FFFFFF',
-              paddingHorizontal: 16,
-              height: 44,
-            }}
-          >
-            <Search size={18} color="#94A3B8" />
+          <View style={[glass(20, 'md', 0.62), styles.search]}>
+            <Search size={20} color={PRIMARY} strokeWidth={2.1} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Nomi yoki muallifi bo'yicha qidiring..."
-              placeholderTextColor="#94A3B8"
-              className="flex-1 text-base text-foreground dark:text-dark-text"
+              placeholderTextColor={PLACEHOLDER}
+              style={styles.searchInput}
               accessibilityLabel="Kutubxonadan qidirish"
               returnKeyType="search"
             />
           </View>
 
           {availableCategories.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-lg font-bold text-foreground dark:text-dark-text tracking-tight">
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
                 {/* Only claim age-matching when we actually know the age. */}
                 {ageSegment ? 'Yoshingizga mos' : "Bo'limlar"}
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 12 }}
+                contentContainerStyle={styles.chipRow}
               >
                 <Pressable
                   onPress={() => setSelectedCategory(null)}
                   accessibilityRole="button"
                   accessibilityLabel="Barchasi"
                   accessibilityState={{ selected: selectedCategory === null }}
-                  className={`rounded-md border active:opacity-80 ${
-                    selectedCategory === null
-                      ? 'bg-neon-blue border-neon-blue'
-                      : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                  }`}
-                  style={{ paddingHorizontal: 16, paddingVertical: 10 }}
+                  style={({ pressed }) => [
+                    glass(16, 'sm', 0.86),
+                    styles.chip,
+                    selectedCategory === null && styles.chipOn,
+                    pressed && styles.pressed,
+                    styles.focusable,
+                  ]}
                 >
                   <Text
-                    className="text-sm font-medium"
-                    style={{
-                      color:
-                        selectedCategory === null
-                          ? '#0A1628'
-                          : isDark
-                            ? '#E0E7FF'
-                            : '#102033',
-                    }}
+                    style={[
+                      styles.chipText,
+                      selectedCategory === null && styles.chipTextOn,
+                    ]}
                   >
                     Barchasi
                   </Text>
@@ -323,20 +298,16 @@ export default function LibraryScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={c.label}
                       accessibilityState={{ selected: sel }}
-                      className={`flex-row items-center gap-2 rounded-md border active:opacity-80 ${
-                        sel
-                          ? 'bg-neon-blue border-neon-blue'
-                          : 'bg-card dark:bg-dark-surface border-neon-blue/20'
-                      }`}
-                      style={{ paddingHorizontal: 16, paddingVertical: 10 }}
+                      style={({ pressed }) => [
+                        glass(16, 'sm', 0.86),
+                        styles.chip,
+                        sel && styles.chipOn,
+                        pressed && styles.pressed,
+                        styles.focusable,
+                      ]}
                     >
-                      <Text className="text-base">{c.emoji}</Text>
-                      <Text
-                        className="text-sm font-medium"
-                        style={{
-                          color: sel ? '#FFFFFF' : isDark ? '#E0E7FF' : '#102033',
-                        }}
-                      >
+                      <Text style={styles.chipEmoji}>{c.emoji}</Text>
+                      <Text style={[styles.chipText, sel && styles.chipTextOn]}>
                         {c.label}
                       </Text>
                     </Pressable>
@@ -351,46 +322,41 @@ export default function LibraryScreen() {
               onPress={() => router.push('/(main)/language-practice')}
               accessibilityRole="button"
               accessibilityLabel="Til mashqini boshlash"
-              className="rounded-xl border border-neon-blue/20 active:opacity-80"
-              style={{
-                padding: 16,
-                backgroundColor: 'rgba(96, 165, 250, 0.12)',
-              }}
+              style={({ pressed }) => [
+                glass(22, 'md', 0.62),
+                styles.practice,
+                pressed && styles.pressed,
+                styles.focusable,
+              ]}
             >
-              <View className="flex-row items-center gap-3">
-                <Text className="text-3xl">✍️</Text>
-                <View className="flex-1">
-                  <Text className="text-base font-medium text-foreground dark:text-dark-text">
-                    Til mashqi
-                  </Text>
-                  <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1">
-                    Ingliz yoki rus tilida savol-javob mashqi
-                  </Text>
-                </View>
+              <View style={styles.practiceWell}>
+                <Text style={styles.practiceEmoji}>✍️</Text>
+              </View>
+              <View style={styles.practiceBody}>
+                <Text style={styles.practiceTitle}>Til mashqi</Text>
+                <Text style={styles.practiceText}>
+                  Ingliz yoki rus tilida savol-javob mashqi
+                </Text>
               </View>
             </Pressable>
           )}
 
-          <View className="gap-3">
+          <View style={styles.results}>
             {results.isPending ? (
               // Skeletons rather than a count — we do not know one yet.
               [0, 1, 2].map((i) => (
                 <View
                   key={i}
-                  className="rounded-xl border border-neon-blue/20 bg-card dark:bg-dark-surface"
-                  style={{ height: 88, opacity: 0.5 }}
+                  style={[glass(22, 'md', 0.55), styles.skeleton]}
                 />
               ))
             ) : results.isError ? (
-              <View
-                className="rounded-xl border border-neon-blue/20 items-center bg-card dark:bg-dark-surface"
-                style={{ padding: 24 }}
-              >
-                <Text className="text-4xl">⚠️</Text>
-                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2">
+              <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
+                <Text style={styles.statusEmoji}>⚠️</Text>
+                <Text style={styles.statusTitle}>
                   Kutubxonani yuklab bo'lmadi
                 </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                <Text style={styles.statusBody}>
                   Internetni tekshirib, qaytadan urinib ko'ring
                 </Text>
                 <Pressable
@@ -398,29 +364,26 @@ export default function LibraryScreen() {
                   disabled={results.isFetching}
                   accessibilityRole="button"
                   accessibilityLabel="Qaytadan urinish"
-                  className="flex-row items-center gap-2 rounded-md bg-neon-blue mt-4 active:opacity-80"
-                  style={{
-                    paddingHorizontal: 20,
-                    paddingVertical: 12,
-                    opacity: results.isFetching ? 0.6 : 1,
-                  }}
+                  style={({ pressed }) => [
+                    styles.retry,
+                    results.isFetching && styles.busy,
+                    pressed && !results.isFetching && styles.pressed,
+                    styles.focusable,
+                  ]}
                 >
-                  <RefreshCw size={16} color="#0A1628" />
-                  <Text className="text-sm font-medium" style={{ color: '#0A1628' }}>
+                  <RefreshCw size={16} color="#FFFFFF" />
+                  <Text style={styles.retryText}>
                     {results.isFetching ? 'Urinilmoqda…' : 'Qaytadan urinish'}
                   </Text>
                 </Pressable>
               </View>
             ) : filtered.length === 0 ? (
-              <View
-                className="rounded-xl border border-neon-blue/20 items-center bg-card dark:bg-dark-surface"
-                style={{ padding: 24 }}
-              >
-                <Text className="text-4xl">{narrowed ? '🔍' : '📚'}</Text>
-                <Text className="text-base font-medium text-foreground dark:text-dark-text mt-2 text-center">
+              <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
+                <Text style={styles.statusEmoji}>{narrowed ? '🔍' : '📚'}</Text>
+                <Text style={styles.statusTitle}>
                   {narrowed ? 'Hech narsa topilmadi' : "Kutubxona hozircha bo'sh"}
                 </Text>
-                <Text className="text-sm text-muted-foreground dark:text-dark-muted mt-1 text-center">
+                <Text style={styles.statusBody}>
                   {/* Not narrowed and still empty means the library really has
                       nothing for this child — say that, do not blame search. */}
                   {narrowed
@@ -444,13 +407,178 @@ export default function LibraryScreen() {
             )}
           </View>
 
-          {ageSegment && !libraryEmpty && (
-            <Text className="text-xs text-muted-foreground dark:text-dark-muted text-center">
+          {/* `? :`, not `&&`: an age segment that came back as an empty string
+              would reach React as a text node, a hard error on the web build. */}
+          {ageSegment && !libraryEmpty ? (
+            <Text style={styles.footnote}>
               Barcha kontentlar yoshingizga mos ravishda tanlanadi
             </Text>
-          )}
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  // The browser's default focus ring is a square drawn around a rounded
+  // control. RN's ViewStyle has no outline, so this is a web-only escape;
+  // native ignores unknown keys.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  pressed: { opacity: 0.85 },
+  busy: { opacity: 0.6 },
+
+  header: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: TITLE,
+  },
+
+  page: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 96,
+    gap: 20,
+  },
+
+  search: {
+    height: 56,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: INK,
+    paddingVertical: 0,
+    // The browser's own focus ring is a square drawn outside the pane's
+    // radius; the pane itself is what shows the field here.
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as unknown as TextStyle,
+
+  section: { gap: 12 },
+  sectionTitle: {
+    marginLeft: 2,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    color: INK,
+  },
+  chipRow: { gap: 10, paddingRight: 4 },
+  chip: {
+    height: 44,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  // The selected chip is the same object lit from inside, not a taller one:
+  // picking a shelf does not raise it off the page.
+  chipOn: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  chipEmoji: { fontSize: 16 },
+  chipText: { fontSize: 14, fontWeight: '600', color: INK },
+  chipTextOn: { color: '#FFFFFF' },
+
+  practice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+  },
+  practiceWell: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  practiceEmoji: { fontSize: 26 },
+  practiceBody: { flex: 1 },
+  practiceTitle: { fontSize: 16, fontWeight: '700', color: INK },
+  practiceText: { marginTop: 4, fontSize: 13.5, lineHeight: 19, color: MUTED },
+
+  results: { gap: 12 },
+  skeleton: { height: 88, opacity: 0.5 },
+
+  card: { padding: 16 },
+  cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  thumb: { width: 56, height: 56, borderRadius: 14 },
+  thumbWell: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(47,111,228,0.10)',
+  },
+  thumbEmoji: { fontSize: 28 },
+  cardBody: { flex: 1, gap: 4 },
+  cardTitle: { fontSize: 16, fontWeight: '600', lineHeight: 21, color: INK },
+  cardAuthor: { fontSize: 13.5, color: MUTED },
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
+  },
+  tag: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10 },
+  tagText: { fontSize: 12, fontWeight: '600', color: INK },
+  tagNeutral: { backgroundColor: 'rgba(140,163,203,0.22)' },
+  tagNeutralText: { color: MUTED },
+
+  statusCard: { alignItems: 'center', padding: 26 },
+  statusEmoji: { fontSize: 38 },
+  statusTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+    textAlign: 'center',
+  },
+  statusBody: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  // A raised button on the glass page: the same shadow ladder as every other
+  // object, so the eye can tell how high it sits above the card beneath it.
+  retry: {
+    marginTop: 18,
+    height: 46,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: PRIMARY,
+    boxShadow: lift('md'),
+  },
+  retryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+
+  footnote: { fontSize: 12, color: MUTED, textAlign: 'center' },
+});

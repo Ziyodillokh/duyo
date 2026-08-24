@@ -1,11 +1,13 @@
 import { Star } from 'lucide-react-native';
-import { View } from 'react-native';
-import { Text } from '@/components/text';
+import { StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/text';
 import { useBallsHistory, useStreak } from '@/hooks/use-gamification';
 import { buildWeeklyActivity } from '@/lib/weekly-activity';
 
 import { PANEL_MUTED, Panel } from './panel';
+
+const PRIMARY = '#2F6FE4';
 
 const BAR_MAX_HEIGHT = 56;
 const BAR_MIN_HEIGHT = 6;
@@ -32,8 +34,8 @@ export function WeeklyActivityCard() {
   })();
 
   return (
-    <Panel title="Haftalik faollik" icon={<Star size={18} color="#60A5FA" />}>
-      <View className="flex-row items-end justify-between" style={{ height: BAR_MAX_HEIGHT + 18 }}>
+    <Panel title="Haftalik faollik" icon={<Star size={18} color={PRIMARY} />}>
+      <View style={styles.chart}>
         {week.days.map((day) => {
           const height = day.xp > 0 && peakXp > 0
             ? Math.max(BAR_PRESENCE_HEIGHT, (day.xp / peakXp) * BAR_MAX_HEIGHT)
@@ -41,36 +43,59 @@ export function WeeklyActivityCard() {
               ? BAR_PRESENCE_HEIGHT
               : BAR_MIN_HEIGHT;
           return (
-            <View key={day.label} className="items-center gap-1 flex-1">
+            <View key={day.label} style={styles.day}>
+              {/* The bars stay flat: they are data drawn on the panel, not
+                  objects resting on it, and giving seven of them their own
+                  shadow would say they float above the card they measure. */}
               <View
-                style={{
-                  width: 20,
-                  height,
-                  borderRadius: 4,
-                  backgroundColor: day.active
-                    ? '#60A5FA'
+                style={[
+                  styles.bar,
+                  day.active
+                    ? styles.barOn
                     : day.isFuture
-                      ? 'rgba(96,165,250,0.10)'
-                      : 'rgba(96,165,250,0.20)',
-                }}
+                      ? styles.barFuture
+                      : styles.barOff,
+                  { height },
+                ]}
               />
-              <Text
-                style={{
-                  fontSize: 10,
-                  color: day.isToday ? '#60A5FA' : PANEL_MUTED,
-                  fontWeight: day.isToday ? '700' : '400',
-                }}
-              >
+              <Text style={[styles.dayLabel, day.isToday && styles.dayLabelToday]}>
                 {day.label}
               </Text>
             </View>
           );
         })}
       </View>
-      <View className="flex-row items-center gap-1 mt-3">
-        <Text style={{ fontSize: 14 }}>⚡</Text>
-        <Text style={{ color: PANEL_MUTED, fontSize: 12, flex: 1 }}>{summary}</Text>
+      <View style={styles.summaryRow}>
+        <Text style={styles.bolt}>⚡</Text>
+        <Text style={styles.summary}>{summary}</Text>
       </View>
     </Panel>
   );
 }
+
+const styles = StyleSheet.create({
+  chart: {
+    height: BAR_MAX_HEIGHT + 18,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  day: { flex: 1, alignItems: 'center', gap: 4 },
+
+  bar: { width: 20, borderRadius: 4 },
+  barOn: { backgroundColor: PRIMARY },
+  barOff: { backgroundColor: 'rgba(47,111,228,0.20)' },
+  barFuture: { backgroundColor: 'rgba(47,111,228,0.10)' },
+
+  dayLabel: { fontSize: 10, fontWeight: '400', color: PANEL_MUTED },
+  dayLabelToday: { fontWeight: '700', color: PRIMARY },
+
+  summaryRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bolt: { fontSize: 14 },
+  summary: { flex: 1, fontSize: 12, color: PANEL_MUTED },
+});

@@ -1,6 +1,19 @@
 import { useRef } from 'react';
-import { Pressable, View, type TextInput as RNTextInput } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type TextInput as RNTextInput,
+  type ViewStyle,
+} from 'react-native';
+
 import { Text, TextInput } from '@/components/text';
+import { glass } from '@/lib/glass';
+
+const PRIMARY = '#2F6FE4';
+const INK = '#22406F';
+/** The empty cell's edge: a blue hairline, not a grey one — see lib/glass.ts. */
+const HAIRLINE = 'rgba(47,111,228,0.14)';
 
 interface OtpInputProps {
   value: string;
@@ -23,25 +36,24 @@ export function OtpInput({
   };
 
   return (
-    <Pressable onPress={() => inputRef.current?.focus()}>
-      <View className="flex-row gap-2">
+    <Pressable onPress={() => inputRef.current?.focus()} style={styles.focusable}>
+      <View style={styles.row}>
         {digits.map((d, i) => {
           const isFilled = d.trim().length > 0;
           const isCursor = i === value.length;
           return (
             <View
               key={i}
-              className={`w-12 h-14 rounded-lg items-center justify-center border-2 bg-card ${
+              style={[
+                styles.cell,
                 isCursor
-                  ? 'border-primary'
+                  ? styles.cellCursor
                   : isFilled
-                    ? 'border-foreground'
-                    : 'border-border'
-              }`}
+                    ? styles.cellFilled
+                    : styles.cellEmpty,
+              ]}
             >
-              <Text className="text-2xl font-bold text-foreground">
-                {d.trim()}
-              </Text>
+              <Text style={styles.digit}>{d.trim()}</Text>
             </View>
           );
         })}
@@ -54,8 +66,37 @@ export function OtpInput({
         maxLength={length}
         autoFocus={autoFocus}
         accessibilityLabel="Tasdiqlash kodi"
-        style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+        style={styles.hidden}
       />
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
+  row: { flexDirection: 'row', gap: 8 },
+
+  // Six wells resting on the sheet they are typed into — 'sm', the same height
+  // off the page as a chip, because they belong to the card that holds them.
+  // The 2pt edge is kept on every state so a cell never changes size as the
+  // cursor moves through it; only the colour of that edge tells the states
+  // apart.
+  cell: {
+    ...glass(14, 'sm', 0.86),
+    width: 48,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  cellCursor: { borderColor: PRIMARY },
+  cellFilled: { borderColor: INK },
+  cellEmpty: { borderColor: HAIRLINE },
+
+  digit: { fontSize: 24, fontWeight: '700', color: INK },
+
+  /** The real field: offscreen-thin, so the keyboard has something to type
+   *  into while the cells above do the showing. */
+  hidden: { position: 'absolute', opacity: 0, width: 1, height: 1 },
+});
