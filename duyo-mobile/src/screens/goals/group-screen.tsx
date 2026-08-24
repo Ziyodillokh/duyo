@@ -27,6 +27,7 @@ import {
   pill,
 } from '@/components/goals/chat-chrome';
 import { ChatComposer } from '@/components/goals/chat-composer';
+import { emojiOnly } from '@/components/goals/emoji-picker';
 import { AudioNote, VideoNote } from '@/components/goals/note-bubble';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import type { MediaNote } from '@/hooks/use-media-note';
@@ -96,11 +97,147 @@ function portraitFor(id: string): PortraitSpec {
  * a child on a silent bus can use.
  */
 function NoteMedia({ m, mine }: { m: GroupMessage; mine: boolean }) {
-  if (!m.media_url || !m.media_kind) return null;
-  const Note = m.media_kind === 'video' ? VideoNote : AudioNote;
+  if (!m.media_url || m.media_kind !== 'audio') return null;
   return (
     <View style={styles.noteWrap}>
-      <Note url={m.media_url} durationMs={m.media_duration_ms ?? 0} mine={mine} />
+      <AudioNote
+        url={m.media_url}
+        durationMs={m.media_duration_ms ?? 0}
+        mine={mine}
+        seed={m.id}
+      />
+    </View>
+  );
+}
+
+/**
+ * What the server writes into `body` when a clip carried no speech.
+ *
+ * Mirrors the two strings in duyo-backend/src/duyo/api/v1/social.py — change
+ * one and change the other. They exist so a note is never an empty row and a
+ * screen reader has something to say; they are NOT a caption, and Telegram
+ * shows nothing there, so neither does this. A real transcript still renders.
+ */
+const NOTE_PLACEHOLDERS = new Set(['Ovozli xabar', 'Video xabar']);
+
+function captionOf(m: GroupMessage): string | null {
+  if (!m.media_kind) return m.body;
+  return NOTE_PLACEHOLDERS.has(m.body.trim()) ? null : m.body;
+}
+
+/**
+ * A round video message.
+ *
+ * Rendered OUTSIDE any bubble, because that is what it is in Telegram: a bare
+ * circle on the wallpaper carrying its own clock and tick. Putting one in a
+ * bubble — as this did first — is the single thing that stops a chat looking
+ * like Telegram, so the whole bubble path is skipped for it.
+ */
+function RoundVideo({
+  m,
+  grouped,
+  last,
+}: {
+  m: GroupMessage;
+  grouped: boolean;
+  last: boolean;
+}) {
+  const caption = captionOf(m);
+  const body = (
+    <View style={{ alignItems: m.mine ? 'flex-end' : 'flex-start' }}>
+      <VideoNote
+        url={m.media_url}
+        durationMs={m.media_duration_ms ?? 0}
+        mine={m.mine}
+        time={clockOf(m.created_at)}
+      />
+      {caption ? (
+        <View style={[styles.bubble, m.mine ? styles.bubbleMine : styles.bubbleTheirs, styles.roundCaption]}>
+          <Text style={m.mine ? styles.bodyMine : styles.body}>{caption}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  if (m.mine) {
+    return (
+      <View style={[styles.rowMine, grouped && styles.rowGrouped]}>{body}</View>
+    );
+  }
+  return (
+    <View style={[styles.rowTheirs, grouped && styles.rowGrouped]}>
+      <View style={styles.avatarSlot}>
+        {last && (
+          <Portrait
+            spec={portraitFor(m.sender_name)}
+            size={30}
+            seed={seedOf(m.sender_name)}
+          />
+        )}
+      </View>
+      <View>
+        {!grouped && <Text style={styles.senderOutside}>{m.sender_name}</Text>}
+        {body}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * An emoji-only message, drawn as a sticker: large, no bubble.
+ *
+ * The clock cannot sit inside a bubble that does not exist, so it gets a
+ * small translucent pill of its own — the same thing Telegram does under a
+ * sticker.
+ */
+function Sticker({
+  m,
+  text,
+  count,
+  grouped,
+  last,
+}: {
+  m: GroupMessage;
+  text: string;
+  count: number;
+  grouped: boolean;
+  last: boolean;
+}) {
+  const size = count === 1 ? 56 : count === 2 ? 46 : 38;
+  const meta = (
+    <View style={styles.stickerMeta}>
+      <Text style={styles.stickerTime}>{clockOf(m.created_at)}</Text>
+      {m.mine && <Check size={12} color="#5A7BB5" strokeWidth={3} />}
+    </View>
+  );
+
+  if (m.mine) {
+    return (
+      <View style={[styles.rowMine, grouped && styles.rowGrouped]}>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: size, lineHeight: size * 1.25 }}>{text}</Text>
+          {meta}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.rowTheirs, grouped && styles.rowGrouped]}>
+      <View style={styles.avatarSlot}>
+        {last && (
+          <Portrait
+            spec={portraitFor(m.sender_name)}
+            size={30}
+            seed={seedOf(m.sender_name)}
+          />
+        )}
+      </View>
+      <View>
+        {!grouped && <Text style={styles.senderOutside}>{m.sender_name}</Text>}
+        <Text style={{ fontSize: size, lineHeight: size * 1.25 }}>{text}</Text>
+        {meta}
+      </View>
     </View>
   );
 }
@@ -119,6 +256,29 @@ function Bubble({
 }) {
   const time = clockOf(m.created_at);
 
+  // A round video is not a bubble at all — it takes the whole other path.
+  if (m.media_kind === 'video' && m.media_url) {
+    return <RoundVideo m={m} grouped={grouped} last={last} />;
+  }
+
+  const caption = captionOf(m);
+
+  // Nothing but a couple of emoji: drawn big and bare, the way Telegram
+  // turns one emoji into a sticker. A bubble around 😀 makes it a very short
+  // sentence instead.
+  const stickerCount = !m.media_kind && caption ? emojiOnly(caption) : 0;
+  if (stickerCount) {
+    return (
+      <Sticker
+        m={m}
+        text={caption as string}
+        count={stickerCount}
+        grouped={grouped}
+        last={last}
+      />
+    );
+  }
+
   if (m.mine) {
     return (
       <View style={[styles.rowMine, grouped && styles.rowGrouped]}>
@@ -135,8 +295,11 @@ function Bubble({
           {/* The time sits at the end of the text and wraps with it —
               Telegram's trick, and why a three-word message is not twice as
               tall as it needs to be. The spacer reserves its room. */}
+          {/* `caption` is null for a note that carried no speech — inside a
+              <Text> that renders nothing, while the spacer still reserves the
+              clock's room. */}
           <Text style={styles.bodyMine}>
-            {m.body}
+            {caption}
             <Text style={styles.metaSpacer}>{'        '}</Text>
           </Text>
           <View style={styles.metaMine}>
@@ -176,7 +339,7 @@ function Bubble({
         {!grouped && <Text style={styles.sender}>{m.sender_name}</Text>}
         <NoteMedia m={m} mine={false} />
         <Text style={styles.body}>
-          {m.body}
+          {caption}
           <Text style={styles.metaSpacer}>{'      '}</Text>
         </Text>
         <View style={styles.metaTheirs}>
@@ -623,6 +786,29 @@ const styles = StyleSheet.create({
   joinAges: { marginTop: 4, fontSize: 12.5, color: MUTED },
 
   noteWrap: { marginBottom: 6 },
+  stickerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 4,
+    marginTop: -4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  stickerTime: { fontSize: 11, color: '#5A7BB5', fontVariant: ['tabular-nums'] },
+  /** A caption under a round video — the circle carries no bubble, so on the
+   *  rare note that HAS a transcript the text gets a small one of its own. */
+  roundCaption: { marginTop: 6, maxWidth: 240 },
+  /** The sender's name sits above a round video instead of inside it. */
+  senderOutside: {
+    marginBottom: 4,
+    marginLeft: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: TITLE,
+  },
 
   refusal: { marginHorizontal: 16, marginBottom: 8, padding: 12 },
   refusalText: { fontSize: 13.5, color: DANGER, fontWeight: '600' },

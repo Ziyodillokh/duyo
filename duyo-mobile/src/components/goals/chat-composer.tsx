@@ -1,5 +1,5 @@
 import { Mic, Paperclip, Send, Smile, Trash2, Video } from 'lucide-react-native';
-import { createElement, useCallback, useEffect } from 'react';
+import { createElement, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -9,6 +9,9 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
+
+import { EmojiPicker } from '@/components/goals/emoji-picker';
 import { Text, TextInput } from '@/components/text';
 
 import {
@@ -42,6 +45,10 @@ const REC = '#E0455E';
  *  the row reads as a single control rather than a tall box beside a dot. */
 export const COMPOSER_H = 40;
 
+/** The round-video viewfinder. Matches the circle a note is played back in,
+ *  so what a child frames is what the room sees. */
+const VIEWFINDER = 196;
+
 interface Props {
   draft: string;
   onChangeDraft: (v: string) => void;
@@ -68,6 +75,7 @@ export function ChatComposer({
   onNotice,
 }: Props) {
   const rec = useMediaNote();
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const hasText = draft.trim().length > 0;
   const recording = rec.state === 'recording';
   const limit = rec.kind === 'video' ? MAX_VIDEO_MS : MAX_AUDIO_MS;
@@ -103,7 +111,23 @@ export function ChatComposer({
 
   return (
     <View>
-      {recording && rec.kind === 'video' && <Viewfinder stream={rec.stream} />}
+      {/* The emoji panel sits above the composer and closes while recording —
+          a viewfinder and a keyboard fighting for the same screen helps
+          nobody. */}
+      {emojiOpen && !recording && (
+        <EmojiPicker
+          onPick={(e) => onChangeDraft(draft + e)}
+          onClose={() => setEmojiOpen(false)}
+        />
+      )}
+
+      {recording && rec.kind === 'video' && (
+        <Viewfinder
+          stream={rec.stream}
+          progress={Math.min(1, rec.durationMs / MAX_VIDEO_MS)}
+          left={Math.max(0, MAX_VIDEO_MS - rec.durationMs)}
+        />
+      )}
 
       <View style={styles.row}>
         {recording ? (
@@ -125,7 +149,22 @@ export function ChatComposer({
           </View>
         ) : (
           <View style={styles.pill}>
-            <Smile size={19} color={MUTED} strokeWidth={1.9} />
+            <Pressable
+              onPress={() => setEmojiOpen((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="Emoji"
+              // A real touch target, not just the glyph. The icon is 19px, and
+              // a 19px target is far below what a seven-year-old's finger can
+              // reliably hit — `hitSlop` does not help here, because on web it
+              // does not enlarge the element that actually receives the click.
+              style={[styles.iconHit, styles.focusable]}
+            >
+              <Smile
+                size={19}
+                color={emojiOpen ? PRIMARY : MUTED}
+                strokeWidth={1.9}
+              />
+            </Pressable>
             <TextInput
               value={draft}
               onChangeText={onChangeDraft}
@@ -146,8 +185,7 @@ export function ChatComposer({
               onPress={() => onNotice('Fayl biriktirish tez orada.')}
               accessibilityRole="button"
               accessibilityLabel="Fayl biriktirish"
-              hitSlop={8}
-              style={styles.focusable}
+              style={[styles.iconHit, styles.focusable]}
             >
               <Paperclip size={18} color={MUTED} strokeWidth={1.9} />
             </Pressable>
@@ -219,7 +257,17 @@ function RecDot() {
  * and is the only way to show a MediaStream — expo-video plays a URL, not a
  * live stream. Native has no MediaStream at all, so this renders nothing there.
  */
-function Viewfinder({ stream }: { stream: MediaStream | null }) {
+function Viewfinder({
+  stream,
+  progress,
+  left,
+}: {
+  stream: MediaStream | null;
+  /** 0..1 of the way to the cap — drives the ring, like Telegram's. */
+  progress: number;
+  /** Milliseconds of recording still allowed. */
+  left: number;
+}) {
   /**
    * A callback ref, not a ref object and not state: a live stream has to be
    * ATTACHED to the element (`srcObject` takes no URL), and doing that in an
@@ -241,22 +289,58 @@ function Viewfinder({ stream }: { stream: MediaStream | null }) {
 
   if (Platform.OS !== 'web' || !stream) return null;
 
+  const r = VIEWFINDER / 2 - 3;
+  const circumference = 2 * Math.PI * r;
+
   return (
     <View style={styles.viewfinderWrap}>
-      <View style={styles.viewfinder}>
-        {createElement('video', {
-          ref: attach,
-          autoPlay: true,
-          muted: true,
-          playsInline: true,
-          // Mirrored, because a child expects to see themselves as in a mirror.
-          style: {
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transform: 'scaleX(-1)',
-          },
-        })}
+      <View style={styles.viewfinderHost}>
+        <View style={styles.viewfinder}>
+          {createElement('video', {
+            ref: attach,
+            autoPlay: true,
+            muted: true,
+            playsInline: true,
+            // Mirrored, because a child expects to see themselves as in a mirror.
+            style: {
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transform: 'scaleX(-1)',
+            },
+          })}
+        </View>
+
+        {/* The rim fills as the cap approaches — Telegram's countdown, and the
+            only warning a child gets that the clip is about to stop itself. */}
+        <View style={styles.viewfinderRing} pointerEvents="none">
+          <Svg width={VIEWFINDER} height={VIEWFINDER}>
+            <Circle
+              cx={VIEWFINDER / 2}
+              cy={VIEWFINDER / 2}
+              r={r}
+              stroke="rgba(255,255,255,0.55)"
+              strokeWidth={4}
+              fill="none"
+            />
+            <Circle
+              cx={VIEWFINDER / 2}
+              cy={VIEWFINDER / 2}
+              r={r}
+              stroke={REC}
+              strokeWidth={4}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${circumference}`}
+              strokeDashoffset={circumference * (1 - progress)}
+              transform={`rotate(-90 ${VIEWFINDER / 2} ${VIEWFINDER / 2})`}
+            />
+          </Svg>
+        </View>
+
+        <View style={styles.viewfinderLeft} pointerEvents="none">
+          <Text style={styles.viewfinderLeftText}>{clock(left)}</Text>
+        </View>
       </View>
     </View>
   );
@@ -274,6 +358,15 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingTop: 6,
+  },
+
+  /** 30×30 around a 19px glyph: as much target as the 40pt pill can give
+   *  without making the row taller. */
+  iconHit: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   pill: {
@@ -337,15 +430,32 @@ const styles = StyleSheet.create({
     boxShadow: '0 6px 16px rgba(111,155,221,0.20)',
   },
 
-  viewfinderWrap: { alignItems: 'flex-end', paddingHorizontal: 12, paddingBottom: 8 },
+  // Centred and large, the way Telegram frames a round video — a small circle
+  // in the corner reads as a preview thumbnail, not as "you are on camera".
+  viewfinderWrap: { alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10 },
+  viewfinderHost: { width: VIEWFINDER, height: VIEWFINDER },
   viewfinder: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
+    width: VIEWFINDER,
+    height: VIEWFINDER,
+    borderRadius: VIEWFINDER / 2,
     overflow: 'hidden',
     backgroundColor: '#0B1B36',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.9)',
-    boxShadow: '0 10px 24px rgba(111,155,221,0.35)',
+    boxShadow: '0 12px 28px rgba(111,155,221,0.38)',
+  },
+  viewfinderRing: { position: 'absolute', top: 0, left: 0 },
+  viewfinderLeft: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 11,
+    backgroundColor: 'rgba(11,27,54,0.55)',
+  },
+  viewfinderLeftText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
 });
