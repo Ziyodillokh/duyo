@@ -441,29 +441,36 @@ export default function VoiceScreen() {
 
       {/* Transcripts — hidden while the board is up; it already shows the
           working, and both together overflow shorter screens. */}
-      {!board && (inputTranscript || outputTranscript) && (
+      {/* `? :` rather than `&&`. Both transcripts start as '', so the guard
+          `(inputTranscript || outputTranscript)` evaluates to '' — and `&&`
+          hands that empty STRING to React, which renders it as a text node
+          inside a View: "Unexpected text node". A falsy string is not nothing. */}
+      {!board && (inputTranscript || outputTranscript) ? (
         <ScrollView
           className="max-h-48 px-6 mb-4"
           contentContainerStyle={{ gap: 8 }}
         >
-          {inputTranscript && (
+          {/* `? :`, not `&&`: these start as '' and React renders an empty
+              string as a TEXT NODE, which inside a View is the error
+              "Unexpected text node". A falsy string is not nothing. */}
+          {inputTranscript ? (
             <View className="bg-primary/10 rounded-xl p-3">
               <Text className="text-xs text-muted-foreground mb-1">Siz:</Text>
               <Text className="text-base text-foreground">
                 {inputTranscript}
               </Text>
             </View>
-          )}
-          {outputTranscript && (
+          ) : null}
+          {outputTranscript ? (
             <View className="bg-card border border-border rounded-xl p-3">
               <Text className="text-xs text-muted-foreground mb-1">DUYO:</Text>
               <Text className="text-base text-foreground">
                 {outputTranscript}
               </Text>
             </View>
-          )}
+          ) : null}
         </ScrollView>
-      )}
+      ) : null}
 
       {/* Bottom nav — frosted bar with elevated mic */}
       <View

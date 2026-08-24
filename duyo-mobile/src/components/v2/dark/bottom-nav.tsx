@@ -1,6 +1,6 @@
 import { Brain, Target } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from '@/components/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -116,7 +116,7 @@ export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
               accessibilityLabel={tab.label}
-              style={styles.item}
+              style={[styles.item, styles.focusable]}
             >
               {/* A soft pill instead of the old lifted circle: it marks the
                   current tab without breaking the flat bar the spec asks for,
@@ -157,6 +157,7 @@ export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
         accessibilityLabel="DUYO"
         style={[
           styles.bubble,
+          styles.focusable,
           {
             backgroundColor: c.fill,
             borderColor: active === 'chat' ? c.active : c.border,
@@ -171,6 +172,12 @@ export function BottomNav({ active, onSelect, forceLight }: BottomNavProps) {
 }
 
 const styles = StyleSheet.create({
+  // The browser draws a square focus ring around whatever was last clicked.
+  // On a rounded pill and a circular mascot that reads as a stray black box
+  // behind the tab — which is exactly what it looked like. Every other
+  // pressable in the app already suppresses it; the dock had been missed.
+  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+
   // Tall enough to hold the raised bubble as well as the bar, so nothing
   // has to overflow its parent.
   host: {
