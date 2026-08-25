@@ -26,6 +26,9 @@ export interface Project {
   instructions: string | null;
   colour: string | null;
   conversation_count: number;
+  /** When the child pinned this, or null. The server orders on it and so
+   *  can the client; a bare flag would leave several pins unordered. */
+  pinned_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -140,7 +143,14 @@ export async function createProject(
 export async function updateProject(
   childId: string,
   projectId: string,
-  patch: { name?: string; instructions?: string; colour?: string },
+  patch: {
+    name?: string;
+    instructions?: string;
+    colour?: string;
+    /** Whether, not when: the server stamps the moment, because a client
+     *  clock is not something a sort order should trust. */
+    pinned?: boolean;
+  },
 ): Promise<Project> {
   const { data } = await apiClient.patch<Project>(
     `/children/${childId}/projects/${projectId}`,

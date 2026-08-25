@@ -16,9 +16,10 @@ Deleting a project must never delete the child's conversations: the FK is
 SET NULL, so removing the folder returns its chats to the ungrouped list.
 """
 
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from duyo.models.base import UUIDPK, Base, TimestampMixin
@@ -35,6 +36,7 @@ class Project(Base, UUIDPK, TimestampMixin):
     __tablename__ = "projects"
     __table_args__ = (
         Index("ix_projects_child_created", "child_id", "created_at"),
+        Index("ix_projects_child_pinned", "child_id", "pinned_at"),
     )
 
     child_id: Mapped[UUID] = mapped_column(
@@ -49,6 +51,15 @@ class Project(Base, UUIDPK, TimestampMixin):
     #: projects apart at a glance. Stored as a hex string chosen by the app
     #: from a fixed palette — never free-typed.
     colour: Mapped[str | None] = mapped_column(String(9), nullable=True)
+    #: When the child pinned this project, or NULL if they have not.
+    #:
+    #: A timestamp rather than a boolean because "pinned" and "pinned when"
+    #: are the same fact: with several pinned projects the list still has to
+    #: order them, and the order a child expects is the one they made. A flag
+    #: would throw that away for nothing.
+    pinned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     def __repr__(self) -> str:
         return f"<Project {self.name!r} child={self.child_id}>"

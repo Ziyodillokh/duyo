@@ -459,6 +459,67 @@ def test_update_project_fields(world):
     _run(scenario())
 
 
+def test_pinning_a_project_lifts_it_to_the_top(world):
+    """A pinned project sorts above every unpinned one, whenever it was made."""
+    session, user, child = world
+
+    async def scenario():
+        old = await mod.create_project(child.id, ProjectCreate(name="Eski"), user, session)
+        await mod.create_project(child.id, ProjectCreate(name="Yangi"), user, session)
+
+        # Newest first while nothing is pinned.
+        before = await mod.list_projects(child.id, user, session)
+        assert [p.name for p in before] == ["Yangi", "Eski"]
+
+        pinned = await mod.update_project(
+            child.id, old.id, ProjectUpdate(pinned=True), user, session,
+        )
+        assert pinned.pinned_at is not None
+
+        after = await mod.list_projects(child.id, user, session)
+        assert [p.name for p in after] == ["Eski", "Yangi"]
+
+    _run(scenario())
+
+
+def test_unpinning_returns_a_project_to_its_place(world):
+    """Unpinning is not a delete: the project stays, back in date order."""
+    session, user, child = world
+
+    async def scenario():
+        old = await mod.create_project(child.id, ProjectCreate(name="Eski"), user, session)
+        await mod.create_project(child.id, ProjectCreate(name="Yangi"), user, session)
+        await mod.update_project(child.id, old.id, ProjectUpdate(pinned=True), user, session)
+
+        out = await mod.update_project(
+            child.id, old.id, ProjectUpdate(pinned=False), user, session,
+        )
+        assert out.pinned_at is None
+
+        after = await mod.list_projects(child.id, user, session)
+        assert [p.name for p in after] == ["Yangi", "Eski"]
+
+    _run(scenario())
+
+
+def test_renaming_a_project_leaves_its_pin_alone(world):
+    """`pinned` absent means "do not touch", the way every other field here
+    behaves — a rename must not quietly unpin."""
+    session, user, child = world
+
+    async def scenario():
+        created = await mod.create_project(child.id, ProjectCreate(name="Eski"), user, session)
+        await mod.update_project(child.id, created.id, ProjectUpdate(pinned=True), user, session)
+
+        out = await mod.update_project(
+            child.id, created.id, ProjectUpdate(name="Yangi nom"), user, session,
+        )
+        assert out.name == "Yangi nom"
+        assert out.pinned_at is not None
+
+    _run(scenario())
+
+
 def test_another_familys_project_is_not_reachable(world):
     session, user, child = world
 

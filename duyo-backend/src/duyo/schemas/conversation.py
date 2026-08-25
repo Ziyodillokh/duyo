@@ -58,6 +58,10 @@ class ProjectUpdate(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=PROJECT_NAME_MAX)] | None = None
     instructions: Annotated[str, Field(max_length=PROJECT_INSTRUCTIONS_MAX)] | None = None
     colour: str | None = None
+    #: Pin or unpin. A boolean here, a timestamp in the row: the caller is
+    #: saying WHETHER, and the server is the only thing that should decide
+    #: WHEN — a client clock is not something a sort order should trust.
+    pinned: bool | None = None
 
     _check_name = field_validator("name")(_validated_name)
     _check_colour = field_validator("colour")(_validated_colour)
@@ -70,6 +74,9 @@ class ProjectRead(BaseModel):
     colour: str | None
     #: How many conversations are filed here — the one number the list needs.
     conversation_count: int = 0
+    #: When the child pinned this, or null. The client sorts on it too, so it
+    #: is the timestamp rather than a bare flag.
+    pinned_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -11,6 +11,7 @@ existence never leaks — the same rule goals and notes follow.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -297,6 +298,7 @@ async def _project_read(db: AsyncSession, project: Project) -> ProjectRead:
         instructions=project.instructions,
         colour=project.colour,
         conversation_count=count or 0,
+        pinned_at=project.pinned_at,
         created_at=project.created_at,
         updated_at=project.updated_at,
     )
@@ -313,7 +315,14 @@ async def list_projects(
         await db.execute(
             select(Project)
             .where(Project.child_id == child.id)
-            .order_by(Project.created_at.desc())
+            # Pinned first, newest first inside each group. NULLS LAST is
+            # what makes 'unpinned' sort after every pin rather than before
+            # them: in Postgres a DESC sort puts NULL at the top by default.
+            .order_by(
+                Project.pinned_at.desc().nullslast(),
+                Project.created_at.desc(),
+            )
+
         )
     ).scalars().all()
 
@@ -339,6 +348,7 @@ async def list_projects(
             instructions=p.instructions,
             colour=p.colour,
             conversation_count=counts.get(p.id, 0),
+            pinned_at=p.pinned_at,
             created_at=p.created_at,
             updated_at=p.updated_at,
         )
@@ -400,6 +410,10 @@ async def update_project(
         project.instructions = payload.instructions or None
     if payload.colour is not None:
         project.colour = payload.colour
+    if payload.pinned is not None:
+        # The caller says whether; the server says when. A client clock is not
+        # something a sort order should trust.
+        project.pinned_at = datetime.now(UTC) if payload.pinned else None
     await db.flush()
     return await _project_read(db, project)
 

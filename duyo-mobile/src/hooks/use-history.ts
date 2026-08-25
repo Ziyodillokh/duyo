@@ -100,7 +100,7 @@ export function useCreateProject(childId: string | undefined) {
 
 export function useUpdateProject(childId: string | undefined) {
   return useHistoryMutation<
-    { id: string; name?: string; instructions?: string; colour?: string },
+    { id: string; name?: string; instructions?: string; colour?: string; pinned?: boolean },
     Project
   >(childId, ({ id, ...patch }) => updateProject(childId!, id, patch));
 }

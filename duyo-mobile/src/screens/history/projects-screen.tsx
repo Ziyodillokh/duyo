@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Folder,
   MoreVertical,
+  Pin,
   Plus,
 } from 'lucide-react-native';
 import { useState } from 'react';
@@ -84,6 +85,16 @@ export default function ProjectsScreen() {
 
   const openActions = (project: Project) =>
     Alert.alert(project.name, undefined, [
+      {
+        // First in the sheet: the only reversible one-tap action here, and
+        // the one a child reaches for repeatedly.
+        text: project.pinned_at ? 'Qadashni bekor qilish' : 'Qadab qo‘yish',
+        onPress: () =>
+          update.mutate(
+            { id: project.id, pinned: !project.pinned_at },
+            { onError: failed },
+          ),
+      },
       {
         text: 'Suhbatlarini ko‘rish',
         onPress: () =>
@@ -263,9 +274,17 @@ function ProjectRow({
         </View>
 
         <View style={styles.rowBody}>
-          <Text style={styles.rowTitle} numberOfLines={1}>
-            {project.name}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
+              {project.name}
+            </Text>
+            {/* The pin rides the TITLE, not the meta line: it is a property
+                of this project, and an eye scanning a column of names should
+                meet it in that column. */}
+            {!!project.pinned_at && (
+              <Pin size={13} color={colour} strokeWidth={2.4} />
+            )}
+          </View>
           <Text style={styles.rowMeta}>
             {project.conversation_count} ta suhbat
             {project.instructions ? ' · ko‘rsatmali' : ''}
@@ -325,6 +344,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowBody: { flex: 1 },
   rowTitle: {
     fontSize: 16,
