@@ -3,14 +3,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useNavigation } from 'expo-router';
 import {
   ArrowLeft,
-  Menu,
+  Check,
+  CheckCheck,
   Mic,
+  MoreHorizontal,
+  NotebookPen,
+  Plus,
   Send,
-  SquarePen,
+  Smile,
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +27,6 @@ import {
   Pressable,
   StyleSheet,
   View,
-  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
@@ -39,7 +47,9 @@ import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { ChatDrawer } from '@/components/chat/chat-drawer';
-import { MascotImage } from '@/components/v2/mascot-image';
+import { ChatHero } from '@/components/chat/chat-hero';
+import { EmojiPicker } from '@/components/goals/emoji-picker';
+import { MascotHead } from '@/components/v2/mascot-image';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
 import { glass, lift } from '@/lib/glass';
 import { selectRelevantMemories, toMemoryContextLines } from '@/lib/memory-retrieval';
@@ -60,10 +70,8 @@ const PLACEHOLDER = '#7693C2';
 const BG_TOP = '#E3EFFF';
 const BG_MID = '#EAF3FF';
 const BG_BOTTOM = '#EDF2FD';
-const HAIRLINE = 'rgba(47,111,228,0.10)';
 /** The two states the status dot ever has: settled, and mid-thought. */
 const GREEN = '#22B573';
-const AMBER = '#F0B429';
 
 // Free tier daily limit — backend enforces real limits once subscription
 // system lands (Faza 1). Until then we show a soft local count.
@@ -84,6 +92,7 @@ type DisplayItem =
   | { kind: 'message'; message: ChatMessage }
   | { kind: 'typing' }
   | { kind: 'counter' }
+  | { kind: 'hero' }
   | { kind: 'puzzle'; puzzle: Puzzle }
   | { kind: 'suggested-replies' };
 
@@ -110,6 +119,18 @@ export default function ChatScreen() {
   const [ratings, setRatings] = useState<Record<string, FeedbackRating>>({});
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  // The quick actions are folded away by default: this is a conversation
+  // first, and two chips pinned above the composer cost a message of
+  // height on every screen for something reached twice a session.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const plus = useSharedValue(0);
+  useEffect(() => {
+    plus.set(withSpring(actionsOpen ? 1 : 0, { damping: 16, stiffness: 200 }));
+  }, [actionsOpen, plus]);
+  const plusStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${plus.get() * 45}deg` }],
+  }));
   // Sibling tabs are reached through this screen's navigator; router.push
   // into the (tabs) group from inside it is a silent no-op on web.
   const navigation = useNavigation() as { navigate(name: string): void };
@@ -305,8 +326,23 @@ export default function ChatScreen() {
         .reverse()
         .map((message): DisplayItem => ({ kind: 'message', message })),
       { kind: 'counter' as const },
+      // Last in an inverted list is first on screen: the letterhead
+      // above the oldest message.
+      { kind: 'hero' as const },
     ],
     [send.isPending, showSuggestions, messages, puzzle],
+  );
+
+  // The newest child message, while its reply is still in flight. Delivery
+  // here means "DUYO answered", which is the only delivery signal this
+  // chat actually has: child messages keep their local id forever, so an
+  // id check would mark every message undelivered for good.
+  const pendingChildId = useMemo(
+    () =>
+      send.isPending
+        ? [...messages].reverse().find((m) => m.role === 'child')?.id
+        : undefined,
+    [send.isPending, messages],
   );
 
   const canSend =
@@ -321,63 +357,28 @@ export default function ChatScreen() {
       />
 
       <SafeAreaView style={styles.fill} edges={['top']}>
-        {/* Header: menu — identity — new chat. The two unlabelled icons that
-            used to sit here moved into the drawer, where they have names. */}
+        {/* Back, title, menu — the mock's shape, and the honest one too:
+            the two unlabelled glyphs that used to sit here are both rows
+            in the drawer now, where they have names. */}
         <View style={styles.header}>
-          {/* The dock is three doors now; the hub is reached by going back, so
-              every section carries this. */}
           <Pressable
             onPress={() => navigation.navigate('index')}
             accessibilityRole="button"
             accessibilityLabel="Bosh sahifa"
-            hitSlop={8}
-            style={[styles.headerIcon, styles.focusable]}
+            style={[glass(22, 'sm'), styles.headerIcon, styles.focusable]}
           >
             <ArrowLeft size={22} color={PRIMARY} />
           </Pressable>
+
+          <Text style={styles.headerTitle}>AI Chat</Text>
+
           <Pressable
             onPress={() => setDrawerOpen(true)}
             accessibilityRole="button"
             accessibilityLabel="Menyu"
-            hitSlop={8}
-            style={[styles.headerIcon, styles.focusable]}
+            style={[glass(22, 'sm'), styles.headerIcon, styles.focusable]}
           >
-            <Menu size={22} color={PRIMARY} />
-          </Pressable>
-
-          <View style={styles.mascot}>
-            <MascotImage size={44} glow="cosmic" />
-          </View>
-          <View style={styles.identity}>
-            <Text style={styles.name} numberOfLines={1}>
-              DUYO
-            </Text>
-            <View style={styles.statusRow}>
-              {/* The dot carries the same state as the words beside it, so the
-                  status reads at a glance without being parsed. */}
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: send.isPending ? AMBER : GREEN },
-                ]}
-              />
-              <Text style={styles.statusText}>
-                {send.isPending ? "O'ylayapti..." : 'Xursand'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Tinted, unlike the plain menu glyph on the left: this one performs
-              an action rather than opening navigation, and a child reported not
-              realising it was tappable at all. */}
-          <Pressable
-            onPress={handleNewChat}
-            accessibilityRole="button"
-            accessibilityLabel="Yangi suhbat"
-            hitSlop={8}
-            style={[glass(20, 'sm'), styles.headerAction, styles.focusable]}
-          >
-            <SquarePen size={19} color={PRIMARY} />
+            <MoreHorizontal size={22} color={PRIMARY} />
           </Pressable>
         </View>
 
@@ -401,6 +402,7 @@ export default function ChatScreen() {
               if (item.kind === 'puzzle') return `puzzle-${item.puzzle.puzzle_id}`;
               if (item.kind === 'suggested-replies') return 'suggested-replies';
               if (item.kind === 'counter') return 'daily-counter';
+              if (item.kind === 'hero') return 'chat-hero';
               return `${item.message.id}-${i}`;
             }}
             inverted
@@ -424,6 +426,14 @@ export default function ChatScreen() {
               if (item.kind === 'suggested-replies') {
                 return <SuggestedReplies onSelect={setInput} />;
               }
+              if (item.kind === 'hero') {
+                return (
+                  <ChatHero
+                    thinking={send.isPending}
+                    onVoice={() => router.push('/(main)/voice')}
+                  />
+                );
+              }
               if (item.kind === 'counter') {
                 return (
                   <View style={[glass(18, 'sm', 0.5), styles.counter]}>
@@ -443,64 +453,215 @@ export default function ChatScreen() {
                   onQuickReply={handleQuickReply}
                   rating={ratings[item.message.id]}
                   onRate={handleRate}
+                  sending={item.message.id === pendingChildId}
                 />
               );
             }}
           />
 
-          {/* The tab bar floats over this screen now, so the composer keeps
-              its own clearance beneath it (see NAV_CLEARANCE). */}
+          {/* The tab bar floats over this screen, so the composer keeps its
+              own clearance beneath it (see useNavClearance). */}
           <View
             style={[
               glass(28, 'xl', 0.72),
-              styles.composer,
+              styles.composerSheet,
               { paddingBottom: composerPad },
             ]}
           >
-            <TextInput
-              value={input}
-              onChangeText={setInput}
-              placeholder={
-                limitReached
-                  ? 'Bugungi limit tugadi. Ertaga davom etamiz.'
-                  : 'Xabar yozing...'
-              }
-              placeholderTextColor={PLACEHOLDER}
-              multiline
-              maxLength={2000}
-              editable={!send.isPending && !limitReached}
-              accessibilityLabel="Chat xabari"
-              // `glass()` is typed ViewStyle, and React Native's TextStyle is
-              // NOT a superset of it — the two disagree about `userSelect`. The
-              // properties actually used here (fill, radius, border) are valid
-              // on both, so the cast is the narrow lie rather than a wrong one.
-              style={[glass(16, 'flush', 0.62) as TextStyle, styles.input]}
-            />
-            <Pressable
-              onPress={() => router.push('/(main)/voice')}
-              accessibilityRole="button"
-              accessibilityLabel="Ovozli suhbat"
-              style={[glass(16, 'flush', 0.62), styles.composerButton, styles.focusable]}
-            >
-              <Mic size={22} color={PRIMARY} />
-            </Pressable>
-            <Pressable
-              onPress={handleSend}
-              disabled={!canSend}
-              accessibilityRole="button"
-              accessibilityLabel="Yuborish"
-              style={[
-                styles.composerButton,
-                canSend ? styles.sendOn : styles.sendOff,
-                styles.focusable,
-              ]}
-            >
-              <Send size={20} color={canSend ? '#FFFFFF' : MUTED} />
-            </Pressable>
+            {/* Both panels close each other: two sheets open at once would
+                push the input off the top of the keyboard. */}
+            {emojiOpen && (
+              // The panel carries its own 12pt gutter, so this cancels the
+              // sheet's padding rather than stacking on it — otherwise the
+              // emoji grid sits visibly narrower than the field above it.
+              <View style={styles.emojiSlot}>
+                <EmojiPicker
+                  onPick={(e) => setInput((v) => v + e)}
+                  onClose={() => setEmojiOpen(false)}
+                />
+              </View>
+            )}
+
+            {actionsOpen && (
+              <View style={styles.actionsRow}>
+                <ActionChip
+                  Icon={Mic}
+                  label="Ovoz bilan gaplashish"
+                  onPress={() => {
+                    setActionsOpen(false);
+                    router.push('/(main)/voice');
+                  }}
+                />
+                <ActionChip
+                  Icon={NotebookPen}
+                  label="Yozuv yaratish"
+                  onPress={() => {
+                    setActionsOpen(false);
+                    navigation.navigate('brain');
+                  }}
+                />
+              </View>
+            )}
+
+            <View style={styles.composerRow}>
+              <Pressable
+                onPress={() => {
+                  setActionsOpen((v) => !v);
+                  setEmojiOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  actionsOpen ? 'Amallarni yopish' : 'Boshqa amallar'
+                }
+                style={[
+                  glass(16, 'flush', 0.62),
+                  styles.composerButton,
+                  styles.focusable,
+                ]}
+              >
+                {/* The same glyph turns into the close, rather than swapping
+                    for an X — the button keeps its identity while its job
+                    reverses. */}
+                <Animated.View style={plusStyle}>
+                  <Plus size={22} color={PRIMARY} />
+                </Animated.View>
+              </Pressable>
+
+              <View style={[glass(20, 'flush', 0.62), styles.inputWrap]}>
+                <TextInput
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder={
+                    limitReached
+                      ? 'Bugungi limit tugadi. Ertaga davom etamiz.'
+                      : 'Chatda yozish...'
+                  }
+                  placeholderTextColor={PLACEHOLDER}
+                  multiline
+                  maxLength={2000}
+                  editable={!send.isPending && !limitReached}
+                  accessibilityLabel="Chat xabari"
+                  style={styles.input}
+                />
+                <Pressable
+                  onPress={() => {
+                    setEmojiOpen((v) => !v);
+                    setActionsOpen(false);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Emoji"
+                  style={[styles.emojiButton, styles.focusable]}
+                >
+                  <Smile size={21} color={emojiOpen ? PRIMARY : MUTED} />
+                </Pressable>
+              </View>
+
+              <Pressable
+                onPress={handleSend}
+                disabled={!canSend}
+                accessibilityRole="button"
+                accessibilityLabel="Yuborish"
+                style={[
+                  styles.send,
+                  canSend ? styles.sendOn : styles.sendOff,
+                  styles.focusable,
+                ]}
+              >
+                <Send size={19} color={canSend ? '#FFFFFF' : MUTED} />
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
+  );
+}
+
+/** `08:32` — the clock under every bubble, in the phone's local time. */
+function clock(ts: number): string {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+/**
+ * A tint per bullet, cycled down the list.
+ *
+ * DUYO answers "how do I manage my time" with five steps, and five identical
+ * grey dots is a wall a child skims past. Giving each its own colour makes
+ * the list countable at a glance — you can see there are five before you
+ * have read one. The order is fixed, so the same answer always comes back
+ * wearing the same colours.
+ */
+const BULLET_TINTS = ['#7C6CF5', '#2F6FE4', '#12A182', '#F0B429', '#EA7A2C'];
+
+/** A markdown-ish list line: `- item`, `* item` or `• item`. */
+const BULLET = /^\s*[-*•]\s+(.*)$/;
+
+/**
+ * The text inside a bubble.
+ *
+ * Only DUYO's replies get list treatment, and only when they actually contain
+ * a list — a child typing a dash at the start of a line meant a dash.
+ * Anything that is not a bullet is left exactly as written, because this is a
+ * renderer for one pattern, not a markdown engine.
+ */
+function BubbleBody({ text, isChild }: { text: string; isChild: boolean }) {
+  const lines = text.split('\n');
+  if (isChild || !lines.some((l) => BULLET.test(l))) {
+    return (
+      <Text style={[styles.bubbleText, isChild && styles.bubbleTextChild]}>
+        {text}
+      </Text>
+    );
+  }
+  let n = 0;
+  return (
+    <View style={styles.body}>
+      {lines.map((line, i) => {
+        const m = BULLET.exec(line);
+        if (!m) {
+          return line.trim() ? (
+            <Text key={i} style={styles.bubbleText}>
+              {line}
+            </Text>
+          ) : null;
+        }
+        const tint = BULLET_TINTS[n++ % BULLET_TINTS.length];
+        return (
+          <View key={i} style={styles.bulletRow}>
+            <View style={[styles.bulletDot, { backgroundColor: tint }]} />
+            <Text style={[styles.bubbleText, styles.bulletText]}>{m[1]}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/** One of the two things the composer's `+` opens onto. */
+function ActionChip({
+  Icon,
+  label,
+  onPress,
+}: {
+  Icon: typeof Mic;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[glass(18, 'sm', 0.6), styles.actionChip, styles.focusable]}
+    >
+      <Icon size={17} color={PRIMARY} strokeWidth={2.1} />
+      <Text style={styles.actionLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -509,6 +670,8 @@ interface MessageBubbleProps {
   onQuickReply: (messageId: string, reply: QuickReply) => void;
   rating?: FeedbackRating;
   onRate: (messageId: string, rating: FeedbackRating) => void;
+  /** This child message is the one whose reply is still in flight. */
+  sending?: boolean;
 }
 
 function MessageBubble({
@@ -516,16 +679,25 @@ function MessageBubble({
   onQuickReply,
   rating,
   onRate,
+  sending,
 }: MessageBubbleProps) {
   const isChild = message.role === 'child';
   const source = message.source;
   const quickReplies = message.quickReplies;
-  // Only server-persisted DUYO replies can be rated — the seeded greeting and
-  // optimistic `local-` bubbles have no row to attach feedback to.
+  // Only server-persisted DUYO replies can be rated — the seeded greeting
+  // and optimistic `local-` bubbles have no row to attach feedback to.
   const canRate =
     !isChild && message.id !== GREETING_ID && !message.id.startsWith('local-');
   return (
     <View style={isChild ? styles.rowEnd : styles.rowStart}>
+      {/* DUYO's face beside its own words. The child's side needs no avatar:
+          there is only one other person in this conversation, and the side
+          the bubble sits on already says which. */}
+      {!isChild && (
+        <View style={[glass(16, 'sm', 0.6), styles.avatar]}>
+          <MascotHead size={26} />
+        </View>
+      )}
       <View style={styles.bubbleColumn}>
         <View
           style={
@@ -534,9 +706,20 @@ function MessageBubble({
               : [glass(22, 'sm', 0.62), styles.bubble]
           }
         >
-          <Text style={[styles.bubbleText, isChild && styles.bubbleTextChild]}>
-            {message.content}
-          </Text>
+          <BubbleBody text={message.content} isChild={isChild} />
+          <View style={styles.metaRow}>
+            <Text style={[styles.time, isChild && styles.timeChild]}>
+              {clock(message.timestamp)}
+            </Text>
+            {/* One tick while DUYO is still answering, two once it has —
+                the only delivery signal this chat genuinely has. */}
+            {isChild &&
+              (sending ? (
+                <Check size={14} color="rgba(255,255,255,0.75)" strokeWidth={2.6} />
+              ) : (
+                <CheckCheck size={14} color="rgba(255,255,255,0.85)" strokeWidth={2.6} />
+              ))}
+          </View>
         </View>
         {source && source.type !== 'none' && (
           <Text style={styles.sourceText}>
@@ -593,60 +776,91 @@ function MessageBubble({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   fill: { flex: 1 },
-  // The browser's default focus ring is a black rectangle around a round
-  // control. RN's ViewStyle has no outline, so this is a web-only escape;
-  // native ignores unknown keys.
-  focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
+  /**
+   * Two rectangles the platform draws for us, both suppressed. `outline*` is
+   * the browser's focus ring; `WebkitTapHighlightColor` is the translucent
+   * grey box every WebView flashes over a tapped element, ignoring its
+   * border radius. Native ignores both keys.
+   */
+  focusable: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+    WebkitTapHighlightColor: 'transparent',
+  } as unknown as ViewStyle,
 
-  // ── Header ─────────────────────────────────────────────────────────────
+  // ── Header ─────────────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: HAIRLINE,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   headerIcon: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerAction: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Overrides the pane's white fill: this chip is the one that acts.
-    backgroundColor: 'rgba(47,111,228,0.14)',
+  // Centred by taking the row’s slack, so the title stays on the screen’s
+  // midline whatever the two round buttons beside it end up measuring.
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: PRIMARY,
+    letterSpacing: -0.2,
   },
-  mascot: { width: 44, height: 44 },
-  identity: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '700', color: INK },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 12, color: MUTED },
 
   loading: { alignItems: 'center', paddingVertical: 12 },
 
-  // ── List ───────────────────────────────────────────────────────────────
+  // ── List ───────────────────────────────────────────────────────
   listContent: { padding: 16, gap: 12 },
   counter: { paddingHorizontal: 16, paddingVertical: 12 },
   counterText: { fontSize: 14, lineHeight: 20, color: INK, textAlign: 'center' },
   counterCount: { fontWeight: '700', color: PRIMARY },
 
-  // ── Bubbles ────────────────────────────────────────────────────────────
-  rowStart: { flexDirection: 'row', justifyContent: 'flex-start' },
+  // ── Bubbles ────────────────────────────────────────────────
+  // Bottom-aligned so the avatar sits level with the last line of the
+  // bubble, the way it does when a paragraph runs long.
+  rowStart: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   rowEnd: { flexDirection: 'row', justifyContent: 'flex-end' },
-  bubbleColumn: { maxWidth: '80%' },
+  avatar: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bubbleColumn: { maxWidth: '78%' },
   bubble: { borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12 },
-  // A filled bubble still belongs to the ladder: same contact/ambient pair as
-  // the glass one beside it, so the two sides sit at the same height.
+  // A filled bubble still belongs to the ladder: same contact/ambient pair
+  // as the glass one beside it, so the two sides sit at the same height.
   bubbleChild: { backgroundColor: PRIMARY, boxShadow: lift('sm') },
   bubbleText: { fontSize: 16, lineHeight: 24, color: INK },
   bubbleTextChild: { color: '#FFFFFF' },
+
+  body: { gap: 8 },
+  bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  // Nudged down to sit on the first line’s optical centre rather than its
+  // top edge — a dot level with the ascenders reads as floating.
+  bulletDot: { width: 9, height: 9, borderRadius: 5, marginTop: 8 },
+  bulletText: { flex: 1 },
+
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 4,
+  },
+  time: { fontSize: 11.5, color: MUTED },
+  timeChild: { color: 'rgba(255,255,255,0.78)' },
+
   sourceText: { marginTop: 4, marginLeft: 8, fontSize: 12, color: MUTED },
 
   quickRow: { flexDirection: 'row', gap: 8, marginTop: 6, marginLeft: 8 },
@@ -675,17 +889,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── Composer ───────────────────────────────────────────────────────────
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
+  // ── Composer ───────────────────────────────────────────────
+  composerSheet: {
     paddingHorizontal: 12,
     paddingTop: 12,
+    gap: 10,
     // Squared off at the screen edge — only the top of this sheet is ever
     // seen, and rounding the bottom would leak the gradient into the corners.
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
+  },
+  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  // The emoji button lives INSIDE the field, as it does in every messenger
+  // a child has used, rather than becoming a fourth control in the row.
+  inputWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingRight: 4,
   },
   input: {
     flex: 1,
@@ -695,6 +916,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: INK,
   },
+  emojiButton: {
+    width: 36,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   composerButton: {
     width: 44,
     height: 44,
@@ -702,6 +929,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendOn: { backgroundColor: PRIMARY },
+  // Round, not rounded-square like the other two: the one control here that
+  // commits rather than opens.
+  send: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendOn: { backgroundColor: PRIMARY, boxShadow: lift('sm') },
   sendOff: { backgroundColor: 'rgba(140,163,203,0.25)' },
+
+  emojiSlot: { marginHorizontal: -12 },
+  actionsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  actionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  actionLabel: { fontSize: 13.5, fontWeight: '600', color: PRIMARY },
 });
