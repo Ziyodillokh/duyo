@@ -83,6 +83,18 @@ function joinName(first: string, last: string): string {
   return [first.trim(), last.trim()].filter(Boolean).join(' ');
 }
 
+/** The server’s own message, when it sent one.
+ *
+ *  The photo routes answer in Uzbek and say which rule was broken — too
+ *  big, wrong type — and that is far more use to a child than a generic
+ *  "it failed". Falls back to `fallback` for a network error, where there
+ *  is no response to read. */
+function serverMessage(err: unknown, fallback: string): string {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })
+    ?.response?.data?.detail;
+  return typeof detail === 'string' && detail.trim() ? detail : fallback;
+}
+
 /**
  * Sozlamalar — and, since the Profile page was folded into it, the one place
  * the child's own identity is edited.
@@ -163,8 +175,8 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
       const updated = await updateChild(child.id, { name });
       setChild(updated);
       setEditing(false);
-    } catch {
-      setSaveError('Saqlanmadi — internetni tekshiring');
+    } catch (err) {
+      setSaveError(serverMessage(err, 'Saqlanmadi — internetni tekshiring'));
     } finally {
       setSaving(false);
     }
@@ -212,8 +224,10 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
         asset.mimeType ?? 'image/jpeg',
       );
       setChild(updated);
-    } catch {
-      setPhotoError('Rasm yuklanmadi — boshqa rasm tanlab ko‘ring');
+    } catch (err) {
+      setPhotoError(
+        serverMessage(err, 'Rasm yuklanmadi — internetni tekshiring'),
+      );
     } finally {
       setPhotoBusy(false);
     }
@@ -226,8 +240,8 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
     setPhotoError(null);
     try {
       setChild(await deleteChildPhoto(child.id));
-    } catch {
-      setPhotoError('O‘chirilmadi — internetni tekshiring');
+    } catch (err) {
+      setPhotoError(serverMessage(err, 'O‘chirilmadi — internetni tekshiring'));
     } finally {
       setPhotoBusy(false);
     }
