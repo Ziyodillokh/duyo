@@ -30,7 +30,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@/components/text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   rateMessage,
@@ -39,7 +39,6 @@ import {
   type QuickReply,
 } from '@/api/endpoints/chat';
 import { getNextPuzzle, type Puzzle } from '@/api/endpoints/puzzles';
-import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
@@ -92,7 +91,6 @@ type DisplayItem =
   | { kind: 'message'; message: ChatMessage }
   | { kind: 'typing' }
   | { kind: 'counter' }
-  | { kind: 'hero' }
   | { kind: 'puzzle'; puzzle: Puzzle }
   | { kind: 'suggested-replies' };
 
@@ -134,11 +132,12 @@ export default function ChatScreen() {
   // Sibling tabs are reached through this screen's navigator; router.push
   // into the (tabs) group from inside it is a silent no-op on web.
   const navigation = useNavigation() as { navigate(name: string): void };
-  // While the keyboard is up it covers the bar, so the composer must sit on
-  // the keyboard rather than hold a dead 92pt band above it.
   const keyboard = useKeyboardState();
-  const navClearance = useNavClearance();
-  const composerPad = keyboard.isVisible ? 12 : navClearance;
+  const insets = useSafeAreaInsets();
+  // This tab carries no dock (see (tabs)/_layout.tsx), so the composer sits
+  // on the home indicator rather than clearing a floating bar. With the
+  // keyboard up the inset is already covered by the keyboard itself.
+  const composerPad = keyboard.isVisible ? 12 : Math.max(insets.bottom, 10) + 6;
 
   useEffect(() => {
     if (!child || !hydrated) return;
@@ -326,9 +325,6 @@ export default function ChatScreen() {
         .reverse()
         .map((message): DisplayItem => ({ kind: 'message', message })),
       { kind: 'counter' as const },
-      // Last in an inverted list is first on screen: the letterhead
-      // above the oldest message.
-      { kind: 'hero' as const },
     ],
     [send.isPending, showSuggestions, messages, puzzle],
   );
@@ -395,14 +391,40 @@ export default function ChatScreen() {
         )}
 
         <KeyboardAvoidingView style={styles.fill}>
+          {/* Empty thread: the hero and the greeting are ONE block, centred in
+              whatever the composer leaves. Centring the hero alone still left
+              the greeting glued to the composer with a hole above it — the
+              hole only closes when the two are centred together. With a real
+              thread this wrapper steps aside and the list takes the column,
+              newest message against the composer, as a thread should. */}
+          <View style={showSuggestions ? styles.emptyStack : styles.fill}>
+          {/* Only while the conversation is empty.
+
+
+              It used to ride inside the list, and an inverted list fills from
+              the bottom: on a short phone the hero was the part pushed off the
+              top, and on a tall one it floated mid-screen under a void. Fixed
+              above the list, it is in the same place on every phone, and it
+              stands down the moment there is a thread worth the room — by
+              which point the header names the screen and every reply carries
+              DUYO's face anyway. */}
+          {showSuggestions && (
+            <View style={styles.heroSlot}>
+              <ChatHero
+                thinking={send.isPending}
+                onVoice={() => router.push('/(main)/voice')}
+              />
+            </View>
+          )}
+
           <FlatList
+
             data={items}
             keyExtractor={(item, i) => {
               if (item.kind === 'typing') return 'typing-indicator';
               if (item.kind === 'puzzle') return `puzzle-${item.puzzle.puzzle_id}`;
               if (item.kind === 'suggested-replies') return 'suggested-replies';
               if (item.kind === 'counter') return 'daily-counter';
-              if (item.kind === 'hero') return 'chat-hero';
               return `${item.message.id}-${i}`;
             }}
             inverted
@@ -410,7 +432,7 @@ export default function ChatScreen() {
             // a few messages it sat at the top and the composer floated in the
             // middle of the screen. Filling the space pins the composer to the
             // bottom and (being inverted) keeps the newest message just above it.
-            style={styles.fill}
+            style={showSuggestions ? styles.listAuto : styles.fill}
             contentContainerStyle={styles.listContent}
             renderItem={({ item }) => {
               if (item.kind === 'typing') return <TypingIndicator />;
@@ -425,14 +447,6 @@ export default function ChatScreen() {
               }
               if (item.kind === 'suggested-replies') {
                 return <SuggestedReplies onSelect={setInput} />;
-              }
-              if (item.kind === 'hero') {
-                return (
-                  <ChatHero
-                    thinking={send.isPending}
-                    onVoice={() => router.push('/(main)/voice')}
-                  />
-                );
               }
               if (item.kind === 'counter') {
                 return (
@@ -458,6 +472,7 @@ export default function ChatScreen() {
               );
             }}
           />
+          </View>
 
           {/* The tab bar floats over this screen, so the composer keeps its
               own clearance beneath it (see useNavClearance). */}
@@ -690,39 +705,42 @@ function MessageBubble({
     !isChild && message.id !== GREETING_ID && !message.id.startsWith('local-');
   return (
     <View style={isChild ? styles.rowEnd : styles.rowStart}>
-      {/* DUYO's face beside its own words. The child's side needs no avatar:
-          there is only one other person in this conversation, and the side
-          the bubble sits on already says which. */}
-      {!isChild && (
-        <View style={[glass(16, 'sm', 0.6), styles.avatar]}>
-          <MascotHead size={26} />
-        </View>
-      )}
       <View style={styles.bubbleColumn}>
-        <View
-          style={
-            isChild
-              ? [styles.bubble, styles.bubbleChild]
-              : [glass(22, 'sm', 0.62), styles.bubble]
-          }
-        >
-          <BubbleBody text={message.content} isChild={isChild} />
-          <View style={styles.metaRow}>
-            <Text style={[styles.time, isChild && styles.timeChild]}>
-              {clock(message.timestamp)}
-            </Text>
-            {/* One tick while DUYO is still answering, two once it has —
-                the only delivery signal this chat genuinely has. */}
-            {isChild &&
-              (sending ? (
-                <Check size={14} color="rgba(255,255,255,0.75)" strokeWidth={2.6} />
-              ) : (
-                <CheckCheck size={14} color="rgba(255,255,255,0.85)" strokeWidth={2.6} />
-              ))}
+        {/* The avatar is bottom-aligned to the BUBBLE, not to the column.
+            It used to sit outside this row, so once a reply grew a source
+            line and a thumbs row the face drifted down beside the ratings
+            and stopped reading as the speaker at all. */}
+        <View style={styles.bubbleRow}>
+          {!isChild && (
+            <View style={[glass(16, 'sm', 0.6), styles.avatar]}>
+              <MascotHead size={26} />
+            </View>
+          )}
+          <View
+            style={
+              isChild
+                ? [styles.bubble, styles.bubbleChild]
+                : [glass(22, 'sm', 0.62), styles.bubble]
+            }
+          >
+            <BubbleBody text={message.content} isChild={isChild} />
+            <View style={styles.metaRow}>
+              <Text style={[styles.time, isChild && styles.timeChild]}>
+                {clock(message.timestamp)}
+              </Text>
+              {/* One tick while DUYO is still answering, two once it has —
+                  the only delivery signal this chat genuinely has. */}
+              {isChild &&
+                (sending ? (
+                  <Check size={14} color="rgba(255,255,255,0.75)" strokeWidth={2.6} />
+                ) : (
+                  <CheckCheck size={14} color="rgba(255,255,255,0.85)" strokeWidth={2.6} />
+                ))}
+            </View>
           </View>
         </View>
         {source && source.type !== 'none' && (
-          <Text style={styles.sourceText}>
+          <Text style={[styles.sourceText, !isChild && styles.metaIndent]}>
             {source.type === 'textbook' ? '📚 ' : '🌐 '}
             {source.type === 'web'
               ? source.refs.map((r) => r.title).join(', ') || source.label
@@ -730,7 +748,7 @@ function MessageBubble({
           </Text>
         )}
         {!!quickReplies?.length && (
-          <View style={styles.quickRow}>
+          <View style={[styles.quickRow, !isChild && styles.metaIndent]}>
             {quickReplies.map((qr) => (
               <Pressable
                 key={qr.label}
@@ -745,7 +763,7 @@ function MessageBubble({
           </View>
         )}
         {canRate && (
-          <View style={styles.rateRow}>
+          <View style={[styles.rateRow, !isChild && styles.metaIndent]}>
             <Pressable
               onPress={() => onRate(message.id, 'up')}
               accessibilityRole="button"
@@ -815,6 +833,22 @@ const styles = StyleSheet.create({
   loading: { alignItems: 'center', paddingVertical: 12 },
 
   // ── List ───────────────────────────────────────────────────────
+  /**
+   * While the thread is empty the hero takes the slack, centred.
+   *
+   * An inverted list pins its content to the bottom, so on a 430x932 phone the
+   * greeting sat on the composer and the hero stayed under the header with
+   * about 600pt of nothing between them — a hole big enough to read as a
+   * rendering failure rather than as spacing. Letting this slot flex and
+   * centring the block inside it splits that hole into two even margins, which
+   * is what a deliberately airy screen looks like.
+   */
+  heroSlot: { paddingHorizontal: 16, paddingBottom: 4 },
+  emptyStack: { flex: 1, minHeight: 0, justifyContent: 'center' },
+  /** Content height, not column height — the hero above has the column. Still
+   *  shrinkable, so a small phone scrolls the thread instead of clipping it. */
+  listAuto: { flexGrow: 0, flexShrink: 1 },
+
   listContent: { padding: 16, gap: 12 },
   counter: { paddingHorizontal: 16, paddingVertical: 12 },
   counterText: { fontSize: 14, lineHeight: 20, color: INK, textAlign: 'center' },
@@ -836,8 +870,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bubbleColumn: { maxWidth: '78%' },
-  bubble: { borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12 },
+  bubbleColumn: { maxWidth: '86%' },
+  bubbleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  /** Avatar width plus the row's gap, so everything under a reply hangs off
+   *  the bubble's left edge rather than the avatar's. */
+  metaIndent: { marginLeft: 46 },
+
+  // flexShrink so a long reply wraps inside the row instead of pushing the
+  // avatar off the left edge.
+  bubble: { flexShrink: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12 },
   // A filled bubble still belongs to the ladder: same contact/ambient pair
   // as the glass one beside it, so the two sides sit at the same height.
   bubbleChild: { backgroundColor: PRIMARY, boxShadow: lift('sm') },

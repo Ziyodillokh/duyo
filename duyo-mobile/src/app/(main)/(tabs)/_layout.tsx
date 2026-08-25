@@ -30,6 +30,17 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
     }
   };
 
+  // The AI tab carries no dock.
+  //
+  // A conversation owns the bottom of the screen: the composer belongs
+  // against the keyboard, not stacked above a floating bar that costs it
+  // ~92pt and boxes the thread into whatever is left. Every messenger a
+  // child has already used does it this way.
+  //
+  // Nothing is stranded by this: the chat's own header carries the way back
+  // to the hub, and the other two doors are one tap from there.
+  if (active === 'chat') return null;
+
   return <BottomNav active={active} onSelect={handleSelect} />;
 }
 

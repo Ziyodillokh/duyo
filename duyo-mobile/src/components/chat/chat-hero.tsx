@@ -10,28 +10,41 @@ const PRIMARY = '#2F6FE4';
 const GREEN = '#22B573';
 const AMBER = '#F0B429';
 
-/** How tall the block is, and how much of its width the sky gets.
+/**
+ * How tall the block is, as a share of the screen.
  *
- *  The first version let the height fall out of the artwork's aspect ratio and
- *  landed on 251pt. On a 390x844 screen that pushed the greeting, the quick
- *  replies and the composer past the bottom, and since the list is inverted —
- *  it fills from the bottom up — the overflow came off the TOP: DUYO's face was
- *  sliced in half by the header and the voice button was a white sliver in the
- *  corner. A fixed, smaller height is what keeps the whole conversation on one
- *  screen, which is the only thing this block must not cost. */
-const HEIGHT = 172;
+ * The first version took its height from the artwork's aspect ratio and landed
+ * on 251pt — a fifth of a small phone and a tenth of a large one, so the screen
+ * arrived differently proportioned on every device. The second was a flat 172,
+ * which fixed the clipping and kept the mismatch: 172pt is a quarter of a 640pt
+ * phone and a sixth of a 932pt one.
+ *
+ * A share of the height is what makes the screen look like ITSELF everywhere.
+ * The floor keeps DUYO's face and name legible on the smallest phone we
+ * support; the ceiling stops the block becoming a poster on the largest, where
+ * a fifth of the screen is a lot of sky to cross before reading anything.
+ */
+const HEIGHT_SHARE = 0.2;
+const HEIGHT_MIN = 132;
+const HEIGHT_MAX = 216;
+/** How much of the width the sky gets. The name owns the rest. */
 const SKY_SHARE = 0.6;
 
 /**
  * Who the child is talking to, at the top of the conversation.
  *
- * ## Why this scrolls instead of being pinned under the header
+ * ## Why it sits above the list rather than inside it
  *
- * It is rendered as an item in the message list, not as chrome. A fixed
- * identity panel would eat a fifth of the screen forever, and it is worth
- * exactly one look: the first time the screen opens. Being in the list, it sits
- * above the first message the way a letterhead does and slides away as soon as
- * there is a conversation to read.
+ * It rode inside the message list at first, which is an INVERTED list: it
+ * fills from the bottom up. On a short phone the overflow came off the top and
+ * cut DUYO's face in half; on a tall one the whole block sank to the middle of
+ * the screen under a void. Neither was a layout anyone chose — both were the
+ * list's fill direction showing through.
+ *
+ * Above the list it is in the same place on every phone. It costs nothing in
+ * the long run because it is only drawn while the conversation is empty: once
+ * there is a thread worth the room it stands down, and by then the header
+ * names the screen and every reply carries DUYO's face anyway.
  *
  * ## Why the sky is a column and not a background
  *
@@ -56,16 +69,19 @@ export function ChatHero({
   thinking: boolean;
   onVoice: () => void;
 }) {
-  const { width } = useWindowDimensions();
-  // The list pads its content by 16 a side; this is the width that leaves.
+  const { width, height } = useWindowDimensions();
+  // The screen pads this block by 16 a side; this is the width that leaves.
   const inner = Math.min(width - 32, 420);
   const skyW = Math.round(inner * SKY_SHARE);
+  const h = Math.round(
+    Math.min(HEIGHT_MAX, Math.max(HEIGHT_MIN, height * HEIGHT_SHARE)),
+  );
 
   return (
-    <View style={[styles.host, { height: HEIGHT }]}>
+    <View style={[styles.host, { height: h }]}>
       {/* Behind everything, and unreachable: the sky is not a control. */}
       <View style={[styles.sky, { width: skyW }]} pointerEvents="none">
-        <ChatCosmos width={skyW} height={HEIGHT} />
+        <ChatCosmos width={skyW} height={h} />
       </View>
 
       <View style={styles.identity}>
