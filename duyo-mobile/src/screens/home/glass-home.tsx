@@ -27,6 +27,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
+import { ChildAvatar } from '@/components/child-avatar';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { MascotImage } from '@/components/v2/mascot-image';
 import { glass } from '@/lib/glass';
@@ -383,7 +384,15 @@ export function GlassHome() {
             accessibilityLabel="Profil"
             style={[glass(28, 'sm'), styles.headerButton]}
           >
-            <User size={sizes.s(24)} color={PRIMARY} strokeWidth={1.8} />
+            {/* The child’s own face if they uploaded one. The person
+                icon is the fallback rather than the mascot: DUYO is
+                already standing full-size in the middle of this screen. */}
+            <ChildAvatar
+              size={sizes.s(38)}
+              fallback={
+                <User size={sizes.s(24)} color={PRIMARY} strokeWidth={1.8} />
+              }
+            />
           </Pressable>
 
           <Text style={styles.wordmark}>DUYO</Text>

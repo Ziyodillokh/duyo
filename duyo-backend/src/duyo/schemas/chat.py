@@ -80,6 +80,10 @@ class ChildRead(BaseModel):
     language: Language
     interests: list[str] = []
     mascot: str | None = None
+    # Filled from ChildProfile.photo_url, which is a property rather than a
+    # column: the routes return the ORM object and let from_attributes do
+    # the rest, so this arrives without any route remembering to set it.
+    photo_url: str | None = None
 
     model_config = {"from_attributes": True}
 

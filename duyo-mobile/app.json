@@ -44,7 +44,14 @@
       "expo-secure-store",
       "expo-asset",
       "expo-sqlite",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DUYO profil rasmini tanlash uchun galereyaga ruxsat so'raydi.",
+          "cameraPermission": "DUYO profil rasmini olish uchun kameraga ruxsat so'raydi."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -88,6 +88,16 @@ class ChildProfile(Base, UUIDPK, TimestampMixin):
     )
     mascot: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
+    # The child's own photo, if they uploaded one — an object key in the
+    # media bucket, never a URL. Keys are how the rest of the app stores
+    # uploads (see core/storage.py) so the bucket can move without a
+    # rewrite of every row.
+    #
+    # It is NOT shown to peers. schemas/social.py is the only shape another
+    # child ever sees and it carries a pseudonym and an age band; a face is
+    # exactly what that file exists to keep out.
+    photo_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
     # Explicit foreign_keys: child_user_id is a second FK to users.id, so
     # SQLAlchemy can no longer infer which column this relationship follows.
     parent: Mapped["User"] = relationship(  # noqa: F821
@@ -97,6 +107,34 @@ class ChildProfile(Base, UUIDPK, TimestampMixin):
         back_populates="child",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def photo_url(self) -> str | None:
+        """Where the app fetches the photo, or None if there is none.
+
+        A property rather than something the routes fill in: every child
+        route returns the ORM object and lets `ChildRead.from_attributes`
+        do the rest, so a field the routes have to remember to set is a
+        field that ships as null from whichever route was overlooked.
+
+        It points at the AUTHENTICATED route, not at the public
+        /v1/content/media/{key} one. An unguessable key is not access
+        control — it leaks through logs, referrers and shared links — and
+        that route even sends `Cache-Control: public`. Fine for a book
+        cover; not for a child's face.
+
+        The key rides along as `v` so a new photo is a new URL. Without it
+        the address never changes and every cache in the path keeps
+        serving the picture the child just replaced.
+        """
+        if not self.photo_key:
+            return None
+        # Imported here, not at module scope: models are imported by
+        # alembic and by scripts that have no app settings loaded.
+        from duyo.core.config import get_settings
+
+        base = get_settings().public_base_url.rstrip("/")
+        return f"{base}/v1/chat/children/{self.id}/photo?v={self.photo_key}"
 
     def __repr__(self) -> str:
         return f"<ChildProfile id={self.id} name={self.name} age={self.age}>"

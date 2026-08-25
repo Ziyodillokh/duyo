@@ -19,6 +19,11 @@ export interface ChildProfile {
   /** Chosen during onboarding; older profiles have none. */
   interests?: string[];
   mascot?: string | null;
+  /** Absolute URL of the uploaded profile photo, or null for none.
+   *  Authenticated — it needs the bearer token, so it cannot go
+   *  straight into an <Image source>; see hooks/use-authed-image.ts.
+   *  The address changes when the photo does, so it is safe to cache. */
+  photo_url?: string | null;
 }
 
 export interface ApiErrorBody {

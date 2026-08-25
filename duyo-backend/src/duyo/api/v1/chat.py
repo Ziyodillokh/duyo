@@ -8,13 +8,23 @@ from dataclasses import replace as _dc_replace
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
+from fastapi.responses import StreamingResponse
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
 from duyo.api.deps import get_current_user, get_db
 from duyo.billing.limits import check_daily_message_limit
+from duyo.core import storage
 from duyo.core.config import get_settings
 from duyo.crisis.detector import CrisisCategory as L1Category
 from duyo.crisis.detector import KeywordCrisisDetector
@@ -409,6 +419,105 @@ async def delete_child(
     child = await _get_owned_child(child_id, current_user, db)
     await db.delete(child)
     await db.flush()
+
+
+#: Tighter than storage's generic 5 MB image ceiling. An avatar is shown at
+#: 78pt; anything past this is a photo the app will only ever downscale, and
+#: the child pays for the upload on a phone connection.
+_MAX_PHOTO_BYTES = 2 * 1024 * 1024
+
+
+@router.post("/children/{child_id}/photo", response_model=ChildRead)
+async def upload_child_photo(
+    child_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ChildProfile:
+    """Replace the child's profile photo.
+
+    The old object is deliberately NOT deleted. A failed write that has
+    already dropped the previous file leaves the child with no photo at
+    all, which is worse than an orphan in a bucket; the bucket is cleaned
+    on a schedule, not in the middle of a request.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Fayl bo'sh")
+    if len(data) > _MAX_PHOTO_BYTES:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            "Rasm hajmi 2 MB dan oshmasligi kerak",
+        )
+    # Images only. storage.upload would happily take a PDF or an mp3 —
+    # its allowlist is the union of everything the app uploads anywhere —
+    # so the narrowing has to happen here, where the meaning is "avatar".
+    if storage.normalise_type(file.content_type or "") not in storage.IMAGE_TYPES:
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            "Faqat rasm yuklash mumkin (JPEG, PNG, WebP)",
+        )
+
+    try:
+        key = storage.upload(data, file.content_type or "image/jpeg")
+    except storage.UploadError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    child.photo_key = key
+    await db.flush()
+    return child
+
+
+@router.delete("/children/{child_id}/photo", response_model=ChildRead)
+async def delete_child_photo(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ChildProfile:
+    """Go back to the mascot. Returns the profile so the client does not
+    have to guess what the state is now."""
+    child = await _get_owned_child(child_id, current_user, db)
+    child.photo_key = None
+    await db.flush()
+    return child
+
+
+@router.get("/children/{child_id}/photo")
+async def get_child_photo(
+    child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream the photo to the account that owns the child.
+
+    Authenticated, unlike /v1/content/media/{key}. That route is public by
+    design and says so — right for a published book cover, wrong for a
+    child's face, which must not be reachable by anyone who comes across
+    the URL in a log or a referrer header.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    if not child.photo_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Rasm topilmadi")
+
+    try:
+        stream, content_type, size = storage.get_object(child.photo_key)
+    except storage.S3Error as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Rasm topilmadi") from exc
+
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "image/jpeg",
+        headers={
+            "Content-Length": str(size),
+            # PRIVATE: a shared cache must never hold one child's face
+            # where another request can reach it. The URL carries the key
+            # as `v`, so a replacement photo is a different address and a
+            # long max-age is safe.
+            "Cache-Control": "private, max-age=86400",
+        },
+    )
 
 
 @router.post("", response_model=ChatResponse)

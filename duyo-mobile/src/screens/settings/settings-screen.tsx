@@ -6,6 +6,7 @@ import {
   BrainCircuit,
   Camera,
   Check,
+  ImagePlus,
   ChevronRight,
   Crown,
   Globe,
@@ -16,10 +17,12 @@ import {
   PenLine,
   Shield,
   Sparkles,
+  Trash2,
   X,
   type LucideIcon,
   // Users, // OTA-ONA BO'LIMI O'CHIRILGAN — qatori bilan birga kommentda
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { type ReactNode, useState } from 'react';
 import {
   ActivityIndicator,
@@ -33,11 +36,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { updateChild } from '@/api/endpoints/children';
+import {
+  deleteChildPhoto,
+  updateChild,
+  uploadChildPhoto,
+} from '@/api/endpoints/children';
 import { ActionSheet, type SheetAction } from '@/components/action-sheet';
 import { Text, TextInput } from '@/components/text';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
-import { MascotImage } from '@/components/v2/mascot-image';
+import { ChildAvatar } from '@/components/child-avatar';
 import { LANGUAGE_NAMES, useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { useAuthStore } from '@/store/auth';
@@ -122,9 +129,12 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   const fullName = child?.name ?? '';
+  const hasPhoto = Boolean(child?.photo_url);
   const parts = splitName(fullName);
 
   const beginEdit = () => {
@@ -168,7 +178,70 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
     router.replace('/(onboarding)/language');
   };
 
+  /**
+   * Pick a photo and put it on the profile.
+   *
+   * `allowsEditing` gives the child the platform's own square cropper,
+   * which is the only chance to frame a face before it is shown inside a
+   * circle. The size caps are not decoration: the server refuses over
+   * 2 MB, and an unresized phone photo is several times that.
+   */
+  const pickPhoto = async () => {
+    setPickerOpen(false);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setPhotoError('Galereyaga ruxsat berilmadi');
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (picked.canceled || !child) return;
+
+    const asset = picked.assets[0];
+    if (!asset?.uri) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const updated = await uploadChildPhoto(
+        child.id,
+        asset.uri,
+        asset.mimeType ?? 'image/jpeg',
+      );
+      setChild(updated);
+    } catch {
+      setPhotoError('Rasm yuklanmadi — boshqa rasm tanlab ko‘ring');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    setPickerOpen(false);
+    if (!child) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      setChild(await deleteChildPhoto(child.id));
+    } catch {
+      setPhotoError('O‘chirilmadi — internetni tekshiring');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  // Ordered by what the child most likely came here to do. Removing the
+  // photo only appears when there IS one — an always-present "remove"
+  // over nothing is a control that lies about the state.
   const pickerActions: SheetAction[] = [
+    {
+      label: hasPhoto ? 'Boshqa rasm tanlash' : 'Galereyadan rasm tanlash',
+      icon: ImagePlus,
+      onPress: () => void pickPhoto(),
+    },
     {
       label: mascot === 'duyo' ? 'DUYO ✓' : 'DUYO',
       icon: Sparkles,
@@ -184,6 +257,16 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
       icon: PenLine,
       onPress: () => router.push('/(main)/avatar-customization'),
     },
+    ...(hasPhoto
+      ? [
+          {
+            label: 'Rasmni o‘chirish',
+            icon: Trash2,
+            destructive: true,
+            onPress: () => void removePhoto(),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -231,11 +314,15 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
               accessibilityLabel="Rasmni o‘zgartirish"
               style={styles.avatarWrap}
             >
-              <MascotImage size={78} glow="soft" />
+              <ChildAvatar size={78} glow="soft" />
               {/* The badge is what says the picture is a control. Without it
                   an avatar is decoration and nobody taps it. */}
               <View style={styles.avatarBadge}>
-                <Camera size={13} color="#FFFFFF" strokeWidth={2.4} />
+                {photoBusy ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Camera size={13} color="#FFFFFF" strokeWidth={2.4} />
+                )}
               </View>
             </Pressable>
 
@@ -296,6 +383,9 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
                       ? `${child.age} yosh`
                       : 'Profil yuklanmoqda'}
                   </Text>
+                  {photoError && (
+                    <Text style={styles.error}>{photoError}</Text>
+                  )}
                 </View>
                 <Pressable
                   onPress={beginEdit}
@@ -414,8 +504,8 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
 
       <ActionSheet
         visible={pickerOpen}
-        title="Rasm"
-        message="DUYO qanday ko‘rinishda tursin?"
+        title="Profil rasmi"
+        message="Profil rasmingizni tanlang"
         actions={pickerActions}
         onClose={() => setPickerOpen(false)}
       />
