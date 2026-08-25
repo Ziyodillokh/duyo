@@ -514,7 +514,7 @@ export default function ChatScreen() {
                   actionsOpen ? 'Amallarni yopish' : 'Boshqa amallar'
                 }
                 style={[
-                  glass(16, 'flush', 0.62),
+                  glass(16, 'sm', 0.92),
                   styles.composerButton,
                   styles.focusable,
                 ]}
@@ -527,7 +527,7 @@ export default function ChatScreen() {
                 </Animated.View>
               </Pressable>
 
-              <View style={[glass(20, 'flush', 0.62), styles.inputWrap]}>
+              <View style={[glass(20, 'sm', 0.92), styles.inputWrap]}>
                 <TextInput
                   value={input}
                   onChangeText={setInput}

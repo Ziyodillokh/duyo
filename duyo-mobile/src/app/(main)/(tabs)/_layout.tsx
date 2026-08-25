@@ -36,7 +36,15 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
 export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        // Switching tabs was a hard cut: the old screen vanished and the new
+        // one appeared in the same frame, which reads as a glitch rather than
+        // as navigation. 'shift' slides the outgoing and incoming screens past
+        // each other, so the dock's three doors feel like places side by side
+        // instead of three unrelated states of one screen.
+        animation: 'shift',
+      }}
       tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tabs.Screen name="index" />

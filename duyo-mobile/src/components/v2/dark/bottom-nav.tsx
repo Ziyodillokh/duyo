@@ -10,6 +10,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MascotHead } from '@/components/v2/mascot-image';
+import { lift } from '@/lib/glass';
 
 /** Every tab route the navigator owns. The dock surfaces three of them; home
  *  and profile are reached from the screens themselves — home by each
@@ -152,13 +153,18 @@ function DockTab({
       accessibilityLabel={tab.label}
       style={[styles.item, styles.focusable]}
     >
+      {/* The marker for where you are. It sits behind the whole door — icon
+          AND label — rather than behind the icon alone: a badge around one
+          glyph reads as a state of that glyph, while a pane under both reads
+          as the door being lifted forward, which is the thing being said. */}
+      <Animated.View style={[styles.tile, pillStyle]} />
+
       {tab.mascot ? (
         // The bubble itself is drawn above, outside the bar; this just
         // reserves its column so the label lines up.
         <View style={styles.iconSlot} />
       ) : (
         <View style={styles.iconSlot}>
-          <Animated.View style={[styles.pill, pillStyle]} />
           <Animated.View style={iconStyle}>
             {Icon ? (
               <>
@@ -305,16 +311,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Sits behind the icon and fills the slot, so the icon never has to move to
-  // make room for it.
-  pill: {
+  /**
+   * The active door, as a raised pane of the same glass the bar is made of.
+   *
+   * It used to be a 12%-alpha blue wash, which on a white translucent bar was
+   * very nearly nothing — you could not tell at a glance which tab you were
+   * on. This is brighter than the bar it sits on (0.95 against 0.82) and
+   * carries the ladder's own contact-plus-ambient shadow, so it reads as a
+   * tile lifted toward you rather than as a tinted patch.
+   *
+   * Negative top/bottom because the row centres its children on content
+   * height: the pane has to reach past the icon and label to enclose them.
+   */
+  tile: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 17,
-    backgroundColor: C.pill,
+    left: 8,
+    right: 8,
+    top: -6,
+    bottom: -6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.98)',
+    boxShadow: lift('md'),
   },
   // Animated.Text is RN's Text, not the app wrapper, so the family is named
   // here rather than inherited — see lib/fonts.ts for why each weight is its

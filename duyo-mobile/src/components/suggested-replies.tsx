@@ -42,11 +42,15 @@ export function SuggestedReplies({ onSelect }: SuggestedRepliesProps) {
 const styles = StyleSheet.create({
   focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
 
+  // Left-aligned, not centred. Centring a wrapped row leaves every line a
+  // different distance from the edge, so four chips read as four ragged
+  // rows instead of one list; against the left margin the bubbles above
+  // them already establish, they read as one block.
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   // Chips, so 'sm' — they rest on the page beneath the bubbles rather than
   // floating with them. Radius at the low end of the chip range because they
