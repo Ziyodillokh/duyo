@@ -26,6 +26,16 @@ interface ChatState {
   messages: ChatMessage[];
   /** True while a conversation opened from the history list is loading. */
   loadingHistory: boolean;
+  /**
+   * A spoken turn was saved on the server that this device has not read back.
+   *
+   * The voice screen talks to the same conversation and the server writes both
+   * sides of it as messages (api/v1/voice.py) — but it writes them THERE, and
+   * this store is a local copy. Without a nudge, a child could talk for five
+   * minutes, return to the chat, and find none of it: the words exist, the
+   * device just never asked again.
+   */
+  voiceDirty: boolean;
   hydrated: boolean;
   setActiveChild: (id: string) => void;
   setConversationId: (id: string) => void;
@@ -36,6 +46,8 @@ interface ChatState {
   startNewConversation: (projectId?: string | null) => void;
   /** Resume a conversation from the history list. */
   openConversation: (conversationId: string) => void;
+  /** A spoken turn landed on the server; the chat should re-read on focus. */
+  markVoiceTurn: () => void;
   /** Fetch the opened conversation's messages from the server. */
   loadConversation: (childId: string, conversationId: string) => Promise<void>;
   setHydrated: (hydrated: boolean) => void;
@@ -49,6 +61,7 @@ export const useChatStore = create<ChatState>()(
       projectId: null,
       messages: [],
       loadingHistory: false,
+      voiceDirty: false,
       hydrated: false,
       setActiveChild: (id) => {
         if (get().childId === id) return;
@@ -72,6 +85,7 @@ export const useChatStore = create<ChatState>()(
       // Two steps on purpose: this clears the screen synchronously so the
       // previous conversation is never briefly visible under the new title,
       // and the chat screen then calls loadConversation to fill it.
+      markVoiceTurn: () => set({ voiceDirty: true }),
       openConversation: (conversationId) =>
         set({
           conversationId,
@@ -89,6 +103,7 @@ export const useChatStore = create<ChatState>()(
           // one's messages under the second one's title.
           if (get().conversationId !== conversationId) return;
           set({
+            voiceDirty: false,
             messages: rows.map((m) => ({
               id: m.id,
               role: m.role === 'child' ? 'child' : 'assistant',

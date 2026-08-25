@@ -7,16 +7,18 @@ import {
   Lightbulb,
   Mic,
   RefreshCw,
+  Settings2,
   Square,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
   type ViewStyle,
 } from 'react-native';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -26,6 +28,7 @@ import { Chalkboard } from '@/components/chalkboard';
 import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { DuyoAvatar, type DuyoState } from '@/components/duyo-avatar';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
+import { VoiceOrb } from '@/components/voice/voice-orb';
 import { useMicRecorder } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
 import { useVoiceSession } from '@/hooks/use-voice-session';
@@ -35,6 +38,36 @@ import { useChildStore } from '@/store/child';
 import { useMemoryStore } from '@/store/memory';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'responding' | 'error';
+
+/**
+ * Loudness of one PCM chunk, 0..1.
+ *
+ * Both directions of this session are 16-bit signed mono, so one routine
+ * measures the child's microphone and DUYO's reply alike. It samples rather
+ * than sums every frame: a 4096-frame chunk arrives four times a second and
+ * the orb cannot show a difference finer than 256 samples can find, so the
+ * other 94% of the work would buy nothing.
+ *
+ * The square root is what makes it look right — RMS is energy, and energy
+ * scales with the square of amplitude, so plotting it raw makes normal speech
+ * look like silence next to a shout.
+ */
+function levelOf(pcm: ArrayBuffer): number {
+  const frames = new Int16Array(pcm);
+  if (frames.length === 0) return 0;
+  const step = Math.max(1, Math.floor(frames.length / 256));
+  let sum = 0;
+  let n = 0;
+  for (let i = 0; i < frames.length; i += step) {
+    const v = frames[i] / 32768;
+    sum += v * v;
+    n += 1;
+  }
+  // Speech sits well below full scale, so the useful range is compressed into
+  // the bottom third; x4 spends it on the part of the curve the eye reads.
+  return Math.min(1, Math.sqrt(sum / n) * 4);
+}
+
 
 // ── The glass sky — the tutor stands on the same pale blue page as the rest ──
 // The screen used to carry its own teal; one look now, so the tutor borrows
@@ -111,18 +144,45 @@ export default function VoiceScreen() {
   const setStoreConversationId = useChatStore((s) => s.setConversationId);
 
   const [phase, setPhase] = useState<Phase>('idle');
-  const [inputTranscript, setInputTranscript] = useState('');
-  const [outputTranscript, setOutputTranscript] = useState('');
+
+  const { width } = useWindowDimensions();
+  // A share of the width, so the orb is the same object on every phone
+  // rather than a different fraction of each screen.
+  const orbSize = Math.round(Math.min(width * 0.74, 300));
+
+  /**
+   * What the orb breathes with. A shared value, not state: audio arrives
+   * about four times a second and this component draws an animated mascot —
+   * putting the level in React state would re-render that whole tree on every
+   * chunk, for a number only the UI thread ever reads.
+   */
+  const level = useSharedValue(0);
+  const pushLevel = useCallback(
+    (pcm: ArrayBuffer) => {
+      // Eased into place: chunk boundaries are 256ms apart, and stepping
+      // between them makes the orb stutter rather than breathe.
+      level.set(withTiming(levelOf(pcm), { duration: 160 }));
+    },
+    [level],
+  );
   const [crisisLevel, setCrisisLevel] = useState<'orange' | 'red' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [board, setBoard] = useState<BoardSolution | null>(null);
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   // Spoken turns so far — drives how often a puzzle interrupts the talking.
   const spokenTurnsRef = useRef(0);
-  // Bosqich B debug overlay — last mic/ws/audio event, visible on screen
-  // so we can diagnose the voice pipeline without USB logcat.
-  const [debugLine, setDebugLine] = useState<string>('idle');
-  const dbg = (line: string) => setDebugLine(line);
+  /**
+   * Last mic/ws/audio event, for diagnosing the pipeline without logcat.
+   *
+   * A ref, not state. It was state, and nothing ever rendered it — so every
+   * STT token and every fifth microphone chunk re-rendered a screen carrying
+   * an animated mascot, to store a string no one read. Kept because the value
+   * is genuinely useful in a debugger; it just must not cost a frame.
+   */
+  const debugRef = useRef('idle');
+  const dbg = (line: string) => {
+    debugRef.current = line;
+  };
 
   // Latest phase available to event handlers without re-binding the WS.
   const phaseRef = useRef(phase);
@@ -156,13 +216,10 @@ export default function VoiceScreen() {
   }, [child]);
 
   const voice = useVoiceSession({
-    onOutputTranscript: (text) =>
-      setOutputTranscript((prev) => prev + text),
+    onOutputTranscript: () => {},
     onAudioChunk: (pcm) => {
-      if (phaseRef.current !== 'responding') {
-        setPhase('responding');
-        dbg(`first audio chunk ${pcm.byteLength}b`);
-      }
+      if (phaseRef.current !== 'responding') setPhase('responding');
+      pushLevel(pcm);
       playerRef.current.enqueueChunk(pcm);
     },
     onReady: (conversationId) => {
@@ -170,9 +227,7 @@ export default function VoiceScreen() {
       dbg(`ws ready conv=${conversationId.slice(0, 8)}`);
     },
     onInputTranscript: (text) => {
-      setInputTranscript((prev) => prev + text);
       utteranceRef.current += text;
-      dbg(`stt: ${text.slice(-30)}`);
     },
     onCrisis: (level) => {
       setCrisisLevel(level);
@@ -180,6 +235,10 @@ export default function VoiceScreen() {
     },
     onTurnComplete: (info) => {
       setPhase('idle');
+      level.set(withTiming(0, { duration: 260 }));
+      // The server has just written this turn into the conversation. Tell the
+      // chat its local copy is behind, so it re-reads when the child returns.
+      useChatStore.getState().markVoiceTurn();
       const pending = pendingCrisisRef.current;
       if (pending) {
         pendingCrisisRef.current = null;
@@ -244,6 +303,9 @@ export default function VoiceScreen() {
   const mic = useMicRecorder({
     onChunk: (pcm) => {
       voice.sendAudio(pcm);
+      // The same chunk the server hears is what the orb breathes with, so the
+      // animation cannot drift out of step with the session.
+      pushLevel(pcm);
       chunkCountRef.current += 1;
       if (chunkCountRef.current % 5 === 1) {
         dbg(`mic chunk #${chunkCountRef.current} ${pcm.byteLength}b`);
@@ -262,8 +324,9 @@ export default function VoiceScreen() {
       return;
     }
     if (phase === 'idle' || phase === 'error') {
-      setInputTranscript('');
-      setOutputTranscript('');
+      // The orb settles back to rest; the words from the last turn are
+      // already in the conversation and are not this screen's to clear.
+      level.set(withTiming(0, { duration: 200 }));
       setCrisisLevel(null);
       setErrorMessage(null);
       setBoard(null);
@@ -322,8 +385,19 @@ export default function VoiceScreen() {
             </Pressable>
             <Text style={styles.title}>AI Tutor</Text>
           </View>
-          {/* Balances the title against the back chip — no control of its own. */}
-          <View style={[glass(20, 'sm'), styles.headerBalance]} />
+          {/* This used to be an empty pane, here only to balance the title
+              against the back chip. It looked exactly like a button and did
+              nothing, which is the one thing a control-shaped object must
+              never do — so it became the control this screen was missing:
+              voice settings, which nothing else on the page reaches. */}
+          <Pressable
+            onPress={() => router.push('/(main)/settings-voice')}
+            accessibilityRole="button"
+            accessibilityLabel="Ovoz sozlamalari"
+            style={[glass(20, 'sm'), styles.headerBalance, styles.focusable]}
+          >
+            <Settings2 size={21} color={PRIMARY} />
+          </Pressable>
         </View>
 
         {/* Center — avatar with soft glow, or the chalkboard when one is up */}
@@ -356,15 +430,7 @@ export default function VoiceScreen() {
             </View>
           ) : (
           <View style={styles.avatarStage}>
-            {/* Soft glow behind avatar. Symmetric and unoffset on purpose: it
-                is light around DUYO, not a height cue, so it must not read as
-                one of the ladder's drop shadows. */}
-            <View style={styles.glow} />
-            {isError ? (
-              <DuyoAvatar size="xl" state="puzzled" />
-            ) : (
-              <DuyoAvatar size="xl" state={avatarStateFor(phase, crisisLevel)} />
-            )}
+            <VoiceOrb size={orbSize} level={level} phase={phase} />
 
             {/* Offline signal-error badge */}
             {isError && (
@@ -431,36 +497,14 @@ export default function VoiceScreen() {
 
         {/* Transcripts — hidden while the board is up; it already shows the
             working, and both together overflow shorter screens. */}
-        {/* `? :` rather than `&&`. Both transcripts start as '', so the guard
-            `(inputTranscript || outputTranscript)` evaluates to '' — and `&&`
-            hands that empty STRING to React, which renders it as a text node
-            inside a View: "Unexpected text node". A falsy string is not nothing. */}
-        {!board && (inputTranscript || outputTranscript) ? (
-          <ScrollView
-            style={styles.transcripts}
-            contentContainerStyle={styles.transcriptsContent}
-          >
-            {/* `? :`, not `&&`: these start as '' and React renders an empty
-                string as a TEXT NODE, which inside a View is the error
-                "Unexpected text node". A falsy string is not nothing. */}
-            {inputTranscript ? (
-              <View style={[glass(18, 'sm'), styles.transcriptMine]}>
-                <Text style={styles.transcriptLabel}>Siz:</Text>
-                <Text style={styles.transcriptBody}>
-                  {inputTranscript}
-                </Text>
-              </View>
-            ) : null}
-            {outputTranscript ? (
-              <View style={[glass(18, 'sm'), styles.transcript]}>
-                <Text style={styles.transcriptLabel}>DUYO:</Text>
-                <Text style={styles.transcriptBody}>
-                  {outputTranscript}
-                </Text>
-              </View>
-            ) : null}
-          </ScrollView>
-        ) : null}
+        {/* No transcript panel here on purpose.
+
+            Everything said in this session is already written into the
+            conversation this screen was opened from — the server persists both
+            sides as it goes (api/v1/voice.py) — so a second copy on top of the
+            orb would be the same words in a worse place: unscrollable, gone on
+            exit, and competing with the one thing this screen is for. Leave, and
+            the whole exchange is waiting in the chat as text. */}
 
         {/* Bottom nav — a glass sheet with the mic raised out of it */}
         <View style={[glass(28, 'xl', 0.72), styles.dock]}>
@@ -539,7 +583,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerBalance: { width: 40, height: 40 },
+  headerBalance: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: { fontSize: 24, fontWeight: '700', color: TITLE },
 
   // ── Stage ──────────────────────────────────────────────────────────────

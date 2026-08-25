@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useNavigation } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import {
   ArrowLeft,
   Check,
@@ -106,6 +106,7 @@ export default function ChatScreen() {
   const conversationId = useChatStore((s) => s.conversationId);
   const projectId = useChatStore((s) => s.projectId);
   const loadingHistory = useChatStore((s) => s.loadingHistory);
+  const voiceDirty = useChatStore((s) => s.voiceDirty);
   const hydrated = useChatStore((s) => s.hydrated);
   const setActiveChild = useChatStore((s) => s.setActiveChild);
   const setConversationId = useChatStore((s) => s.setConversationId);
@@ -164,6 +165,24 @@ export default function ChatScreen() {
     if (!child || !conversationId || !loadingHistory) return;
     void useChatStore.getState().loadConversation(child.id, conversationId);
   }, [child, conversationId, loadingHistory]);
+
+  /**
+   * Read the conversation back after a spoken session.
+   *
+   * The voice screen speaks INTO this same conversation and the server saves
+   * both sides as messages, but it saves them server-side: this store holds a
+   * local copy that knows nothing about it. Without this, a child could talk
+   * for five minutes, come back, and see none of it.
+   *
+   * Gated on the flag rather than firing on every focus — re-fetching a long
+   * thread every time the tab is touched is a request nobody asked for.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!voiceDirty || !child || !conversationId) return;
+      void useChatStore.getState().loadConversation(child.id, conversationId);
+    }, [voiceDirty, child, conversationId]),
+  );
 
   // Shared with the voice screen so both surfaces prompt, screen and store
   // identically — see hooks/use-memory-consent.ts.
