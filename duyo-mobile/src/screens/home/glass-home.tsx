@@ -28,7 +28,7 @@ import Animated, {
 import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
-import { MascotHead } from '@/components/v2/mascot-image';
+import { MascotImage } from '@/components/v2/mascot-image';
 import { glass } from '@/lib/glass';
 import { useAchievements, useBalls } from '@/hooks/use-gamification';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
@@ -129,12 +129,17 @@ function ListeningOrb({ size }: { size: number }) {
         <Circle cx={c - r * 0.9} cy={c + r * 1.05} r={1.4} fill="#FFFFFF" opacity={0.5} />
       </Svg>
 
-      {/* Centred in the square the halo occupies. MascotHead letterboxes the
-          head inside the box it is given, so passing a share of the WIDTH
-          keeps DUYO the same size whatever the phone, and the leftover
-          height above and below is what the halo shows through. */}
+      {/* DUYO whole, not the head crop this used to show. The crop exists for
+          icon-sized slots — the dock's 44pt bubble — where a standing body
+          would put the face at 14pt. Here there is room for all of it, and
+          the home screen is the one place the child should meet the whole
+          character rather than a detail of it.
+
+          MascotImage draws into a SQUARE and the art is a standing figure, so
+          it fills the height and leaves margin at the sides — which is why
+          this takes a share of the halo's size rather than of its width. */}
       <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <MascotHead size={Math.round(size * 0.86)} />
+        <MascotImage size={Math.round(size * 0.66)} glow="none" />
       </View>
     </Animated.View>
   );
@@ -426,8 +431,16 @@ export function GlassHome() {
         </Pressable>
 
         {/* ── Faollik · Yutuqlar ─────────────────────────────────────── */}
+        {/* Both tiles open the same page: it carries the wellbeing four AND
+            the badge shelf, and a tile that shows a number while refusing to
+            explain it is a dead end a child taps twice and stops trying. */}
         <View style={styles.statRow}>
-          <View style={[glass(28, 'md'), styles.statCard]}>
+          <Pressable
+            onPress={() => router.push('/(main)/activity')}
+            accessibilityRole="button"
+            accessibilityLabel="Faollik — batafsil"
+            style={[glass(28, 'md'), styles.statCard]}
+          >
             <View style={styles.statHead}>
               <Text style={styles.statTitle}>Faollik</Text>
               <View style={[glass(20, 'flush'), styles.cardIcon]}>
@@ -453,9 +466,14 @@ export function GlassHome() {
               />
             </View>
             <Text style={styles.statCaption}>Bugungi faolligingiz</Text>
-          </View>
+          </Pressable>
 
-          <View style={[glass(28, 'md'), styles.statCard]}>
+          <Pressable
+            onPress={() => router.push('/(main)/activity')}
+            accessibilityRole="button"
+            accessibilityLabel="Yutuqlar — batafsil"
+            style={[glass(28, 'md'), styles.statCard]}
+          >
             <View style={styles.statHead}>
               <Text style={styles.statTitle}>Yutuqlar</Text>
               <View style={[glass(20, 'flush'), styles.cardIcon]}>
@@ -474,7 +492,7 @@ export function GlassHome() {
                 </>
               )}
             </Text>
-          </View>
+          </Pressable>
         </View>
 
         <View style={styles.spacer} />
