@@ -4,13 +4,15 @@ import {
   ArrowLeft,
   FolderPlus,
   MessageSquare,
+  FolderInput,
   MoreVertical,
+  Pencil,
+  Trash2,
   Search,
 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   SectionList,
   StyleSheet,
@@ -22,6 +24,7 @@ import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type ConversationSummary } from '@/api/endpoints/conversations';
+import { ActionSheet, type SheetAction } from '@/components/action-sheet';
 import { ProjectPicker } from '@/components/history/project-picker';
 import { TextPrompt } from '@/components/history/text-prompt';
 import {
@@ -62,6 +65,8 @@ export default function HistoryScreen() {
   const [query, setQuery] = useState('');
   const [moving, setMoving] = useState<ConversationSummary | null>(null);
   const [renaming, setRenaming] = useState<ConversationSummary | null>(null);
+  const [actionsFor, setActionsFor] = useState<ConversationSummary | null>(null);
+  const [deleting, setDeleting] = useState<ConversationSummary | null>(null);
 
   const conversations = useConversations(childId);
   const projects = useProjects(childId);
@@ -94,31 +99,34 @@ export default function HistoryScreen() {
     router.push('/(main)/(tabs)/chat');
   };
 
-  const confirmDelete = (conv: ConversationSummary) =>
-    Alert.alert(
-      'Suhbatni o‘chirish',
-      `"${conv.title}" o‘chirilsinmi? Bu amalni ortga qaytarib bo‘lmaydi.`,
-      [
-        { text: 'Bekor qilish', style: 'cancel' },
+  /**
+   * Which row's menu is open, and which row is being confirmed for deletion.
+   *
+   * Both were `Alert.alert` before. On web that call is an empty function
+   * (react-native-web ships `class Alert { static alert() {} }`), so the
+   * three-dot menu opened nothing at all — silently, with no error — and
+   * renaming, filing into a project and deleting were unreachable there.
+   */
+  const actions: SheetAction[] = actionsFor
+    ? [
         {
-          text: 'O‘chirish',
-          style: 'destructive',
-          onPress: () => remove.mutate(conv.id),
+          label: 'Loyihaga solish',
+          icon: FolderInput,
+          onPress: () => setMoving(actionsFor),
         },
-      ],
-    );
-
-  const openActions = (conv: ConversationSummary) =>
-    Alert.alert(conv.title, undefined, [
-      { text: 'Loyihaga solish', onPress: () => setMoving(conv) },
-      { text: 'Nomini o‘zgartirish', onPress: () => setRenaming(conv) },
-      {
-        text: 'O‘chirish',
-        style: 'destructive',
-        onPress: () => confirmDelete(conv),
-      },
-      { text: 'Bekor qilish', style: 'cancel' },
-    ]);
+        {
+          label: 'Nomini o‘zgartirish',
+          icon: Pencil,
+          onPress: () => setRenaming(actionsFor),
+        },
+        {
+          label: 'O‘chirish',
+          icon: Trash2,
+          destructive: true,
+          onPress: () => setDeleting(actionsFor),
+        },
+      ]
+    : [];
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -193,7 +201,7 @@ export default function HistoryScreen() {
                     : undefined
                 }
                 onOpen={() => openConversation(item)}
-                onActions={() => openActions(item)}
+                onActions={() => setActionsFor(item)}
               />
             )}
             ListEmptyComponent={
@@ -213,7 +221,38 @@ export default function HistoryScreen() {
         )}
       </SafeAreaView>
 
+      <ActionSheet
+        visible={!!actionsFor}
+        title={actionsFor?.title}
+        actions={actions}
+        onClose={() => setActionsFor(null)}
+      />
+
+      <ActionSheet
+        visible={!!deleting}
+        title="Suhbatni o‘chirish"
+        message={
+          deleting
+            ? `"${deleting.title}" o‘chirilsinmi? Bu amalni ortga qaytarib bo‘lmaydi.`
+            : undefined
+        }
+        actions={
+          deleting
+            ? [
+                {
+                  label: 'O‘chirish',
+                  icon: Trash2,
+                  destructive: true,
+                  onPress: () => remove.mutate(deleting.id),
+                },
+              ]
+            : []
+        }
+        onClose={() => setDeleting(null)}
+      />
+
       <ProjectPicker
+
         visible={moving !== null}
         projects={projects.data ?? []}
         currentProjectId={moving?.project_id ?? null}
@@ -254,17 +293,22 @@ function ConversationRow({
   onActions: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onOpen}
-      accessibilityRole="button"
-      accessibilityLabel={conversation.title}
-      style={({ pressed }) => [
-        glass(20, 'md'),
-        styles.row,
-        pressed && styles.rowPressed,
-      ]}
-    >
+    // The pane is a View and the two controls inside it are SIBLINGS.
+    // They used to be nested — the whole row was a Pressable with the
+    // three-dot Pressable inside it — which react-native-web renders as a
+    // <button> inside a <button>. React warns about it, browsers are free to
+    // reparent it, and the inner press has to fight the outer one for the tap.
+    <View style={[glass(20, 'md'), styles.row]}>
       <View style={styles.rowInner}>
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={conversation.title}
+          style={({ pressed }) => [
+            styles.rowTap,
+            pressed && styles.rowPressed,
+          ]}
+        >
         {/* 38 / radius 12 / 12%-tint is the icon tile used by every row in
             this area — projects, history, and the drawer — so the three read
             as one surface rather than three screens built at different times.
@@ -300,6 +344,8 @@ function ConversationRow({
           )}
         </View>
 
+        </Pressable>
+
         <Pressable
           onPress={onActions}
           accessibilityRole="button"
@@ -310,7 +356,7 @@ function ConversationRow({
           <MoreVertical size={16} color={MUTED} strokeWidth={2.2} />
         </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -372,6 +418,9 @@ const styles = StyleSheet.create({
   row: { padding: 14 },
   rowPressed: { opacity: 0.8 },
   rowInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  // Takes the row minus the three-dot button, so tapping anywhere in the
+  // text still opens the conversation.
+  rowTap: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   iconTile: {
     width: 38,
     height: 38,

@@ -2,10 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   ArrowLeft,
+  FileText,
   Folder,
+  MessagesSquare,
   MoreVertical,
+  Pencil,
   Pin,
+  PinOff,
   Plus,
+  Trash2,
 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -25,6 +30,7 @@ import {
   PROJECT_COLOURS,
   projectErrorMessage,
 } from '@/api/endpoints/conversations';
+import { ActionSheet, type SheetAction } from '@/components/action-sheet';
 import { TextPrompt } from '@/components/history/text-prompt';
 import {
   useCreateProject,
@@ -65,56 +71,57 @@ export default function ProjectsScreen() {
   const [editingInstructions, setEditingInstructions] = useState<Project | null>(
     null,
   );
+  /**
+   * Which project's menu is open, and which one is being confirmed for
+   * deletion. Both were `Alert.alert` before; on web that call is an empty
+   * function, so every one of these actions was unreachable in a browser.
+   */
+  const [actionsFor, setActionsFor] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState<Project | null>(null);
 
   const failed = (err: unknown) =>
     Alert.alert('Saqlanmadi', projectErrorMessage(err));
 
-  const confirmDelete = (project: Project) =>
-    Alert.alert(
-      'Loyihani o‘chirish',
-      `"${project.name}" o‘chirilsinmi? Ichidagi suhbatlar o‘chmaydi — ular loyihasiz ro‘yxatga qaytadi.`,
-      [
-        { text: 'Bekor qilish', style: 'cancel' },
+  const actions: SheetAction[] = actionsFor
+    ? [
         {
-          text: 'O‘chirish',
-          style: 'destructive',
-          onPress: () => remove.mutate(project.id, { onError: failed }),
+          // First: the only reversible one-tap action here, and the one a
+          // child reaches for repeatedly.
+          label: actionsFor.pinned_at ? 'Qadashni bekor qilish' : 'Qadab qo‘yish',
+          icon: actionsFor.pinned_at ? PinOff : Pin,
+          onPress: () =>
+            update.mutate(
+              { id: actionsFor.id, pinned: !actionsFor.pinned_at },
+              { onError: failed },
+            ),
         },
-      ],
-    );
-
-  const openActions = (project: Project) =>
-    Alert.alert(project.name, undefined, [
-      {
-        // First in the sheet: the only reversible one-tap action here, and
-        // the one a child reaches for repeatedly.
-        text: project.pinned_at ? 'Qadashni bekor qilish' : 'Qadab qo‘yish',
-        onPress: () =>
-          update.mutate(
-            { id: project.id, pinned: !project.pinned_at },
-            { onError: failed },
-          ),
-      },
-      {
-        text: 'Suhbatlarini ko‘rish',
-        onPress: () =>
-          router.push({
-            pathname: '/(main)/project-detail',
-            params: { projectId: project.id, name: project.name },
-          }),
-      },
-      { text: 'Nomini o‘zgartirish', onPress: () => setRenaming(project) },
-      {
-        text: 'Ko‘rsatmalarni tahrirlash',
-        onPress: () => setEditingInstructions(project),
-      },
-      {
-        text: 'O‘chirish',
-        style: 'destructive',
-        onPress: () => confirmDelete(project),
-      },
-      { text: 'Bekor qilish', style: 'cancel' },
-    ]);
+        {
+          label: 'Suhbatlarini ko‘rish',
+          icon: MessagesSquare,
+          onPress: () =>
+            router.push({
+              pathname: '/(main)/project-detail',
+              params: { projectId: actionsFor.id, name: actionsFor.name },
+            }),
+        },
+        {
+          label: 'Nomini o‘zgartirish',
+          icon: Pencil,
+          onPress: () => setRenaming(actionsFor),
+        },
+        {
+          label: 'Ko‘rsatmalarni tahrirlash',
+          icon: FileText,
+          onPress: () => setEditingInstructions(actionsFor),
+        },
+        {
+          label: 'O‘chirish',
+          icon: Trash2,
+          destructive: true,
+          onPress: () => setDeleting(actionsFor),
+        },
+      ]
+    : [];
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -163,7 +170,7 @@ export default function ProjectsScreen() {
                     params: { projectId: item.id, name: item.name },
                   })
                 }
-                onActions={() => openActions(item)}
+                onActions={() => setActionsFor(item)}
               />
             )}
             ListEmptyComponent={
@@ -219,6 +226,37 @@ export default function ProjectsScreen() {
         }}
       />
 
+      <ActionSheet
+        visible={!!actionsFor}
+        title={actionsFor?.name}
+        actions={actions}
+        onClose={() => setActionsFor(null)}
+      />
+
+      <ActionSheet
+        visible={!!deleting}
+        title="Loyihani o‘chirish"
+        message={
+          deleting
+            ? `"${deleting.name}" o‘chirilsinmi? Ichidagi suhbatlar o‘chmaydi — ular loyihasiz ro‘yxatga qaytadi.`
+            : undefined
+        }
+        actions={
+          deleting
+            ? [
+                {
+                  label: 'O‘chirish',
+                  icon: Trash2,
+                  destructive: true,
+                  onPress: () =>
+                    remove.mutate(deleting.id, { onError: failed }),
+                },
+              ]
+            : []
+        }
+        onClose={() => setDeleting(null)}
+      />
+
       <TextPrompt
         key={editingInstructions?.id ?? 'instructions-none'}
         visible={editingInstructions !== null}
@@ -256,17 +294,20 @@ function ProjectRow({
   const colour = project.colour ?? PRIMARY;
 
   return (
-    <Pressable
-      onPress={onOpen}
-      accessibilityRole="button"
-      accessibilityLabel={project.name}
-      style={({ pressed }) => [
-        glass(20, 'md'),
-        styles.row,
-        pressed && styles.rowPressed,
-      ]}
-    >
+    // Siblings, not nested: a Pressable inside a Pressable is a <button>
+    // inside a <button> on web, which React warns about and which makes the
+    // inner press compete with the outer one for the same tap.
+    <View style={[glass(20, 'md'), styles.row]}>
       <View style={styles.rowInner}>
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={project.name}
+          style={({ pressed }) => [
+            styles.rowTap,
+            pressed && styles.rowPressed,
+          ]}
+        >
         {/* 38 / radius 12 / 12%-tint — the icon tile shared with the history
             rows and the chat drawer, so the three read as one surface. */}
         <View style={[styles.iconTile, { backgroundColor: `${colour}22` }]}>
@@ -291,6 +332,8 @@ function ProjectRow({
           </Text>
         </View>
 
+        </Pressable>
+
         <Pressable
           onPress={onActions}
           accessibilityRole="button"
@@ -301,7 +344,7 @@ function ProjectRow({
           <MoreVertical size={16} color={MUTED} strokeWidth={2.2} />
         </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -345,6 +388,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowBody: { flex: 1 },
   rowTitle: {
     fontSize: 16,

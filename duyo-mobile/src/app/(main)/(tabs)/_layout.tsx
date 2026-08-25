@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 
 import { BottomNav, type TabKey } from '@/components/v2/dark/bottom-nav';
+import { useChromeStore } from '@/store/chrome';
 
 type TabBarProp = NonNullable<ComponentProps<typeof Tabs>['tabBar']>;
 type TabBarProps = Parameters<TabBarProp>[0];
@@ -18,6 +19,7 @@ const ROUTE_TO_TAB: Record<string, TabKey> = {
 };
 
 function CustomTabBar({ state, navigation }: TabBarProps) {
+  const immersive = useChromeStore((s) => s.immersive);
   const currentRouteName = state.routes[state.index]?.name ?? 'index';
   const active: TabKey = ROUTE_TO_TAB[currentRouteName] ?? 'home';
 
@@ -29,6 +31,11 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
       navigation.navigate(targetRoute);
     }
   };
+
+  // A screen asked for the whole display — Miya's map, opened full size.
+  // The navigator cannot see which sub-screen a tab is showing, so the screen
+  // itself says so through store/chrome.ts.
+  if (immersive) return null;
 
   // The AI tab carries no dock.
   //

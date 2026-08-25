@@ -12,7 +12,7 @@ import {
   Trash2,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -43,6 +43,7 @@ import {
 import { BrainBackdrop } from '@/components/brain-backdrop';
 import { BrainClusterCard } from '@/components/brain-cluster-card';
 import { GLASS, GlassCircle, raised } from '@/components/brain/glass';
+import { lift } from '@/lib/glass';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import {
   extractEmbeds,
@@ -54,7 +55,7 @@ import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
 import { colourForTag, PALETTE, UNTAGGED } from '@/lib/galaxy-layout';
 import { useChildStore } from '@/store/child';
-import { useIsDark } from '@/store/theme';
+import { useChromeStore } from '@/store/chrome';
 
 import BrainHome from './brain-home';
 
@@ -89,7 +90,6 @@ const ACCENT = '#60A5FA';
 /** Ink on top of a filled ACCENT surface. */
 const ON_ACCENT = '#0A1628';
 const PINK = '#FB64B6';
-const YELLOW = '#FDC700';
 /** Body ink per theme — what `text-foreground dark:text-dark-text` resolved to. */
 const INK_LIGHT = '#102033';
 const INK_DARK = '#E0E7FF';
@@ -97,12 +97,25 @@ const MUTED_LIGHT = '#64748B';
 const MUTED_DARK = '#94A3B8';
 const PLACEHOLDER = '#94A3B8';
 /** The hairline and the wash the accent leaves on a dark surface. */
+/**
+ * The accent for the LIGHT grounds — the landing page and the note editor.
+ *
+ * ACCENT above is the neon blue the dark map is built on, and neon blue is
+ * chosen to glow against navy: on white it is a wash. The editor's Save
+ * button was filled with it and captioned in near-black, which is how a
+ * primary action ends up looking disabled.
+ */
+const ACCENT_LIGHT = '#2F6FE4';
+/** Amber dark enough to read as text on its own pale fill. The tag chips
+ *  wrote #FDC700 on a 12% #FDC700 wash — legible on navy, invisible here. */
+const AMBER_INK = '#9A6B00';
+
 const ACCENT_LINE = 'rgba(96,165,250,0.20)';
+
 const ACCENT_WASH = 'rgba(96,165,250,0.15)';
 const ACCENT_WASH_STRONG = 'rgba(96,165,250,0.18)';
 
 export default function BrainScreen() {
-  const isDark = useIsDark();
   const child = useChildStore((s) => s.child);
   const childId = child?.id ?? '';
   const qc = useQueryClient();
@@ -118,6 +131,25 @@ export default function BrainScreen() {
   // has to start above its footprint or it is both invisible and, being
   // under a live bar, tappable only by the bar.
   const navClearance = useNavClearance();
+
+  /**
+   * The full-size map takes the whole screen.
+   *
+   * It is a canvas you pinch, drag and read labels off, and 92pt of floating
+   * dock across its bottom edge is 92pt of sky you cannot use — while the way
+   * out is already there, in the map's own back button. The claim is released
+   * on leaving the map AND on leaving Miya altogether, which is what the
+   * cleanup covers: without it, opening the map and then swiping to another
+   * tab would take the dock with it.
+   */
+  const immersive = screen.kind === 'map';
+  useEffect(() => {
+    if (!immersive) return;
+    const { enterImmersive, exitImmersive } = useChromeStore.getState();
+    enterImmersive();
+    return exitImmersive;
+  }, [immersive]);
+
   const toHomeTab = () => navigation.navigate('index');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -377,10 +409,20 @@ export default function BrainScreen() {
       .sort((a, b) => b.notes - a.notes);
   }, [graph.data?.edges, tags.data]);
 
-  const cardBg = isDark ? '#132340' : '#FFFFFF';
+  /**
+   * Which ground the current sub-screen stands on.
+   *
+   * Only the MAP is deep space. The landing page has been light glass since
+   * it became a page rather than a sky, and the note editor arrives from it —
+   * so an editor in navy was a different app opening on top of the one you
+   * were in. It also keyed off the THEME, which meant the editor was dark or
+   * light depending on a setting that nothing else in Miya still reads.
+   */
+  const onDark = screen.kind === 'map';
+  const cardBg = onDark ? '#132340' : '#FFFFFF';
   // The two theme-dependent inks the classNames used to carry, as values.
-  const inkText = { color: isDark ? INK_DARK : INK_LIGHT };
-  const mutedText = { color: isDark ? MUTED_DARK : MUTED_LIGHT };
+  const inkText = { color: onDark ? INK_DARK : INK_LIGHT };
+  const mutedText = { color: onDark ? MUTED_DARK : MUTED_LIGHT };
   // The note editor/preview is its own header mode; 'home' and 'map' share
   // the plain "Miya" header with a "+" instead of the back/preview/trash row.
   const editingNote = screen.kind === 'note' || screen.kind === 'new';
@@ -397,10 +439,10 @@ export default function BrainScreen() {
       <View
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: screen.kind === 'home' ? GLASS.pageTop : '#070B1A' },
+          { backgroundColor: onDark ? '#070B1A' : GLASS.pageTop },
         ]}
       />
-      {screen.kind === 'home' && (
+      {!onDark && (
         <LinearGradient
           colors={[GLASS.pageTop, GLASS.pageBottom]}
           start={{ x: 0.2, y: 0 }}
@@ -409,7 +451,7 @@ export default function BrainScreen() {
         />
       )}
 
-      {screen.kind !== 'home' && (
+      {onDark && (
         <LinearGradient
           colors={[
             'rgba(60, 3, 102, 0.55)',   // dark-bg-from, purple
@@ -431,7 +473,7 @@ export default function BrainScreen() {
           NoteGraph's inner canvas, so anything out here is immune to the zoom
           — the planets scale against a backdrop that stays put.
           Swap the clip in src/config/brain-backdrop.ts. */}
-      {screen.kind !== 'home' && <BrainBackdrop />}
+      {onDark && <BrainBackdrop />}
 
       <SafeAreaView style={styles.fill} edges={['top']}>
         <KeyboardAvoidingView style={styles.fill}>
@@ -503,9 +545,9 @@ export default function BrainScreen() {
               accessibilityLabel="Xaritaga qaytish"
               style={styles.iconButton}
             >
-              <ArrowLeft size={20} color={inkText.color} />
+              <ArrowLeft size={20} color={ACCENT_LIGHT} />
             </Pressable>
-            <Text style={[styles.noteHeaderTitle, inkText]}>
+            <Text style={styles.noteHeaderTitle}>
               {preview ? title || 'Qayd' : 'Tahrir'}
             </Text>
 
@@ -517,9 +559,9 @@ export default function BrainScreen() {
                 style={styles.previewToggle}
               >
                 {preview ? (
-                  <Pencil size={18} color={ACCENT} />
+                  <Pencil size={18} color={ACCENT_LIGHT} />
                 ) : (
-                  <Eye size={18} color={ACCENT} />
+                  <Eye size={18} color={ACCENT_LIGHT} />
                 )}
               </Pressable>
               {screen.kind === 'note' && (
@@ -968,7 +1010,7 @@ export default function BrainScreen() {
                     styles.resultsSheet,
                     {
                       bottom: navClearance,
-                      backgroundColor: isDark ? '#070B1A' : '#F4F8FF',
+                      backgroundColor: '#070B1A',
                     },
                   ]}
                 >
@@ -1240,21 +1282,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
   },
-  noteHeaderTitle: { flex: 1, fontSize: 20, lineHeight: 28, fontWeight: '700' },
+  noteHeaderTitle: {
+    flex: 1,
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700',
+    color: ACCENT_LIGHT,
+  },
   noteHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // Round glass, like the back button on every other screen — a bare glyph
+  // here made this the one header in the app without a control on it.
   iconButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.95)',
+    boxShadow: lift('sm'),
   },
   previewToggle: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: ACCENT_WASH,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.95)',
+    boxShadow: lift('sm'),
   },
 
   // ── Type ───────────────────────────────────────────────────────────────
@@ -1265,10 +1323,18 @@ const styles = StyleSheet.create({
   cardNote: { marginBottom: 12 },
   linkText: { fontSize: 14, lineHeight: 20, color: ACCENT },
   smallLinkText: { fontSize: 12, lineHeight: 16, color: ACCENT },
-  smallTagText: { fontSize: 12, lineHeight: 16, color: YELLOW },
+  smallTagText: { fontSize: 12, lineHeight: 16, color: AMBER_INK },
 
   // ── The note, read ─────────────────────────────────────────────────────
-  card: { borderRadius: 20, padding: 16, ...raised('md') },
+  // A white rectangle on a pale blue page is a rectangle; the edge is what
+  // makes it a pane.
+  card: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.95)',
+    ...raised('md'),
+  },
   backlinkRow: { paddingVertical: 8 },
   mentionRow: {
     flexDirection: 'row',
@@ -1317,8 +1383,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonLinkText: { fontSize: 14, lineHeight: 20, color: ACCENT },
-  buttonTagText: { fontSize: 14, lineHeight: 20, color: YELLOW },
+  buttonLinkText: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: ACCENT_LIGHT },
+  buttonTagText: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: AMBER_INK },
 
   tagNotice: {
     borderRadius: 14,
@@ -1326,7 +1392,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: 'rgba(253,199,0,0.10)',
   },
-  tagNoticeText: { fontSize: 12, lineHeight: 16, color: YELLOW },
+  tagNoticeText: { fontSize: 12, lineHeight: 16, color: AMBER_INK },
 
   colourBlock: { gap: 8 },
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -1349,7 +1415,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(253,199,0,0.12)',
   },
-  tagChipText: { fontSize: 12, lineHeight: 16, color: YELLOW },
+  tagChipText: { fontSize: 12, lineHeight: 16, fontWeight: '600', color: AMBER_INK },
 
   suggestions: { borderRadius: 14, padding: 6, ...raised('sm') },
   suggestionRow: {
@@ -1367,9 +1433,9 @@ const styles = StyleSheet.create({
   },
   // Only the live button is lifted; a button that cannot be pressed has no
   // business floating off the page.
-  saveOn: { backgroundColor: ACCENT, ...raised('md') },
-  saveOff: { backgroundColor: 'rgba(96,165,250,0.40)' },
-  saveText: { fontSize: 16, lineHeight: 24, fontWeight: '500', color: ON_ACCENT },
+  saveOn: { backgroundColor: ACCENT_LIGHT, ...raised('md') },
+  saveOff: { backgroundColor: 'rgba(47,111,228,0.28)' },
+  saveText: { fontSize: 16, lineHeight: 24, fontWeight: '700', color: '#FFFFFF' },
   error: { fontSize: 14, lineHeight: 20, color: PINK, textAlign: 'center' },
 
   // ── Chrome floating over the map ───────────────────────────────────────

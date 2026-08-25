@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
 import {
+  ChevronDown,
   ChevronRight,
   Folder,
   MessageSquare,
   MessagesSquare,
+  Pin,
   SquarePen,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -89,6 +91,16 @@ export function ChatDrawer({
   const all = conversations.data ?? [];
   const recents = all.slice(0, RECENTS);
   const projectCount = projects.data?.length ?? 0;
+  /**
+   * Projects open IN the drawer rather than replacing it.
+   *
+   * Tapping the row used to push the projects screen, which closed the drawer
+   * to show a list of folders and then needed two taps to get back to the
+   * conversation. Somewhere to file things is not somewhere to GO — it belongs
+   * beside the chats it organises, which is where it now unfolds.
+   */
+  const [projectsOpen, setProjectsOpen] = useState(false);
+
 
   const go = (fn: () => void) => {
     onClose();
@@ -164,8 +176,74 @@ export function ChatDrawer({
               icon={Folder}
               label="Loyihalar"
               count={projectCount}
-              onPress={() => go(() => router.push('/(main)/projects'))}
+              expanded={projectsOpen}
+              onPress={() => setProjectsOpen((v) => !v)}
             />
+
+            {projectsOpen && (
+              <View style={styles.projects}>
+                {(projects.data ?? []).map((project) => (
+                  <Pressable
+                    key={project.id}
+                    onPress={() =>
+                      go(() =>
+                        router.push({
+                          pathname: '/(main)/project-detail',
+                          params: { projectId: project.id, name: project.name },
+                        }),
+                      )
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={project.name}
+                    style={({ pressed }) => [
+                      styles.project,
+                      pressed && styles.pressed,
+                      styles.focusable,
+                    ]}
+                  >
+                    <Folder
+                      size={15}
+                      color={project.colour ?? PRIMARY}
+                      strokeWidth={2}
+                    />
+                    <Text style={styles.projectName} numberOfLines={1}>
+                      {project.name}
+                    </Text>
+                    {/* Pinned ones already come first — the server orders on
+                        pinned_at — so this only has to say WHY they are first. */}
+                    {!!project.pinned_at && (
+                      <Pin
+                        size={12}
+                        color={project.colour ?? PRIMARY}
+                        strokeWidth={2.4}
+                      />
+                    )}
+                    <Text style={styles.projectCount}>
+                      {project.conversation_count}
+                    </Text>
+                  </Pressable>
+                ))}
+
+                {projectCount === 0 && (
+                  <Text style={styles.projectsEmpty}>Hali loyiha yo‘q</Text>
+                )}
+
+                <Pressable
+                  onPress={() => go(() => router.push('/(main)/projects'))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Loyihalarni boshqarish"
+                  style={({ pressed }) => [
+                    styles.project,
+                    pressed && styles.pressed,
+                    styles.focusable,
+                  ]}
+                >
+                  <View style={styles.projectIconGap} />
+                  <Text style={styles.projectManage}>Boshqarish</Text>
+                  <ChevronRight size={13} color={PRIMARY} />
+                </Pressable>
+              </View>
+            )}
           </View>
 
           <View style={styles.divider} />
@@ -239,6 +317,7 @@ function DrawerLink({
   icon: Icon,
   label,
   count,
+  expanded,
   onPress,
 }: {
   // Matches the `typeof Download`-style icon typing used elsewhere —
@@ -246,6 +325,8 @@ function DrawerLink({
   icon: typeof Folder;
   label: string;
   count: number;
+  /** Present on a row that unfolds; absent on one that navigates. */
+  expanded?: boolean;
   onPress: () => void;
 }) {
   return (
@@ -266,6 +347,14 @@ function DrawerLink({
           <Text style={styles.badgeText}>{count}</Text>
         </View>
       )}
+      {/* A chevron only where one means something: a row that unfolds says
+          so, a row that leaves does not pretend to. */}
+      {expanded !== undefined &&
+        (expanded ? (
+          <ChevronDown size={16} color={MUTED} strokeWidth={2.2} />
+        ) : (
+          <ChevronRight size={16} color={MUTED} strokeWidth={2.2} />
+        ))}
     </Pressable>
   );
 }
@@ -294,6 +383,29 @@ const styles = StyleSheet.create({
 
   gutter: { paddingHorizontal: 12 },
   links: { paddingTop: 6 },
+
+  // Indented under the row that opened them, so the list reads as its
+  // contents rather than as more navigation at the same level.
+  projects: { paddingLeft: 14, paddingBottom: 4 },
+  project: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 11,
+  },
+  projectIconGap: { width: 15 },
+  projectName: { flex: 1, fontSize: 14.5, fontWeight: '600', color: INK },
+  projectCount: { fontSize: 12, fontWeight: '700', color: MUTED },
+  projectManage: { flex: 1, fontSize: 14, fontWeight: '700', color: PRIMARY },
+  projectsEmpty: {
+    fontSize: 13,
+    color: MUTED,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+
 
   brandRow: {
     flexDirection: 'row',
