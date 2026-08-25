@@ -42,6 +42,13 @@ export interface VoiceSessionHandlers {
 interface ConnectArgs {
   childId: string;
   conversationId?: string | null;
+  /** Prebuilt Gemini voice name. The server validates it and falls back to
+   *  its own default rather than refusing the socket. */
+  voiceName?: string | null;
+  /** 'uz' | 'ru' | 'en'. Reaches the model as a system-prompt line, not as
+   *  a language_code: native-audio Live models reject an explicit one. */
+  lang?: string | null;
+
 }
 
 export interface UseVoiceSessionResult {
@@ -80,7 +87,8 @@ export function useVoiceSession(
   // Close on unmount — never leak a socket.
   useEffect(() => close, [close]);
 
-  const connect = useCallback(({ childId, conversationId }: ConnectArgs) => {
+  const connect = useCallback(
+    ({ childId, conversationId, voiceName, lang }: ConnectArgs) => {
     const token = useAuthStore.getState().tokens?.accessToken;
     if (!token) {
       setState('error');
@@ -92,7 +100,7 @@ export function useVoiceSession(
     const existing = wsRef.current;
     if (existing) existing.close();
 
-    const url = buildUrl(childId, conversationId, token);
+    const url = buildUrl(childId, conversationId, token, voiceName, lang);
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
@@ -147,10 +155,14 @@ function buildUrl(
   childId: string,
   conversationId: string | null | undefined,
   token: string,
+  voiceName: string | null | undefined,
+  lang: string | null | undefined,
 ): string {
   const base = process.env.EXPO_PUBLIC_WS_BASE_URL ?? DEFAULT_VOICE_WS_URL;
   const params = new URLSearchParams({ token, child_id: childId });
   if (conversationId) params.set('conversation_id', conversationId);
+  if (voiceName) params.set('voice_name', voiceName);
+  if (lang) params.set('lang', lang);
   return `${base}?${params.toString()}`;
 }
 

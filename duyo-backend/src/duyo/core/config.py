@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     gemini_embedding_dim: int = 768
     # Voice mode (D-005 v3, 2026-05-27 POC accepted) — single-stack STT+chat+native audio.
     gemini_model_live: str = "gemini-3.1-flash-live-preview"
+    #: Prebuilt Gemini voice DUYO speaks with when the child has not chosen.
+    #:
+    #: The name is Google's, not ours, and only names from
+    #: `GEMINI_LIVE_VOICES` are accepted from a client — a voice name goes
+    #: straight into the model config, so an unchecked one is a request the
+    #: API rejects mid-session, after the socket is already open.
+    gemini_live_voice_default: str = "Kore"
     gemini_live_input_sample_rate: int = 16_000
     gemini_live_output_sample_rate: int = 24_000
     gemini_temperature: float = 0.7

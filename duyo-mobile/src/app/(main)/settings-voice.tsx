@@ -1,9 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft, Check, Play } from 'lucide-react-native';
-import { useState } from 'react';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,8 +11,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { useT, type TranslationKey } from '@/i18n';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
+import { useVoiceSettingsStore, VOICE_CHOICES } from '@/store/voice-settings';
 
 // ── The glass sky, the inner screens' cooler morning ─────────────────────────
 // Same family as settings and notifications: frosted panes on pale blue.
@@ -25,35 +24,14 @@ const BG_TOP = '#E3EFFF';
 const BG_MID = '#EAF3FF';
 const BG_BOTTOM = '#EDF2FD';
 
-interface VoiceOption {
-  key: string;
-  /** Gemini voice name — a proper noun, never translated. */
-  label: string;
-  descriptionKey: TranslationKey;
-}
-
-const VOICE_OPTIONS: readonly VoiceOption[] = [
-  { key: 'kore', label: 'Kore', descriptionKey: 'settings.voiceScreen.voiceKore' },
-  { key: 'aoede', label: 'Aoede', descriptionKey: 'settings.voiceScreen.voiceAoede' },
-  { key: 'charon', label: 'Charon', descriptionKey: 'settings.voiceScreen.voiceCharon' },
-  { key: 'fenrir', label: 'Fenrir', descriptionKey: 'settings.voiceScreen.voiceFenrir' },
-  { key: 'leda', label: 'Leda', descriptionKey: 'settings.voiceScreen.voiceLeda' },
-];
-
-const SPEED_OPTIONS: readonly {
-  key: string;
-  labelKey: TranslationKey;
-  multiplier: number;
-}[] = [
-  { key: 'slow', labelKey: 'settings.voiceScreen.speedSlow', multiplier: 0.8 },
-  { key: 'normal', labelKey: 'settings.voiceScreen.speedNormal', multiplier: 1.0 },
-  { key: 'fast', labelKey: 'settings.voiceScreen.speedFast', multiplier: 1.25 },
-];
-
 export default function VoiceSettingsScreen() {
   const t = useT();
-  const [selectedVoice, setSelectedVoice] = useState('kore');
-  const [selectedSpeed, setSelectedSpeed] = useState('normal');
+  // Persisted, and read by the voice session when it opens the socket.
+  // This was a plain useState that reached nothing: the choice died on
+  // navigation and the server had its voice hard-coded anyway.
+  const selectedVoice = useVoiceSettingsStore((st) => st.voice);
+  const setSelectedVoice = useVoiceSettingsStore((st) => st.setVoice);
+
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -87,7 +65,7 @@ export default function VoiceSettingsScreen() {
             <Text style={styles.sectionTitle}>
               {t('settings.voiceScreen.duyoVoice')}
             </Text>
-            {VOICE_OPTIONS.map((v) => {
+            {VOICE_CHOICES.map((v) => {
               const isSel = v.key === selectedVoice;
               return (
                 <Pressable
@@ -108,30 +86,15 @@ export default function VoiceSettingsScreen() {
                   <View style={styles.optionRow}>
                     <View style={styles.optionBody}>
                       <Text style={styles.optionLabel}>{v.label}</Text>
-                      <Text style={styles.optionHint}>
-                        {t(v.descriptionKey)}
-                      </Text>
+                      <Text style={styles.optionHint}>{v.hint}</Text>
+
                     </View>
-                    <Pressable
-                      onPress={() =>
-                        Alert.alert(
-                          t('common.comingSoon'),
-                          t('settings.voiceScreen.sampleSoon', {
-                            voice: v.label,
-                          }),
-                        )
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel={t('settings.voiceScreen.listen')}
-                      style={({ pressed }) => [
-                        glass(20, 'sm', 0.7),
-                        styles.play,
-                        styles.focusable,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Play size={16} color={PRIMARY} fill={PRIMARY} />
-                    </Pressable>
+                    {/* The listen button that used to sit here said
+                        "coming soon" through an Alert — which on web is an
+                        empty function, so it said nothing at all. A preview
+                        needs a TTS endpoint the API does not serve yet;
+                        until it does, a control that cannot play a voice is
+                        worse than no control. */}
                     {isSel ? (
                       <Check size={20} color={PRIMARY} strokeWidth={2.4} />
                     ) : null}
@@ -141,67 +104,18 @@ export default function VoiceSettingsScreen() {
             })}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t('settings.voiceScreen.speed')}
-            </Text>
-            <View style={styles.speedRow}>
-              {SPEED_OPTIONS.map((s) => {
-                const isSel = s.key === selectedSpeed;
-                return (
-                  <Pressable
-                    key={s.key}
-                    onPress={() => setSelectedSpeed(s.key)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: isSel }}
-                    accessibilityLabel={t(s.labelKey)}
-                    style={({ pressed }) => [
-                      glass(16, 'sm'),
-                      styles.speed,
-                      isSel && styles.speedSelected,
-                      styles.focusable,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.speedLabel,
-                        isSel && styles.speedLabelSelected,
-                      ]}
-                    >
-                      {t(s.labelKey)}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.speedValue,
-                        isSel && styles.speedValueSelected,
-                      ]}
-                    >
-                      {s.multiplier}x
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          {/* The speaking-speed row and the Save button used to sit here.
 
-          <Pressable
-            onPress={() =>
-              Alert.alert(
-                t('settings.voiceScreen.savedTitle'),
-                t('settings.voiceScreen.savedBody'),
-              )
-            }
-            accessibilityRole="button"
-            accessibilityLabel={t('common.save')}
-            style={({ pressed }) => [
-              styles.save,
-              styles.focusable,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.saveText}>{t('common.save')}</Text>
-          </Pressable>
+              Speed was three buttons over a number nothing read: the Live
+              API exposes no speaking-rate control, so the multiplier could
+              not reach anything even in principle. Save was an Alert saying
+              "saved" — and on web an Alert is an empty function, so it said
+              nothing. Neither is missing functionality; both were controls
+              for functionality that does not exist.
+
+              The voice itself now saves the moment it is tapped, into the
+              persisted store the session reads when it opens the socket, so
+              there is nothing left for a Save button to do. */}
         </ScrollView>
       </SafeAreaView>
     </View>

@@ -122,8 +122,14 @@ def make_voice_session_factory(events: list[LiveEvent]) -> Any:
 
     created: list[FakeVoiceSession] = []
 
-    def factory(*, system_prompt: str, model: str | None = None) -> FakeVoiceSession:
+    def factory(
+        *,
+        system_prompt: str,
+        model: str | None = None,
+        voice: str | None = None,
+    ) -> FakeVoiceSession:
         s = FakeVoiceSession(events_to_yield=list(events), system_prompt=system_prompt)
+        s.voice = voice
         created.append(s)
         return s
 
@@ -217,6 +223,80 @@ def test_voice_rejects_when_child_not_found(
 # ---------------------------------------------------------------------------
 # Happy path — protocol + persistence
 # ---------------------------------------------------------------------------
+
+
+def _open(configured_app, access_token, child, query: str = "") -> None:
+    """Open and immediately close a voice socket, letting the turn finish."""
+    client = TestClient(configured_app)
+    with client.websocket_connect(
+        f"/v1/chat/voice?token={access_token}&child_id={child.id}{query}"
+    ) as ws:
+        # A chunk before END_TURN, the way the app sends one: the handler
+        # is driven by the same sequence in every other test here.
+        ws.send_bytes(b"USER_AUDIO")
+        ws.send_text("END_TURN")
+        while True:
+            message = ws.receive()
+            if message.get("text") and "turn_complete" in message["text"]:
+                break
+
+
+def test_a_chosen_voice_reaches_the_session(
+    configured_app, db_session, access_token, user, child
+):
+    """The name the child picked is what the model is configured with."""
+    db_session.scalar_queue = [user, child]
+    factory = make_voice_session_factory([LiveEvent(kind="turn_complete", elapsed_ms=10)])
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+
+    _open(configured_app, access_token, child, "&voice_name=Achernar")
+
+    assert factory.created[0].voice == "Achernar"
+
+
+def test_an_unknown_voice_falls_back_instead_of_refusing(
+    configured_app, db_session, access_token, user, child
+):
+    """A stale client asking for a retired voice still gets a session.
+
+    The name goes straight into the model config, so it has to be checked —
+    but checking it must not become a socket that closes on connect for a
+    child whose app is a version behind.
+    """
+    db_session.scalar_queue = [user, child]
+    factory = make_voice_session_factory([LiveEvent(kind="turn_complete", elapsed_ms=10)])
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+
+    _open(configured_app, access_token, child, "&voice_name=NotAVoice")
+
+    assert factory.created[0].voice is None
+
+
+def test_the_language_becomes_a_line_in_the_system_prompt(
+    configured_app, db_session, access_token, user, child
+):
+    """Native-audio Live models reject an explicit language_code, so the
+    instruction has to travel in the prompt or not at all."""
+    db_session.scalar_queue = [user, child]
+    factory = make_voice_session_factory([LiveEvent(kind="turn_complete", elapsed_ms=10)])
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+
+    _open(configured_app, access_token, child, "&lang=ru")
+
+    assert "rus tilida" in factory.created[0].system_prompt
+
+
+def test_an_unknown_language_adds_nothing(
+    configured_app, db_session, access_token, user, child
+):
+    db_session.scalar_queue = [user, child]
+    factory = make_voice_session_factory([LiveEvent(kind="turn_complete", elapsed_ms=10)])
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+
+    _open(configured_app, access_token, child, "&lang=klingon")
+
+    prompt = factory.created[0].system_prompt
+    assert "tilida gapir" not in prompt
 
 
 def test_voice_happy_path_sends_ready_then_audio_then_turn_complete(

@@ -62,7 +62,7 @@ from duyo.models.user import User
 from duyo.prompts import SYSTEM_PROMPTS
 from duyo.services import sms as sms_module
 from duyo.services.crisis_l2 import classify
-from duyo.services.gemini_live import GeminiVoiceSession
+from duyo.services.gemini_live import GEMINI_LIVE_VOICES, GeminiVoiceSession
 from duyo.services.goals import extract_child_insights
 from duyo.services.memory_candidates import extract_memory_candidate
 from duyo.services.personalization import (
@@ -126,6 +126,9 @@ async def voice_ws(
     token: str = Query(...),
     child_id: UUID = Query(...),
     conversation_id: UUID | None = Query(default=None),
+    voice_name: str | None = Query(default=None),
+    lang: str | None = Query(default=None),
+
     db: AsyncSession = Depends(get_db),
     session_factory: VoiceSessionFactory = Depends(get_voice_session_factory),
 ) -> None:
@@ -195,6 +198,19 @@ async def voice_ws(
         if _block:
             voice_prompt += f"\n\n{_block}"
 
+    # Which language to speak.
+    #
+    # Not a `language_code` on the session: native-audio Live models pick the
+    # language themselves and reject an explicit one (ai.google.dev, Live
+    # guide). Asking in the system prompt is what actually holds — the model
+    # follows it the same way it follows the persona above.
+    _SPOKEN = {"uz": "o'zbek tilida", "ru": "rus tilida", "en": "ingliz tilida"}
+    if lang in _SPOKEN:
+        voice_prompt += (
+            f"\n\nBu suhbatda faqat {_SPOKEN[lang]} gapir, "
+            "bola boshqa tilda so'rasa ham shu tilda javob ber."
+        )
+
     # For the insight extractor at turn end — same (role, content) tuple shape
     # chat.py hands it, so a spoken "buni miyamga yozib qo'y" has a referent.
     insight_history: list[tuple[str, str]] = []
@@ -242,7 +258,14 @@ async def voice_ws(
     )
 
     try:
-        async with session_factory(system_prompt=voice_prompt) as voice:
+        # An unknown name is dropped rather than refused: a stale client
+        # asking for a voice we have retired should still get a session, in
+        # the default voice, rather than a socket that closes on connect.
+        chosen = voice_name if voice_name in GEMINI_LIVE_VOICES else None
+        async with session_factory(
+            system_prompt=voice_prompt, voice=chosen
+        ) as voice:
+
             await voice.start_activity()
 
             async def pump_client_to_voice() -> None:

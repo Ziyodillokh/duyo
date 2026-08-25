@@ -91,6 +91,28 @@ def _parse_message(msg: Any, elapsed_ms: int) -> Iterator[LiveEvent]:
         yield LiveEvent(kind="turn_complete", elapsed_ms=elapsed_ms)
 
 
+#: The prebuilt voices a client may ask for, with Google's own one-word
+#: description of each (ai.google.dev, speech generation). Deliberately a
+#: SHORT list out of the thirty that exist: every name here is one the app
+#: offers in settings, so a request for anything else is a bug or a probe,
+#: not a preference. An unchecked name reaches the model config and fails
+#: the session after the socket is already open.
+#:
+#: Google documents CHARACTER, not gender, so neither do we — the app labels
+#: them by how they sound and lets the child listen.
+GEMINI_LIVE_VOICES: frozenset[str] = frozenset(
+    {
+        "Achernar",      # Soft
+        "Sulafat",       # Warm
+        "Vindemiatrix",  # Gentle
+        "Leda",          # Youthful
+        "Charon",        # Informative
+        "Algenib",       # Gravelly
+        "Kore",          # Firm — the default
+    }
+)
+
+
 class GeminiVoiceSession:
     """A single Gemini Live voice turn.
 
@@ -113,10 +135,14 @@ class GeminiVoiceSession:
         *,
         system_prompt: str,
         model: str | None = None,
+        voice: str | None = None,
     ) -> None:
         settings = get_settings()
         self._model = model or settings.gemini_model_live
         self._system_prompt = system_prompt
+        #: Validated by the caller against GEMINI_LIVE_VOICES; this class only
+        #: falls back when nothing was chosen.
+        self._voice = voice or settings.gemini_live_voice_default
         self._input_rate = settings.gemini_live_input_sample_rate
         self._inner_cm: Any = None
         self._session: Any = None
@@ -132,13 +158,14 @@ class GeminiVoiceSession:
             realtime_input_config=types.RealtimeInputConfig(
                 automatic_activity_detection=types.AutomaticActivityDetection(disabled=True),
             ),
-            # Pin the prebuilt voice so the assistant doesn't randomly switch
-            # gender or timbre between turns. "Kore" is a warm, friendly
-            # female voice — a good fit for a child-companion persona.
+            # Pin the prebuilt voice so the assistant does not switch timbre
+            # between turns. Which one is the child's choice now (settings →
+            # voice), defaulting to the settings value when they have not
+            # picked; either way it is fixed for the whole session.
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name="Kore",
+                        voice_name=self._voice,
                     ),
                 ),
             ),

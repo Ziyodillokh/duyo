@@ -2,9 +2,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   ArrowLeft,
+  Brain,
   CloudOff,
   Languages,
-  Lightbulb,
   Mic,
   RefreshCw,
   Settings2,
@@ -35,9 +35,22 @@ import { useVoiceSession } from '@/hooks/use-voice-session';
 import { glass, lift } from '@/lib/glass';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
+import { useLanguageStore, type Language } from '@/store/language';
+import { useVoiceSettingsStore } from '@/store/voice-settings';
 import { useMemoryStore } from '@/store/memory';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'responding' | 'error';
+
+/** The three the app speaks, in the order the button walks through them. */
+const LANGUAGES: readonly Language[] = ['uz', 'ru', 'en'];
+const LANGUAGE_NAME: Record<Language, string> = {
+  uz: "O'zbekcha",
+  ru: 'Ruscha',
+  en: 'Inglizcha',
+};
+/** Two letters fit on the button; a name does not. */
+const LANGUAGE_SHORT: Record<Language, string> = { uz: 'UZ', ru: 'RU', en: 'EN' };
+
 
 /**
  * Loudness of one PCM chunk, 0..1.
@@ -145,7 +158,29 @@ export default function VoiceScreen() {
 
   const [phase, setPhase] = useState<Phase>('idle');
 
+  const language = useLanguageStore((st) => st.language);
+  const voiceName = useVoiceSettingsStore((st) => st.voice);
+  const setLanguage = useLanguageStore((st) => st.setLanguage);
+  /**
+   * Walk to the next language.
+   *
+   * A cycle rather than a picker: there are three, the button shows which
+   * one is live, and a sheet for three items is a sheet too many. The choice
+   * is the app-wide one, so changing it here changes it everywhere — which is
+   * what a child means by "speak Russian to me".
+   *
+   * It reaches the model on the NEXT connection: the system prompt is built
+   * when the socket opens, so a mid-session switch would have to tear the
+   * session down. Pressed between turns, which is when it is pressed, it
+   * applies immediately.
+   */
+  const cycleLanguage = useCallback(() => {
+    const next = LANGUAGES[(LANGUAGES.indexOf(language) + 1) % LANGUAGES.length];
+    setLanguage(next);
+  }, [language, setLanguage]);
+
   const { width } = useWindowDimensions();
+
   // A share of the width, so the orb is the same object on every phone
   // rather than a different fraction of each screen.
   const orbSize = Math.round(Math.min(width * 0.74, 300));
@@ -218,6 +253,11 @@ export default function VoiceScreen() {
   const voice = useVoiceSession({
     onOutputTranscript: () => {},
     onAudioChunk: (pcm) => {
+      // The child barged in and is talking again. The server does not know
+      // yet and keeps streaming the answer it had started; playing it would
+      // put DUYO's voice on top of theirs, which is the one thing an
+      // interruption must not do. Drop it on the floor instead.
+      if (phaseRef.current === 'recording') return;
       if (phaseRef.current !== 'responding') setPhase('responding');
       pushLevel(pcm);
       playerRef.current.enqueueChunk(pcm);
@@ -338,6 +378,10 @@ export default function VoiceScreen() {
       voice.connect({
         childId: child.id,
         conversationId: storeConversationId,
+        // Both are read when the socket opens: the voice pins the timbre
+        // for the session, the language becomes a line in the system prompt.
+        voiceName,
+        lang: language,
       });
       const started = await mic.start();
       dbg(`mic.start returned ${started}`);
@@ -355,11 +399,34 @@ export default function VoiceScreen() {
       await mic.stop();
       voice.endTurn();
       setPhase('processing');
+      return;
     }
-  }, [child, mic, voice, phase, storeConversationId]);
 
-  const buttonDisabled =
-    phase === 'processing' || phase === 'responding' || !child;
+    // Barge-in: DUYO is answering and the child has something to say now.
+    //
+    // The socket stays open — this is the same turn taken back, not a new
+    // session — so all that is needed is to silence what is queued and open
+    // the microphone again. Whatever the server sends for the abandoned turn
+    // is dropped by onAudioChunk while the phase is 'recording'.
+    dbg('barge-in');
+    playerRef.current.stop();
+    level.set(withTiming(0, { duration: 120 }));
+    utteranceRef.current = '';
+    turnSeqRef.current += 1;
+    const resumed = await mic.start();
+    if (!resumed) {
+      setErrorMessage('Mikrofon ishga tushmadi');
+      setPhase('error');
+      return;
+    }
+    setPhase('recording');
+  }, [child, mic, voice, phase, storeConversationId, level, voiceName, language]);
+
+  // Only a missing profile stops the mic. It used to be disabled while DUYO
+  // was thinking or speaking, which meant a child who had thought of the
+  // next thing had to sit and wait for a sentence to finish before saying
+  // it — the opposite of a conversation.
+  const buttonDisabled = !child;
   const isRecording = phase === 'recording';
   const isError = phase === 'error';
 
@@ -511,13 +578,15 @@ export default function VoiceScreen() {
           {/* Left — translate (visual placeholder) */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tarjima"
+            accessibilityLabel={`Suhbat tili: ${LANGUAGE_NAME[language]}`}
             style={[glass(24, 'flush', 0.5), styles.dockButton, styles.focusable]}
-            onPress={() => {
-              // TODO: wire translate control
-            }}
+            onPress={cycleLanguage}
           >
-            <Languages size={28} color={PRIMARY} />
+            <Languages size={26} color={PRIMARY} />
+            {/* The current language, on the button. A globe alone says
+                "language" and not WHICH — and which is the only thing a
+                child needs to see before pressing it. */}
+            <Text style={styles.dockBadge}>{LANGUAGE_SHORT[language]}</Text>
           </Pressable>
 
           {/* Center — elevated push-to-talk mic */}
@@ -544,13 +613,11 @@ export default function VoiceScreen() {
           {/* Right — lightbulb (visual placeholder) */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Maslahat"
+            accessibilityLabel="Neo Miyya"
             style={[glass(24, 'flush', 0.5), styles.dockButton, styles.focusable]}
-            onPress={() => {
-              // TODO: wire hint control
-            }}
+            onPress={() => router.push('/(main)/(tabs)/brain')}
           >
-            <Lightbulb size={28} color={PRIMARY} />
+            <Brain size={28} color={PRIMARY} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -692,6 +759,13 @@ const styles = StyleSheet.create({
     // Squared off at the screen edge — only the top of this sheet is seen.
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
+  },
+  dockBadge: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: PRIMARY,
   },
   dockButton: {
     width: 48,
