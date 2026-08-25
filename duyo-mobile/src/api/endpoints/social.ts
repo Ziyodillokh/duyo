@@ -7,6 +7,11 @@ export interface PeerCard {
   child_id: string;
   display_name: string;
   age_segment: 'junior' | 'explorer' | 'companion';
+  /** The rarest achievement this peer has earned — an achievement KEY,
+   *  which `BADGE_FOR` in components/badges/badge.tsx turns into art.
+   *  Null for a peer who has earned none: an empty slot, not a default
+   *  badge. Optional because a client can outrun the server it talks to. */
+  badge?: string | null;
 }
 
 export interface GoalMate {

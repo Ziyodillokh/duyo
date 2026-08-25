@@ -18,6 +18,15 @@ class PeerCard(BaseModel):
     child_id: UUID
     display_name: str
     age_segment: AgeSegment
+    # The rarest achievement this peer has earned, or None. It is an
+    # achievement KEY and not a picture: the client owns the artwork, so new
+    # badge art ships without a backend release, and the key is already the
+    # vocabulary the achievements endpoint speaks.
+    #
+    # Safe under this file's rule at the top — it says how far along a
+    # pseudonymous child is, which is the whole point of showing it, and
+    # nothing about who they are.
+    badge: str | None = None
 
 
 class GoalMateRead(BaseModel):

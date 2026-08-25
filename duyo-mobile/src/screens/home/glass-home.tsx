@@ -469,7 +469,7 @@ export function GlassHome() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/(main)/activity')}
+            onPress={() => router.push('/(main)/achievements')}
             accessibilityRole="button"
             accessibilityLabel="Yutuqlar — batafsil"
             style={[glass(28, 'md'), styles.statCard]}

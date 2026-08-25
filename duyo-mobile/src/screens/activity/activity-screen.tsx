@@ -1,11 +1,18 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft, Flame, Sparkles, Trophy } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  ChevronRight,
+  Flame,
+  Sparkles,
+  Trophy,
+} from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { type BallsTransactionWire } from '@/api/endpoints/gamification';
+import { Badge, BADGE_FOR } from '@/components/badges/badge';
 import { Text } from '@/components/text';
 import {
   useAchievements,
@@ -180,7 +187,15 @@ export default function ActivityScreen() {
           </View>
 
           {/* ── Badges ──────────────────────────────────────────────────── */}
-          <View style={[glass(26, 'md'), styles.card]}>
+          {/* The whole card is the door to the shelf. A count with no way
+              through to what it counts is a dead end, and the locked badges
+              — what is left to earn — live only on that page. */}
+          <Pressable
+            onPress={() => router.push('/(main)/achievements')}
+            accessibilityRole="button"
+            accessibilityLabel="Yutuqlar"
+            style={[glass(26, 'md'), styles.card, styles.focusable]}
+          >
             <Text style={styles.cardLabel}>YUTUQLAR</Text>
             <View style={styles.badgeHead}>
               <Trophy size={20} color={PRIMARY} strokeWidth={2.2} />
@@ -188,25 +203,37 @@ export default function ActivityScreen() {
                 {earned.length}
                 <Text style={styles.badgeTotal}> / {total}</Text>
               </Text>
+              <View style={styles.grow} />
+              <ChevronRight size={18} color={MUTED} strokeWidth={2.2} />
             </View>
             <Bar value={total > 0 ? (earned.length / total) * 100 : 0} />
 
             {earned.length > 0 && (
               <View style={styles.badgeWrap}>
-                {earned.map((a) => (
-                  <View key={a.key} style={styles.badge}>
-                    <Text style={styles.badgeEmoji}>{a.emoji}</Text>
-                    <Text style={styles.badgeName} numberOfLines={1}>
-                      {a.name}
-                    </Text>
-                  </View>
-                ))}
+                {earned.map((a) => {
+                  // The same art the shelf and the mates list use, so a
+                  // badge reads as one thing across the app — the emoji
+                  // chips here were a fourth, unrelated set.
+                  const art = BADGE_FOR[a.key];
+                  return (
+                    <View key={a.key} style={styles.badge}>
+                      {art && (
+                        <Badge kind={art.kind} tier={art.tier} size={18} />
+                      )}
+                      <Text style={styles.badgeName} numberOfLines={1}>
+                        {a.name}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             )}
             {earned.length === 0 && total > 0 && (
-              <Text style={styles.empty}>Birinchi yutuq hali oldinda</Text>
+              <Text style={styles.empty}>
+                Birinchi yutuq hali oldinda — ro‘yxatni ko‘rish uchun bosing
+              </Text>
             )}
-          </View>
+          </Pressable>
 
           {/* ── The ledger ──────────────────────────────────────────────── */}
           {recent.length > 0 && (
@@ -463,7 +490,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(37,99,235,0.09)',
   },
-  badgeEmoji: { fontSize: 14 },
+  grow: { flex: 1 },
   badgeName: { maxWidth: 130, fontSize: 12.5, fontWeight: '600', color: INK },
 
   // ── Ledger ─────────────────────────────────────────────────────────────

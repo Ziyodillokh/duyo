@@ -17,6 +17,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
+import { Badge, BADGE_FOR } from '@/components/badges/badge';
 import { Text } from '@/components/text';
 
 import {
@@ -60,19 +61,28 @@ function PeerAvatar({ name }: { name: string }) {
 function Row({
   title,
   subtitle,
+  badge,
   children,
 }: {
   title: string;
   subtitle: string;
+  /** Achievement key, or nothing. An unknown key draws nothing rather
+   *  than a placeholder, so a build without the art still shows the name. */
+  badge?: string | null;
   children: React.ReactNode;
 }) {
+  const art = badge ? BADGE_FOR[badge] : undefined;
   return (
     <View style={styles.row}>
       <PeerAvatar name={title} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {title}
-        </Text>
+        {/* Before the name, matching the full Maqsaddoshlar list. */}
+        <View style={styles.titleRow}>
+          {art && <Badge kind={art.kind} tier={art.tier} size={15} />}
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
         <Text style={styles.rowSubtitle} numberOfLines={1}>
           {subtitle}
         </Text>
@@ -213,6 +223,7 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
         <View key={f.id} style={styles.decideCard}>
           <Row
             title={f.peer.display_name}
+            badge={f.peer.badge}
             subtitle="Sen bilan do'stlashmoqchi"
           >
             <View style={styles.actions}>
@@ -240,7 +251,11 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
       {/* Friends */}
       {accepted.map((f) => (
         <View key={f.id} style={styles.card}>
-          <Row title={f.peer.display_name} subtitle="Do'stingiz">
+          <Row
+            title={f.peer.display_name}
+            badge={f.peer.badge}
+            subtitle="Do'stingiz"
+          >
             <Pressable
               onPress={() => openThread(f)}
               accessibilityRole="button"
@@ -262,7 +277,11 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           the same reason. */}
       {outgoing.map((f) => (
         <View key={f.id} style={styles.card}>
-          <Row title={f.peer.display_name} subtitle="Javobini kutyapmiz">
+          <Row
+            title={f.peer.display_name}
+            badge={f.peer.badge}
+            subtitle="Javobini kutyapmiz"
+          >
             <View style={[styles.pillButton, styles.quiet]}>
               <Clock size={15} color={MUTED} />
               <Text style={styles.quietLabel}>Yuborildi</Text>
@@ -287,6 +306,7 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
             <View key={mate.peer.child_id} style={styles.card}>
               <Row
                 title={mate.peer.display_name}
+                badge={mate.peer.badge}
                 subtitle={`Umumiy maqsad: ${mate.shared_goal}`}
               >
                 <Pressable
@@ -394,7 +414,8 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY_WASH,
   },
   avatarLetter: { fontSize: 16, fontWeight: '700', color: PRIMARY },
-  rowTitle: { fontSize: 15, fontWeight: '700', color: INK },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  rowTitle: { flexShrink: 1, fontSize: 15, fontWeight: '700', color: INK },
   rowSubtitle: { fontSize: 13, color: MUTED },
 
   // ── Controls ──────────────────────────────────────────────────────────────

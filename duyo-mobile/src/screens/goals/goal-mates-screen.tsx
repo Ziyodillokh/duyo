@@ -22,6 +22,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { Badge, BADGE_FOR } from '@/components/badges/badge';
 import { Text, TextInput } from '@/components/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portrait, type PortraitSpec, type Scene } from '@/components/goals/portrait';
@@ -186,6 +187,10 @@ type MateState =
 interface MateRow {
   peerId: string;
   name: string;
+  /** Achievement key, or null. Carried on the row rather than read
+   *  from the peer object at render time because a row is built from
+   *  either a friendship or a goal-mate and both supply it. */
+  badge: string | null;
   goal: string;
   matchKey: string | null;
   state: MateState;
@@ -221,15 +226,29 @@ function MateCard({
 }) {
   const status = statusOf(row.state);
   const category = categoryOf(row.matchKey);
+  // An unknown key (a badge this build has no art for) draws nothing
+  // rather than a placeholder — a client one release behind should
+  // show the name it always showed, not a broken mark.
+  const badgeArt = row.badge ? BADGE_FOR[row.badge] : undefined;
   const state = row.state;
 
   return (
     <View style={[glass(22), rowStyles.card]}>
       <Portrait spec={portraitFor(row.peerId)} size={64} seed={seedOf(row.peerId)} />
       <View style={rowStyles.body}>
-        <Text style={rowStyles.name} numberOfLines={1}>
-          {row.name}
-        </Text>
+        {/* The badge stands BEFORE the name, the way a mark of rank
+            reads: you see what someone is, then who. After the name it
+            would collide with the truncation ellipsis on a long
+            nickname and disappear on exactly the rows most likely to
+            have one. */}
+        <View style={rowStyles.nameRow}>
+          {badgeArt && (
+            <Badge kind={badgeArt.kind} tier={badgeArt.tier} size={17} />
+          )}
+          <Text style={rowStyles.name} numberOfLines={1}>
+            {row.name}
+          </Text>
+        </View>
         <Text style={rowStyles.goal} numberOfLines={1}>
           <Text style={rowStyles.goalLead}>{leadOf(row.goal)}</Text>
           {row.goal.slice(leadOf(row.goal).length)}
@@ -410,6 +429,7 @@ export default function GoalMatesScreen() {
         byPeer.set(f.peer.child_id, {
           peerId: f.peer.child_id,
           name: f.peer.display_name,
+          badge: f.peer.badge ?? null,
           goal: goalTitle,
           matchKey: f.match_key,
           state: { kind: 'friend', friendship: f },
@@ -418,6 +438,7 @@ export default function GoalMatesScreen() {
         byPeer.set(f.peer.child_id, {
           peerId: f.peer.child_id,
           name: f.peer.display_name,
+          badge: f.peer.badge ?? null,
           goal: goalTitle,
           matchKey: f.match_key,
           state: f.incoming ? { kind: 'incoming', friendship: f } : { kind: 'outgoing' },
@@ -429,6 +450,7 @@ export default function GoalMatesScreen() {
       byPeer.set(m.peer.child_id, {
         peerId: m.peer.child_id,
         name: m.peer.display_name,
+        badge: m.peer.badge ?? null,
         goal: m.shared_goal,
         matchKey: m.match_key,
         state: requested.has(m.peer.child_id)
@@ -1073,7 +1095,15 @@ const rowStyles = StyleSheet.create({
     gap: 14,
   },
   body: { flex: 1 },
-  name: { fontSize: 18, lineHeight: 21, fontWeight: '700', color: PRIMARY },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // flexShrink so the NAME gives way to truncation, never the badge.
+  name: {
+    flexShrink: 1,
+    fontSize: 18,
+    lineHeight: 21,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
   goal: { marginTop: 1, fontSize: 14.5, lineHeight: 17, fontWeight: '500', color: MUTED },
   goalLead: { fontWeight: '700', color: INK } as TextStyle,
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },

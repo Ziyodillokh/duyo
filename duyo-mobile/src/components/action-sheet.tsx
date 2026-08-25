@@ -106,7 +106,12 @@ export function ActionSheet({
       <View style={styles.host} pointerEvents="box-none">
         <Animated.View
           style={[
-            glass(28, 'xl', 0.94),
+            // Opaque, unlike every other glass surface in the app.
+            // The others float over a gradient; this one covers TEXT, and at
+            // 0.94 the bold row labels underneath read straight through it —
+            // 6% of #22406F on white is plainly visible. A modal surface has
+            // to be a surface. The border and the lift keep the glass shape.
+            glass(28, 'xl', 1),
             styles.sheet,
             { paddingBottom: Math.max(insets.bottom, 12) + 8 },
             sheet,

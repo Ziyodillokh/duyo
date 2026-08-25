@@ -66,6 +66,7 @@ from duyo.schemas.social import (
     SocialSettingsUpdate,
 )
 from duyo.services import groups as group_svc
+from duyo.services.badges import badge_for, badges_for
 from duyo.services.media_notes import transcribe
 from duyo.services.social import (
     HandleError,
@@ -153,7 +154,19 @@ def _refusal_text(reason: str | None) -> str:
     return _REFUSALS.get(reason or "", _REFUSAL_DEFAULT)
 
 
-async def _peer_card(session: AsyncSession, child_id: UUID) -> PeerCard:
+async def _peer_card(
+    session: AsyncSession,
+    child_id: UUID,
+    *,
+    badges: dict[UUID, str | None] | None = None,
+) -> PeerCard:
+    """One peer, as the only shape this API exposes about another child.
+
+    `badges` is the answer already computed for a whole list (see
+    services/badges.py). Passing it is not an optimisation to remember —
+    a caller in a loop that leaves it out turns one query into four per
+    row. Omit it only for a genuinely single card.
+    """
     row = await session.execute(
         select(ChildProfile, ChildSocialSettings)
         .join(ChildSocialSettings, ChildSocialSettings.child_id == ChildProfile.id)
@@ -167,6 +180,11 @@ async def _peer_card(session: AsyncSession, child_id: UUID) -> PeerCard:
         child_id=peer.id,
         display_name=settings.display_name,
         age_segment=peer.age_segment,
+        badge=(
+            badges.get(peer.id)
+            if badges is not None
+            else await badge_for(session, peer.id)
+        ),
     )
 
 
@@ -279,6 +297,9 @@ async def goal_mates(
         return []
 
     mates = await find_goal_mates(db, child, match_key=match_key)
+    # Every mate at once: this list is what the badges are FOR, and
+    # asking per row would be four queries a mate.
+    badges = await badges_for(db, [peer.id for peer, _s, _e in mates])
     out: list[GoalMateRead] = []
     for peer, peer_settings, entry in mates:
         # The shared goal is named from the CATALOGUE TITLE, never from either
@@ -291,6 +312,7 @@ async def goal_mates(
                     child_id=peer.id,
                     display_name=peer_settings.display_name,
                     age_segment=peer.age_segment,
+                    badge=badges.get(peer.id),
                 ),
                 match_key=entry.match_key,
                 shared_goal=entry.title,
@@ -412,12 +434,15 @@ async def list_friends(
         stmt = stmt.where(Friendship.status != FriendshipStatus.BLOCKED)
 
     edges = (await db.execute(stmt.order_by(Friendship.created_at.desc()))).scalars().all()
+    peer_badges = await badges_for(db, [e.other_id(child.id) for e in edges])
     out: list[FriendshipRead] = []
     for edge in edges:
         out.append(
             FriendshipRead(
                 id=edge.id,
-                peer=await _peer_card(db, edge.other_id(child.id)),
+                peer=await _peer_card(
+                    db, edge.other_id(child.id), badges=peer_badges
+                ),
                 status=edge.status,
                 incoming=edge.requested_by_id != child.id,
                 match_key=edge.match_key,
@@ -685,8 +710,11 @@ async def list_group_members(
     if category is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
 
-    ids = await group_svc.member_ids(db, category, child.age_segment)
-    return [await _peer_card(db, pid) for pid in ids if pid != child.id]
+    ids = [pid for pid in await group_svc.member_ids(
+        db, category, child.age_segment
+    ) if pid != child.id]
+    badges = await badges_for(db, ids)
+    return [await _peer_card(db, pid, badges=badges) for pid in ids]
 
 
 def _note_media_url(m: GroupMessage, viewer_id: UUID) -> str:
