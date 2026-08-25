@@ -30,18 +30,7 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
     }
   };
 
-  // Home, Maqsaddoshlar and Miya are glass screens: they paint their own
-  // light sky whatever the theme is, so the bar over them must stay light
-  // too. Miya's map is the one dark ground under a light bar — the same
-  // pairing light mode has always shown there, and the tab bar cannot see
-  // which sub-screen Miya is on.
-  return (
-    <BottomNav
-      active={active}
-      onSelect={handleSelect}
-      forceLight={active === 'home' || active === 'goals' || active === 'brain'}
-    />
-  );
+  return <BottomNav active={active} onSelect={handleSelect} />;
 }
 
 export default function TabsLayout() {
