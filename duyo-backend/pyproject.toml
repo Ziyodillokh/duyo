@@ -24,6 +24,9 @@ dependencies = [
     "python-multipart>=0.0.9",
     "minio>=7.2",
     "structlog>=24.1.0",
+    # SQLAlchemy's async engine requires it and does not declare it.
+    # It was only ever installed because the Dockerfile named it by hand.
+    "greenlet>=3.0.0",
 ]
 
 [project.optional-dependencies]

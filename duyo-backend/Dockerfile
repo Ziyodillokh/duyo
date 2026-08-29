@@ -17,13 +17,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY src ./src
 
+# Wheels come from pyproject.toml, which is the only place the versions
+# are actually constrained.
+#
+# This used to name every dependency again, by hand and WITHOUT versions.
+# The two lists had already drifted, and the missing floors were a live
+# bomb: pip is free to backtrack an unconstrained requirement to any
+# release ever published, and on the first rebuild after this layer's
+# cache was invalidated it resolved python-jose to a 2016 release whose
+# jwt.py opens with `from collections import Mapping`. That is a Python
+# 3.9-and-earlier import, so the container died at import time, every
+# boot, and the deploy rolled back. pyproject already said >=3.3.0.
+#
+# One list, one source of truth. A lockfile would be stronger still and
+# is the right next step; the floors in pyproject close this hole.
 RUN pip install --upgrade pip && \
-    pip wheel --no-deps --wheel-dir /wheels -e . && \
-    pip wheel --wheel-dir /wheels \
-        fastapi 'uvicorn[standard]' pydantic pydantic-settings \
-        sqlalchemy alembic asyncpg pgvector redis httpx \
-        'python-jose[cryptography]' google-genai \
-        phonenumbers python-multipart structlog greenlet minio
+    pip wheel --wheel-dir /wheels .
 
 
 FROM python:3.12-slim AS runtime
