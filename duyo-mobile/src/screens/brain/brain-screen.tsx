@@ -1,6 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Bell,
@@ -12,9 +12,10 @@ import {
   Trash2,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -137,18 +138,56 @@ export default function BrainScreen() {
    *
    * It is a canvas you pinch, drag and read labels off, and 92pt of floating
    * dock across its bottom edge is 92pt of sky you cannot use — while the way
-   * out is already there, in the map's own back button. The claim is released
-   * on leaving the map AND on leaving Miya altogether, which is what the
-   * cleanup covers: without it, opening the map and then swiping to another
-   * tab would take the dock with it.
+   * out is already there, in the map's own back button.
+   *
+   * useFocusEffect, NOT useEffect. A tab navigator keeps its screens MOUNTED
+   * when you switch tabs, so a plain effect’s cleanup never runs on leaving
+   * Miya: the map stays open behind you, the claim is never released, and the
+   * dock stays hidden on every other tab until the app restarts. That was the
+   * bug — open the map, go back to the dashboard, no dock anywhere.
+   *
+   * Focus is the right boundary anyway: the claim means "the screen you are
+   * LOOKING AT wants the display", and a blurred screen is not being looked
+   * at. Coming back to Miya with the map still open re-claims it.
    */
   const immersive = screen.kind === 'map';
-  useEffect(() => {
-    if (!immersive) return;
-    const { enterImmersive, exitImmersive } = useChromeStore.getState();
-    enterImmersive();
-    return exitImmersive;
-  }, [immersive]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!immersive) return;
+      const { enterImmersive, exitImmersive } = useChromeStore.getState();
+      enterImmersive();
+      return exitImmersive;
+    }, [immersive]),
+  );
+
+  /**
+   * Android hardware back, inside this screen.
+   *
+   * Miya is four screens behind one route: home, the full-screen map, a
+   * note and a new note. The navigator sees one. Without this, back from
+   * the map does not close the map — it leaves Miya altogether with the map
+   * still open underneath, which is how the dock went missing: the screen
+   * stays mounted, so nothing tells it the map is no longer on screen.
+   *
+   * useFocusEffect above now releases the chrome claim on blur, so that is
+   * fixed either way. This is the other half: back should mean "out of
+   * this sub-screen" while there IS one, and only leave Miya from home.
+   * Returning false lets the navigator handle it, which is what should
+   * happen on the home sub-screen.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (screen.kind === 'home') return;
+      const sub = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          setScreen(screen.kind === 'map' ? { kind: 'home' } : { kind: 'map' });
+          return true;
+        },
+      );
+      return () => sub.remove();
+    }, [screen.kind]),
+  );
 
   const toHomeTab = () => navigation.navigate('index');
   const [title, setTitle] = useState('');
