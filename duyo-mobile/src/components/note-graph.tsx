@@ -57,6 +57,17 @@ const RESET_TEXT = '#DAB2FF';
  *  third of their light — the child asked to still watch the whole sky
  *  mingle — while edges drop to barely-there. */
 const DIM = 0.3;
+
+/** Up to this many notes, every name is drawn: they fit, and the map is
+ *  something you read. Past it the labels overlap into an unreadable band
+ *  — which is what the map already looks like — and each one costs a glyph
+ *  measure and layout per node per frame. */
+const LABEL_ALL_BELOW = 40;
+
+/** Past that threshold, how many landmarks keep their names. Radius already
+ *  encodes how connected a note is, so the biggest bodies are the ones worth
+ *  naming — the same choice a crowded star chart makes. */
+const LABEL_TOP_N = 18;
 const EDGE_DIM = 0.5;
 
 const MIN_ZOOM = 0.5;
@@ -681,6 +692,34 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
   const alpha = (title: string) =>
     !neighbours || neighbours.has(title.toLowerCase()) ? 1 : DIM;
 
+  /**
+   * Which bodies get their name drawn.
+   *
+   * Every node used to, unconditionally. Two things go wrong with that as
+   * a notebook grows. It is the most expensive element in the scene — the
+   * software rasteriser measures and lays out glyphs per node, per frame —
+   * and long before the cost matters the labels have already collided into
+   * a band of overlapping text that nobody can read anyway.
+   *
+   * So: below the threshold every name is drawn, because at that size they
+   * fit and the map is a reading surface. Above it, names are drawn for the
+   * hub, for whatever is focused and its neighbours (the reason you looked),
+   * and for the biggest bodies — radius already encodes how connected a note
+   * is, so this is "the landmarks", which is what a crowded star chart
+   * labels too.
+   */
+  const labelled = useMemo(() => {
+    const all = galaxy?.nodes ?? [];
+    if (all.length <= LABEL_ALL_BELOW) return null; // null = label everything
+    const keep = new Set<string>();
+    for (const n of all) if (n.ring === 0) keep.add(n.title.toLowerCase());
+    if (neighbours) for (const t of neighbours) keep.add(t);
+    for (const n of [...all].sort((a, b) => b.r - a.r).slice(0, LABEL_TOP_N)) {
+      keep.add(n.title.toLowerCase());
+    }
+    return keep;
+  }, [galaxy, neighbours]);
+
   const onLayout = (e: LayoutChangeEvent) => {
     const l = e.nativeEvent.layout;
     setSize((prev) =>
@@ -1041,7 +1080,9 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
               {/* ── Names. The tag's colour lives here now — the spheres wear
                   their planet faces, so the label is what still says which
                   collection a note belongs to. */}
-              {liveNodes.map((n) => (
+              {liveNodes
+                .filter((n) => !labelled || labelled.has(n.title.toLowerCase()))
+                .map((n) => (
                 <SvgText
                   key={`t-${n.title}`}
                   x={n.x}
