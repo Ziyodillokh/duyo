@@ -442,6 +442,17 @@ interface Props {
   /** Fixed height. Omit to fill the parent, which is how the full-screen map
    *  uses it; a card embedding the graph passes a number. */
   height?: number;
+  /**
+   * A thumbnail, not a map: draw the sky and skip the names.
+   *
+   * The Miya home card is about 330x230 with twenty-odd planets in it.
+   * Names there are unreadable whatever is done about collisions between
+   * them, and the survivors land on the card’s own overlay — "2-Miyya",
+   * "Bilimlaringiz olami", the link count, the + button — which the graph
+   * cannot see and so cannot avoid. The full-screen map is where names
+   * are read, and it is one tap away.
+   */
+  preview?: boolean;
 }
 
 /**
@@ -465,7 +476,13 @@ interface Props {
  * but it runs to rest instantly and the sky never animates — and dragging is
  * off, because a drag's whole feedback is motion.
  */
-export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
+export function NoteGraph({
+  nodes,
+  edges,
+  onSelect,
+  height,
+  preview = false,
+}: Props) {
   const [size, setSize] = useState({ width: 0, height: height ?? 0 });
   const [focus, setFocus] = useState<string | null>(null);
 
@@ -754,6 +771,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
    * sleeps — so this is a bounded cost on a scene that stops moving.
    */
   const visibleLabels = useMemo(() => {
+    if (preview) return new Set<string>();
     const cand = liveNodes
       .filter((n) => !labelled || labelled.has(n.title.toLowerCase()))
       .map((n) => {
@@ -785,7 +803,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
       keep.add(n.title);
     }
     return keep;
-  }, [liveNodes, labelled, neighbours]);
+  }, [liveNodes, labelled, neighbours, preview]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const l = e.nativeEvent.layout;

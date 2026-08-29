@@ -153,6 +153,7 @@ export default function BrainHome({
         {hasSky ? (
           <View style={styles.fill}>
             <NoteGraph
+              preview
               nodes={graphNodes}
               edges={graphEdges}
               onSelect={(n) => {
