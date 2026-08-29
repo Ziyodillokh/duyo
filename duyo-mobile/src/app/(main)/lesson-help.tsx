@@ -25,7 +25,7 @@ import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { Text, TextInput } from '@/components/text';
 import { useLessonHelp } from '@/hooks/use-lesson-help';
 import { glass, lift } from '@/lib/glass';
-import { DTM_SUBJECTS, type DTMSubject } from '@/mocks/dtm';
+import { SUBJECTS, type Subject } from '@/lib/subjects';
 import { useChildStore } from '@/store/child';
 
 // ── The glass sky, the inner screens' cooler morning ─────────────────────────
@@ -52,7 +52,7 @@ type Stage = 'input' | 'solving' | 'result' | 'error';
 
 export default function LessonHelpScreen() {
   const child = useChildStore((s) => s.child);
-  const [subject, setSubject] = useState<DTMSubject>('math');
+  const [subject, setSubject] = useState<Subject>('math');
   const [question, setQuestion] = useState('');
   const solve = useLessonHelp(child?.id);
 
@@ -73,7 +73,7 @@ export default function LessonHelpScreen() {
 
   const handleSubmit = () => {
     if (!canSubmit || solve.isPending) return;
-    const meta = DTM_SUBJECTS.find((s) => s.key === subject);
+    const meta = SUBJECTS.find((s) => s.key === subject);
     solve.mutate({
       // The readable Uzbek label, not the key — it goes into the tutor prompt
       // as "Fan: ..." (see api/endpoints/lesson-help.ts).
@@ -122,7 +122,7 @@ export default function LessonHelpScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.chips}
                 >
-                  {DTM_SUBJECTS.map((s) => {
+                  {SUBJECTS.map((s) => {
                     const sel = s.key === subject;
                     return (
                       <Pressable

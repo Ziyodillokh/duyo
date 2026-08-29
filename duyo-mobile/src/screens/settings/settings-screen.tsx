@@ -3,6 +3,7 @@ import { router, useNavigation } from 'expo-router';
 import {
   ArrowLeft,
   Bell,
+  BookOpen,
   BrainCircuit,
   Camera,
   Check,
@@ -413,6 +414,33 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
               </>
             )}
           </View>
+
+          {/* ── The two learning doors ──────────────────────── */}
+          {/* These were on the old Profile page and were the only way into
+              either screen. Folding Profile into Settings took the doors
+              with it and left Kutubxona and Dars yordami — both complete,
+              both backed by live endpoints — reachable by nothing at all.
+
+              They sit above the preference groups on purpose: these are
+              places a child goes, not settings a child changes. The
+              dashboard would be the better home, but that screen is a
+              fixed-height layout tuned by a scale factor and an extra row
+              overflows it on a small phone. */}
+          <Section title="O‘rganish">
+            <Row
+              Icon={BookOpen}
+              label="Kutubxona"
+              value="She‘r, ertak, darslik"
+              onPress={() => router.push('/(main)/library')}
+            />
+            <Row
+              Icon={PenLine}
+              label="Dars yordami"
+              value="Uy vazifasi"
+              onPress={() => router.push('/(main)/lesson-help')}
+              isLast
+            />
+          </Section>
 
           <Section title={t('settings.section.general')}>
             <Row

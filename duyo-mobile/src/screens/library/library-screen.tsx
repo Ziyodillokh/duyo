@@ -317,30 +317,6 @@ export default function LibraryScreen() {
             </View>
           )}
 
-          {selectedCategory === 'language' && (
-            <Pressable
-              onPress={() => router.push('/(main)/language-practice')}
-              accessibilityRole="button"
-              accessibilityLabel="Til mashqini boshlash"
-              style={({ pressed }) => [
-                glass(22, 'md', 0.62),
-                styles.practice,
-                pressed && styles.pressed,
-                styles.focusable,
-              ]}
-            >
-              <View style={styles.practiceWell}>
-                <Text style={styles.practiceEmoji}>✍️</Text>
-              </View>
-              <View style={styles.practiceBody}>
-                <Text style={styles.practiceTitle}>Til mashqi</Text>
-                <Text style={styles.practiceText}>
-                  Ingliz yoki rus tilida savol-javob mashqi
-                </Text>
-              </View>
-            </Pressable>
-          )}
-
           <View style={styles.results}>
             {results.isPending ? (
               // Skeletons rather than a count — we do not know one yet.
@@ -498,25 +474,6 @@ const styles = StyleSheet.create({
   chipEmoji: { fontSize: 16 },
   chipText: { fontSize: 14, fontWeight: '600', color: INK },
   chipTextOn: { color: '#FFFFFF' },
-
-  practice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-  },
-  practiceWell: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(47,111,228,0.10)',
-  },
-  practiceEmoji: { fontSize: 26 },
-  practiceBody: { flex: 1 },
-  practiceTitle: { fontSize: 16, fontWeight: '700', color: INK },
-  practiceText: { marginTop: 4, fontSize: 13.5, lineHeight: 19, color: MUTED },
 
   results: { gap: 12 },
   skeleton: { height: 88, opacity: 0.5 },
