@@ -85,6 +85,16 @@ jobs:
               SHA="${GIT_SHA:0:12}"
               cd /opt/duyo/api
 
+              # 0. Disk, before anything. A build that dies with "no space left
+              #    on device" fails at exactly the same place as a broken
+              #    Dockerfile, and the two are indistinguishable in the log
+              #    unless the free space is printed. Nothing here pruned images
+              #    until step 6 was added, so a box that has taken dozens of
+              #    deploys is the first thing to suspect.
+              echo "--- disk before build ---"
+              df -h /var/lib/docker /opt/duyo 2>/dev/null || df -h /
+              docker system df || true
+
               # 1. Build image — UNMASKED so a failed build fails the deploy.
               #    (Old `... 2>&1 | tail` swallowed build errors via the pipe exit code.)
               echo "--- docker build duyo-api:$SHA ---"
@@ -159,6 +169,23 @@ jobs:
               # 6. Success — drop the previous container.
               docker rm "duyo-api-prev-$SHA" >/dev/null 2>&1 || true
               echo "--- deploy ok: $(docker ps --filter name=duyo-api --format '{{.Status}} | {{.Image}}') ---"
+
+              # 7. Reclaim disk. Every deploy leaves behind a duyo-api:<sha>
+              #    image and the layers under it, and nothing removed them —
+              #    on a small VPS that ends as a build failing for want of
+              #    space, which looks exactly like a code problem.
+              #
+              #    Runs only after the health gate passed, and keeps the two
+              #    images that matter: :latest and this SHA. `|| true` on all
+              #    of it — housekeeping must never fail a deploy that worked.
+              echo "--- prune old images ---"
+              docker images --format '{{.Repository}}:{{.Tag}}' \
+                | grep "^duyo-api:" \
+                | grep -v -e ":latest$" -e ":$SHA$" \
+                | xargs -r docker rmi 2>/dev/null || true
+              docker image prune -f || true
+              echo "--- disk after ---"
+              df -h /var/lib/docker 2>/dev/null || df -h /
           REMOTE
 
       - name: Smoke test (HTTPS health endpoints, with retry)
