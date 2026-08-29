@@ -9,15 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from duyo.psychology.retriever import (
-    build_chat_context,
-    build_guidance_context,
-    retrieve_for_chat,
-    retrieve_for_guidance,
-)
+from duyo.psychology.retriever import build_chat_context, retrieve_for_chat
 
 # ---------------------------------------------------------------------------
-# build_chat_context / build_guidance_context — pure functions
+# build_chat_context — pure function
 # ---------------------------------------------------------------------------
 
 
@@ -46,24 +41,6 @@ class TestBuildChatContext:
         result = build_chat_context([(_make_chunk(), 0.7)])
         assert result is not None
         assert "bilim bazasi" in result.lower()
-
-
-class TestBuildGuidanceContext:
-    def test_returns_none_for_empty_list(self) -> None:
-        assert build_guidance_context([]) is None
-
-    def test_no_wrapping_markers(self) -> None:
-        """Guidance context must be raw — analysis/guidance.py wraps it itself."""
-        result = build_guidance_context([(_make_chunk(), 0.7)])
-        assert result is not None
-        assert "[PSIXOLOGIK KONTEKST]" not in result
-
-    def test_contains_title_and_text(self) -> None:
-        chunk = _make_chunk(title="Yolg'izlik hissi", text="Yolg'izlik hissi keng tarqalgan.")
-        result = build_guidance_context([(chunk, 0.6)])
-        assert result is not None
-        assert "Yolg'izlik hissi" in result
-        assert "keng tarqalgan" in result
 
 
 # ---------------------------------------------------------------------------
@@ -99,24 +76,3 @@ async def test_retrieve_for_chat_returns_context_on_hit():
     assert result is not None
     assert "Bezovtalik va tashvish" in result.context
     assert result.topic_titles == ["Bezovtalik va tashvish"]
-
-
-# ---------------------------------------------------------------------------
-# retrieve_for_guidance — no gate, aggregate-signal query only
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_retrieve_for_guidance_returns_none_for_blank_query():
-    result = await retrieve_for_guidance(AsyncMock(), "   ")
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_retrieve_for_guidance_returns_raw_context_on_hit():
-    chunk = _make_chunk(title="Imtihon va DTM stressi")
-    with patch("duyo.psychology.retriever.search_topics", AsyncMock(return_value=[(chunk, 0.65)])):
-        result = await retrieve_for_guidance(AsyncMock(), "tushkun maktab imtihon")
-    assert result is not None
-    assert "Imtihon va DTM stressi" in result
-    assert "[PSIXOLOGIK KONTEKST]" not in result

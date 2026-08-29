@@ -1,7 +1,5 @@
 """Auth-related request/response schemas."""
 
-from datetime import datetime
-from uuid import UUID
 
 import phonenumbers
 from phonenumbers import NumberParseException
@@ -62,31 +60,11 @@ class OTPVerify(BaseModel):
         return v
 
 
-class PendingFamilyInvite(BaseModel):
-    """An OFFER awaiting this account's decision — NOT a link.
-
-    Handed back at sign-in so the app can show who is asking before anything
-    is connected. Nothing is linked until the invitee accepts; see
-    models/family_invite.py for why that consent step exists.
-
-    `from_phone` is the inviter's number, and is the point: it is how the
-    invitee tells a parent they know from a stranger who typed their number.
-    """
-
-    id: UUID
-    child_name: str
-    from_phone: str
-    expires_at: datetime
-
-
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # access token TTL in seconds
-    # Someone has invited this phone into their family. Still just an offer:
-    # the app must ask this user to accept before any link is formed.
-    pending_family_invite: PendingFamilyInvite | None = None
 
 
 class RefreshRequest(BaseModel):

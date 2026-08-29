@@ -12,12 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from duyo.api.deps import get_db
 from duyo.core.config import get_settings
 from duyo.core.security import create_token, decode_token
-from duyo.models.family_invite import FamilyInvite
 from duyo.models.user import User
 from duyo.schemas.auth import (
     OTPRequest,
     OTPVerify,
-    PendingFamilyInvite,
     RefreshRequest,
     TokenResponse,
 )
@@ -28,15 +26,12 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _build_token_response(
-    user_id: str, pending_family_invite: PendingFamilyInvite | None = None
-) -> TokenResponse:
+def _build_token_response(user_id: str) -> TokenResponse:
     settings = get_settings()
     return TokenResponse(
         access_token=create_token(user_id, "access"),
         refresh_token=create_token(user_id, "refresh"),
         expires_in=settings.jwt_access_token_expire_minutes * 60,
-        pending_family_invite=pending_family_invite,
     )
 
 
@@ -117,45 +112,12 @@ async def verify_otp(
     # an OFFER only — accepting it is a separate, deliberate act by this
     # account (POST /v1/family/invite/accept).
     #
-    # This used to link right here, which was a hole: `child_phone` is an
-    # arbitrary number typed by whoever invited, the invitee's only signal is
-    # an ordinary-looking login SMS, and the reward for typing a stranger's
-    # number was becoming the recorded parent of their profile — their chat
-    # history, their safety reports, and the crisis alerts that should have
-    # reached the real parent. Consent is what closes that.
-    #
-    # Newest-first: create_invite re-sends the OTP each time, and Redis keeps
-    # only the latest code per phone, so the newest offer is provably the one
-    # whose code was just answered.
-    pending = await db.scalar(
-        select(FamilyInvite)
-        .where(
-            FamilyInvite.child_phone == payload.phone,
-            FamilyInvite.claimed.is_(False),
-            FamilyInvite.declined_at.is_(None),
-            FamilyInvite.expires_at > datetime.now(UTC),
-        )
-        .order_by(FamilyInvite.created_at.desc())
-    )
-    pending_invite: PendingFamilyInvite | None = None
-    if pending is not None:
-        inviter_phone = await db.scalar(select(User.phone).where(User.id == pending.parent_id))
-        # Never offer a link the invitee cannot judge: the inviter's number is
-        # how they tell a parent they know from a stranger who typed theirs.
-        if inviter_phone:
-            pending_invite = PendingFamilyInvite(
-                id=pending.id,
-                child_name=pending.child_name,
-                from_phone=inviter_phone,
-                expires_at=pending.expires_at,
-            )
-
     # Commit here rather than leaning on get_db's teardown: that commit runs
     # after the response is built, so a failure there would hand the app a
     # token for an account that was never stored.
     await db.commit()
 
-    return _build_token_response(str(user.id), pending_family_invite=pending_invite)
+    return _build_token_response(str(user.id))
 
 
 @router.post("/refresh", response_model=TokenResponse)

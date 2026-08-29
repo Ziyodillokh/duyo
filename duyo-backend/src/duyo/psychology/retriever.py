@@ -7,14 +7,6 @@ Mirrors `textbook/retriever.py`'s shape. Two call sites, two output shapes:
     a self-contained `[PSIXOLOGIK KONTEKST]` block with its own instructions,
     ready to pass straight into `services/gemini.py::chat()`'s `rag_context`.
 
-  - `retrieve_for_guidance()` → analysis/reports.py, grounding the parent
-    guidance prompt. Returns RAW card text only (no wrapping markers) because
-    `analysis/guidance.py::_build_payload()` already wraps whatever it's
-    given in its own `[PEDAGOGIK MANBA]` block — matching the hook the
-    guidance module's docstring already promised ("a pedagogical-content RAG
-    layer can be injected via rag_context without changing the call site").
-    Per the §11.3 privacy contract, the query passed here must be built from
-    AGGREGATE report signals only — never raw child messages.
 
 CRITICAL: `_CHAT_MIN_SIMILARITY` below is an unvalidated starting guess (no
 production traffic to calibrate against yet), unlike textbook/retriever.py's
@@ -144,14 +136,6 @@ def build_chat_context(chunks_with_scores: list[tuple[PsychologyChunk, float]]) 
     return "\n".join(lines)
 
 
-def build_guidance_context(chunks_with_scores: list[tuple[PsychologyChunk, float]]) -> str | None:
-    """Raw card text only — the caller (analysis/guidance.py) wraps it."""
-    if not chunks_with_scores:
-        return None
-    parts = [f"{chunk.title}: {chunk.text[:_MAX_CONTEXT_CHARS]}" for chunk, _ in chunks_with_scores]
-    return "\n\n".join(parts)
-
-
 async def retrieve_for_chat(
     session: AsyncSession,
     child_message: str,
@@ -178,16 +162,3 @@ async def retrieve_for_chat(
     return PsychRetrieval(context=context, topic_titles=[c.title for c, _ in results])
 
 
-async def retrieve_for_guidance(
-    session: AsyncSession,
-    aggregate_query: str,
-    *,
-    age_segment: str | None = None,
-) -> str | None:
-    """Used by analysis/reports.py. `aggregate_query` must be built from
-    AGGREGATE report signals only (mood_trend/topics/stress_signals) — never
-    raw child messages, preserving the §11.3 privacy contract."""
-    if not aggregate_query.strip():
-        return None
-    results = await search_topics(session, aggregate_query, age_segment=age_segment, limit=_DEFAULT_LIMIT)
-    return build_guidance_context(results)

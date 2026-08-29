@@ -159,24 +159,6 @@ def _claimed_invite(parent_id) -> FamilyInvite:
     )
     invite.id = uuid4()
     return invite
-
-
-def test_linked_child_is_attached_to_the_inviting_parent_not_the_child_account():
-    """The child is logging in on their OWN phone — parent_id must be the
-    parent who invited them, not this account's own id."""
-    child_account = _FakeUser(id=uuid4())
-    parent_id = uuid4()
-    db = _FakeSession(existing=None, invite=_claimed_invite(parent_id))
-
-    child = _create(
-        db, ChildCreate(name="Aziza", age=12), user=child_account,
-    )
-
-    assert child.parent_id == parent_id
-    assert child.parent_id != child_account.id
-    assert child.child_user_id == child_account.id
-
-
 def test_unlinked_child_still_owns_itself_as_before():
     """No claimed invite — legacy self-onboarding keeps working unchanged."""
     user = _FakeUser(id=uuid4())
@@ -186,21 +168,6 @@ def test_unlinked_child_still_owns_itself_as_before():
 
     assert child.parent_id == user.id
     assert child.child_user_id is None
-
-
-def test_repeat_create_on_a_linked_account_still_dedupes():
-    child_account = _FakeUser(id=uuid4())
-    parent_id = uuid4()
-    existing = _child(parent_id, "Aziza", 12)
-    db = _FakeSession(existing=existing, invite=_claimed_invite(parent_id))
-
-    again = _create(db, ChildCreate(name="Aziza", age=12), user=child_account)
-
-    assert again is existing
-    assert db.added == []
-    assert existing.child_user_id == child_account.id
-
-
 # ── update carries the same fields ──────────────────────────────────────────
 
 def test_update_can_change_interests_and_mascot():

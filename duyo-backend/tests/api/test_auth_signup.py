@@ -139,52 +139,6 @@ def _pending_invite(parent_id=None, child_name="Aziza") -> FamilyInvite:
     invite.id = uuid4()
     invite.expires_at = datetime.now(UTC) + timedelta(hours=24)
     return invite
-
-
-def test_verify_offers_a_pending_invite_without_linking_it():
-    user = _existing_user("+998911112233")
-    invite = _pending_invite(child_name="Bekzod")
-    db = _FakeSession(user=user, invite=invite, inviter_phone="+998901234567")
-
-    tokens = _run(
-        auth_module.verify_otp(payload=OTPVerify(phone="+998911112233", code="00000"), db=db)
-    )
-
-    # Offered...
-    assert tokens.pending_family_invite is not None
-    assert tokens.pending_family_invite.child_name == "Bekzod"
-    # ...including WHO is asking, so the invitee can judge it.
-    assert tokens.pending_family_invite.from_phone == "+998901234567"
-
-    # ...but NOT accepted. Nothing is linked by signing in.
-    assert invite.claimed is False
-    assert invite.claimed_by_user_id is None
-    assert invite.claimed_at is None
-
-
-def test_verify_without_a_pending_invite_offers_nothing():
-    user = _existing_user("+998911112233")
-    db = _FakeSession(user=user, invite=None)
-
-    tokens = _run(
-        auth_module.verify_otp(payload=OTPVerify(phone="+998911112233", code="00000"), db=db)
-    )
-
-    assert tokens.pending_family_invite is None
-
-
-def test_verify_does_not_offer_an_invite_whose_inviter_vanished():
-    """Without a number to show, the invitee cannot tell friend from stranger."""
-    user = _existing_user("+998911112233")
-    db = _FakeSession(user=user, invite=_pending_invite(), inviter_phone=None)
-
-    tokens = _run(
-        auth_module.verify_otp(payload=OTPVerify(phone="+998911112233", code="00000"), db=db)
-    )
-
-    assert tokens.pending_family_invite is None
-
-
 # ── send → what the tester is told ──────────────────────────────────────────
 
 

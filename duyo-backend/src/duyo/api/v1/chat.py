@@ -54,16 +54,12 @@ from duyo.schemas.chat import (
     ChildUpdate,
     FeedbackRequest,
     FeedbackResponse,
-    HintRequest,
-    HintResponse,
     LessonHelpRequest,
     LessonHelpResponse,
     LessonStep,
     MemoryCandidateRead,
     QuickReply,
     SourceRef,
-    TranslateRequest,
-    TranslateResponse,
 )
 from duyo.services.conversations import build_project_context, title_from_message
 from duyo.services.crisis_l2 import Layer2Result, classify
@@ -72,8 +68,6 @@ from duyo.services.gemini import (
     chat_with_web_search,
     solve_lesson,
     solve_on_board,
-    suggest_hint,
-    translate_text,
 )
 from duyo.services.gemini import chat as gemini_chat
 from duyo.services.goals import extract_child_insights
@@ -1115,30 +1109,6 @@ async def board(
         answer=result["answer"],
         figure=BoardFigure(**fig) if fig else None,
     )
-
-
-@router.post("/translate", response_model=TranslateResponse)
-async def translate(
-    payload: TranslateRequest,
-    _current_user: User = Depends(get_current_user),
-) -> TranslateResponse:
-    """Translate a phrase into the target language (voice-screen translate button)."""
-    translated = await translate_text(text=payload.text, target_lang=payload.target_lang)
-    return TranslateResponse(translated=translated)
-
-
-@router.post("/hint", response_model=HintResponse)
-async def hint(
-    payload: HintRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> HintResponse:
-    """Suggest a short thing the child could say next (voice-screen hint button)."""
-    child = await _get_owned_child(payload.child_id, current_user, db)
-    text = await suggest_hint(context=payload.context, age_segment=child.age_segment)
-    return HintResponse(hint=text)
-
-
 @router.post("/messages/{message_id}/feedback", response_model=FeedbackResponse)
 async def rate_message(
     message_id: UUID,

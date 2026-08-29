@@ -29,11 +29,10 @@ def test_all_v1_routers_are_mounted():
     paths = set(app.openapi()["paths"])
     expected_prefixes = (
         "/v1/chat",
-        "/v1/dtm",
         "/v1/gamification",
         "/v1/tamagochi",
         "/v1/subscriptions",
-        "/v1/reports",
+        "/v1/social",
         "/v1/admin",
     )
     for prefix in expected_prefixes:
