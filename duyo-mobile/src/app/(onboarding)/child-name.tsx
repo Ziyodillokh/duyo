@@ -64,8 +64,6 @@ export default function ChildNameScreen() {
   const t = useT();
   const setPendingName = useOnboardingStore((s) => s.setPendingName);
   const persistedName = useOnboardingStore((s) => s.pendingName);
-  // OTA-ONA BO'LIMI O'CHIRILGAN: userType endi bu tarmoqda o'qilmaydi.
-  // const userType = useOnboardingStore((s) => s.userType);
   const [name, setName] = useState(persistedName);
 
   const trimmedName = name.trim();
@@ -73,13 +71,6 @@ export default function ChildNameScreen() {
 
   const handleContinue = () => {
     setPendingName(trimmedName);
-    // OTA-ONA BO'LIMI O'CHIRILGAN: ilova faqat bola uchun, shuning uchun
-    // "ota-ona bolaning telefonini kiritadi" tarmog'i kommentda turibdi.
-    // router.push(
-    //   userType === 'parent'
-    //     ? '/(onboarding)/child-phone'
-    //     : '/(onboarding)/age',
-    // );
     router.push('/(onboarding)/age');
   };
 

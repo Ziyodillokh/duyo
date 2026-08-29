@@ -81,34 +81,15 @@ export default function OtpScreen() {
 
       // Record who this account belongs to. Best-effort: the answer is a
       // nice-to-have, and failing it must not block a login.
-      // OTA-ONA BO'LIMI O'CHIRILGAN: rol doim 'child' — eski qurilmada
-      // saqlanib qolgan 'parent' qiymati ham hisobni ota-ona qilib
-      // belgilamasin.
-      // if (userType) {
-      //   void updateMe({ role: userType }).catch(() => undefined);
-      // }
       void updateMe({ role: 'child' }).catch(() => undefined);
 
       // Does this account already have a child? Signing in again — after a
       // reinstall, on a new phone, after logging out — must return the child
       // that exists, not walk onboarding and leave a second profile behind.
       const children = await listChildren();
-      return { children, invite: token.pending_family_invite ?? null };
+      return { children };
     },
-    onSuccess: ({ children, invite }) => {
-      // OTA-ONA BO'LIMI O'CHIRILGAN: taklifga rozilik ekrani ishlamaydi —
-      // bola oddiy oqimda davom etadi. Asl tarmoq kommentda:
-      // if (invite) {
-      //   router.replace({
-      //     pathname: '/(onboarding)/family-consent',
-      //     params: {
-      //       childName: invite.child_name,
-      //       fromPhone: invite.from_phone,
-      //     },
-      //   });
-      //   return;
-      // }
-      void invite;
+    onSuccess: ({ children }) => {
       const existing = children[0];
       if (existing) {
         setChild(existing);

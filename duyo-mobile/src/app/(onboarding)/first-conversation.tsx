@@ -48,7 +48,6 @@ export default function FirstConversationScreen() {
   const pendingAge = useOnboardingStore((s) => s.pendingAge);
   const pendingInterests = useOnboardingStore((s) => s.pendingInterests);
   const pendingAvatarConfig = useOnboardingStore((s) => s.pendingAvatarConfig);
-  const userType = useOnboardingStore((s) => s.userType);
   const resetOnboarding = useOnboardingStore((s) => s.reset);
 
   const mutation = useMutation({
@@ -66,13 +65,10 @@ export default function FirstConversationScreen() {
         mascot: pendingAvatarConfig.body,
       });
 
-      // A child-held account gets their own name on it; a parent's name was
-      // never asked for, so nothing is invented here.
-      if (userType === 'child') {
-        void updateMe({ role: 'child', display_name: pendingName }).catch(
-          () => undefined,
-        );
-      }
+      // The account is the child's own, so it carries their name.
+      void updateMe({ role: 'child', display_name: pendingName }).catch(
+        () => undefined,
+      );
       return child;
     },
     onSuccess: (child) => {

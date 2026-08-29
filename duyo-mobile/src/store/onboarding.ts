@@ -3,15 +3,11 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { asyncStorage } from '@/lib/async-storage';
 
-export type UserType = 'child' | 'parent';
-
 interface OnboardingState {
-  userType: UserType | null;
   pendingName: string;
   pendingAge: number | null;
   pendingInterests: readonly string[];
   pendingAvatarConfig: Record<string, string>;
-  setUserType: (userType: UserType) => void;
   setPendingName: (name: string) => void;
   setPendingAge: (age: number) => void;
   setPendingInterests: (interests: readonly string[]) => void;
@@ -20,7 +16,6 @@ interface OnboardingState {
 }
 
 const EMPTY = {
-  userType: null,
   pendingName: '',
   pendingAge: null,
   pendingInterests: [] as readonly string[],
@@ -35,7 +30,6 @@ export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
       ...EMPTY,
-      setUserType: (userType) => set({ userType }),
       setPendingName: (pendingName) => set({ pendingName }),
       setPendingAge: (pendingAge) => set({ pendingAge }),
       setPendingInterests: (pendingInterests) => set({ pendingInterests }),
@@ -47,7 +41,6 @@ export const useOnboardingStore = create<OnboardingState>()(
       name: 'duyo-onboarding',
       storage: createJSONStorage(() => asyncStorage),
       partialize: (state) => ({
-        userType: state.userType,
         pendingName: state.pendingName,
         pendingAge: state.pendingAge,
         pendingInterests: state.pendingInterests,

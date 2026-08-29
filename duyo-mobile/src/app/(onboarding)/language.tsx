@@ -10,7 +10,6 @@ import { MascotImage } from '@/components/v2/mascot-image';
 import { LANGUAGE_NAMES, translate } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { type Language, useLanguageStore } from '@/store/language';
-import { useOnboardingStore } from '@/store/onboarding';
 
 // ── The glass sky, the same morning the inner screens wake up to ─────────────
 const PRIMARY = '#2F6FE4';
@@ -33,10 +32,6 @@ export default function LanguageScreen() {
 
   const handleContinue = () => {
     setLanguage(selected);
-    // OTA-ONA BO'LIMI O'CHIRILGAN: "Siz kimsiz?" ekrani tashlab o'tiladi —
-    // ilova hozircha faqat bola uchun, hisob turi hamisha 'child'.
-    // router.push('/(onboarding)/user-type');
-    useOnboardingStore.getState().setUserType('child');
     router.push('/(onboarding)/phone');
   };
 

@@ -64,13 +64,6 @@ export default function SplashScreen() {
         router.replace('/(main)/(tabs)');
         return;
       }
-      // OTA-ONA BO'LIMI O'CHIRILGAN: ota-onaning kutish ekraniga qaytish
-      // tarmog'i kommentda — ilova faqat bola uchun.
-      // const invite = await getFamilyInvite().catch(() => null);
-      // if (invite) {
-      //   router.replace('/(onboarding)/family-waiting');
-      //   return;
-      // }
       router.replace('/(onboarding)/child-name');
     } catch {
       // Never fall through to onboarding on a failed lookup — that is exactly

@@ -1,5 +1,4 @@
 import { apiClient } from '@/api/client';
-import { type PendingFamilyInviteWire } from '@/api/endpoints/family';
 
 export interface SendOtpResponse {
   /** 'demo' while no SMS provider is connected — then `demo_code` is filled. */
@@ -15,11 +14,6 @@ export interface TokenResponseDto {
   refresh_token: string;
   token_type: string;
   expires_in: number;
-  /**
-   * Someone invited this phone into their family. An OFFER, not a link —
-   * the app must ask this user to accept before anything is connected.
-   */
-  pending_family_invite?: PendingFamilyInviteWire | null;
 }
 
 export async function sendOtp(phone: string): Promise<SendOtpResponse> {

@@ -21,7 +21,6 @@ import {
   Trash2,
   X,
   type LucideIcon,
-  // Users, // OTA-ONA BO'LIMI O'CHIRILGAN — qatori bilan birga kommentda
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { type ReactNode, useState } from 'react';
@@ -494,16 +493,6 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
               onPress={() => router.push('/(main)/settings-privacy')}
               isLast
             />
-            {/* OTA-ONA BO'LIMI O'CHIRILGAN — ilova hozircha faqat bola uchun.
-                Qatorning asl kodi:
-            <Row
-              Icon={Users}
-              label={t('settings.parentLink')}
-              value={t('settings.parentLinkConnected')}
-              onPress={() => router.push('/(main)/parent-connection')}
-              isLast
-            />
-            */}
           </Section>
 
           <Section title={t('settings.section.subscription')}>
