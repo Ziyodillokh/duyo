@@ -73,16 +73,8 @@ function scatterSeeds(
  *    sky is then a still picture costing nothing, and the first touch, a
  *    rebuild, or coming back to the screen wakes it.
  */
-const FPS_SETTLING = 30;
-const FPS_DRIFTING = 8;
-
-/** Steps of full-rate settling before the drift takes over. At 30fps this
- *  is three seconds, which is past the point the layout stops visibly
- *  rearranging even for a large notebook. */
-const SETTLING_STEPS = 90;
-
-/** Untouched milliseconds before the sky stops moving altogether. */
-const SLEEP_AFTER_MS = 20_000;
+const FPS = 30;
+const FRAME_MS = 1000 / FPS;
 
 export interface GraphSim {
   /** Bumps on every physics step — reading it makes a component follow the sim. */
@@ -99,6 +91,10 @@ export interface GraphSim {
   dragTo(x: number, y: number): void;
   release(): void;
   reduceMotion: boolean;
+  /** True once the physics has run out of energy and the loop has parked.
+   *  Anything using `tick` as an animation clock must stop when this is
+   *  set, or it will animate against a number that no longer moves. */
+  resting: boolean;
 }
 
 /**
@@ -122,7 +118,16 @@ export interface GraphSim {
  * setting exists to turn off, and dragging is disabled with it: a drag's
  * whole feedback is motion.
  */
-export function useGraphSim(galaxy: Galaxy | null): GraphSim {
+export function useGraphSim(
+  galaxy: Galaxy | null,
+  opts?: {
+    /** Settle synchronously and never animate. For a thumbnail: the
+     *  preview card is 330x230 and nobody watches it settle, so paying
+     *  83 full re-rasterisations to show them is pure cost. */
+    still?: boolean;
+  },
+): GraphSim {
+  const still = opts?.still ?? false;
   const [tick, setTick] = useState(0);
   // The built the loop has finished for. A NEW built is by definition not
   // resting, so no reset-effect is needed — the derivation answers it.
@@ -195,9 +200,9 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
     // Under reduce-motion the sky is a still picture: settle right here,
     // where the sim is born, so the first render already shows the settled
     // layout — no effect, no extra tick, no one-frame flash of the seeds.
-    if (reduceMotion) sim.settleSync();
+    if (reduceMotion || still) sim.settleSync();
     return { sim, index, nodes: galaxy.nodes };
-  }, [galaxy, reduceMotion]);
+  }, [galaxy, reduceMotion, still]);
 
   // Remember where a retiring simulation left its bodies.
   useEffect(() => {
@@ -213,38 +218,22 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
   const resting = built !== null && restingFor === built;
 
   useEffect(() => {
-    if (!built || resting || reduceMotion || !focused) return;
+    if (!built || resting || reduceMotion || still || !focused) return;
     let frame: number | null = null;
     let last = 0;
-    let steps = 0;
-    const startedAt = Date.now();
 
     const loop = (now: number) => {
-      // Full rate while the layout is still finding itself or a finger is
-      // holding a body; the slow drift rate once it has settled.
-      const settling = steps < SETTLING_STEPS || built.sim.isDragging();
-      const frameMs = 1000 / (settling ? FPS_SETTLING : FPS_DRIFTING);
-
-      if (now - last >= frameMs) {
+      if (now - last >= FRAME_MS) {
         last = now;
-        steps++;
-
-        // Park the sky once nobody has touched it for a while. `tick`
-        // stops advancing, so nothing re-renders and the scene costs
-        // nothing until grabAt, a rebuild or refocusing wakes it.
-        if (
-          !built.sim.isDragging() &&
-          Date.now() - startedAt > SLEEP_AFTER_MS
-        ) {
-          setRestingFor(built);
-          return;
-        }
 
         if (built.sim.tick()) {
           setTick((t) => t + 1);
         } else {
-          // Reachable with drift retired (reduce motion), and now also
-          // whenever the physics genuinely runs out of energy.
+          // The sole stop condition now. With the ambient drift retired,
+          // alpha decays 0.92 per tick from 1, so tick() reports itself
+          // done after 83 steps — 2.8 seconds — and after a drag release
+          // (alpha 0.3) after 69. A held finger pins a body, which keeps
+          // the bail from firing, so a drag never ends early.
           setRestingFor(built);
           return;
         }
@@ -256,7 +245,7 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
     return () => {
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [built, resting, reduceMotion, focused]);
+  }, [built, resting, reduceMotion, still, focused]);
 
   // Fresh object every render on purpose: consumers key their memoisation on
   // it, and a stable identity here would let a memo keep drawing a sky the
@@ -298,5 +287,6 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
       setRestingFor(null);
     },
     reduceMotion,
+    resting,
   };
 }

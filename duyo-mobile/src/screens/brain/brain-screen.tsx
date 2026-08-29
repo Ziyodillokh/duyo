@@ -66,6 +66,13 @@ type Screen =
   | { kind: 'note'; id: string }
   | { kind: 'new' };
 
+/** Frozen empties, so "no data yet" keeps ONE identity across renders.
+ *  NoteGraph memoises its layout on [nodes, edges, size]; a fresh `[]`
+ *  each render rebuilt the galaxy, and the simulation with it, on every
+ *  render until the fetch landed. */
+const EMPTY_NODES: never[] = [];
+const EMPTY_EDGES: never[] = [];
+
 const SORT_LABEL: Record<NoteSort, string> = {
   updated: "O'zgargan",
   created: 'Yaratilgan',
@@ -220,6 +227,18 @@ export default function BrainScreen() {
     queryFn: () => getNoteGraph(childId),
     enabled: !!childId,
   });
+
+  /**
+   * One stable identity for the empty case.
+   *
+   * `graph.data?.nodes ?? []` produces a FRESH array on every render
+   * while the query has no data, and NoteGraph memoises its whole layout
+   * on `[nodes, edges, size]` — so the galaxy was rebuilt, and the
+   * simulation with it, on every render until the fetch landed. Four call
+   * sites fed that loop: the preview card and the full map.
+   */
+  const graphNodes = graph.data?.nodes ?? EMPTY_NODES;
+  const graphEdges = graph.data?.edges ?? EMPTY_EDGES;
   const notes = useQuery({
     queryKey: ['notes', childId, activeTag, sort],
     queryFn: () => listNotes(childId, activeTag ?? undefined, sort),
@@ -621,8 +640,8 @@ export default function BrainScreen() {
             <View style={styles.fill}>
               <BrainHome
                 notes={notes.data ?? []}
-                graphNodes={graph.data?.nodes ?? []}
-                graphEdges={graph.data?.edges ?? []}
+                graphNodes={graphNodes}
+                graphEdges={graphEdges}
                 loadFailed={graph.isError}
                 loading={graph.isPending}
                 onRetry={() => void graph.refetch()}
@@ -970,8 +989,8 @@ export default function BrainScreen() {
                 </View>
               ) : (
                 <NoteGraph
-                  nodes={graph.data?.nodes ?? []}
-                  edges={graph.data?.edges ?? []}
+                  nodes={graphNodes}
+                  edges={graphEdges}
                   onSelect={onSelectNode}
                 />
               )}

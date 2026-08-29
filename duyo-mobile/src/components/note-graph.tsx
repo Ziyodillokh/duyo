@@ -509,7 +509,10 @@ export function NoteGraph({
     [size],
   );
 
-  const sim = useGraphSim(galaxy);
+  // `still` for the thumbnail: the card is 330x230 and nobody watches it
+  // settle, so paying 83 full-scene re-rasterisations to show them is
+  // pure cost on the screen the child actually lands on.
+  const sim = useGraphSim(galaxy, { still: preview });
 
   /** Where a body is this frame — physics first, layout as the fallback. */
   const drawnAt = (title: string, x: number, y: number) =>
@@ -557,6 +560,24 @@ export function NoteGraph({
       savedScale.set(scale.get());
     });
 
+  /**
+   * The live sim, behind a ref.
+   *
+   * `sim` is deliberately a fresh object every render (see use-graph-sim),
+   * so a gesture that closed over it could never be memoised — and an
+   * unmemoised gesture is rebuilt on every physics step, which makes
+   * RNGH re-attach its native handlers thirty times a second INSIDE the
+   * gesture it is meant to serve.
+   */
+  const simRef = useRef(sim);
+  // In an effect, not during render: the React Compiler forbids touching
+  // a ref while rendering, and it is right to — a gesture handler only
+  // ever reads this after a commit, so there is nothing to gain by
+  // writing it earlier. No dep array: it must track every render.
+  useEffect(() => {
+    simRef.current = sim;
+  });
+
   /** Screen point → canvas point, inverting the pan/zoom transform. The
    *  transform scales about the canvas centre, then translates. */
   const toCanvas = (ex: number, ey: number) => {
@@ -581,16 +602,26 @@ export function NoteGraph({
 
   // On the JS thread (.runOnJS): the grab has to hit-test against simulation
   // state, which lives on this side.
-  const pan = Gesture.Pan()
+  //
+  // The rule below fires on `simRef.current` inside onStart/onUpdate/onEnd.
+  // It cannot tell that those are event callbacks rather than render code —
+  // they run when a finger moves, long after the commit. This is the
+  // standard latest-ref pattern, and it is what lets the gesture be
+  // memoised at all: closing over `sim` directly would rebuild it on every
+  // physics step, and RNGH re-attaches its native handlers whenever the
+  // gesture object changes identity.
+  /* eslint-disable react-hooks/refs, react-hooks/purity */
+  const pan = useMemo(() =>
+    Gesture.Pan()
     .runOnJS(true)
     .averageTouches(true)
     .onStart((e) => {
       // The gesture activates a few points in; grab from where it BEGAN.
       const origin = toCanvas(e.x - e.translationX, e.y - e.translationY);
       const grabbed =
-        e.numberOfPointers === 1 ? sim.grabAt(origin.x, origin.y) : null;
+        e.numberOfPointers === 1 ? simRef.current.grabAt(origin.x, origin.y) : null;
       if (grabbed) {
-        const p = sim.positionOf(grabbed);
+        const p = simRef.current.positionOf(grabbed);
         panMode.current = p
           ? { kind: 'node', dx: p.x - origin.x, dy: p.y - origin.y }
           : { kind: 'canvas' };
@@ -602,7 +633,7 @@ export function NoteGraph({
       const mode = panMode.current;
       if (mode?.kind === 'node') {
         const p = toCanvas(e.x, e.y);
-        sim.dragTo(p.x + mode.dx, p.y + mode.dy);
+        simRef.current.dragTo(p.x + mode.dx, p.y + mode.dy);
       } else {
         tx.set(savedTx.get() + e.translationX);
         ty.set(savedTy.get() + e.translationY);
@@ -610,16 +641,25 @@ export function NoteGraph({
     })
     .onEnd(() => {
       if (panMode.current?.kind === 'node') {
-        sim.release();
+        simRef.current.release();
       } else {
         savedTx.set(tx.get());
         savedTy.set(ty.get());
       }
       panMode.current = null;
       panEndedAt.current = Date.now();
-    });
+    }),
+    // Everything it closes over is either a ref or a stable shared value.
+    // `size` is the one real dependency, through toCanvas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [size.width, size.height],
+  );
+  /* eslint-enable react-hooks/refs, react-hooks/purity */
 
-  const gesture = Gesture.Simultaneous(pinch, pan);
+  const gesture = useMemo(
+    () => Gesture.Simultaneous(pinch, pan),
+    [pinch, pan],
+  );
 
   const canvasStyle = useAnimatedStyle(() => ({
     transform: [
@@ -652,10 +692,16 @@ export function NoteGraph({
   // the very emptiness it exists to remove. Waiting ~40 ticks (a second and
   // change) also means the camera glides in as the sky finds its shape.
   // After that the camera belongs to the child's fingers.
+  // Gated on the sim having STOPPED rather than on a tick count. It used
+  // to depend on sim.tick, so it re-ran on every physics step forever —
+  // and worse, it built its own cache key (an N-element map, an
+  // O(N log N) sort and a join) BEFORE the early-out that discards it.
+  // That was a full string sort per node per frame, in perpetuity, to
+  // discover it had nothing to do.
+  const settled = sim.reduceMotion || preview || sim.resting;
   useEffect(() => {
     if (!galaxy || galaxy.nodes.length === 0 || size.width === 0) return;
-    // Under reduce-motion the sim settles synchronously, so tick 1 is final.
-    if (!sim.reduceMotion && sim.tick < 40) return;
+    if (!settled) return;
     const key = `${size.width}x${size.height}:${galaxy.nodes
       .map((n) => n.title)
       .sort()
@@ -694,9 +740,7 @@ export function NoteGraph({
     savedTx.set(fx);
     ty.set(withTiming(fy));
     savedTy.set(fy);
-    // sim is deliberately a fresh object each render; tick is its clock.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [galaxy, size, sim.tick, scale, savedScale, tx, ty, savedTx, savedTy]);
+  }, [galaxy, size, settled, scale, savedScale, tx, ty, savedTx, savedTy]);
 
   // The first tap SELECTS: the planet's constellation lights up and the rest
   // of the sky fades to a murmur, exactly Obsidian's click-to-highlight. A

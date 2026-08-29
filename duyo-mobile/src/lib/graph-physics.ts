@@ -70,6 +70,27 @@ const ALPHA_IDLE = 0.055;
  *  lengths stay at rest ±10% while bodies cover 30-60px every ten seconds). */
 const DRIFT_ACCEL = 0.24;
 
+/**
+ * Ambient drift — OFF.
+ *
+ * The sky breathing is a lovely idea that costs the whole frame. Every
+ * drift step moves a body, which changes an SVG prop, and on Android that
+ * makes SvgView recycle its off-screen bitmap and re-rasterise the ENTIRE
+ * scene into a fresh full-canvas ARGB_8888 bitmap on a software canvas.
+ * At ~485 elements over a 1080x2000 map that is roughly 8.6 MB allocated,
+ * zeroed and painted, up to thirty times a second, forever — and the 220
+ * elements that did not move cost exactly as much as the ones that did.
+ *
+ * So the sky now settles and stops. It still moves for everything that
+ * should move it: the opening ~2.8 seconds of settling, a dragged planet,
+ * a new note. It simply stops moving on its own.
+ *
+ * Flip this back to `true` to restore the breathing sky, and the stutter
+ * with it. Everything it needs — the per-body phase and frequency tables,
+ * the wander loop below — is deliberately left in place.
+ */
+export const AMBIENT_DRIFT = false;
+
 /** Swarm cohesion — everyone is drawn to everyone, linked or not.
  *
  *  A uniform pairwise pull between every pair of bodies is mathematically
@@ -142,10 +163,10 @@ export class GraphPhysics {
    *  not wall-clock, for the same reason the rest of the step is: a dropped
    *  frame should slow the sky, never teleport it. */
   private age = 0;
-  private ambient = true;
+  private ambient = AMBIENT_DRIFT;
 
   private alpha = 1;
-  private alphaTarget = ALPHA_IDLE;
+  private alphaTarget = AMBIENT_DRIFT ? ALPHA_IDLE : 0;
   /** Index of the finger-held body, or -1. */
   private pinned = -1;
   private pinX = 0;
@@ -257,11 +278,18 @@ export class GraphPhysics {
     const n = xs.length;
     const a = this.alpha;
 
-    // Ambient wander plus swarm cohesion. Deliberately outside the alpha
-    // scaling: alpha is how unsettled the LAYOUT is, and the sky keeps
-    // roaming and regrouping long after the layout has stopped having
-    // opinions.
-    if (this.ambient) {
+    // Swarm cohesion — everyone toward everyone (via the centroid, so it
+    // stays O(n)), and the flock as a whole toward the canvas centre.
+    //
+    // Scaled by alpha, like every other force. It used to sit inside the
+    // drift block and deliberately OUTSIDE the scaling, which was right
+    // while the drift kept the system awake forever. With the drift
+    // retired it would become the only force still acting as alpha decays
+    // — gravity, repulsion and the springs all carry `* a` — and would
+    // slowly contract the whole cloud onto its centroid until collision
+    // stopped it. Scaling every force by the same factor leaves the fixed
+    // point exactly where it was and only slows the approach to it.
+    {
       let mx = 0;
       let my = 0;
       for (let i = 0; i < n; i++) {
@@ -270,6 +298,17 @@ export class GraphPhysics {
       }
       mx /= n;
       my /= n;
+      for (let i = 0; i < n; i++) {
+        if (i === this.pinned) continue;
+        vxs[i] += ((mx - xs[i]) * COHESION + (this.cx - xs[i]) * CENTER_PULL) * a;
+        vys[i] += ((my - ys[i]) * COHESION + (this.cy - ys[i]) * CENTER_PULL) * a;
+      }
+    }
+
+    // Ambient wander. Off — see AMBIENT_DRIFT. Left in place, and left
+    // reading its own tables, so restoring the breathing sky is one
+    // boolean rather than an archaeology exercise.
+    if (this.ambient) {
       const t = this.age;
       for (let i = 0; i < n; i++) {
         if (i === this.pinned) continue;
@@ -283,10 +322,6 @@ export class GraphPhysics {
           (Math.sin(t * this.fy1[i] + p * 1.7) +
             0.6 * Math.cos(t * this.fy2[i] + p * 3.1)) *
           s;
-        // Everyone toward everyone (via the centroid), and the flock as a
-        // whole toward the canvas centre.
-        vxs[i] += (mx - xs[i]) * COHESION + (this.cx - xs[i]) * CENTER_PULL;
-        vys[i] += (my - ys[i]) * COHESION + (this.cy - ys[i]) * CENTER_PULL;
       }
     }
 
