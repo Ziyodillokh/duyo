@@ -229,6 +229,13 @@ export class GraphPhysics {
     this.kick(DRAG_ALPHA);
   }
 
+  /** True while a finger is holding a body. The sim loop reads it to stay
+   *  at the full frame rate through a drag, and to refuse to fall asleep
+   *  under one. */
+  isDragging(): boolean {
+    return this.pinned >= 0;
+  }
+
   movePin(x: number, y: number): void {
     this.pinX = x;
     this.pinY = y;

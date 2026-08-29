@@ -53,16 +53,36 @@ function scatterSeeds(
   return pos;
 }
 
-/** Frames per second while the simulation is warm.
+/**
+ * How often the sky steps, and when it stops.
  *
- *  Not 60: unlike a game, the sky only moves in bursts — a few seconds after
- *  opening, after a note changes, or under a finger — and 30 steps a second
- *  reads as fluid at these speeds while doing half the SVG work. When the
- *  system falls asleep this loop stops entirely, so the steady state costs
- *  nothing at all.
+ * Every step is a `setTick`, which is a full React render of the whole SVG
+ * scene — react-native-svg elements are real views, and on Android the
+ * canvas is re-rasterised into a bitmap each time. At 30 steps a second
+ * with a few hundred planets that is the entire freeze the map suffers
+ * from; the physics itself is not the expensive part.
+ *
+ * So the rate follows what is actually happening:
+ *
+ *  - SETTLING (the first ~90 steps after a build, or any step with a finger
+ *    down) is the only time the layout genuinely moves, and it gets the full
+ *    30 — this is the part a child watches.
+ *  - DRIFTING afterwards is a slow ambient wander. At 8 steps a second it
+ *    still reads as alive and costs a quarter as much.
+ *  - SLEEPING: after 20 seconds untouched the loop parks completely. The
+ *    sky is then a still picture costing nothing, and the first touch, a
+ *    rebuild, or coming back to the screen wakes it.
  */
-const FPS = 30;
-const FRAME_MS = 1000 / FPS;
+const FPS_SETTLING = 30;
+const FPS_DRIFTING = 8;
+
+/** Steps of full-rate settling before the drift takes over. At 30fps this
+ *  is three seconds, which is past the point the layout stops visibly
+ *  rearranging even for a large notebook. */
+const SETTLING_STEPS = 90;
+
+/** Untouched milliseconds before the sky stops moving altogether. */
+const SLEEP_AFTER_MS = 20_000;
 
 export interface GraphSim {
   /** Bumps on every physics step — reading it makes a component follow the sim. */
@@ -196,15 +216,35 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
     if (!built || resting || reduceMotion || !focused) return;
     let frame: number | null = null;
     let last = 0;
+    let steps = 0;
+    const startedAt = Date.now();
 
     const loop = (now: number) => {
-      if (now - last >= FRAME_MS) {
+      // Full rate while the layout is still finding itself or a finger is
+      // holding a body; the slow drift rate once it has settled.
+      const settling = steps < SETTLING_STEPS || built.sim.isDragging();
+      const frameMs = 1000 / (settling ? FPS_SETTLING : FPS_DRIFTING);
+
+      if (now - last >= frameMs) {
         last = now;
+        steps++;
+
+        // Park the sky once nobody has touched it for a while. `tick`
+        // stops advancing, so nothing re-renders and the scene costs
+        // nothing until grabAt, a rebuild or refocusing wakes it.
+        if (
+          !built.sim.isDragging() &&
+          Date.now() - startedAt > SLEEP_AFTER_MS
+        ) {
+          setRestingFor(built);
+          return;
+        }
+
         if (built.sim.tick()) {
           setTick((t) => t + 1);
         } else {
-          // Only reachable with drift retired (reduce motion); a breathing
-          // sky never reports itself done.
+          // Reachable with drift retired (reduce motion), and now also
+          // whenever the physics genuinely runs out of energy.
           setRestingFor(built);
           return;
         }
@@ -253,6 +293,9 @@ export function useGraphSim(galaxy: Galaxy | null): GraphSim {
     },
     release() {
       built?.sim.release();
+      // Wake it: the bodies have to settle back after a drag, and the
+      // sleep timer restarts from here rather than from the build.
+      setRestingFor(null);
     },
     reduceMotion,
   };
