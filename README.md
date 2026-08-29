@@ -1,53 +1,81 @@
-# DUYO — AI Companion for Children
+# DUYO — bolalar uchun AI hamroh
 
-7-16 yoshli bolalar uchun AI virtual do'st (suhbatdosh + o'qituvchi + tamagochi).
-O'zbek · Rus · Ingliz. Crisis Detection bilan.
+7–16 yoshli bolalar uchun AI suhbatdosh: gaplashadi, uy vazifasiga yordam
+beradi, maqsad qo'yishga o'rgatadi. O'zbek · Rus · Ingliz. Inqiroz aniqlash
+(crisis detection) bilan.
 
-> Status: **Pre-development (Faza 0 — Safety Foundation)**
-> Versiya: TZ v1.0 / Concept v2.1
+**Holat:** ishlab turibdi. Backend `api.duyo.uz` da, sayt `duyo.uz` da,
+mobil ilova Play Store'ga tayyorlanmoqda.
 
-## Monorepo strukturasi
+## Monorepo
 
-| Papka | Tavsif |
-|-------|--------|
-| [duyo-backend/](./duyo-backend) | Python FastAPI backend + Crisis Detection service |
-| [duyo-mobile/](./duyo-mobile) | React Native mobile app (iOS + Android) |
-| [duyo-docs/](./duyo-docs) | TZ, Concept, ADR'lar, API spec'lari |
-| [duyo-content/](./duyo-content) | She'r, ertak, dars yordami kutubxonasi |
+| Papka | Nima | Holati |
+|-------|------|--------|
+| [duyo-mobile/](./duyo-mobile) | Expo SDK 56 / React Native ilova | asosiy mahsulot |
+| [duyo-backend/](./duyo-backend) | FastAPI + Postgres + Gemini | `api.duyo.uz` |
+| [duyo-admin/](./duyo-admin) | Vite + React xodimlar paneli | `admin.duyo.uz` |
+| [duyo-landing/](./duyo-landing) | Marketing sayti | `duyo.uz` |
+| [duyo-docs/](./duyo-docs) | Runbook'lar, qarorlar, audit | — |
 
-## Roadmap (yuqori daraja)
+## Ishga tushirish
 
-- **Faza 0 (0-3 oy)** — Safety Foundation, pedagogik kengash, huquqiy ramka
-- **Faza 1 — MVP (3-9 oy)** — 11-13 yosh, o'zbek tili, 500 beta foydalanuvchi
-- **Faza 2 (9-15 oy)** — 3 yosh segmenti, 3 til, B2B pilot
-- **Faza 3 — Scale (15-21 oy)** — 25,000+ user, fizik mahsulot
-
-## Hozir nimaga e'tibor qaratiladi
-
-1. **Crisis Detection Layer 1** — keyword matcher prototip (3 tilda). Ko'ring: [duyo-backend/src/duyo/crisis/](./duyo-backend/src/duyo/crisis/)
-2. **Claude o'zbek tilida validation** — `scripts/validate_claude_uzbek.py`
-3. **Pedagog/huquqshunos hiring** — Faza 0 kritik task
-
-## Quick start
+**Mobil** — telefon va kompyuter bitta WiFi'da bo'lsin:
 
 ```bash
-# Backend
-cd duyo-backend
-docker-compose up -d        # postgres + redis
-uv sync                     # install dependencies
-uv run uvicorn duyo.main:app --reload
-
-# Tests
-uv run pytest
+cd duyo-mobile
+npm install
+npx expo start --host lan
 ```
 
-## Hujjatlar
+`.env` ichida `EXPO_PUBLIC_API_BASE_URL` backend manzilini ko'rsatadi.
 
-Asosiy spec'lar:
-- [DUYO_Concept_v2.1.docx](./DUYO_Concept_v2.1.docx) — mahsulot konseptsiyasi
-- [DUYO_TZ_v1.0.docx](./DUYO_TZ_v1.0.docx) — texnik topshiriq
+**Backend:**
 
-## Litsenziya
+```bash
+cd duyo-backend
+docker compose up -d          # postgres + redis + minio
+alembic upgrade head
+uvicorn duyo.main:app --reload
+```
 
-Proprietary. © XRR · 2026
+## Tekshiruv darvozalari
 
+CI shu to'rttasini ishlatadi — push qilishdan oldin lokalda ham ishlating:
+
+```bash
+cd duyo-mobile  && npx tsc --noEmit -p tsconfig.json
+cd duyo-mobile  && npx expo lint
+cd duyo-backend && ./.venv-test/Scripts/python.exe -m pytest tests -q
+cd duyo-backend && ./.venv-test/Scripts/python.exe -m ruff check src tests
+```
+
+Backend testlari **`.venv-test`** da ishlaydi, `.venv` da emas — ikkinchisida
+ilovaning bog'liqliklari yo'q.
+
+## Deploy
+
+`main` ga push avtomatik deploy qiladi, papkaga qarab:
+
+| O'zgargan papka | Nima bo'ladi |
+|---|---|
+| `duyo-backend/**` | pytest → migratsiya → konteyner qayta yaratiladi (~3 daqiqa) |
+| `duyo-landing/**` | `duyo.uz` yangilanadi |
+| `duyo-admin/**` | `admin.duyo.uz` yangilanadi |
+
+Backend deploy tugaganini tekshirish: `curl https://api.duyo.uz/openapi.json`
+
+## Ilova nimalardan iborat
+
+**Bola ko'radigan qismlar:** AI suhbat (matn va ovoz), Neo Miyya (bilim
+grafi), Bir maqsad (maqsadlar va maqsaddoshlar), Kutubxona, Dars yordami,
+Faollik statistikasi, Yutuqlar, Sozlamalar.
+
+**Ota-ona bo'limi yo'q** — 2026-08-29 da olib tashlandi. Batafsil va qaytarish
+yo'riqnomasi: [CLEANUP.md](./CLEANUP.md).
+
+## Xavfsizlik
+
+Inqiroz aniqlash uch qatlamli: kalit so'zlar (`crisis/detector.py`), semantik
+(`crisis/semantic.py`), va model bahosi. Qizil daraja SMS bilan akkaunt
+egasiga xabar yuboradi (`_dispatch_parent_alert`). Bu kodga tegishdan oldin
+`duyo-docs/` dagi qarorlarni o'qing.
