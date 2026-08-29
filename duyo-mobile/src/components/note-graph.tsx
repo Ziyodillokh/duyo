@@ -68,6 +68,19 @@ const LABEL_ALL_BELOW = 40;
  *  encodes how connected a note is, so the biggest bodies are the ones worth
  *  naming — the same choice a crowded star chart makes. */
 const LABEL_TOP_N = 18;
+
+/**
+ * Below this drawn radius a planet is one flat disc instead of a shaded
+ * sphere.
+ *
+ * A full planet is about thirteen SVG elements: a Defs, a ClipPath, the
+ * albedo, the surface features, the night side, a specular highlight and a
+ * rim light. At 8px across on a 2x screen the whole body is sixteen device
+ * pixels — the terminator, the highlight and the features are each well
+ * under one pixel and average into the same colour the albedo already is.
+ * The detail is not lost at this size; it was never visible.
+ */
+const PLANET_DETAIL_ABOVE = 8;
 const EDGE_DIM = 0.5;
 
 const MIN_ZOOM = 0.5;
@@ -720,6 +733,60 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
     return keep;
   }, [galaxy, neighbours]);
 
+  /**
+   * The labels that actually get drawn, after dropping the ones that would
+   * land on top of another.
+   *
+   * The map draws a name under every body it is allowed to, and bodies do
+   * not know about each other’s text — so names collided into unreadable
+   * piles, which is what the map looked like in the field. Culling by node
+   * COUNT does not fix that: twelve notes already overlap if two of them
+   * drift close together.
+   *
+   * So it is resolved geometrically, the way a cartographer does it: walk
+   * the candidates in order of importance and keep a name only if its box
+   * is still clear. The hub goes first, then the focused note and its
+   * neighbours (the reason you are looking), then the biggest bodies.
+   * Whatever loses simply has no name until the sky drifts apart or you
+   * tap it — and a name you cannot read was never doing any work.
+   *
+   * Recomputed per physics step, but only over the labels, and the sim now
+   * sleeps — so this is a bounded cost on a scene that stops moving.
+   */
+  const visibleLabels = useMemo(() => {
+    const cand = liveNodes
+      .filter((n) => !labelled || labelled.has(n.title.toLowerCase()))
+      .map((n) => {
+        const focusRank =
+          n.ring === 0 ? 0 : neighbours?.has(n.title.toLowerCase()) ? 1 : 2;
+        return { n, focusRank };
+      })
+      .sort((a, b) => a.focusRank - b.focusRank || b.n.r - a.n.r);
+
+    const placed: { x: number; y: number; hw: number; hh: number }[] = [];
+    const keep = new Set<string>();
+    for (const { n } of cand) {
+      const size = n.ring === 0 ? 11 : 10;
+      const chars = Math.min(n.title.length, 14);
+      // 0.55em is a good enough average advance for Inter at these sizes;
+      // this only has to be right enough to detect a collision.
+      const hw = (chars * size * 0.55) / 2;
+      const hh = size * 0.6;
+      const y =
+        n.y +
+        (n.ring === 0
+          ? Math.max(8, n.r * 0.72) + 15
+          : Math.max(5.5, n.r * 0.74) + 13);
+      const clear = placed.every(
+        (q) => Math.abs(q.x - n.x) > q.hw + hw || Math.abs(q.y - y) > q.hh + hh,
+      );
+      if (!clear) continue;
+      placed.push({ x: n.x, y, hw, hh });
+      keep.add(n.title);
+    }
+    return keep;
+  }, [liveNodes, labelled, neighbours]);
+
   const onLayout = (e: LayoutChangeEvent) => {
     const l = e.nativeEvent.layout;
     setSize((prev) =>
@@ -1012,6 +1079,25 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                 const planet = PLANET_TYPES[seed % PLANET_TYPES.length];
                 const clipId = `pc-${seed.toString(36)}`;
 
+                // Too small to show a sphere: draw the disc and stop.
+                // This is the common case, not the exception — bodies
+                // shrink as the notebook grows, so on a big map EVERY
+                // planet takes this path and the scene drops from ~13
+                // elements a node to 2.
+                if (rd < PLANET_DETAIL_ABOVE) {
+                  return (
+                    <G key={`n-${n.title}`} opacity={a}>
+                      <Circle
+                        cx={x}
+                        cy={y}
+                        r={rd}
+                        fill={`url(#pg-${planet.key})`}
+                      />
+                      {neonRings(rd)}
+                    </G>
+                  );
+                }
+
                 // Only the truly ringed worlds carry one — a ring IS Saturn's
                 // (and, tipped on its side, Uranus's) identity.
                 const ring =
@@ -1081,7 +1167,7 @@ export function NoteGraph({ nodes, edges, onSelect, height }: Props) {
                   their planet faces, so the label is what still says which
                   collection a note belongs to. */}
               {liveNodes
-                .filter((n) => !labelled || labelled.has(n.title.toLowerCase()))
+                .filter((n) => visibleLabels.has(n.title))
                 .map((n) => (
                 <SvgText
                   key={`t-${n.title}`}
