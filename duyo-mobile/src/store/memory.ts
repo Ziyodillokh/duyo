@@ -6,6 +6,10 @@ import {
   type MemoryRecord,
   type MemorySource,
 } from '@/lib/memory-db';
+import {
+  forgetCachedKey,
+  MemoryKeyLostError,
+} from '@/lib/memory-crypto';
 import { autoLinkMemory } from '@/lib/memory-graph';
 import { describeGuardReasons, screenMemoryContent } from '@/lib/memory-guard';
 
@@ -51,6 +55,16 @@ interface MemoryState {
   counts: Record<MemoryCategory, number>;
   /** Rows present on disk that could not be decrypted — surfaced, never hidden. */
   undecryptable: number;
+  /**
+   * Set when the master key is gone but encrypted rows remain: the number
+   * of rows that can no longer be opened. Null in every healthy state.
+   *
+   * Surfaced rather than swallowed. The data is unrecoverable either way —
+   * AES-256 with a lost key is final — so the only question left is whether
+   * the child is told, and an app that quietly looks empty is the wrong
+   * answer for a notebook they filled themselves.
+   */
+  keyLost: number | null;
   loading: boolean;
   loaded: boolean;
   load: (childId: string) => Promise<void>;
@@ -63,6 +77,9 @@ interface MemoryState {
   updateMemory: (id: string, content: string) => Promise<void>;
   removeMemory: (id: string) => Promise<void>;
   removeAll: () => Promise<void>;
+  /** Clear the orphaned rows and start a fresh key. Destructive, and only
+   *  ever called from an explicit confirmation. */
+  resetAfterKeyLoss: () => Promise<void>;
 }
 
 const EMPTY_COUNTS = Object.fromEntries(
@@ -81,6 +98,7 @@ export const useMemoryStore = create<MemoryState>()((set, get) => ({
   items: [],
   counts: EMPTY_COUNTS,
   undecryptable: 0,
+  keyLost: null,
   loading: false,
   loaded: false,
 
@@ -109,8 +127,19 @@ export const useMemoryStore = create<MemoryState>()((set, get) => ({
         items: result.memories,
         undecryptable: result.undecryptable,
         counts,
+        keyLost: null,
         loaded: true,
       });
+    } catch (err) {
+      // The one error worth a screen of its own. Everything else keeps the
+      // old behaviour of propagating to the caller.
+      if (err instanceof MemoryKeyLostError) {
+        if (token === loadToken) {
+          set({ keyLost: err.rows, items: [], counts: EMPTY_COUNTS, loaded: true });
+        }
+        return;
+      }
+      throw err;
     } finally {
       if (token === loadToken) set({ loading: false });
     }
@@ -120,6 +149,14 @@ export const useMemoryStore = create<MemoryState>()((set, get) => ({
     const { childId } = get();
     if (!childId) return;
     await get().load(childId);
+  },
+
+  resetAfterKeyLoss: async () => {
+    await memoryDb.purgeAllEncryptedRows();
+    forgetCachedKey();
+    set({ keyLost: null, items: [], counts: EMPTY_COUNTS, undecryptable: 0 });
+    const { childId } = get();
+    if (childId) await get().load(childId);
   },
 
   addMemory: async (category, content, source) => {

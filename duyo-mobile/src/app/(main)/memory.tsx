@@ -77,6 +77,9 @@ export default function MemoryScreen() {
   const items = useMemoryStore((s) => s.items);
   const counts = useMemoryStore((s) => s.counts);
   const undecryptable = useMemoryStore((s) => s.undecryptable);
+  const keyLost = useMemoryStore((s) => s.keyLost);
+  const resetAfterKeyLoss = useMemoryStore((s) => s.resetAfterKeyLoss);
+  const [resetting, setResetting] = useState(false);
   const loadedChildId = useMemoryStore((s) => s.childId);
   const loaded = useMemoryStore((s) => s.loaded);
   const load = useMemoryStore((s) => s.load);
@@ -233,6 +236,45 @@ export default function MemoryScreen() {
             Bu ma'lumotlar faqat shu qurilmada, shifrlangan holda saqlanadi.
             Ular hech qachon serverga doimiy saqlash uchun yuborilmaydi.
           </Text>
+
+          {/* Key loss. Distinct from `undecryptable`, which is a few rows
+              left over from an older key — this is EVERY row, because the
+              master key itself is gone. Android hits it when the Keystore
+              entry is dropped (an OS upgrade, a restored backup, a changed
+              screen lock); the app used to answer by minting a new key and
+              looking cheerfully empty, which hid the loss instead of
+              reporting it. Nothing here can recover the data — AES-256
+              without its key is final — so the honest offer is to say what
+              happened and let them clear it. */}
+          {keyLost ? (
+            <View style={[glass(20, 'md'), styles.warning]}>
+              <Text style={styles.warningText}>
+                {keyLost} ta yozuv qulflanib qoldi. Ularni ochadigan kalit shu
+                qurilmadan yo‘qolgan — bu ilova qayta o‘rnatilganda, tizim
+                yangilanganda yoki ekran qulfi o‘zgarganda bo‘ladi. Yozuvlar
+                o‘zi joyida, lekin ularni hech qanday usul bilan ochib
+                bo‘lmaydi.
+              </Text>
+              <Pressable
+                onPress={async () => {
+                  setResetting(true);
+                  try {
+                    await resetAfterKeyLoss();
+                  } finally {
+                    setResetting(false);
+                  }
+                }}
+                disabled={resetting}
+                accessibilityRole="button"
+                accessibilityLabel="Qulflangan yozuvlarni tozalash"
+                style={[glass(14, 'sm'), styles.keyLostButton]}
+              >
+                <Text style={styles.keyLostButtonText}>
+                  {resetting ? 'Tozalanmoqda…' : 'Tozalab, boshidan boshlash'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {undecryptable > 0 ? (
             <View style={[glass(20, 'md'), styles.warning]}>
@@ -642,6 +684,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(224,69,94,0.35)',
   },
   warningText: { fontSize: 13, lineHeight: 19, color: DANGER },
+  keyLostButton: {
+    marginTop: 12,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyLostButtonText: { fontSize: 14, fontWeight: '700', color: DANGER },
 
   search: {
     height: 52,

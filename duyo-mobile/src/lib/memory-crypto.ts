@@ -39,7 +39,42 @@ import { Platform } from 'react-native';
 const KEY_STORAGE_NAME = 'duyo.memory.master_key.v1';
 const KEY_BYTES = 32; // AES-256
 
+/**
+ * Thrown when the key is gone but encrypted rows are still there.
+ *
+ * That combination has exactly one meaning: the ciphertext can never be
+ * read again. AES-256-GCM with a lost key is not a recoverable state, so
+ * the only thing left to decide is whether the child is TOLD. Minting a
+ * fresh key here would hide it — the app would look empty and healthy
+ * while their notebook sat one table away, unreadable forever.
+ */
+export class MemoryKeyLostError extends Error {
+  constructor(public readonly rows: number) {
+    super(`Memory key missing while ${rows} encrypted rows remain`);
+    this.name = 'MemoryKeyLostError';
+  }
+}
+
+/**
+ * Asks whether any encrypted row exists. Injected by memory-db rather than
+ * imported, because memory-db already imports THIS module — importing back
+ * would close a cycle that Metro resolves by handing one side an undefined
+ * binding, and it would do so exactly at first-key-load.
+ */
+let ciphertextExists: (() => Promise<number>) | null = null;
+
+export function registerCiphertextProbe(fn: () => Promise<number>): void {
+  ciphertextExists = fn;
+}
+
 let cachedKeyPromise: Promise<Uint8Array> | null = null;
+
+/** Forget the cached key so the next call re-reads. Used after the
+ *  key-loss recovery has cleared the orphaned rows, so the very next
+ *  request mints the fresh key that is now safe to make. */
+export function forgetCachedKey(): void {
+  cachedKeyPromise = null;
+}
 
 /** Web has no Keychain — see secure-storage.ts on why web is preview-only. */
 const isWeb = Platform.OS === 'web';
@@ -66,6 +101,23 @@ async function loadOrCreateMasterKey(): Promise<Uint8Array> {
   if (existingHex) {
     return hexToBytes(existingHex);
   }
+
+  // The docstring above promises that only a genuine "nothing stored" may
+  // create a key, and that a read ERROR propagates instead. On Android it
+  // cannot keep that promise: expo-secure-store RETURNS NULL rather than
+  // throwing when the Keystore entry is gone or undecryptable —
+  // SecureStoreModule.kt does it in three separate places, including
+  // KeyPermanentlyInvalidatedException, which does not even clear the
+  // stale prefs entry, so the state repeats on every launch.
+  //
+  // Null is therefore ambiguous, and the only thing that disambiguates it
+  // is the data itself: no key AND no rows is a first run; no key WITH
+  // rows is key loss.
+  const rows = ciphertextExists ? await ciphertextExists() : 0;
+  if (rows > 0) {
+    throw new MemoryKeyLostError(rows);
+  }
+
   const fresh = await Crypto.getRandomBytesAsync(KEY_BYTES);
   // Written BEFORE it is used to encrypt anything: if the write fails, the
   // throw propagates and no row is ever encrypted under a key that was not

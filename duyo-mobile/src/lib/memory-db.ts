@@ -1,7 +1,11 @@
 import * as Crypto from 'expo-crypto';
 import * as SQLite from 'expo-sqlite';
 
-import { decryptText, encryptText } from '@/lib/memory-crypto';
+import {
+  decryptText,
+  encryptText,
+  registerCiphertextProbe,
+} from '@/lib/memory-crypto';
 
 /**
  * The on-device personal-memory database — the source of truth for
@@ -117,6 +121,48 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
     });
   }
   return dbPromise;
+}
+
+/**
+ * How many encrypted rows exist, for ANY child.
+ *
+ * memory-crypto asks this before it will mint a master key. It has to be
+ * child-agnostic: the key is one per device, so a single surviving row
+ * belonging to anyone means a new key would orphan real data.
+ *
+ * Registered rather than imported. This module already imports
+ * memory-crypto, so importing back would close a cycle, and Metro resolves
+ * a cycle by handing one side an undefined binding — at first-key-load,
+ * which is exactly the moment that must not go wrong.
+ */
+async function countCiphertextRows(): Promise<number> {
+  try {
+    const db = await getDb();
+    const row = await db.getFirstAsync<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM memories'
+    );
+    return row?.n ?? 0;
+  } catch {
+    // The database itself is unreadable. That is not evidence that rows
+    // exist, and refusing to create a key here would brick a first run on
+    // a device with a transient SQLite problem. Report none.
+    return 0;
+  }
+}
+
+registerCiphertextProbe(countCiphertextRows);
+
+/**
+ * Drop every encrypted row on the device, for every child.
+ *
+ * Only for recovering from a lost master key, and only when a human has
+ * asked for it. Not child-scoped, because the key is not: after key loss
+ * every row on the device is unreadable, and leaving a sibling’s behind
+ * would keep the guard tripping forever.
+ */
+export async function purgeAllEncryptedRows(): Promise<void> {
+  const db = await getDb();
+  await db.execAsync('DELETE FROM memory_relations; DELETE FROM memories;');
 }
 
 async function rowToRecord(row: MemoryRow): Promise<MemoryRecord> {
