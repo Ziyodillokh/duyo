@@ -25,8 +25,3 @@ export interface ChildProfile {
    *  The address changes when the photo does, so it is safe to cache. */
   photo_url?: string | null;
 }
-
-export interface ApiErrorBody {
-  detail?: string;
-  message?: string;
-}

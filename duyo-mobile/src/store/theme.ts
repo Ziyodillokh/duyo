@@ -10,7 +10,6 @@ export type ThemeMode = 'dark' | 'light';
 interface ThemeState {
   mode: ThemeMode;
   hydrated: boolean;
-  setMode: (mode: ThemeMode) => void;
   toggle: () => void;
   setHydrated: (hydrated: boolean) => void;
 }
@@ -22,7 +21,6 @@ export const useThemeStore = create<ThemeState>()(
     (set, get) => ({
       mode: 'dark',
       hydrated: false,
-      setMode: (mode) => set({ mode }),
       toggle: () => set({ mode: get().mode === 'dark' ? 'light' : 'dark' }),
       setHydrated: (hydrated) => set({ hydrated }),
     }),

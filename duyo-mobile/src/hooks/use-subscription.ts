@@ -9,7 +9,6 @@ import {
   type SubscribeRequest,
   type SubscriptionRead,
   type TierInfo,
-  cancelSubscription,
   getCurrentSubscription,
   getPlans,
   subscribe,
@@ -32,14 +31,6 @@ export function useSubscribe() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (req: SubscribeRequest) => subscribe(req),
-    onSuccess: (sub) => qc.setQueryData(['subscription'], sub),
-  });
-}
-
-export function useCancelSubscription() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: cancelSubscription,
     onSuccess: (sub) => qc.setQueryData(['subscription'], sub),
   });
 }

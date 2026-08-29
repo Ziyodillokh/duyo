@@ -5,7 +5,6 @@ import {
   createProject,
   deleteConversation,
   deleteProject,
-  listConversationMessages,
   listConversations,
   listProjects,
   type Project,
@@ -26,17 +25,6 @@ export function useConversations(
     queryKey: [HISTORY, childId, opts?.projectId ?? null, opts?.ungrouped ?? false],
     queryFn: () => listConversations(childId!, opts),
     enabled: !!childId,
-  });
-}
-
-export function useConversationMessages(
-  childId: string | undefined,
-  conversationId: string | undefined,
-) {
-  return useQuery({
-    queryKey: [HISTORY, childId, conversationId, 'messages'],
-    queryFn: () => listConversationMessages(childId!, conversationId!),
-    enabled: !!childId && !!conversationId,
   });
 }
 

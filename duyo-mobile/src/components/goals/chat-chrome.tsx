@@ -12,9 +12,6 @@ import Svg, { Circle, Defs, G, Path, Pattern, Rect } from 'react-native-svg';
  * thing worth copying is the ANATOMY, not the colour scheme.
  */
 
-export const CHAT_INK = '#22406F';
-export const CHAT_MUTED = '#8CA3CB';
-export const CHAT_PRIMARY = '#2F6FE4';
 /** Their bubble: opaque white so it sits ON the wallpaper instead of
  *  dissolving into it — frosted glass over a pattern has no readable edge. */
 export const BUBBLE_THEIRS = '#FFFFFF';

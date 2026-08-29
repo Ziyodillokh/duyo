@@ -41,7 +41,6 @@ interface ChatState {
   setConversationId: (id: string) => void;
   appendMessage: (message: ChatMessage) => void;
   clearQuickReplies: (messageId: string) => void;
-  clearConversation: () => void;
   /** Begin a fresh chat, optionally inside a project. */
   startNewConversation: (projectId?: string | null) => void;
   /** Resume a conversation from the history list. */
@@ -76,9 +75,6 @@ export const useChatStore = create<ChatState>()(
             m.id === messageId ? { ...m, quickReplies: [] } : m,
           ),
         })),
-      clearConversation: () =>
-        set({ conversationId: null, projectId: null, messages: [] }),
-
       startNewConversation: (projectId = null) =>
         set({ conversationId: null, projectId, messages: [] }),
 

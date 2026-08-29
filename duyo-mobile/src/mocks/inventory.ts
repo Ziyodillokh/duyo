@@ -26,8 +26,6 @@ export const INVENTORY_CATEGORIES: readonly InventoryCategoryMeta[] = [
   { key: 'backgrounds', emoji: '🎨', label: 'Fonlar' },
 ];
 
-export const MOCK_BALANCE = 350;
-
 export const INVENTORY_ITEMS: readonly InventoryItem[] = [
   // Hats
   { id: 'h-red', category: 'hats', name: 'Qizil shlyapa', emoji: '🎩' },

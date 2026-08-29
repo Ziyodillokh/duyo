@@ -196,10 +196,6 @@ export async function listMemoriesDetailed(
   return { memories, undecryptable };
 }
 
-export async function listMemories(childId: string): Promise<MemoryRecord[]> {
-  return (await listMemoriesDetailed(childId)).memories;
-}
-
 export async function updateMemoryContent(
   childId: string,
   id: string,

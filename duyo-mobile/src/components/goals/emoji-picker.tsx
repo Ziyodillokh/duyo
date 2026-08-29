@@ -17,7 +17,6 @@ import { Text } from '@/components/text';
  */
 
 const MUTED = '#8CA3CB';
-const PRIMARY = '#2F6FE4';
 const INK = '#22406F';
 
 interface Group {
@@ -242,5 +241,3 @@ const styles = StyleSheet.create({
   },
   emoji: { fontSize: 24, lineHeight: 30, color: INK },
 });
-
-export const EMOJI_ACCENT = PRIMARY;

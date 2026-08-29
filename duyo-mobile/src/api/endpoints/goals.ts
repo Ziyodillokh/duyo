@@ -103,16 +103,6 @@ export async function addGoalProgress(
   return data;
 }
 
-export async function listGoalProgress(
-  childId: string,
-  goalId: string,
-): Promise<GoalEvent[]> {
-  const { data } = await apiClient.get<GoalEvent[]>(
-    `/children/${childId}/goals/${goalId}/progress`,
-  );
-  return data;
-}
-
 export async function updateGoal(
   childId: string,
   goalId: string,
