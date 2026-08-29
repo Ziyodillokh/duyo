@@ -9,7 +9,13 @@ import {
   Target,
 } from 'lucide-react-native';
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 
 import { Text } from '@/components/text';
 import {
@@ -53,6 +59,14 @@ export interface BrainHomeProps {
   notes: NoteListItem[];
   graphNodes: GraphNode[];
   graphEdges: GraphEdge[];
+  /** The graph could not be fetched. An empty sky and an unreachable
+   *  server are the same shape here, and only one of them should invite
+   *  the child to write their first note. */
+  loadFailed?: boolean;
+  /** Still fetching. Same reasoning: nothing is known yet, so nothing
+   *  should be claimed. */
+  loading?: boolean;
+  onRetry?: () => void;
   onNewNote: () => void;
   /** Start writing a note that is only a [[link]] so far. */
   onStartNote: (title: string) => void;
@@ -74,6 +88,9 @@ export default function BrainHome({
   notes,
   graphNodes,
   graphEdges,
+  loadFailed,
+  loading,
+  onRetry,
   onNewNote,
   onStartNote,
   onOpenTag,
@@ -150,6 +167,30 @@ export default function BrainHome({
               }}
             />
           </View>
+        ) : loading ? (
+          <View style={styles.emptySky}>
+            <ActivityIndicator color={SKY_MUTED} />
+          </View>
+        ) : loadFailed ? (
+          /* An empty sky and an unreachable server look identical from
+             here, and only one of them should say "write your first
+             note". Telling a child their notebook is empty when it is
+             merely unreachable is the worst reading of the two. */
+          <Pressable
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Qaytadan urinish"
+            style={({ pressed }) => [
+              styles.emptySky,
+              pressed && styles.pressed80,
+              styles.focusable,
+            ]}
+          >
+            <Text style={styles.emptyTitle}>Xaritani yuklab bo&lsquo;lmadi</Text>
+            <Text style={styles.emptyBody}>
+              Qaydlaringiz joyida — qaytadan urinish uchun bosing
+            </Text>
+          </Pressable>
         ) : (
           <Pressable
             onPress={onNewNote}

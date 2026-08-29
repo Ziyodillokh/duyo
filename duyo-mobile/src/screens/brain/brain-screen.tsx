@@ -623,6 +623,9 @@ export default function BrainScreen() {
                 notes={notes.data ?? []}
                 graphNodes={graph.data?.nodes ?? []}
                 graphEdges={graph.data?.edges ?? []}
+                loadFailed={graph.isError}
+                loading={graph.isPending}
+                onRetry={() => void graph.refetch()}
                 onNewNote={() => startNew()}
                 onStartNote={(t) => startNew(t)}
                 onOpenTag={(t) => {
@@ -940,6 +943,30 @@ export default function BrainScreen() {
               {graph.isLoading ? (
                 <View style={styles.center}>
                   <ActivityIndicator color={ACCENT} />
+                </View>
+              ) : graph.isError ? (
+                /* A failed FETCH used to fall through to `?? []` and draw an
+                   empty sky. For a child whose notebook is in there, an
+                   empty universe does not read as "the network is down" —
+                   it reads as everything being gone. Say which it is. */
+                <View style={styles.center}>
+                  <Text style={styles.mapErrorTitle}>
+                    Xaritani yuklab bo‘lmadi
+                  </Text>
+                  <Text style={styles.mapErrorBody}>
+                    Qaydlaringiz joyida — ular serverda saqlanadi. Faqat
+                    hozir ularga ulanib bo‘lmadi.
+                  </Text>
+                  <Pressable
+                    onPress={() => void graph.refetch()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Qaytadan urinish"
+                    style={styles.mapRetry}
+                  >
+                    <Text style={styles.mapRetryText}>
+                      {graph.isFetching ? 'Yuklanmoqda…' : 'Qaytadan urinish'}
+                    </Text>
+                  </Pressable>
                 </View>
               ) : (
                 <NoteGraph
@@ -1281,6 +1308,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  mapErrorTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  mapErrorBody: {
+    marginTop: 8,
+    paddingHorizontal: 32,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: 'rgba(255,255,255,0.72)',
+    textAlign: 'center',
+  },
+  mapRetry: {
+    marginTop: 18,
+    height: 40,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapRetryText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+
   mapWordmark: {
     flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
