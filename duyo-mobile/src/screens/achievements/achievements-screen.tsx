@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',

@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 6px 16px rgba(111,155,221,0.20)',
   },
   input: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 15,
     lineHeight: 19,
     color: INK,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     color: REC,
     fontVariant: ['tabular-nums'],
   },
-  recHint: { flex: 1, fontSize: 13, color: MUTED },
+  recHint: { flexGrow: 1, flexShrink: 1, fontSize: 13, color: MUTED },
 
   round: {
     width: COMPOSER_H,

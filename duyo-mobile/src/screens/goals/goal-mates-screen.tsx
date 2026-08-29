@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  searchInput: { flex: 1, fontSize: 16, color: INK, paddingVertical: 0 },
+  searchInput: { flexGrow: 1, flexShrink: 1, fontSize: 16, color: INK, paddingVertical: 0 },
 
   settingsCard: { marginTop: 12, marginHorizontal: 20, padding: 16 },
   settingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   filterRowOn: { backgroundColor: 'rgba(47,111,228,0.10)' },
-  filterLabel: { flex: 1, fontSize: 14.5, color: INK },
+  filterLabel: { flexGrow: 1, flexShrink: 1, fontSize: 14.5, color: INK },
   filterLabelOn: { fontWeight: '700', color: ACTIVE_FILTER },
   filterEmpty: {
     paddingVertical: 8,

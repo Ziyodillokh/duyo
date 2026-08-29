@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.7 },
   rowLabel: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 16,
     color: INK,
   },

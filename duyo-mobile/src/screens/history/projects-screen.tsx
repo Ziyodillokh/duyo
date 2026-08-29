@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   // native ignores unknown keys.
   focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
   title: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 22,
     fontWeight: '700',
     color: TITLE,

@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
   checkOff: { borderColor: PLACEHOLDER, backgroundColor: 'transparent' },
   checkOn: { borderColor: GREEN, backgroundColor: GREEN },
   tick: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-  checkText: { fontSize: 16, lineHeight: 24, flex: 1 },
+  checkText: { fontSize: 16, lineHeight: 24, flexGrow: 1, flexShrink: 1 },
   struck: { textDecorationLine: 'line-through', color: MUTED },
   ink: { color: INK },
 

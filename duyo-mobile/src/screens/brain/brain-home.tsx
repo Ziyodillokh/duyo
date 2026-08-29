@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: GLASS.ink },
+  rowTitle: { flexGrow: 1, flexShrink: 1, fontSize: 15, fontWeight: '600', color: GLASS.ink },
   rowTime: { fontSize: 12.5, color: GLASS.muted },
   rowDot: { width: 9, height: 9, borderRadius: 5 },
 });

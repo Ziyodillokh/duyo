@@ -28,6 +28,12 @@ export default function RootLayout() {
   useThemeBridge();
   const isDark = useIsDark();
   const [fontsLoaded, fontError] = useFonts(FONT_FILES);
+  // Loudly, because the failure mode is silent: RN falls back to the
+  // system typeface and the app merely looks slightly wrong, which is
+  // exactly the report that took a day to track down.
+  if (fontError) {
+    console.warn('[fonts] Inter failed to load — text will fall back', fontError);
+  }
 
   useEffect(() => {
     // `fontError` counts as done. A missing typeface must not be able to

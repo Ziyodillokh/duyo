@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   iconGap: { width: 19 },
-  rowText: { flex: 1, fontSize: 16, fontWeight: '600' },
+  rowText: { flexGrow: 1, flexShrink: 1, fontSize: 16, fontWeight: '600' },
   pressed: { backgroundColor: 'rgba(47,111,228,0.09)' },
 
   divider: {

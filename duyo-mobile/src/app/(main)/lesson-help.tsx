@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   apologyHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  apologyTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: DANGER },
+  apologyTitle: { flexGrow: 1, flexShrink: 1, fontSize: 14, fontWeight: '700', color: DANGER },
   apologyBody: { fontSize: 15, lineHeight: 22, color: INK },
 
   steps: { gap: 10 },

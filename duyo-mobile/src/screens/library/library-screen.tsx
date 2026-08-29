@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   searchInput: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 16,
     color: INK,
     paddingVertical: 0,

@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   streakMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   streakValue: { fontSize: 30, fontWeight: '700', color: INK },
   streakUnit: { fontSize: 15, fontWeight: '600', color: MUTED },
-  streakBest: { flex: 1, textAlign: 'right', fontSize: 13, color: MUTED },
+  streakBest: { flexGrow: 1, flexShrink: 1, textAlign: 'right', fontSize: 13, color: MUTED },
 
   // ── Badges ─────────────────────────────────────────────────────────────
   badgeHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 7,
   },
-  ledgerReason: { flex: 1, fontSize: 14, color: INK },
+  ledgerReason: { flexGrow: 1, flexShrink: 1, fontSize: 14, color: INK },
   ledgerAmount: {
     fontSize: 14,
     fontWeight: '700',

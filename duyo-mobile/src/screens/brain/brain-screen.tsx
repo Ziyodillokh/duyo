@@ -1282,7 +1282,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   mapWordmark: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '700',
@@ -1296,7 +1296,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   homeWordmark: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
     fontSize: 25,
     fontWeight: '700',
@@ -1322,7 +1322,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   noteHeaderTitle: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 20,
     lineHeight: 28,
     fontWeight: '700',
@@ -1501,7 +1501,7 @@ const styles = StyleSheet.create({
   },
   // paddingVertical 0: a web <input> brings its own and would push the bar
   // past the 42pt the map's chrome is measured on.
-  mapSearchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
+  mapSearchInput: { flexGrow: 1, flexShrink: 1, fontSize: 16, paddingVertical: 0 },
   clusterStrip: { gap: 8, paddingRight: 16 },
   renameBar: {
     flexDirection: 'row',
@@ -1514,7 +1514,7 @@ const styles = StyleSheet.create({
     ...raised('md'),
   },
   renameInput: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 14,
     paddingHorizontal: 8,
     paddingVertical: 4,

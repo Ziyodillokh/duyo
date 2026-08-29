@@ -161,7 +161,9 @@ export function ChatDrawer({
               ]}
             >
               <SquarePen size={18} color={PRIMARY} />
-              <Text style={styles.newChatText}>Yangi suhbat</Text>
+              <Text style={styles.newChatText} numberOfLines={1}>
+                Yangi suhbat
+              </Text>
             </Pressable>
           </View>
 
@@ -239,7 +241,9 @@ export function ChatDrawer({
                   ]}
                 >
                   <View style={styles.projectIconGap} />
-                  <Text style={styles.projectManage}>Boshqarish</Text>
+                  <Text style={styles.projectManage} numberOfLines={1}>
+                    Boshqarish
+                  </Text>
                   <ChevronRight size={13} color={PRIMARY} />
                 </Pressable>
               </View>
@@ -341,7 +345,9 @@ function DrawerLink({
       ]}
     >
       <Icon size={18} color={MUTED} />
-      <Text style={styles.linkLabel}>{label}</Text>
+      <Text style={styles.linkLabel} numberOfLines={1}>
+        {label}
+      </Text>
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count}</Text>
@@ -396,9 +402,9 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   projectIconGap: { width: 15 },
-  projectName: { flex: 1, fontSize: 14.5, fontWeight: '600', color: INK },
+  projectName: { flexGrow: 1, flexShrink: 1, fontSize: 14.5, fontWeight: '600', color: INK },
   projectCount: { fontSize: 12, fontWeight: '700', color: MUTED },
-  projectManage: { flex: 1, fontSize: 14, fontWeight: '700', color: PRIMARY },
+  projectManage: { flexGrow: 1, flexShrink: 1, fontSize: 14, fontWeight: '700', color: PRIMARY },
   projectsEmpty: {
     fontSize: 13,
     color: MUTED,
@@ -443,7 +449,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(47,111,228,0.10)',
     boxShadow: lift('sm'),
   },
-  newChatText: { flex: 1, fontSize: 16, fontWeight: '700', color: PRIMARY },
+  newChatText: { flexGrow: 1, flexShrink: 1, fontSize: 16, fontWeight: '700', color: PRIMARY },
 
   link: {
     flexDirection: 'row',
@@ -453,7 +459,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
   },
-  linkLabel: { flex: 1, fontSize: 16, fontWeight: '500', color: INK },
+  linkLabel: { flexGrow: 1, flexShrink: 1, fontSize: 16, fontWeight: '500', color: INK },
   badge: {
     minWidth: 22,
     paddingHorizontal: 6,
@@ -497,7 +503,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   recentOn: { backgroundColor: 'rgba(47,111,228,0.10)' },
-  recentTitle: { flex: 1, fontSize: 14, fontWeight: '400', color: INK },
+  recentTitle: { flexGrow: 1, flexShrink: 1, fontSize: 14, fontWeight: '400', color: INK },
   recentTitleOn: { fontWeight: '600', color: PRIMARY },
   when: { fontSize: 12, color: MUTED, fontVariant: ['tabular-nums'] },
   empty: {

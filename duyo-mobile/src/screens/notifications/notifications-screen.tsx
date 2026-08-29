@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rowTitle: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 15,
     fontWeight: '700',
     color: INK,

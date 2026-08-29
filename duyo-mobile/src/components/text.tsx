@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import {
+  Platform,
   StyleSheet,
   Text as RNText,
   TextInput as RNTextInput,
@@ -46,6 +47,25 @@ const FAMILY_STYLE: Record<string, TextStyle> = Object.fromEntries(
   Object.values(FONTS).map((family) => [family, { fontFamily: family }]),
 );
 
+/**
+ * Android only: neutralise the numeric weight AFTER the caller sets it.
+ *
+ * Each family here holds exactly one face, so the weight is already in the
+ * NAME — `Inter_700Bold` is bold because of what it is, not because of a
+ * `fontWeight` beside it. Android does not see it that way. ReactFontManager
+ * resolves (family, style, weight) together and, asked for the bold slot of a
+ * family registered with a single normal-slot face, finds nothing and falls
+ * back to Roboto — so the heaviest text in the app renders in the system
+ * typeface while everything around it is Inter.
+ *
+ * iOS resolves the family by name and is not affected, so it is left alone:
+ * overriding a caller's weight globally is a change this has no evidence
+ * for on that platform, and the cost of being wrong is every bold word in
+ * the app.
+ */
+const ANDROID_WEIGHT: TextStyle | null =
+  Platform.OS === 'android' ? { fontWeight: 'normal' } : null;
+
 function fontStyle(style: unknown) {
   // The overwhelmingly common case: no style at all, so nothing to flatten.
   if (style == null) return FAMILY_STYLE[FONTS[400]];
@@ -60,8 +80,10 @@ export const Text = forwardRef<RNTextType, TextProps>(function Text(
   return (
     <RNText
       ref={ref}
-      // The family goes FIRST so a caller that sets its own still wins.
-      style={[fontStyle(style), style]}
+      // The family goes FIRST so a caller that sets its own still wins;
+      // the Android weight reset goes LAST because it has to beat the
+      // caller's numeric weight, which is what breaks the lookup.
+      style={[fontStyle(style), style, ANDROID_WEIGHT]}
       {...rest}
     />
   );
@@ -70,7 +92,11 @@ export const Text = forwardRef<RNTextType, TextProps>(function Text(
 export const TextInput = forwardRef<RNTextInputType, TextInputProps>(
   function TextInput({ style, ...rest }, ref) {
     return (
-      <RNTextInput ref={ref} style={[fontStyle(style), style]} {...rest} />
+      <RNTextInput
+        ref={ref}
+        style={[fontStyle(style), style, ANDROID_WEIGHT]}
+        {...rest}
+      />
     );
   },
 );

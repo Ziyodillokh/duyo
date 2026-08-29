@@ -841,7 +841,7 @@ const styles = StyleSheet.create({
   // Centred by taking the row’s slack, so the title stays on the screen’s
   // midline whatever the two round buttons beside it end up measuring.
   headerTitle: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
@@ -969,7 +969,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   input: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     maxHeight: 128,
     paddingHorizontal: 16,
     paddingVertical: 12,

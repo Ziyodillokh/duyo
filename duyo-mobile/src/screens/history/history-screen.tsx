@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   // native ignores unknown keys.
   focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
   title: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 22,
     fontWeight: '700',
     color: TITLE,
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   searchInput: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 16,
     color: INK,
     paddingVertical: 0,
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowTitle: {
-    flex: 1,
+    flexGrow: 1, flexShrink: 1,
     fontSize: 16,
     fontWeight: '600',
     color: INK,

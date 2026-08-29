@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   focusable: { outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle,
   pressed: { opacity: 0.8 },
   pressedHard: { opacity: 0.6 },
-  title: { flex: 1, fontSize: 22, fontWeight: '700', color: INK },
+  title: { flexGrow: 1, flexShrink: 1, fontSize: 22, fontWeight: '700', color: INK },
 
   scroll: {
     paddingHorizontal: 20,
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  searchInput: { flex: 1, fontSize: 15, color: INK, paddingVertical: 0 },
+  searchInput: { flexGrow: 1, flexShrink: 1, fontSize: 15, color: INK, paddingVertical: 0 },
 
   chipRow: { flexDirection: 'row', gap: 8, paddingRight: 8 },
   chip: {
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   actionDanger: { borderColor: 'rgba(224,69,94,0.30)' },
-  actionText: { flex: 1, fontSize: 15, fontWeight: '600', color: INK },
+  actionText: { flexGrow: 1, flexShrink: 1, fontSize: 15, fontWeight: '600', color: INK },
   actionTextDanger: { color: DANGER },
 
   form: { padding: 16, gap: 12 },

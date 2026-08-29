@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34,181,115,0.12)',
   },
   trialStar: { fontSize: 16 },
-  trialText: { flex: 1, fontSize: 14, fontWeight: '600', color: GREEN },
+  trialText: { flexGrow: 1, flexShrink: 1, fontSize: 14, fontWeight: '600', color: GREEN },
 
   // The track is a well cut into the page, so it carries no shadow of its
   // own — only the selected segment lifts off it.
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
 
   featureList: { gap: 8 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  featureText: { flex: 1, fontSize: 14, lineHeight: 20, color: INK },
+  featureText: { flexGrow: 1, flexShrink: 1, fontSize: 14, lineHeight: 20, color: INK },
 
   select: {
     marginTop: 20,
