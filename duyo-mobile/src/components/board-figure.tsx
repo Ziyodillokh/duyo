@@ -259,7 +259,12 @@ export function BoardFigureView({ figure, width, height, delay }: FigureProps) {
                   y={sy(at[1]) - 7}
                   fill={CHALK}
                   fontSize={12.5}
-                  fontWeight="600"
+                  // A real family, not a bare weight: with no fontFamily,
+                  // Android drew this in the system face and (API 28+)
+                  // applied the weight to THAT — the same defect the map
+                  // labels had. Resolves from the embedded
+                  // assets/fonts/Inter_600SemiBold.ttf by filename.
+                  fontFamily="Inter_600SemiBold"
                   textAnchor="middle"
                 >
                   {item.label}

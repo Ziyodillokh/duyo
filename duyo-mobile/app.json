@@ -46,6 +46,19 @@
       "expo-sqlite",
       "expo-video",
       [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              "./assets/fonts/Inter_400Regular.ttf",
+              "./assets/fonts/Inter_500Medium.ttf",
+              "./assets/fonts/Inter_600SemiBold.ttf",
+              "./assets/fonts/Inter_700Bold.ttf"
+            ]
+          }
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "DUYO profil rasmini tanlash uchun galereyaga ruxsat so'raydi.",

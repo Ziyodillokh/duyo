@@ -184,7 +184,14 @@ function DockTab({
           FILE — each Inter weight is its own family, see lib/fonts.ts — and the
           two faces are not the same width, so the label would jog sideways
           every time the tab changed. */}
-      <Animated.Text style={[styles.label, labelStyle]} numberOfLines={1}>
+      <Animated.Text
+        style={[styles.label, labelStyle]}
+        numberOfLines={1}
+        // Raw Animated.Text bypasses the app Text wrapper, so it does not
+        // inherit the Android clip default — set it here. See
+        // components/text.tsx for the ROM ellipsize mechanism.
+        ellipsizeMode="clip"
+      >
         {tab.label}
       </Animated.Text>
     </Pressable>

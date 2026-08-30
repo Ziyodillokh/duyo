@@ -740,6 +740,10 @@ export function NoteGraph({
     savedTx.set(fx);
     ty.set(withTiming(fy));
     savedTy.set(fy);
+    // sim is deliberately a fresh object each render; the effect reads its
+    // positions ONCE, at the moment settled flips true. Listing it would
+    // re-run this every frame — the exact per-frame cost this gate ended.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [galaxy, size, settled, scale, savedScale, tx, ty, savedTx, savedTy]);
 
   // The first tap SELECTS: the planet's constellation lights up and the rest
@@ -830,9 +834,13 @@ export function NoteGraph({
     for (const { n } of cand) {
       const size = n.ring === 0 ? 11 : 10;
       const chars = Math.min(n.title.length, 14);
-      // 0.55em is a good enough average advance for Inter at these sizes;
-      // this only has to be right enough to detect a collision.
-      const hw = (chars * size * 0.55) / 2;
+      // Average advance per glyph, per face. The labels now render in
+      // real Inter on BOTH platforms (embedded on Android, @font-face on
+      // web), so the estimate finally measures the font the screen
+      // draws: Bold runs a touch wider than Medium. It only has to be
+      // right enough to detect a collision.
+      const em = n.ring === 0 ? 0.58 : 0.53;
+      const hw = (chars * size * em) / 2;
       const hh = size * 0.6;
       const y =
         n.y +
@@ -1248,7 +1256,17 @@ export function NoteGraph({
                         : LABEL
                   }
                   fontSize={n.ring === 0 ? 11 : 10}
-                  fontWeight={n.ring === 0 ? 'bold' : 'normal'}
+                  // A real family, not a bare fontWeight. With no family,
+                  // Android drew these in the system font — the one part of
+                  // the app not in Inter, and wider than the 0.55em/char the
+                  // collision pass assumes, which is how labels the pass had
+                  // cleared still collided on the phone. The weight lives in
+                  // the family name; rnsvg resolves it from the embedded
+                  // assets/fonts/<family>.ttf by filename (TSpanView.java),
+                  // and on web expo-font registers the same names as
+                  // @font-face, so both platforms now agree with the
+                  // estimator.
+                  fontFamily={n.ring === 0 ? 'Inter_700Bold' : 'Inter_500Medium'}
                   textAnchor="middle"
                   opacity={alpha(n.title) * 0.9}
                 >

@@ -29,6 +29,23 @@ import type { TextStyle } from 'react-native';
  * time. `fontWeight` is still set alongside — it costs nothing, and it keeps
  * the styles honest for anyone reading them.
  *
+ * ## Why Android ALSO embeds these files (app.json, expo-font plugin)
+ *
+ * Runtime registration proved unreliable on at least one real device:
+ * labels using the 500/600/700 families rendered as nothing while the
+ * same families drew fine elsewhere on the same screen. Embedding puts
+ * the files at assets/fonts/<family>.ttf inside the APK, where BOTH
+ * text engines resolve them by FILENAME at draw time with no runtime
+ * step at all: React Native probes that exact path for an unregistered
+ * family (createAssetTypeface), and react-native-svg probes it before
+ * it even asks React Native (TSpanView.java:1146). Our family names ARE
+ * the filenames, so the embedded faces are drop-in.
+ *
+ * iOS is deliberately NOT embedded: the plugin registers iOS fonts by
+ * their POSTSCRIPT names, which for these files disagree with our
+ * family names — the naming mess documented above. iOS keeps the
+ * runtime path, which works there.
+ *
  * ## Why the files are the full Inter and not a Latin subset
  *
  * The app speaks uz, ru and en (onboarding/language.tsx), so Cyrillic has to

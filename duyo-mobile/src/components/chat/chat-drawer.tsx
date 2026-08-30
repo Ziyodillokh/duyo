@@ -161,9 +161,19 @@ export function ChatDrawer({
               ]}
             >
               <SquarePen size={18} color={PRIMARY} />
-              <Text style={styles.newChatText} numberOfLines={1}>
-                Yangi suhbat
-              </Text>
+              {/* No numberOfLines, deliberately — here and on the two
+                  labels below. On the owner’s phone (MIUI, system font
+                  weight boosted) every Modal-hosted label combining
+                  numberOfLines with a Medium/SemiBold/Bold face rendered
+                  as NOTHING: numberOfLines is the one prop with a native
+                  side (setMaxLines + setEllipsize(END)), and on that ROM
+                  the END-ellipsize single-line layout can resolve to zero
+                  glyphs when draw metrics outgrow the measured width — a
+                  Modal is its own Fabric surface, which is where the
+                  measure/draw split lives (RN #48320). These strings are
+                  short and fixed; they cannot wrap in practice, and
+                  without maxLines there is no ellipsize path at all. */}
+              <Text style={styles.newChatText}>Yangi suhbat</Text>
             </Pressable>
           </View>
 
@@ -208,7 +218,14 @@ export function ChatDrawer({
                       color={project.colour ?? PRIMARY}
                       strokeWidth={2}
                     />
-                    <Text style={styles.projectName} numberOfLines={1}>
+                    <Text
+                      style={styles.projectName}
+                      numberOfLines={1}
+                      // clip, not the default tail: END-ellipsize is the
+                      // native path that ate bold Modal labels whole on
+                      // MIUI. Clip draws the glyphs and cuts at the edge.
+                      ellipsizeMode="clip"
+                    >
                       {project.name}
                     </Text>
                     {/* Pinned ones already come first — the server orders on
@@ -241,9 +258,8 @@ export function ChatDrawer({
                   ]}
                 >
                   <View style={styles.projectIconGap} />
-                  <Text style={styles.projectManage} numberOfLines={1}>
-                    Boshqarish
-                  </Text>
+                  {/* No numberOfLines — see the note on "Yangi suhbat". */}
+                  <Text style={styles.projectManage}>Boshqarish</Text>
                   <ChevronRight size={13} color={PRIMARY} />
                 </Pressable>
               </View>
@@ -277,6 +293,11 @@ export function ChatDrawer({
                   <MessageSquare size={15} color={active ? PRIMARY : MUTED} />
                   <Text
                     numberOfLines={1}
+                    // clip, not the default tail: the ACTIVE row swaps in a
+                    // SemiBold face, and inside this Modal that plus
+                    // END-ellipsize is the exact combination MIUI rendered
+                    // as nothing (see the note on "Yangi suhbat").
+                    ellipsizeMode="clip"
                     // Set on this Text itself rather than left to inherit: a
                     // nested Text takes the parent's colour on Android and its
                     // own on iOS, so the two platforms disagreed about the
@@ -345,9 +366,8 @@ function DrawerLink({
       ]}
     >
       <Icon size={18} color={MUTED} />
-      <Text style={styles.linkLabel} numberOfLines={1}>
-        {label}
-      </Text>
+      {/* No numberOfLines — see the note on "Yangi suhbat". */}
+      <Text style={styles.linkLabel}>{label}</Text>
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count}</Text>

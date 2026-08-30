@@ -74,7 +74,7 @@ function fontStyle(style: unknown) {
 }
 
 export const Text = forwardRef<RNTextType, TextProps>(function Text(
-  { style, ...rest },
+  { style, ellipsizeMode, ...rest },
   ref,
 ) {
   return (
@@ -84,6 +84,18 @@ export const Text = forwardRef<RNTextType, TextProps>(function Text(
       // the Android weight reset goes LAST because it has to beat the
       // caller's numeric weight, which is what breaks the lookup.
       style={[fontStyle(style), style, ANDROID_WEIGHT]}
+      // Android defaults to clip, not tail. numberOfLines arms the
+      // framework's single-line END-ellipsize machinery, and on at least
+      // one real ROM (MIUI/HyperOS with its system font-weight feature)
+      // that path rendered every capped Medium/SemiBold/Bold label as
+      // ZERO glyphs while uncapped siblings drew fine. Clip maps to
+      // setEllipsize(null): the line is drawn and cut at the edge
+      // instead of being handed to the replace-with-ellipsis logic that
+      // was eating it whole. Without numberOfLines the prop is inert,
+      // and a caller that asks for a mode explicitly still wins.
+      ellipsizeMode={
+        Platform.OS === 'android' ? (ellipsizeMode ?? 'clip') : ellipsizeMode
+      }
       {...rest}
     />
   );

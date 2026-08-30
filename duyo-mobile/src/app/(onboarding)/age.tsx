@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Compass, Gamepad2, GraduationCap, Minus, Plus, type LucideIcon } from 'lucide-react-native';
+import { Compass, GraduationCap, Minus, Plus, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

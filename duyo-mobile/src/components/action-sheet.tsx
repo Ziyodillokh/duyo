@@ -119,8 +119,11 @@ export function ActionSheet({
         >
           <View style={styles.grabber} />
 
+          {/* clip, not tail-ellipsize — inside a Modal on MIUI the
+              END-ellipsize path rendered bold capped text as nothing; see
+              chat-drawer’s "Yangi suhbat" note for the mechanism. */}
           {!!title && (
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={styles.title} numberOfLines={2} ellipsizeMode="clip">
               {title}
             </Text>
           )}
@@ -173,7 +176,12 @@ function Row({ action, onClose }: { action: SheetAction; onClose: () => void }) 
       ) : (
         <View style={styles.iconGap} />
       )}
-      <Text style={[styles.rowText, { color: colour }]} numberOfLines={1}>
+      <Text
+        style={[styles.rowText, { color: colour }]}
+        numberOfLines={1}
+        // Same Modal + SemiBold + END-ellipsize combination — clip instead.
+        ellipsizeMode="clip"
+      >
         {action.label}
       </Text>
     </Pressable>
