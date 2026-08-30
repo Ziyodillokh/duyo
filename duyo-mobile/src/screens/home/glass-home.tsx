@@ -424,7 +424,7 @@ export function GlassHome() {
         <Pressable
           onPress={() => router.push('/(main)/subscription')}
           accessibilityRole="button"
-          accessibilityLabel="AI kredit — limitni oshirish"
+          accessibilityLabel="AI kredit — batafsil"
           style={[glass(30, 'lg'), styles.creditCard]}
         >
           <View style={styles.creditText}>
@@ -432,7 +432,7 @@ export function GlassHome() {
             <Text style={styles.creditValue}>
               {credit === undefined ? '—' : fmt(credit)}
             </Text>
-            <Text style={styles.creditHint}>limitni oshirish</Text>
+            <Text style={styles.creditHint}>rejangiz haqida</Text>
           </View>
           <View style={[glass(22, 'flush'), styles.creditArrow]}>
             <ArrowUpRight size={sizes.s(30)} color={PRIMARY} strokeWidth={2.2} />

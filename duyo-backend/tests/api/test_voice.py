@@ -154,7 +154,7 @@ def child(user: User) -> ChildProfile:
     c = ChildProfile(
         parent_id=user.id,
         name="Aziza",
-        age=9,
+        age=15,
         age_segment=AgeSegment.JUNIOR,
         language=Language.UZ,
     )

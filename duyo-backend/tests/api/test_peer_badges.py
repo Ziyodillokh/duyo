@@ -58,7 +58,7 @@ def session():
 # --- world building ---------------------------------------------------------
 
 
-async def _child(session, name="Bola", age=12):
+async def _child(session, name="Bola", age=14):
     user = User(phone=f"+9989{uuid4().int % 10**8:08d}")
     session.add(user)
     await session.flush()

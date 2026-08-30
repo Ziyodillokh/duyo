@@ -56,8 +56,8 @@ def world():
         session.add(user)
         await session.flush()
         child = ChildProfile(
-            parent_id=user.id, name="Ali", age=12,
-            age_segment=AgeSegment.from_age(12), language=Language.UZ, interests=[],
+            parent_id=user.id, name="Ali", age=14,
+            age_segment=AgeSegment.from_age(14), language=Language.UZ, interests=[],
         )
         session.add(child)
         await session.flush()
@@ -206,8 +206,8 @@ def test_another_familys_conversation_is_never_listed(world):
         session.add(other_user)
         await session.flush()
         other = ChildProfile(
-            parent_id=other_user.id, name="Boshqa", age=12,
-            age_segment=AgeSegment.from_age(12), language=Language.UZ, interests=[],
+            parent_id=other_user.id, name="Boshqa", age=14,
+            age_segment=AgeSegment.from_age(14), language=Language.UZ, interests=[],
         )
         session.add(other)
         await session.flush()
@@ -281,8 +281,8 @@ def test_another_familys_messages_are_never_readable(world):
         session.add(other_user)
         await session.flush()
         other = ChildProfile(
-            parent_id=other_user.id, name="Boshqa", age=12,
-            age_segment=AgeSegment.from_age(12), language=Language.UZ, interests=[],
+            parent_id=other_user.id, name="Boshqa", age=14,
+            age_segment=AgeSegment.from_age(14), language=Language.UZ, interests=[],
         )
         session.add(other)
         await session.flush()
@@ -346,8 +346,8 @@ def test_a_conversation_cannot_be_filed_into_another_familys_project(world):
         session.add(other_user)
         await session.flush()
         other = ChildProfile(
-            parent_id=other_user.id, name="Boshqa", age=12,
-            age_segment=AgeSegment.from_age(12), language=Language.UZ, interests=[],
+            parent_id=other_user.id, name="Boshqa", age=14,
+            age_segment=AgeSegment.from_age(14), language=Language.UZ, interests=[],
         )
         session.add(other)
         await session.flush()
@@ -528,8 +528,8 @@ def test_another_familys_project_is_not_reachable(world):
         session.add(other_user)
         await session.flush()
         other = ChildProfile(
-            parent_id=other_user.id, name="Boshqa", age=12,
-            age_segment=AgeSegment.from_age(12), language=Language.UZ, interests=[],
+            parent_id=other_user.id, name="Boshqa", age=14,
+            age_segment=AgeSegment.from_age(14), language=Language.UZ, interests=[],
         )
         session.add(other)
         await session.flush()

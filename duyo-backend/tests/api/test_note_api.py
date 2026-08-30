@@ -65,7 +65,7 @@ def world(session_factory):
             id=uuid4(),
             parent_id=user.id,
             name="Ali",
-            age=12,
+            age=14,
             age_segment=AgeSegment.EXPLORER,
             language=Language.UZ,
         )

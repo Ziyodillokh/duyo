@@ -19,8 +19,17 @@ class AgeSegment(str, Enum):
 
     @classmethod
     def from_age(cls, age: int) -> "AgeSegment":
-        if age < 7 or age > 16:
-            raise ValueError(f"Age {age} outside DUYO supported range (7-16)")
+        # 13, not 7. A target audience that includes under-13s puts the app
+        # under Google Play's Families Policy and under COPPA, which requires
+        # verifiable parental consent before collecting personal information
+        # from a child — and DUYO takes a phone number, a name, an age, chat
+        # content, voice and a photo, with no parent account.
+        #
+        # Existing profiles below 13 are untouched: this bounds creation and
+        # age edits, not reads. JUNIOR is therefore unreachable for a new
+        # child and is kept for those rows and for content tagged to it.
+        if age < 13 or age > 16:
+            raise ValueError(f"Age {age} outside DUYO supported range (13-16)")
         if age <= 10:
             return cls.JUNIOR
         if age <= 13:

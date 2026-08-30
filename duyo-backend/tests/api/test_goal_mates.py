@@ -399,7 +399,7 @@ def test_resolution_respects_the_age_band_against_a_real_session(session):
         )
         session.add(entry)
         await session.flush()
-        assert await resolve_match_key(session, "IELTS ga tayyorlanaman", age=10) is None
+        assert await resolve_match_key(session, "IELTS ga tayyorlanaman", age=13) is None
         assert await resolve_match_key(session, "IELTS ga tayyorlanaman", age=15) == "exam_ielts"
 
     _run(scenario())
@@ -423,8 +423,11 @@ def test_picker_key_outside_the_childs_age_band_is_dropped(session):
     from duyo.schemas.goal import GoalCreate
 
     entry = _run(_catalog(session, "test-otkan"))
-    entry.age_min, entry.age_max = 12, 16
-    child = _run(_child(session, "Aziza", age=9))
+    # 15-16, not 12-16: with the app at 13+, no supported age falls outside
+    # a 12-16 band any more, so the band itself has to move for the test to
+    # still be about a child OUTSIDE it.
+    entry.age_min, entry.age_max = 15, 16
+    child = _run(_child(session, "Aziza", age=13))
     _run(session.commit())
 
     goal = _run(
@@ -437,7 +440,7 @@ def test_picker_key_outside_the_childs_age_band_is_dropped(session):
     )
     # The goal itself survives — it is still a fine goal for her to have.
     assert goal.title == "Otkan Kunlar"
-    # But she is NOT filed into the 12-16 peer group.
+    # But she is NOT filed into the 15-16 peer group.
     assert goal.match_key is None
 
 

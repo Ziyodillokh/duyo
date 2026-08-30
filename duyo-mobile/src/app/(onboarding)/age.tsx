@@ -21,9 +21,9 @@ const BG_BOTTOM = '#EDF2FD';
 /** The unpicked ticks on the ruler — quiet enough to read as "not this one". */
 const TICK_OFF = '#94A3B8';
 
-const MIN_AGE = 7;
+const MIN_AGE = 13;
 const MAX_AGE = 16;
-const DEFAULT_AGE = 10;
+const DEFAULT_AGE = 14;
 const AGES = Array.from({ length: MAX_AGE - MIN_AGE + 1 }, (_, i) => MIN_AGE + i);
 
 interface Segment {
@@ -40,8 +40,10 @@ interface Segment {
 }
 
 const SEGMENTS: readonly Segment[] = [
-  { key: 'junior', from: 7, to: 10, nameKey: 'onboarding.age.segment.junior', descKey: 'onboarding.age.segment.juniorDesc', Icon: Gamepad2, colour: '#F97316' },
-  { key: 'explorer', from: 11, to: 13, nameKey: 'onboarding.age.segment.explorer', descKey: 'onboarding.age.segment.explorerDesc', Icon: Compass, colour: '#2563EB' },
+  // Two bands, not three. The junior band was 7-10 and the app is 13+ now;
+  // the boundary matches the server's AgeSegment.from_age, which puts 13 in
+  // EXPLORER and 14-16 in COMPANION.
+  { key: 'explorer', from: 13, to: 13, nameKey: 'onboarding.age.segment.explorer', descKey: 'onboarding.age.segment.explorerDesc', Icon: Compass, colour: '#2563EB' },
   { key: 'companion', from: 14, to: 16, nameKey: 'onboarding.age.segment.companion', descKey: 'onboarding.age.segment.companionDesc', Icon: GraduationCap, colour: '#8B5CF6' },
 ];
 

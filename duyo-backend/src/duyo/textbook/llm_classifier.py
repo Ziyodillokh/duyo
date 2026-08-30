@@ -82,7 +82,7 @@ _FEW_SHOT: list[dict[str, str]] = [
 
 _SYSTEM_PROMPT = """\
 Siz DUYO ta'lim platformasi uchun darslik matnlarini tahlil qiluvchi metadata\
- classifier'sisiz. DUYO 7-16 yoshli bolalar uchun AI tutor.
+ classifier'sisiz. DUYO 13-16 yoshli o‘smirlar uchun AI tutor.
 
 Sizga darslikdan olingan matn parchasi va hujjat metadata'si beriladi.
 Faqat JSON qaytaring. Izoh yoki tushuntirish yozmang.

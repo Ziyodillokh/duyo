@@ -4,7 +4,6 @@ import { glass, lift } from '@/lib/glass';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, Check } from 'lucide-react-native';
-import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -40,18 +39,25 @@ const PAYMENT_METHODS = ['Click', 'Payme', 'Uzcard', 'Humo', 'Visa/Mastercard'];
 // The premium tier gets the gold "Premium" treatment.
 const PREMIUM_KEY = 'premium';
 
+/**
+ * What the child is on, and what it includes. NOT a shop.
+ *
+ * Google Play requires Play Billing for a digital subscription consumed
+ * inside the app, and separately forbids "leading users to other payment
+ * methods" through in-app promotions, buttons, links or messaging. This
+ * app sold one through Click/Payme, which was both at once. Prices, the
+ * monthly/yearly toggle, the "choose" button and the payment screen
+ * behind them are all gone; the plan and its benefits stay, because
+ * telling a child what they have is not selling them anything.
+ *
+ * The gateways still exist server-side for duyo.uz. Nothing in the app
+ * may mention that — saying where to buy is itself the violation.
+ */
 export default function SubscriptionScreen() {
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
-
   const plansQuery = usePlans();
   const currentQuery = useCurrentSubscription();
   const plans = plansQuery.data ?? [];
   const currentTier = currentQuery.data?.tier ?? 'free';
-
-  const handleSelect = (key: string, priceMonthly: number) => {
-    if (priceMonthly === 0 || key === currentTier) return;
-    router.push({ pathname: '/(main)/payment', params: { tier: key, period: billing } });
-  };
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -86,42 +92,6 @@ export default function SubscriptionScreen() {
             </Text>
           </View>
 
-          {/* Trial banner */}
-          <View style={[glass(18, 'sm'), styles.trial]}>
-            <Text style={styles.trialStar}>⭐</Text>
-            <Text style={styles.trialText}>
-              7 kun bepul sinov — kredit karta talab qilinmaydi
-            </Text>
-          </View>
-
-          {/* Billing toggle */}
-          <View style={styles.toggle}>
-            {(['monthly', 'yearly'] as const).map((b) => (
-              <Pressable
-                key={b}
-                onPress={() => setBilling(b)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: billing === b }}
-                style={[
-                  styles.segment,
-                  billing === b && styles.segmentOn,
-                  styles.focusable,
-                ]}
-              >
-                <Text
-                  style={[styles.segmentText, billing === b && styles.segmentTextOn]}
-                >
-                  {b === 'monthly' ? 'Oylik' : 'Yillik'}
-                </Text>
-                {b === 'yearly' && (
-                  <View style={styles.saveBadge}>
-                    <Text style={styles.saveBadgeText}>-17%</Text>
-                  </View>
-                )}
-              </Pressable>
-            ))}
-          </View>
-
           {/* Pricing cards */}
           {plansQuery.isLoading && (
             <View style={styles.loading}>
@@ -144,9 +114,6 @@ export default function SubscriptionScreen() {
           {plans.map((tier) => {
             const isPremium = tier.key === PREMIUM_KEY;
             const isCurrent = tier.key === currentTier;
-            const price =
-              billing === 'yearly' ? tier.price_yearly : tier.price_monthly;
-            const unit = billing === 'yearly' ? '/ yil' : '/ oy';
 
             return (
               // Premium sits one rung higher than the rest of the ladder —
@@ -168,12 +135,6 @@ export default function SubscriptionScreen() {
 
                 <View style={styles.planHead}>
                   <Text style={styles.planName}>{tier.name}</Text>
-                  <Text style={styles.planPrice}>
-                    {price === 0
-                      ? 'Bepul'
-                      : `${price.toLocaleString('ru-RU')} so'm`}
-                  </Text>
-                  {price > 0 && <Text style={styles.planUnit}>{unit}</Text>}
                 </View>
 
                 {isCurrent && (
@@ -191,16 +152,6 @@ export default function SubscriptionScreen() {
                   ))}
                 </View>
 
-                {!isCurrent && tier.price_monthly > 0 && (
-                  <Pressable
-                    onPress={() => handleSelect(tier.key, tier.price_monthly)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Tanlash"
-                    style={[styles.select, styles.focusable]}
-                  >
-                    <Text style={styles.selectText}>Tanlash</Text>
-                  </Pressable>
-                )}
               </View>
             );
           })}

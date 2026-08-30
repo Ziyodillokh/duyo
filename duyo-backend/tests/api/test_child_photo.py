@@ -76,8 +76,8 @@ def _child(parent_id, photo_key=None) -> ChildProfile:
     c = ChildProfile(
         parent_id=parent_id,
         name="Aziza",
-        age=12,
-        age_segment=AgeSegment.from_age(12),
+        age=14,
+        age_segment=AgeSegment.from_age(14),
         language=Language.UZ,
     )
     c.id = uuid4()

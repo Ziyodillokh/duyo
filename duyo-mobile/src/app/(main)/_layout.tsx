@@ -45,7 +45,6 @@ export default function MainLayout() {
       <Stack.Screen name="library-item" />
       <Stack.Screen name="lesson-help" />
       <Stack.Screen name="subscription" />
-      <Stack.Screen name="payment" />
       <Stack.Screen
         name="crisis"
         options={{

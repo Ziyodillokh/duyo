@@ -63,7 +63,7 @@ class _User:
 
 def _child(parent_id, age_segment=AgeSegment.EXPLORER):
     return ChildProfile(
-        id=uuid4(), parent_id=parent_id, name="Aziza", age=12,
+        id=uuid4(), parent_id=parent_id, name="Aziza", age=14,
         age_segment=age_segment, language=Language.UZ,
     )
 

@@ -42,7 +42,7 @@ _Interest = Annotated[str, Field(min_length=1, max_length=40)]
 
 class ChildCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
-    age: int = Field(ge=7, le=16)
+    age: int = Field(ge=13, le=16)
     language: Language = Language.UZ
     interests: list[_Interest] = Field(default_factory=list, max_length=MAX_INTERESTS)
     mascot: Annotated[str, Field(max_length=32)] | None = None
@@ -60,13 +60,13 @@ class ChildCreate(BaseModel):
 class ChildUpdate(BaseModel):
     """Partial update — all fields optional. Age change re-derives age_segment.
 
-    Annotated[...] | None is required so the 7-16 bound is enforced on the int
+    Annotated[...] | None is required so the 13-16 bound is enforced on the int
     branch of the union; `int | None = Field(ge=...)` silently drops the
     constraint in pydantic 2.12.
     """
 
     name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
-    age: Annotated[int, Field(ge=7, le=16)] | None = None
+    age: Annotated[int, Field(ge=13, le=16)] | None = None
     language: Language | None = None
     interests: Annotated[list[_Interest], Field(max_length=MAX_INTERESTS)] | None = None
     mascot: Annotated[str, Field(max_length=32)] | None = None

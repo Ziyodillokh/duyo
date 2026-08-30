@@ -58,7 +58,7 @@ class _FakeUser:
     id: object
 
 
-def _child(parent_id, name="Aziza", age=12, lang=Language.UZ) -> ChildProfile:
+def _child(parent_id, name="Aziza", age=14, lang=Language.UZ) -> ChildProfile:
     c = ChildProfile(
         parent_id=parent_id,
         name=name,
@@ -74,7 +74,7 @@ def _child(parent_id, name="Aziza", age=12, lang=Language.UZ) -> ChildProfile:
 
 def test_list_children_returns_own():
     user = _FakeUser(id=uuid4())
-    rows = [_child(user.id, "Aziza", 12), _child(user.id, "Bek", 8)]
+    rows = [_child(user.id, "Aziza", 14), _child(user.id, "Bek", 16)]
     db = _FakeSession(_FakeResult(rows))
     result = _run(chat_module.list_children(current_user=user, db=db))
     assert {c.name for c in result} == {"Aziza", "Bek"}
@@ -108,20 +108,20 @@ def test_get_child_not_found_raises_404():
 
 def test_update_child_name_only():
     user = _FakeUser(id=uuid4())
-    child = _child(user.id, "Aziza", 12)
+    child = _child(user.id, "Aziza", 14)
     db = _FakeSession(_FakeResult([child]))
     result = _run(chat_module.update_child(
         child_id=child.id, payload=ChildUpdate(name="Azizaxon"),
         current_user=user, db=db,
     ))
     assert result.name == "Azizaxon"
-    assert result.age == 12
+    assert result.age == 14
     assert db.flushed
 
 
 def test_update_child_age_rederives_segment():
     user = _FakeUser(id=uuid4())
-    child = _child(user.id, "Bek", 8)  # junior
+    child = _child(user.id, "Bek", 16)  # companion
     db = _FakeSession(_FakeResult([child]))
     result = _run(chat_module.update_child(
         child_id=child.id, payload=ChildUpdate(age=14),
@@ -133,7 +133,7 @@ def test_update_child_age_rederives_segment():
 
 def test_update_child_language_only_keeps_name():
     user = _FakeUser(id=uuid4())
-    child = _child(user.id, "Aziza", 12)
+    child = _child(user.id, "Aziza", 14)
     db = _FakeSession(_FakeResult([child]))
     # JSON arrives as a string; pydantic coerces "ru" -> Language.RU.
     result = _run(chat_module.update_child(

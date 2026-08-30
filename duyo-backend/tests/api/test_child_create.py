@@ -57,7 +57,7 @@ class _FakeUser:
     id: object
 
 
-def _child(parent_id, name="Aziza", age=12) -> ChildProfile:
+def _child(parent_id, name="Aziza", age=14) -> ChildProfile:
     c = ChildProfile(
         parent_id=parent_id,
         name=name,
@@ -83,7 +83,7 @@ def test_creates_child_with_interests_and_mascot():
     child = _create(
         db,
         ChildCreate(
-            name="Aziza", age=12, interests=["kosmos", "musiqa"], mascot="raccoon"
+            name="Aziza", age=13, interests=["kosmos", "musiqa"], mascot="raccoon"
         ),
     )
     assert child.name == "Aziza"
@@ -95,45 +95,45 @@ def test_creates_child_with_interests_and_mascot():
 
 
 def test_interests_and_mascot_are_optional():
-    child = _create(_FakeSession(), ChildCreate(name="Bek", age=8))
+    child = _create(_FakeSession(), ChildCreate(name="Bek", age=14))
     assert child.interests == []
     assert child.mascot is None
 
 
 def test_name_is_stripped_and_blank_rejected():
-    child = _create(_FakeSession(), ChildCreate(name="  Aziza  ", age=12))
+    child = _create(_FakeSession(), ChildCreate(name="  Aziza  ", age=14))
     assert child.name == "Aziza"
     with pytest.raises(ValueError):
-        ChildCreate(name="   ", age=12)
+        ChildCreate(name="   ", age=14)
 
 
 # ── never twice ─────────────────────────────────────────────────────────────
 
 def test_second_identical_create_returns_the_same_child():
     user = _FakeUser(id=uuid4())
-    first = _child(user.id, "Aziza", 12)
+    first = _child(user.id, "Aziza", 14)
     db = _FakeSession(existing=first)
-    again = _create(db, ChildCreate(name="Aziza", age=12), user=user)
+    again = _create(db, ChildCreate(name="Aziza", age=14), user=user)
     assert again is first
     assert db.added == []
 
 
 def test_repeat_create_is_case_and_space_insensitive():
     user = _FakeUser(id=uuid4())
-    first = _child(user.id, "Aziza", 12)
+    first = _child(user.id, "Aziza", 14)
     db = _FakeSession(existing=first)
-    again = _create(db, ChildCreate(name="  aziza ", age=12), user=user)
+    again = _create(db, ChildCreate(name="  aziza ", age=14), user=user)
     assert again is first
     assert db.added == []
 
 
 def test_repeat_create_fills_in_answers_the_first_pass_missed():
     user = _FakeUser(id=uuid4())
-    first = _child(user.id, "Aziza", 12)
+    first = _child(user.id, "Aziza", 14)
     db = _FakeSession(existing=first)
     again = _create(
         db,
-        ChildCreate(name="Aziza", age=12, interests=["sport"], mascot="duyo"),
+        ChildCreate(name="Aziza", age=14, interests=["sport"], mascot="duyo"),
         user=user,
     )
     assert again.interests == ["sport"]
@@ -145,7 +145,7 @@ def test_a_sibling_is_not_a_duplicate():
     """Only an exact name+age match is treated as the same child."""
     user = _FakeUser(id=uuid4())
     db = _FakeSession(existing=None)  # the query found no match for this name
-    sibling = _create(db, ChildCreate(name="Bek", age=8), user=user)
+    sibling = _create(db, ChildCreate(name="Bek", age=14), user=user)
     assert sibling.name == "Bek"
     assert db.added == [sibling]
 
@@ -164,7 +164,7 @@ def test_unlinked_child_still_owns_itself_as_before():
     user = _FakeUser(id=uuid4())
     db = _FakeSession(existing=None, invite=None)
 
-    child = _create(db, ChildCreate(name="Aziza", age=12), user=user)
+    child = _create(db, ChildCreate(name="Aziza", age=14), user=user)
 
     assert child.parent_id == user.id
     assert child.child_user_id is None
@@ -199,4 +199,4 @@ def test_update_can_change_interests_and_mascot():
 
 def test_interest_list_is_bounded():
     with pytest.raises(ValueError):
-        ChildCreate(name="Aziza", age=12, interests=[f"i{n}" for n in range(13)])
+        ChildCreate(name="Aziza", age=14, interests=[f"i{n}" for n in range(13)])

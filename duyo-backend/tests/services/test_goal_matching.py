@@ -182,8 +182,8 @@ def test_a_retired_entry_is_never_selected():
 
 
 def test_age_band_is_respected():
-    """A 10-year-old writing about English is not filed under 14+ IELTS."""
-    assert _resolve("IELTS ga tayyorlanaman", age=10) is None
+    """A 13-year-old writing about English is not filed under 14+ IELTS."""
+    assert _resolve("IELTS ga tayyorlanaman", age=13) is None
     assert _resolve("IELTS ga tayyorlanaman", age=15) == "exam_ielts"
 
 

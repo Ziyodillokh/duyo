@@ -290,7 +290,7 @@ async def delete_goal(
 @router.get("/goals/catalog", response_model=list[GoalCatalogRead])
 async def goal_catalog(
     kind: str | None = None,
-    age: int | None = Query(default=None, ge=7, le=16),
+    age: int | None = Query(default=None, ge=13, le=16),
     q: str | None = Query(default=None, max_length=80),
     _current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

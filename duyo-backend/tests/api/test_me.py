@@ -39,7 +39,7 @@ def _user(children: int = 0, **kw) -> User:
         ChildProfile(
             parent_id=user.id,
             name=f"Bola {n}",
-            age=10,
+            age=16,
             age_segment=AgeSegment.JUNIOR,
             language=Language.UZ,
         )

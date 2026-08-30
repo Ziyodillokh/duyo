@@ -63,7 +63,7 @@ class _FakeUser:
 
 def _child(parent_id):
     return ChildProfile(
-        id=uuid4(), parent_id=parent_id, name="Aziza", age=11,
+        id=uuid4(), parent_id=parent_id, name="Aziza", age=13,
         age_segment=AgeSegment.EXPLORER, language=Language.UZ,
     )
 
