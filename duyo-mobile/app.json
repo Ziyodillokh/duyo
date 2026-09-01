@@ -17,8 +17,9 @@
     "android": {
       "package": "uz.duyo.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#2563EB",
-        "foregroundImage": "./assets/images/duyo-icon.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/duyo-icon-adaptive.png",
+        "monochromeImage": "./assets/images/duyo-icon-mono.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -29,16 +30,16 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/duyo-icon.png"
+      "favicon": "./assets/images/duyo-favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#2563EB",
-          "image": "./assets/images/duyo-icon.png",
-          "imageWidth": 280
+          "backgroundColor": "#E3EFFF",
+          "image": "./assets/images/duyo-splash.png",
+          "imageWidth": 220
         }
       ],
       "expo-secure-store",
