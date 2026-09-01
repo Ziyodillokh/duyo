@@ -51,6 +51,22 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # Har build android/ ni noldan yaratadi, lekin Gradle YUKLAB OLADIGAN
+      # narsalar (AGP, Kotlin, barcha Maven artefaktlari, RN va Hermes'ning
+      # oldindan qurilgan .aar fayllari) o'zgarmaydi — ular faqat bog'liqliklar
+      # to'plamiga bog'liq. Shuning uchun kesh kaliti package-lock.json'ga
+      # bog'lanadi: bog'liqliklar o'zgarmasa, kesh to'liq mos keladi.
+      # Bu har build'dagi bir necha yuz MB yuklab olishni olib tashlaydi.
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('duyo-mobile/package-lock.json') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
       - name: Install dependencies
         run: npm ci
 
@@ -72,11 +88,36 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
-      - name: Build release APK
+      # Ikkala sozlama ham `findProperty` orqali o'qiladi, shuning uchun buyruq
+      # qatoridan beriladi. android/ ni tahrirlash mumkin emas — uni har build'da
+      # `expo prebuild` qaytadan yaratadi.
+      #
+      # -PreactNativeArchitectures — Expo shabloni standart holda to'rtta ABI
+      #   quradi (armeabi-v7a,arm64-v8a,x86,x86_64). x86 va x86_64 faqat
+      #   emulyator uchun; birorta ham haqiqiy telefon ularni ishlatmaydi, lekin
+      #   125 MB APK'ning 49.7 MB'ini (40%) egallardi.
+      #
+      # -Pexpo.useLegacyPackaging — standart `false` .so fayllarni APK ichida
+      #   SIQILMAGAN holda saqlaydi. Play Store uchun bu to'g'ri (Play o'zi
+      #   siqib yetkazadi), lekin bu APK admin.duyo.uz'dan to'g'ridan-to'g'ri
+      #   yuklanadi — siqilmagan baytlar to'g'ridan-to'g'ri tarmoqdan o'tadi.
+      #   O'lchandi: 39.6 MB -> 14.9 MB (62% kam). Evaziga o'rnatish biroz
+      #   sekinroq (kutubxonalar ochib olinadi); ishga tushish tezligi o'zgarmaydi.
+      - name: Build release APK (arm only, siqilgan kutubxonalar)
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon --build-cache \
+            -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
+            -Pexpo.useLegacyPackaging=true
+
+      - name: Report APK size
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          echo "APK: $(du -h "$APK" | cut -f1)"
+          unzip -v "$APK" | awk '$1 ~ /^[0-9]+$/ && NF>=8 {
+            split($8,p,"/"); k=(p[1]=="lib")?p[1]"/"p[2]:p[1]; c[k]+=$3
+          } END { for (x in c) printf "%8.1f MB  %s\n", c[x]/1048576, x }' | sort -rn | head -12
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
