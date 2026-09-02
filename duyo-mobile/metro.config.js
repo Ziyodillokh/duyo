@@ -1,5 +1,4 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
 
@@ -11,4 +10,4 @@ const config = getDefaultConfig(__dirname);
 // and so the memory feature — work on web at all.
 config.resolver.assetExts.push('wasm');
 
-module.exports = withNativeWind(config, { input: './src/global.css' });
+module.exports = config;

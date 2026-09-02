@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { useColorScheme } from 'nativewind';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -15,7 +13,6 @@ interface ThemeState {
 }
 
 // Default = dark (Figma main app is dark-first).
-// Light variants are layered via the `light:` opposite of `dark:` (NativeWind).
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
@@ -36,23 +33,12 @@ export const useThemeStore = create<ThemeState>()(
 );
 
 /**
- * Hook that syncs NativeWind's colorScheme with our persisted theme store.
- * Call once at the app root.
- */
-export function useThemeBridge(): void {
-  const mode = useThemeStore((s) => s.mode);
-  const hydrated = useThemeStore((s) => s.hydrated);
-  const { setColorScheme } = useColorScheme();
-
-  useEffect(() => {
-    if (!hydrated) return;
-    setColorScheme(mode);
-  }, [mode, hydrated, setColorScheme]);
-}
-
-/**
  * Convenience hook: returns `true` if dark theme is active.
- * Reads directly from the store (no NativeWind dependency).
+ *
+ * The store is the only place the theme lives. There used to be a
+ * `useThemeBridge` beside this that pushed `mode` into NativeWind's
+ * `setColorScheme`, so `dark:` utilities would follow the switch — it went
+ * with NativeWind itself, which no styling in the app had used for a while.
  */
 export function useIsDark(): boolean {
   return useThemeStore((s) => s.mode === 'dark');

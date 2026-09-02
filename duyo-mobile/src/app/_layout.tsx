@@ -1,5 +1,3 @@
-import '@/global.css';
-
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -13,7 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { UpdatePrompt } from '@/components/update-prompt';
 import { FONT_FILES } from '@/lib/fonts';
 import { queryClient } from '@/lib/query-client';
-import { useIsDark, useThemeBridge } from '@/store/theme';
+import { useIsDark } from '@/store/theme';
 
 // Hold the native splash until Inter is in memory. Without this the first
 // frame paints in the system face and every screen visibly reflows a moment
@@ -25,7 +23,6 @@ import { useIsDark, useThemeBridge } from '@/store/theme';
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  useThemeBridge();
   const isDark = useIsDark();
   const [fontsLoaded, fontError] = useFonts(FONT_FILES);
   // Loudly, because the failure mode is silent: RN falls back to the
