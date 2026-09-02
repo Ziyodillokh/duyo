@@ -1,4 +1,5 @@
 import type { GraphEdge, GraphEdgeKind, GraphNode } from '@/api/endpoints/notes';
+import { equilibriumRadius } from '@/lib/graph-physics';
 
 export interface OrbitedNode extends GraphNode {
   x: number;
@@ -73,6 +74,40 @@ const MIN_R = 7;
 const MAX_R = 17;
 /** The centre body is drawn larger than any planet — it is the anchor. */
 const SUN_R = 26;
+
+/** Room round the cloud for the biggest body and its label. The canvas the sky
+ *  is drawn on is this much wider than the sky itself, and the physics is asked
+ *  to settle inside what is left. */
+export const FIELD_PAD = 56;
+
+/**
+ * How much a body shrinks as the sky fills up.
+ *
+ * The old floor of 0.42 was set against the wrong constraint — how many bodies
+ * fit on a phone screen — and the screen is no longer the boundary. It did
+ * real damage on the way: the renderer draws a body at `max(5.5, r * 0.74)`,
+ * and 0.42 puts MAX_R at 7.14, which draws at 5.28, under the clamp. So from
+ * about fifty-seven notes on, EVERY body in the sky was drawn at exactly 5.5.
+ * The sun's hierarchy, the "this note is linked to everything" cue and the
+ * flat-versus-sphere threshold all collapsed into one uniform speckle at the
+ * same moment the child said the map felt squeezed — and a uniform field of
+ * identical dots reads as crowded however far apart they are.
+ *
+ * 0.66 is the floor at which the largest body still draws at its own radius:
+ * 17 * 0.66 * 0.74 = 8.3, clear of the 5.5 clamp and of the 8.0 sphere
+ * threshold. The spread from smallest to largest therefore survives at every N.
+ */
+export function densityFor(count: number): number {
+  return Math.max(0.66, Math.min(1, 30 / Math.max(1, count)));
+}
+
+/** How big the settled sky will be for a notebook of this size. The canvas has
+ *  to be sized BEFORE the bodies are placed on it, so this is deliberately a
+ *  function of the count alone: `equilibriumRadius` fed the mean body that
+ *  `densityFor` is about to hand out. */
+export function galaxyRadius(count: number): number {
+  return equilibriumRadius(count, ((MIN_R + MAX_R) / 2) * densityFor(count));
+}
 
 /** Stable small hash, so the same tag picks the same colour on every device. */
 function hash(text: string): number {
@@ -250,13 +285,12 @@ export function layoutGalaxy(
   const sunIdx = order[0].i;
   const orbiting = order.slice(1).map((o) => o.i);
 
-  // Bodies shrink as the sky fills up. A phone is ~390pt wide: sixty notes at
-  // the size eight notes get would not fit however they are arranged, and the
-  // honest fix is smaller bodies rather than a layout that overlaps them.
-  const density = Math.max(0.42, Math.min(1, 24 / nodes.length));
+  // Bodies shrink as the sky fills up, but only so far — see `densityFor`.
+  const density = densityFor(nodes.length);
   const minBody = MIN_R * density;
   const maxBody = MAX_R * density;
-  const sunBody = SUN_R * Math.max(0.55, density);
+  // The 0.55 guard this used to carry is dead under a 0.66 floor.
+  const sunBody = SUN_R * density;
 
   // Leave room for the largest body and the label under it.
   const pad = maxBody + 22;

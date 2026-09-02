@@ -37,11 +37,34 @@ export interface SimLink {
   b: number;
 }
 
+/** A recording of a settle: `frames` snapshots of `n` bodies, x then y. */
+export interface SettleFilm {
+  readonly xy: Float32Array;
+  readonly n: number;
+  readonly frames: number;
+  /**
+   * Fraction of the settle's whole travel that has happened by each frame —
+   * 0 at the first, 1 at the last. This is the curve playback reads the film
+   * on, and it is MEASURED rather than assumed for a reason: a settle does
+   * most of its moving in the first handful of steps and shuffles for the
+   * rest, so a film played at a constant rate is a snap followed by a second
+   * of nothing. Inverting alpha's decay is the obvious correction and it
+   * under-shoots, because the layout stops moving well before the system
+   * stops cooling. Reading the frame where `progress` reaches u makes the
+   * displayed motion even by construction, whatever the physics did.
+   */
+  readonly progress: Float32Array;
+}
+
 /** How cool the system must get before it stops ticking. Only reachable once
  *  ambient drift is off (see `settleSync`) — a live sky never gets there. */
 const ALPHA_MIN = 0.001;
 /** Cooling rate per tick. ~90 ticks from 1 to idle — a few seconds of
- *  settling, the burst you see when the map opens. */
+ *  settling, the burst you see when the map opens.
+ *
+ *  It is NOT the curve a recorded settle is played back on: with FRICTION at
+ *  0.6 the layout reaches its fixed point long before alpha runs out, so the
+ *  motion decays faster than the cooling does. See `SettleFilm.progress`. */
 const ALPHA_DECAY = 0.08;
 
 /** The floor the system cools to instead of stopping.
@@ -113,9 +136,11 @@ const FRICTION = 0.6;
 
 /** Repulsion. Charge grows with radius so the hub clears more room. */
 const CHARGE = 44;
-/** Beyond this, bodies ignore each other — keeps far clusters from slowly
- *  shoving each other off the canvas. */
-const REPEL_MAX_D2 = 420 * 420;
+/** The smallest repulsion reach, in points. Beyond it bodies ignore each
+ *  other, which keeps far clusters from slowly shoving each other off the
+ *  canvas. It used to be the whole story at a flat 420 — see the constructor
+ *  for why a cutoff has to be measured against the size of the galaxy. */
+const REPEL_MIN_REACH = 420;
 
 /** Springs. Rest length is wherever the two bodies were SEEDED apart
  *  (clamped), and the strength is barely there: layout belongs to cohesion,
@@ -131,6 +156,32 @@ const LINK_STRENGTH = 0.12;
  *  without pinning it. */
 const GRAVITY = 0.045;
 const CENTRAL_GRAVITY = 0.11;
+
+/** The three inward pulls, summed. All linear in distance, which is what
+ *  makes the settled cloud's size predictable — see `equilibriumRadius`. */
+const INWARD = GRAVITY + COHESION + CENTER_PULL;
+
+/**
+ * How wide the settled sky will be, before a single tick has run.
+ *
+ * The repulsion in `tick` has magnitude `charge/d` — 2D's Coulomb law — so
+ * Gauss's theorem gives the outward force at the cloud's edge as N*q/R
+ * whatever the arrangement inside, against an inward INWARD*R. Setting them
+ * equal: R = sqrt(N*q / INWARD). About 149pt at ten notes and 421 at a
+ * hundred: the sky is SUPPOSED to grow with the notebook, roughly as sqrt(N).
+ *
+ * Two things used to stop it. The repulsion cutoff was a flat 420, so past thirty
+ * notes — the exact N the child noticed — the far half of the cloud stopped
+ * pushing back and everything after that packed into a sky that had stopped
+ * growing. And the <Svg> the sky is drawn on was the size of the phone, so
+ * at a hundred notes half the bodies were outside a native view boundary and
+ * simply cut off. Both are now measured against this number instead of
+ * against the screen.
+ */
+export function equilibriumRadius(count: number, meanRadius: number): number {
+  if (count <= 1) return 0;
+  return Math.sqrt((count * CHARGE * (1 + meanRadius / 8)) / INWARD);
+}
 
 /** Overlap separation — not a d3 default, but labels under 11pt bodies stop
  *  being readable the moment two discs merge, so overlaps get pushed apart. */
@@ -158,6 +209,11 @@ export class GraphPhysics {
   private readonly cx: number;
   private readonly cy: number;
   private readonly centralIndex: number;
+  private readonly repelMaxD2: number;
+  /** Inward pulls are multiplied by this so the cloud settles at the radius
+   *  the canvas can actually SHOW. 1 whenever the sky is allowed its natural
+   *  size, which is every notebook under about fifty notes. */
+  private readonly pull: number;
 
   /** Ticks elapsed — the clock the drift waves are read at. Frame-counted,
    *  not wall-clock, for the same reason the rest of the step is: a dropped
@@ -172,7 +228,16 @@ export class GraphPhysics {
   private pinX = 0;
   private pinY = 0;
 
-  constructor(bodies: SimBody[], links: SimLink[], cx: number, cy: number, centralIndex: number) {
+  constructor(
+    bodies: SimBody[],
+    links: SimLink[],
+    cx: number,
+    cy: number,
+    centralIndex: number,
+    /** Half-span of the canvas the sky is drawn on, less its padding. Omit to
+     *  let the cloud settle wherever its own forces take it. */
+    targetRadius?: number,
+  ) {
     const n = bodies.length;
     this.xs = new Float64Array(n);
     this.ys = new Float64Array(n);
@@ -234,6 +299,37 @@ export class GraphPhysics {
         bias: da / (da + db),
       };
     });
+
+    let meanR = 0;
+    for (let i = 0; i < n; i++) meanR += this.radii[i];
+    const natural = equilibriumRadius(n, n > 0 ? meanR / n : 0);
+
+    // Ask the cloud to settle inside the canvas it is drawn on. Repulsion and
+    // the pulls both scale with alpha, so the only free parameter is the ratio
+    // between them: N*q/R = k*INWARD*R gives k = (natural/target)^2. Nothing
+    // else about the layout changes — the same constellations at the same
+    // relative spacing, on a cloud of a size that fits.
+    //
+    // Capped, because this is a spring constant and the integrator is explicit:
+    // with FRICTION at 0.6 the step matrix leaves the unit circle once
+    // INWARD * pull exceeds 3.2/0.6, i.e. pull > ~108, and the sky would
+    // oscillate instead of settling. 64 asks for a cloud an eighth of its
+    // natural width — far past anything the map does — and keeps the margin.
+    const squeeze =
+      targetRadius && targetRadius > 0 && natural > targetRadius
+        ? (natural / targetRadius) ** 2
+        : 1;
+    this.pull = Math.min(64, squeeze);
+
+    // The cutoff exists so two distant clusters do not slowly shove each other
+    // off the canvas, and that is a real concern — but it has to be measured
+    // against the size of the GALAXY, not in absolute points. At 2.6x the
+    // settled radius it is comfortably wider than the cloud at every N and the
+    // O(n^2) early-out still does useful work. The floor keeps small
+    // notebooks bit-identical to what they are today.
+    const settled = Math.min(natural, targetRadius ?? natural);
+    const reach = Math.max(REPEL_MIN_REACH, 2.6 * settled);
+    this.repelMaxD2 = reach * reach;
   }
 
   /** Warm the system back up (new data arrived, or a drag began). */
@@ -300,8 +396,8 @@ export class GraphPhysics {
       my /= n;
       for (let i = 0; i < n; i++) {
         if (i === this.pinned) continue;
-        vxs[i] += ((mx - xs[i]) * COHESION + (this.cx - xs[i]) * CENTER_PULL) * a;
-        vys[i] += ((my - ys[i]) * COHESION + (this.cy - ys[i]) * CENTER_PULL) * a;
+        vxs[i] += ((mx - xs[i]) * COHESION + (this.cx - xs[i]) * CENTER_PULL) * a * this.pull;
+        vys[i] += ((my - ys[i]) * COHESION + (this.cy - ys[i]) * CENTER_PULL) * a * this.pull;
       }
     }
 
@@ -327,7 +423,7 @@ export class GraphPhysics {
 
     // Gravity toward the centre.
     for (let i = 0; i < n; i++) {
-      const g = (i === this.centralIndex ? CENTRAL_GRAVITY : GRAVITY) * a;
+      const g = (i === this.centralIndex ? CENTRAL_GRAVITY : GRAVITY) * a * this.pull;
       vxs[i] += (this.cx - xs[i]) * g;
       vys[i] += (this.cy - ys[i]) * g;
     }
@@ -339,7 +435,7 @@ export class GraphPhysics {
         let dx = xs[j] - xs[i];
         let dy = ys[j] - ys[i];
         let d2 = dx * dx + dy * dy;
-        if (d2 > REPEL_MAX_D2) continue;
+        if (d2 > this.repelMaxD2) continue;
         if (d2 < 1) {
           dx = ((i - j) % 7) * 0.13;
           dy = 0.17;
@@ -413,21 +509,80 @@ export class GraphPhysics {
     return true;
   }
 
-  /** Run to rest right now — the "reduce motion" path renders only the
-   *  settled sky, with no animation in between.
-   *
-   *  Retires the drift for good on this instance: constant ambient movement is
-   *  the exact thing that setting exists to turn off, so a sim that has been
+  /** Retires the drift for good on this instance: constant ambient movement is
+   *  the exact thing "reduce motion" exists to turn off, so a sim that has been
    *  settled once must never start breathing again. */
-  settleSync(maxTicks = 300): void {
+  private runToRest(maxTicks: number, onStep: (() => void) | null): void {
     // A pinned body keeps `tick()` reporting work forever, so without this a
     // settle called while a finger is still notionally down would burn all
     // 300 steps instead of the ~69 it needs.
     this.pinned = -1;
     this.ambient = false;
     this.alphaTarget = 0;
-    for (let t = 0; t < maxTicks && this.tick(); t++) {
-      /* tick */
+    for (let t = 0; t < maxTicks && this.tick(); t++) onStep?.();
+  }
+
+  /** Run to rest right now, painting nothing on the way. */
+  settleSync(maxTicks = 300): void {
+    this.runToRest(maxTicks, null);
+  }
+
+  /**
+   * Run to rest right now AND keep a film of the run.
+   *
+   * The physics is unchanged and still costs milliseconds — six typed arrays,
+   * 83 steps. What this adds is a copy of every step's positions into one flat
+   * Float32Array, and that copy is what lets the sky be ANIMATED without being
+   * SIMULATED per frame. The two numbers the old rAF loop had welded together
+   * come apart: the layout still needs 83 steps, and the sky is repainted 16
+   * times. The answer is also known before the first frame is drawn, so the
+   * camera can be fitted to it rather than chase it.
+   *
+   * 83 steps x 100 bodies x 2 x 4 bytes = 66 KB.
+   */
+  settleFilm(maxTicks = 300, maxFrames = 128): SettleFilm {
+    const n = this.xs.length;
+    const slots = Math.max(2, Math.min(maxTicks + 1, maxFrames));
+    const xy = new Float32Array(slots * n * 2);
+    const write = (slot: number) => {
+      const o = slot * n * 2;
+      for (let i = 0; i < n; i++) {
+        xy[o + i * 2] = this.xs[i];
+        xy[o + i * 2 + 1] = this.ys[i];
+      }
+    };
+
+    write(0);
+    let used = 1;
+    this.runToRest(maxTicks, () => {
+      if (used < slots) write(used++);
+    });
+    // The film has to END where the sky will live. If the settle ran past the
+    // last slot (only reachable with maxTicks > maxFrames) the last recorded
+    // frame is stale, so it is overwritten with the true rest state.
+    write(used - 1);
+
+    // One pass over what was just recorded, to find out how the travel is
+    // spread across it — see `SettleFilm.progress`.
+    const progress = new Float32Array(used);
+    let travelled = 0;
+    for (let f = 1; f < used; f++) {
+      const a = (f - 1) * n * 2;
+      const b = f * n * 2;
+      for (let i = 0; i < n; i++) {
+        travelled += Math.hypot(
+          xy[b + i * 2] - xy[a + i * 2],
+          xy[b + i * 2 + 1] - xy[a + i * 2 + 1],
+        );
+      }
+      progress[f] = travelled;
     }
+    for (let f = 1; f < used; f++) {
+      // A settle that never moved has no curve to read; play it out evenly
+      // rather than dividing by zero.
+      progress[f] = travelled > 0 ? progress[f] / travelled : f / (used - 1);
+    }
+
+    return { xy, n, frames: used, progress };
   }
 }

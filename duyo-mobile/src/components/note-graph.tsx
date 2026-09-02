@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
+  PixelRatio,
   Pressable,
   StyleSheet,
   View,
@@ -26,8 +27,10 @@ import Svg, {
 } from 'react-native-svg';
 
 import type { GraphEdge, GraphNode } from '@/api/endpoints/notes';
-import { useGraphSim } from '@/hooks/use-graph-sim';
+import { SETTLE_MS, useGraphSim } from '@/hooks/use-graph-sim';
 import {
+  FIELD_PAD,
+  galaxyRadius,
   layoutGalaxy,
   starField,
   UNFORMED,
@@ -35,6 +38,11 @@ import {
   type OrbitedNode,
 } from '@/lib/galaxy-layout';
 import { lift } from '@/lib/glass';
+import {
+  ANIMATED_SETTLE_MAX_ELEMENTS,
+  PLANET_DETAIL_ABOVE,
+  sceneElements,
+} from '@/lib/scene-cost';
 
 /** As close to invisible as a line can be and still be findable — the
  *  threads are a secret the selection reveals. */
@@ -66,25 +74,61 @@ const LABEL_ALL_BELOW = 40;
 
 /** Past that threshold, how many landmarks keep their names. Radius already
  *  encodes how connected a note is, so the biggest bodies are the ones worth
- *  naming — the same choice a crowded star chart makes. */
-const LABEL_TOP_N = 18;
-
-/**
- * Below this drawn radius a planet is one flat disc instead of a shaded
- * sphere.
+ *  naming — the same choice a crowded star chart makes.
  *
- * A full planet is about thirteen SVG elements: a Defs, a ClipPath, the
- * albedo, the surface features, the night side, a specular highlight and a
- * rim light. At 8px across on a 2x screen the whole body is sixteen device
- * pixels — the terminator, the highlight and the features are each well
- * under one pixel and average into the same colour the albedo already is.
- * The detail is not lost at this size; it was never visible.
- */
-const PLANET_DETAIL_ABOVE = 8;
+ *  The geometric culler in `visibleLabels` is the real limit — it drops any
+ *  name whose box lands on another's, which is what actually keeps the map
+ *  readable. This cap only exists to bound the culler's O(k^2) pass, and at 18
+ *  it was doing the culler's job badly: on a roomier sky most of those 18 now
+ *  survive, and the map showed a hundred planets with ten names. Forty-eight
+ *  candidates is ~2300 comparisons, under a millisecond, run once at rest
+ *  (never during a settle — see `sim.settling`). */
+const LABEL_TOP_N = 48;
+
 const EDGE_DIM = 0.5;
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
+
+/**
+ * The hard ceiling on the sky's canvas, in DEVICE pixels.
+ *
+ * The <Svg> is a native view and Android rasterises it into one ARGB_8888
+ * bitmap of its own pixel size, so the field cannot simply grow with the
+ * notebook: four bytes a pixel means today's 390x700pt canvas is already
+ * 9.8 MB on a 3x phone, and a field twice as wide would be an OOM on a 2 GB
+ * device. So the cap is expressed in pixels rather than in points — every
+ * phone then pays the same memory for the largest sky it can draw, and a 2x
+ * phone gets a bigger galaxy in points, which is right, because it has a
+ * bigger screen to pan it with.
+ *
+ * 2048 is also the safe maximum texture dimension on old GPUs, and it costs
+ * 16.8 MB — 1.7x what the screen-sized canvas costs today. That is the price
+ * of the fix and there is no version of it that is free: a hundred planets
+ * cannot be uncramped inside 390 points however they are arranged.
+ *
+ * (The alternative — keeping the Svg screen-sized and panning via `viewBox` —
+ * makes every pan frame a prop change on the SvgView, which is a full-canvas
+ * repaint per frame. That is the exact cost this whole file exists to avoid.)
+ */
+const FIELD_MAX_PX = 2048;
+
+/**
+ * The scale the map OPENS at, and the floor under fit-to-content.
+ *
+ * Fitting the whole galaxy into one screenful is what made a hundred notes
+ * look squeezed: at 0.42 a planet is a 2.8pt speck and its name is 5pt of
+ * unreadable grey. Below about 0.85 the map stops being a reading surface, so
+ * past that size it becomes a map instead — it opens on the sun at a legible
+ * scale and the child pans, which is what the pan and pinch on this screen
+ * have always been for. At 0.85 a hundred-note sky shows about three quarters
+ * of its width, so what the child lands on is still most of their notebook.
+ */
+const READABLE_ZOOM = 0.85;
+
+/** How long the whole sky takes to fade and scale in. Cheap at any N: a
+ *  parent transform and alpha never dirty the SvgView's bitmap. */
+const INTRO_MS = 520;
 
 /** What a screen reader says. A tag is not an unwritten note — it has no note
  *  behind it by design, and calling it "unwritten" would invite the child to
@@ -561,31 +605,70 @@ export function NoteGraph({
   const [size, setSize] = useState({ width: 0, height: height ?? 0 });
   const [focus, setFocus] = useState<string | null>(null);
 
+  /**
+   * The canvas the sky is DRAWN on, which is not the viewport it is seen
+   * through.
+   *
+   * These used to be the same thing, and that was the crowding. <Svg width
+   * height> is a real native view and clips its children to those bounds, so a
+   * galaxy that settles wider than the phone was not merely off-screen, it was
+   * cut off — and panning could not reveal it, because the Svg panned with the
+   * content. At a hundred notes roughly half the sky was outside a 390-point
+   * boundary that nothing in the code mentions.
+   *
+   * A thumbnail is exempt: it is a picture of the notebook rather than a place
+   * to navigate, so it keeps the card's own bounds and the physics compresses
+   * the sky to fit them.
+   */
+  const field = useMemo(() => {
+    if (size.width === 0 || size.height === 0 || preview) return size;
+    // Floored, not rounded up: FIELD_MAX_PX is a texture limit, and a canvas
+    // one point over it is a canvas the GPU will not take.
+    const span = Math.floor(
+      Math.min(
+        FIELD_MAX_PX / PixelRatio.get(),
+        2 * (galaxyRadius(nodes.length) + FIELD_PAD),
+      ),
+    );
+    return {
+      width: Math.max(size.width, span),
+      height: Math.max(size.height, span),
+    };
+  }, [size, nodes.length, preview]);
+
   const galaxy = useMemo(
     () =>
-      size.width > 0 && size.height > 0
-        ? layoutGalaxy(nodes, edges, size.width, size.height)
+      field.width > 0 && field.height > 0
+        ? layoutGalaxy(nodes, edges, field.width, field.height)
         : null,
-    [nodes, edges, size],
+    [nodes, edges, field],
   );
 
-  // Twice the canvas in every direction, so panning or pinching out never
-  // reveals a bare gradient at the edges — at MIN_ZOOM the visible region is
-  // exactly the doubled field.
-  const stars = useMemo(
-    () =>
-      size.width > 0
-        ? starField(size.width * 2, size.height * 2, 170).map((s) => ({
-            ...s,
-            x: s.x - size.width / 2,
-            y: s.y - size.height / 2,
-          }))
-        : [],
-    [size],
-  );
+  // Twice the field in every direction, so panning or pinching out never
+  // reveals a bare gradient at the edges.
+  //
+  // The count follows the field's AREA rather than being fixed. The field now
+  // grows with the notebook, and a fixed 170 would thin the sky out at exactly
+  // the size it gets big enough to pan around in — what the eye reads is
+  // density, not the number. It stays four <Path>s either way; only the
+  // subpath count moves.
+  const stars = useMemo(() => {
+    if (field.width === 0) return [];
+    const viewport = Math.max(1, size.width * size.height);
+    const density = Math.min(4, (field.width * field.height) / viewport);
+    return starField(
+      field.width * 2,
+      field.height * 2,
+      Math.round(170 * density),
+    ).map((s) => ({
+      ...s,
+      x: s.x - field.width / 2,
+      y: s.y - field.height / 2,
+    }));
+  }, [field, size]);
 
   /**
-   * The field as four <Path>s instead of 170 <Circle>s.
+   * The field as four <Path>s instead of one <Circle> a star.
    *
    * `starField` gives each star an opacity in [0.25, 0.75]; quantising that
    * to four levels is invisible against a black sky and is what lets stars
@@ -613,9 +696,20 @@ export function NoteGraph({
     );
   }, [stars, focus]);
 
+  /** What one repaint of this sky costs, in native views. It is what decides
+   *  whether the settle can be animated at all — see lib/scene-cost. Counted
+   *  without labels, because none are drawn while the sky is in flight. */
+  const sceneCost = useMemo(
+    () => (galaxy ? sceneElements(galaxy, false, 0) : 0),
+    [galaxy],
+  );
+
   // `still` for the thumbnail: nobody drags a 330x230 card, so it never
   // starts the one loop the sim has left.
-  const sim = useGraphSim(galaxy, { still: preview });
+  const sim = useGraphSim(galaxy, {
+    still: preview,
+    canAnimate: !preview && sceneCost <= ANIMATED_SETTLE_MAX_ELEMENTS,
+  });
 
   /** Where a body is this frame — physics first, layout as the fallback. */
   const drawnAt = (title: string, x: number, y: number) =>
@@ -650,6 +744,19 @@ export function NoteGraph({
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
+  /** The zoom floor. Fixed at 0.5 it was a wall: at a hundred notes the whole
+   *  galaxy needs 0.42 and the child could not pull back far enough to see it.
+   *  It now tracks the fit, so "show me everything" is always reachable, and
+   *  never rises above the old 0.5 for a small notebook. */
+  const minZoom = useSharedValue(MIN_ZOOM);
+  /** The whole sky arriving, as ONE view property.
+   *
+   *  This is the floor under the settle: it costs nothing at any N, because a
+   *  parent transform and alpha never dirty the SvgView's bitmap — the same
+   *  reason pinch-zoom on this canvas is smooth. When the scene is too big to
+   *  animate the settle, this is the whole animation, and it is still the sky
+   *  arriving rather than appearing. */
+  const intro = useSharedValue(0);
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const savedTx = useSharedValue(0);
@@ -668,13 +775,13 @@ export function NoteGraph({
       Gesture.Pinch()
         .onUpdate((e) => {
           scale.set(
-            Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, savedScale.get() * e.scale)),
+            Math.min(MAX_ZOOM, Math.max(minZoom.get(), savedScale.get() * e.scale)),
           );
         })
         .onEnd(() => {
           savedScale.set(scale.get());
         }),
-    [scale, savedScale],
+    [scale, savedScale, minZoom],
   );
 
   /**
@@ -695,15 +802,14 @@ export function NoteGraph({
     simRef.current = sim;
   });
 
-  /** Screen point → canvas point, inverting the pan/zoom transform. The
-   *  transform scales about the canvas centre, then translates. */
+  /** Screen point → canvas point, inverting the pan/zoom transform. Events
+   *  arrive in viewport coordinates; the field is centred on the viewport and
+   *  scales about its own centre, so those two centres coincide. */
   const toCanvas = (ex: number, ey: number) => {
     const s = scale.get();
-    const cxV = size.width / 2;
-    const cyV = size.height / 2;
     return {
-      x: cxV + (ex - tx.get() - cxV) / s,
-      y: cyV + (ey - ty.get() - cyV) / s,
+      x: field.width / 2 + (ex - tx.get() - size.width / 2) / s,
+      y: field.height / 2 + (ey - ty.get() - size.height / 2) / s,
     };
   };
 
@@ -767,9 +873,9 @@ export function NoteGraph({
       panEndedAt.current = Date.now();
     }),
     // Everything it closes over is either a ref or a stable shared value.
-    // `size` is the one real dependency, through toCanvas.
+    // The viewport and the field are the real dependencies, through toCanvas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [size.width, size.height],
+    [size.width, size.height, field.width, field.height],
   );
   /* eslint-enable react-hooks/refs, react-hooks/purity */
 
@@ -778,23 +884,33 @@ export function NoteGraph({
     [pinch, pan],
   );
 
-  const canvasStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: tx.get() },
-      { translateY: ty.get() },
-      { scale: scale.get() },
-    ],
-  }));
+  const canvasStyle = useAnimatedStyle(() => {
+    const i = intro.get();
+    return {
+      opacity: i,
+      transform: [
+        { translateX: tx.get() },
+        { translateY: ty.get() },
+        { scale: scale.get() * (0.94 + 0.06 * i) },
+      ],
+    };
+  });
 
-  const reset = () => {
-    scale.set(withTiming(1));
-    savedScale.set(1);
-    tx.set(withTiming(0));
-    ty.set(withTiming(0));
-    savedTx.set(0);
-    savedTy.set(0);
+  /** The camera the map opened on. `reset` returns to it rather than to scale
+   *  1: past about a hundred notes the fitted scale is well under 1, so
+   *  resetting to 1 would zoom PAST the sky instead of showing all of it. */
+  const fittedCam = useRef({ s: 1, x: 0, y: 0 });
+
+  const reset = useCallback(() => {
+    const cam = fittedCam.current;
+    scale.set(withTiming(cam.s));
+    savedScale.set(cam.s);
+    tx.set(withTiming(cam.x));
+    ty.set(withTiming(cam.y));
+    savedTx.set(cam.x);
+    savedTy.set(cam.y);
     setFocus(null);
-  };
+  }, [scale, savedScale, tx, ty, savedTx, savedTy]);
 
   /** Which notebook the camera was last fitted to. Keyed by content, not by
    *  object identity, so a refetch that changes nothing keeps the child's
@@ -831,7 +947,10 @@ export function NoteGraph({
     let x1 = -Infinity;
     let y1 = -Infinity;
     for (const n of galaxy.nodes) {
-      const p = sim.positionOf(n.title) ?? n;
+      // The SETTLED position, not the drawn one: the film may still be
+      // playing, and the camera should land on the answer at frame zero
+      // rather than chase the sky across the second it takes to arrive.
+      const p = sim.settledPositionOf(n.title) ?? n;
       x0 = Math.min(x0, p.x - n.r);
       x1 = Math.max(x1, p.x + n.r);
       y0 = Math.min(y0, p.y - n.r);
@@ -843,25 +962,61 @@ export function NoteGraph({
     const bw = Math.max(1, x1 - x0);
     const bh = Math.max(1, y1 - y0);
     const fit = Math.min((size.width - PAD) / bw, (size.height - PAD) / bh);
+    minZoom.set(Math.min(MIN_ZOOM, fit * 0.85));
+
+    // A thumbnail still fits everything; the map stops at a readable size and
+    // hands the rest to the child's fingers.
+    const floor = preview ? MIN_ZOOM : READABLE_ZOOM;
     // A three-note sky must not zoom into cartoon-sized discs — and labels
     // are drawn in screen-constant font under a scaled canvas, so past ~1.4x
     // a hub's name lands on top of the sun rather than under it. Verified on
     // the dashboard hero with a one-note, one-tag, one-ghost notebook.
-    const s = Math.min(1.4, Math.max(MIN_ZOOM, fit));
-    const fx = -((x0 + x1) / 2 - size.width / 2) * s;
-    const fy = -((y0 + y1) / 2 - size.height / 2) * s;
+    const s = Math.min(1.4, Math.max(floor, fit));
 
-    scale.set(withTiming(s));
+    // When the whole sky does not fit at a size worth reading, open on the sun
+    // rather than on the bounding box's centre — the anchor of the child's
+    // system, not the middle of a rectangle.
+    const middle = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+    const sun = galaxy.nodes.find((n) => n.ring === 0);
+    const at =
+      fit < floor && sun ? (sim.settledPositionOf(sun.title) ?? middle) : middle;
+    const fx = -(at.x - field.width / 2) * s;
+    const fy = -(at.y - field.height / 2) * s;
+    fittedCam.current = { s, x: fx, y: fy };
+
+    // The camera glides for exactly as long as the settle plays, so the sky
+    // and the view it is seen through arrive together.
+    const glide = preview ? undefined : { duration: SETTLE_MS };
+    scale.set(sim.reduceMotion ? s : withTiming(s, glide));
     savedScale.set(s);
-    tx.set(withTiming(fx));
+    tx.set(sim.reduceMotion ? fx : withTiming(fx, glide));
     savedTx.set(fx);
-    ty.set(withTiming(fy));
+    ty.set(sim.reduceMotion ? fy : withTiming(fy, glide));
     savedTy.set(fy);
+    // The reveal is the floor under everything: it costs no SVG repaint, so
+    // even a notebook too big to animate its settle still arrives.
+    intro.set(
+      sim.reduceMotion || preview ? 1 : withTiming(1, { duration: INTRO_MS }),
+    );
     // sim is deliberately a fresh object each render; the effect reads its
     // positions ONCE, at the moment settled flips true. Listing it would
     // re-run this every frame — the exact per-frame cost this gate ended.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [galaxy, size, settled, scale, savedScale, tx, ty, savedTx, savedTy]);
+  }, [
+    galaxy,
+    size,
+    field,
+    preview,
+    settled,
+    scale,
+    savedScale,
+    tx,
+    ty,
+    savedTx,
+    savedTy,
+    minZoom,
+    intro,
+  ]);
 
   // The first tap SELECTS: the planet's constellation lights up and the rest
   // of the sky fades to a murmur, exactly Obsidian's click-to-highlight. A
@@ -936,7 +1091,12 @@ export function NoteGraph({
    * sleeps — so this is a bounded cost on a scene that stops moving.
    */
   const visibleLabels = useMemo(() => {
-    if (preview) return new Set<string>();
+    // Names are held back while the sky is in flight. An SvgText is the most
+    // expensive element in the scene — the software rasteriser measures and
+    // lays out glyphs per node, per frame — and a name you cannot read because
+    // it is moving was never doing any work. They arrive in the frame the sky
+    // stops in, which reads as the map labelling itself.
+    if (preview || sim.settling) return new Set<string>();
     const cand = liveNodes
       .filter((n) => !labelled || labelled.has(n.title.toLowerCase()))
       .map((n) => {
@@ -972,7 +1132,7 @@ export function NoteGraph({
       keep.add(n.title);
     }
     return keep;
-  }, [liveNodes, labelled, neighbours, preview]);
+  }, [liveNodes, labelled, neighbours, preview, sim.settling]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const l = e.nativeEvent.layout;
@@ -990,11 +1150,24 @@ export function NoteGraph({
         style={[styles.canvas, height === undefined ? styles.fill : { height }]}
         accessibilityLabel="Qaydlar olami"
       >
+        {/* The canvas is field-sized and centred on the viewport, so it still
+            scales about the viewport's centre — and so nothing the physics
+            settles into lands outside the <Svg>'s own bounds, which is a
+            native view boundary and cuts rather than merely hides. */}
         {galaxy && nodes.length > 0 && (
           <Animated.View
-            style={[{ width: size.width, height: size.height }, canvasStyle]}
+            style={[
+              {
+                position: 'absolute',
+                left: (size.width - field.width) / 2,
+                top: (size.height - field.height) / 2,
+                width: field.width,
+                height: field.height,
+              },
+              canvasStyle,
+            ]}
           >
-            <Svg width={size.width} height={size.height}>
+            <Svg width={field.width} height={field.height}>
               <Defs>
                 {/* The sun — a warm core burning out to nothing. */}
                 <RadialGradient id="sun-core" cx="42%" cy="38%" r="65%">
@@ -1057,8 +1230,8 @@ export function NoteGraph({
               </Defs>
 
               {/* ── Starfield ────────────────────────────────────────────
-                  170 stars, four elements. Each star used to be its own
-                  <Circle>, which is a real native view on Android and made
+                  Hundreds of stars, four elements. Each star used to be its
+                  own <Circle>, which is a real native view on Android and made
                   the field 170 of the ~300 views in the whole sky — more
                   than the planets, the edges and the labels put together,
                   for something that never moves. Bucketing by brightness and
@@ -1381,11 +1554,32 @@ export function NoteGraph({
                 elements every frame, which is exactly the cost the settled
                 sim exists to remove. Alone in a three-element canvas it
                 repaints only itself. */}
-            {!sim.reduceMotion && !preview && (
-              <Meteor width={size.width} height={size.height} dim={!!focus} />
+            {!sim.reduceMotion && !preview && !sim.settling && (
+              // Viewport-sized, centred on the field, and NOT field-sized: it
+              // is a second SvgView and Android gives it a bitmap of its own,
+              // so letting it grow with the notebook would double the memory
+              // the bigger canvas costs — to fly one hairline across a region
+              // the camera is not looking at anyway.
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: (field.width - size.width) / 2,
+                  top: (field.height - size.height) / 2,
+                  width: size.width,
+                  height: size.height,
+                }}
+              >
+                <Meteor width={size.width} height={size.height} dim={!!focus} />
+              </View>
             )}
 
-            <TouchLayer nodes={liveNodes} onTap={tap} onHold={hold} />
+            {/* N absolutely-positioned Views, re-laid-out whenever a body
+                moves — and there is nothing to tap on a planet that has not
+                landed yet. It arms when the sky stops. */}
+            {!sim.settling && (
+              <TouchLayer nodes={liveNodes} onTap={tap} onHold={hold} />
+            )}
           </Animated.View>
         )}
 
