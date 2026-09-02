@@ -177,6 +177,81 @@ function meteorAt(tick: number, w: number, h: number) {
   };
 }
 
+/**
+ * The shooting star, on its own canvas and its own clock.
+ *
+ * It is the one thing on this screen that genuinely needs a clock: the sky
+ * itself is settled and still, and a meteor that only moved when the physics
+ * did would never fly at all. So it keeps a tick of its own — but the tick
+ * re-renders THIS component and nothing else, and this component is three
+ * elements in a canvas of its own, so a frame costs a three-element repaint
+ * instead of a five-hundred-element one.
+ *
+ * It also stops between meteors: `meteorAt` returns null for most of the
+ * period, and the loop idles at 8fps until one is due rather than running at
+ * 30 to discover there is nothing to draw.
+ */
+const METEOR_IDLE_MS = 1000 / 8;
+const METEOR_FLY_MS = 1000 / 30;
+
+function Meteor({
+  width,
+  height,
+  dim,
+}: {
+  width: number;
+  height: number;
+  dim: boolean;
+}) {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let frame: number | null = null;
+    let last = 0;
+    let flying = false;
+
+    const loop = (now: number) => {
+      const gap = flying ? METEOR_FLY_MS : METEOR_IDLE_MS;
+      if (now - last >= gap) {
+        last = now;
+        setTick((t) => {
+          const next = t + 1;
+          flying = meteorAt(next, width, height) !== null;
+          return next;
+        });
+      }
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [width, height]);
+
+  const met = meteorAt(tick, width, height);
+  if (!met) return null;
+
+  return (
+    <Svg
+      width={width}
+      height={height}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    >
+      <G opacity={met.fade * (dim ? 0.5 : 1)}>
+        <Path
+          d={`M ${met.tx} ${met.ty} L ${met.hx} ${met.hy}`}
+          stroke="rgba(255,255,255,0.85)"
+          strokeWidth={1.4}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <Circle cx={met.hx} cy={met.hy} r={1.8} fill="#FFFFFF" />
+      </G>
+    </Svg>
+  );
+}
+
 /** The two halves of a planetary ring. In SVG's y-down plane sweep=1 arcs
  *  above the midline — the far side — so `back` goes behind the sphere and
  *  `front` crosses over it. */
@@ -509,9 +584,37 @@ export function NoteGraph({
     [size],
   );
 
-  // `still` for the thumbnail: the card is 330x230 and nobody watches it
-  // settle, so paying 83 full-scene re-rasterisations to show them is
-  // pure cost on the screen the child actually lands on.
+  /**
+   * The field as four <Path>s instead of 170 <Circle>s.
+   *
+   * `starField` gives each star an opacity in [0.25, 0.75]; quantising that
+   * to four levels is invisible against a black sky and is what lets stars
+   * share an element. A circle as a path is two half-arcs, which is the only
+   * reason this is not simply a list of dots.
+   */
+  const starField4 = useMemo(() => {
+    if (stars.length === 0) return null;
+    const buckets: string[][] = [[], [], [], []];
+    for (const s of stars) {
+      const level = Math.max(0, Math.min(3, Math.floor(((s.o - 0.25) / 0.5) * 4)));
+      buckets[level].push(
+        `M ${s.x} ${s.y} m ${-s.r} 0 a ${s.r} ${s.r} 0 1 0 ${2 * s.r} 0 a ${s.r} ${s.r} 0 1 0 ${-2 * s.r} 0`,
+      );
+    }
+    return buckets.map((d, i) =>
+      d.length === 0 ? null : (
+        <Path
+          key={`sb${i}`}
+          d={d.join(' ')}
+          fill="#FFFFFF"
+          opacity={(0.3 + i * 0.15) * (focus ? 0.45 : 1)}
+        />
+      ),
+    );
+  }, [stars, focus]);
+
+  // `still` for the thumbnail: nobody drags a 330x230 card, so it never
+  // starts the one loop the sim has left.
   const sim = useGraphSim(galaxy, { still: preview });
 
   /** Where a body is this frame — physics first, layout as the fallback. */
@@ -526,9 +629,11 @@ export function NoteGraph({
         const p = sim.positionOf(n.title);
         return p ? { ...n, x: p.x, y: p.y } : n;
       }),
-    // sim.tick is the physics clock: each step must rebuild, same step must not.
+    // sim.version changes only when the settled layout does — a build or a
+    // drag. This used to key on a 30fps tick, which rebuilt N objects and
+    // called toLowerCase() N times every frame for the whole settle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [galaxy, sim.tick],
+    [galaxy, sim.version],
   );
 
   // Which titles are one hop from the focused note.
@@ -552,13 +657,25 @@ export function NoteGraph({
 
   // .set()/.get() rather than .value: React Compiler can prove these are
   // shared-value accessors, where a bare `.value =` reads as mutating state.
-  const pinch = Gesture.Pinch()
-    .onUpdate((e) => {
-      scale.set(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, savedScale.get() * e.scale)));
-    })
-    .onEnd(() => {
-      savedScale.set(scale.get());
-    });
+  //
+  // Memoised, and that is not cosmetic. This was a bare expression, so it was
+  // a new object on every render — which made `gesture` below a new object on
+  // every render, which made RNGH re-attach its native handlers on every
+  // render. The elaborate memo on `pan` was defeated by being composed with
+  // this one. Shared values are stable, so an empty-ish dep list is honest.
+  const pinch = useMemo(
+    () =>
+      Gesture.Pinch()
+        .onUpdate((e) => {
+          scale.set(
+            Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, savedScale.get() * e.scale)),
+          );
+        })
+        .onEnd(() => {
+          savedScale.set(scale.get());
+        }),
+    [scale, savedScale],
+  );
 
   /**
    * The live sim, behind a ref.
@@ -939,40 +1056,22 @@ export function NoteGraph({
                 </RadialGradient>
               </Defs>
 
-              {/* ── Starfield ──────────────────────────────────────────── */}
-              {stars.map((s, i) => (
-                <Circle
-                  key={`s${i}`}
-                  cx={s.x}
-                  cy={s.y}
-                  r={s.r}
-                  fill="#FFFFFF"
-                  opacity={s.o * (focus ? 0.45 : 1)}
-                />
-              ))}
+              {/* ── Starfield ────────────────────────────────────────────
+                  170 stars, four elements. Each star used to be its own
+                  <Circle>, which is a real native view on Android and made
+                  the field 170 of the ~300 views in the whole sky — more
+                  than the planets, the edges and the labels put together,
+                  for something that never moves. Bucketing by brightness and
+                  emitting one <Path> of circular subpaths per bucket draws
+                  the identical picture: opacity is the only property that
+                  differed between them, and there are four levels of it. */}
+              {starField4}
 
               {/* ── A shooting star, now and then. Timed off the simulation
                   clock, so it only flies while the sky itself is alive —
                   reduce-motion never sees one. It keeps flying at half
                   light while a constellation is selected: the sky must not
                   hold its breath just because the child is looking. */}
-              {!sim.reduceMotion &&
-                (() => {
-                  const met = meteorAt(sim.tick, size.width, size.height);
-                  if (!met) return null;
-                  return (
-                    <G opacity={met.fade * (focus ? 0.5 : 1)}>
-                      <Path
-                        d={`M ${met.tx} ${met.ty} L ${met.hx} ${met.hy}`}
-                        stroke="rgba(255,255,255,0.85)"
-                        strokeWidth={1.4}
-                        strokeLinecap="round"
-                        fill="none"
-                      />
-                      <Circle cx={met.hx} cy={met.hy} r={1.8} fill="#FFFFFF" />
-                    </G>
-                  );
-                })()}
 
               {/* ── Constellations. With nothing selected, every edge is a
                   faint hairline — Obsidian's lines recede so the dots carry
@@ -1274,6 +1373,17 @@ export function NoteGraph({
                 </SvgText>
               ))}
             </Svg>
+
+            {/* The shooting star lives in its own canvas, deliberately.
+                Android rasterises an SvgView's children into ONE bitmap and
+                repaints the whole thing when any child changes — so a meteor
+                animating inside the sky above would repaint all ~500 of its
+                elements every frame, which is exactly the cost the settled
+                sim exists to remove. Alone in a three-element canvas it
+                repaints only itself. */}
+            {!sim.reduceMotion && !preview && (
+              <Meteor width={size.width} height={size.height} dim={!!focus} />
+            )}
 
             <TouchLayer nodes={liveNodes} onTap={tap} onHold={hold} />
           </Animated.View>

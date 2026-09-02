@@ -1,5 +1,4 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
 import type { Galaxy } from '@/lib/galaxy-layout';
@@ -54,31 +53,37 @@ function scatterSeeds(
 }
 
 /**
- * How often the sky steps, and when it stops.
+ * Why the sky no longer has a clock.
  *
- * Every step is a `setTick`, which is a full React render of the whole SVG
- * scene — react-native-svg elements are real views, and on Android the
- * canvas is re-rasterised into a bitmap each time. At 30 steps a second
- * with a few hundred planets that is the entire freeze the map suffers
- * from; the physics itself is not the expensive part.
+ * This used to step the physics on a 30fps `requestAnimationFrame` loop, and
+ * every step was a `setTick` — a full React render of the whole SVG scene.
+ * react-native-svg elements are real native views, and on Android the canvas
+ * is re-rasterised into one bitmap whenever any child changes, so a step cost
+ * a repaint of the entire sky. Opening the map ran 83 of those before the
+ * physics ran out of energy (alpha decays 0.92 per tick from 1), and every
+ * drag release ran 69 more. That was the freeze: not the physics, which is
+ * six typed arrays and finishes in milliseconds, but the 83 repaints.
  *
- * So the rate follows what is actually happening:
+ * So the physics now runs to rest SYNCHRONOUSLY and React hears about it
+ * once. `version` bumps when the settled layout actually changes — a build,
+ * a drag release — and never on a timer. What used to be 83 renders is one.
  *
- *  - SETTLING (the first ~90 steps after a build, or any step with a finger
- *    down) is the only time the layout genuinely moves, and it gets the full
- *    30 — this is the part a child watches.
- *  - DRIFTING afterwards is a slow ambient wander. At 8 steps a second it
- *    still reads as alive and costs a quarter as much.
- *  - SLEEPING: after 20 seconds untouched the loop parks completely. The
- *    sky is then a still picture costing nothing, and the first touch, a
- *    rebuild, or coming back to the screen wakes it.
+ * The one thing that genuinely needs a clock is the drag itself: a finger
+ * moving a planet has to see it move. That gets a loop, but only while the
+ * finger is down, and at {@link DRAG_FPS} rather than 30 — bounded by an
+ * interaction the child is actively performing, instead of running on its
+ * own the moment the screen opens.
  */
-const FPS = 30;
-const FRAME_MS = 1000 / FPS;
+const DRAG_FPS = 20;
+const DRAG_FRAME_MS = 1000 / DRAG_FPS;
 
 export interface GraphSim {
-  /** Bumps on every physics step — reading it makes a component follow the sim. */
-  tick: number;
+  /**
+   * Bumps when the settled sky CHANGES — a rebuild, a drag step, a release.
+   * This is a version, not a clock: it does not advance on its own, so a memo
+   * keyed on it rebuilds exactly as often as the layout actually moves.
+   */
+  version: number;
   /** Live position for a node, by title. Null before layout has run. */
   positionOf(title: string): { x: number; y: number } | null;
   /**
@@ -91,9 +96,8 @@ export interface GraphSim {
   dragTo(x: number, y: number): void;
   release(): void;
   reduceMotion: boolean;
-  /** True once the physics has run out of energy and the loop has parked.
-   *  Anything using `tick` as an animation clock must stop when this is
-   *  set, or it will animate against a number that no longer moves. */
+  /** True whenever no finger is dragging a body — which, with the settle now
+   *  synchronous, is every moment except an active drag. */
   resting: boolean;
 }
 
@@ -128,23 +132,10 @@ export function useGraphSim(
   },
 ): GraphSim {
   const still = opts?.still ?? false;
-  const [tick, setTick] = useState(0);
-  // The built the loop has finished for. A NEW built is by definition not
-  // resting, so no reset-effect is needed — the derivation answers it.
-  const [restingFor, setRestingFor] = useState<object | null>(null);
+  const [version, setVersion] = useState(0);
+  /** Non-null only while a finger holds a body. Doubles as the drag flag. */
+  const [dragging, setDragging] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [focused, setFocused] = useState(true);
-
-  // The sky never settles, so nothing else would ever stop this loop. A tab
-  // the child has navigated away from stays mounted, and a physics step per
-  // frame behind another screen is battery spent on something nobody is
-  // looking at.
-  useFocusEffect(
-    useCallback(() => {
-      setFocused(true);
-      return () => setFocused(false);
-    }, []),
-  );
 
   /** Where each body was last drawn, so a rebuilt galaxy keeps the sky. */
   const lastSeen = useRef(new Map<string, { x: number; y: number }>());
@@ -197,12 +188,14 @@ export function useGraphSim(
       galaxy.cy,
       Math.max(0, centralIndex),
     );
-    // Under reduce-motion the sky is a still picture: settle right here,
-    // where the sim is born, so the first render already shows the settled
-    // layout — no effect, no extra tick, no one-frame flash of the seeds.
-    if (reduceMotion || still) sim.settleSync();
+    // Always, not just under reduce-motion. The settle is the same work
+    // either way — 83 steps over six typed arrays — and doing it here costs
+    // one render instead of 83, because nothing between the first step and
+    // the last is ever painted. What the child used to watch was not the
+    // physics finding its shape; it was the sky stuttering while it did.
+    sim.settleSync();
     return { sim, index, nodes: galaxy.nodes };
-  }, [galaxy, reduceMotion, still]);
+  }, [galaxy]);
 
   // Remember where a retiring simulation left its bodies.
   useEffect(() => {
@@ -215,28 +208,25 @@ export function useGraphSim(
     };
   }, [built]);
 
-  const resting = built !== null && restingFor === built;
+  // No version bump for a build, deliberately. `built` is rebuilt only when
+  // `galaxy` changes, and every consumer already keys on `galaxy` — so the
+  // rebuild is announced by the same render that caused it. `version` is
+  // therefore only ever moved by a drag, which is the one thing that changes
+  // positions without changing the galaxy.
 
+  // The only loop left, and it exists solely so a dragged planet follows the
+  // finger. It runs while `dragging` and stops the moment the touch ends —
+  // there is no path by which it starts on its own.
   useEffect(() => {
-    if (!built || resting || reduceMotion || still || !focused) return;
+    if (!dragging || !built) return;
     let frame: number | null = null;
     let last = 0;
 
     const loop = (now: number) => {
-      if (now - last >= FRAME_MS) {
+      if (now - last >= DRAG_FRAME_MS) {
         last = now;
-
-        if (built.sim.tick()) {
-          setTick((t) => t + 1);
-        } else {
-          // The sole stop condition now. With the ambient drift retired,
-          // alpha decays 0.92 per tick from 1, so tick() reports itself
-          // done after 83 steps — 2.8 seconds — and after a drag release
-          // (alpha 0.3) after 69. A held finger pins a body, which keeps
-          // the bail from firing, so a drag never ends early.
-          setRestingFor(built);
-          return;
-        }
+        built.sim.tick();
+        setVersion((v) => v + 1);
       }
       frame = requestAnimationFrame(loop);
     };
@@ -245,48 +235,64 @@ export function useGraphSim(
     return () => {
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [built, resting, reduceMotion, still, focused]);
+  }, [dragging, built]);
 
-  // Fresh object every render on purpose: consumers key their memoisation on
-  // it, and a stable identity here would let a memo keep drawing a sky the
-  // physics has already moved on from.
-  return {
-    tick,
-    positionOf(title: string) {
-      if (!built) return null;
-      const i = built.index.get(title.toLowerCase());
-      if (i === undefined) return null;
-      return { x: built.sim.xs[i], y: built.sim.ys[i] };
-    },
-    grabAt(x: number, y: number) {
-      if (!built || reduceMotion) return null;
-      let best = -1;
-      let bestD2 = Infinity;
-      built.nodes.forEach((n, i) => {
-        const hit = Math.max(n.r + 12, 24);
-        const dx = built.sim.xs[i] - x;
-        const dy = built.sim.ys[i] - y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 <= hit * hit && d2 < bestD2) {
-          best = i;
-          bestD2 = d2;
-        }
-      });
-      if (best < 0) return null;
-      built.sim.pin(best, built.sim.xs[best], built.sim.ys[best]);
-      setRestingFor(null);
-      return built.nodes[best].title;
-    },
-    dragTo(x: number, y: number) {
-      built?.sim.movePin(x, y);
-    },
-    release() {
-      built?.sim.release();
-      // Wake it: the bodies have to settle back after a drag, and the
-      // sleep timer restarts from here rather than from the build.
-      setRestingFor(null);
-    },
-    reduceMotion,
-    resting,
-  };
+  // Stable identity, unlike the object this used to return fresh on every
+  // render. Nothing ever keyed a memo on the object — consumers read
+  // `version` and `resting`, which are primitives — so the instability bought
+  // nothing and cost every downstream memo its bail-out.
+  return useMemo<GraphSim>(
+    () => ({
+      version,
+      positionOf(title: string) {
+        if (!built) return null;
+        const i = built.index.get(title.toLowerCase());
+        if (i === undefined) return null;
+        return { x: built.sim.xs[i], y: built.sim.ys[i] };
+      },
+      grabAt(x: number, y: number) {
+        // `still` is the thumbnail: it is 330x230 and nobody drags it, so it
+        // never starts the one loop that is left.
+        if (!built || reduceMotion || still) return null;
+        let best = -1;
+        let bestD2 = Infinity;
+        built.nodes.forEach((n, i) => {
+          const hit = Math.max(n.r + 12, 24);
+          const dx = built.sim.xs[i] - x;
+          const dy = built.sim.ys[i] - y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 <= hit * hit && d2 < bestD2) {
+            best = i;
+            bestD2 = d2;
+          }
+        });
+        if (best < 0) return null;
+        built.sim.pin(best, built.sim.xs[best], built.sim.ys[best]);
+        setDragging(true);
+        return built.nodes[best].title;
+      },
+      dragTo(x: number, y: number) {
+        // No setState: the drag loop is already running and will pick the new
+        // pin position up on its next step. Bumping here as well would put a
+        // render on every gesture event, which is the 60fps this change
+        // exists to remove.
+        built?.sim.movePin(x, y);
+      },
+      release() {
+        setDragging(false);
+        if (!built) return;
+        built.sim.release();
+        // The bodies have to settle back after a drag — 69 steps of it.
+        // Synchronously, so the child sees the answer rather than the
+        // arithmetic.
+        built.sim.settleSync();
+        setVersion((v) => v + 1);
+      },
+      reduceMotion,
+      // With the settle synchronous there is no "still cooling" state left to
+      // describe: the sky is at rest except while a finger is on it.
+      resting: !dragging,
+    }),
+    [built, version, dragging, reduceMotion, still],
+  );
 }

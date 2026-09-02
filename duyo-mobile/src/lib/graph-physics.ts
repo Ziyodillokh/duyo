@@ -420,6 +420,10 @@ export class GraphPhysics {
    *  the exact thing that setting exists to turn off, so a sim that has been
    *  settled once must never start breathing again. */
   settleSync(maxTicks = 300): void {
+    // A pinned body keeps `tick()` reporting work forever, so without this a
+    // settle called while a finger is still notionally down would burn all
+    // 300 steps instead of the ~69 it needs.
+    this.pinned = -1;
     this.ambient = false;
     this.alphaTarget = 0;
     for (let t = 0; t < maxTicks && this.tick(); t++) {
