@@ -24,6 +24,7 @@ import { lessonHelpErrorMessage } from '@/api/endpoints/lesson-help';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { Text, TextInput } from '@/components/text';
 import { useLessonHelp } from '@/hooks/use-lesson-help';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { SUBJECTS, type Subject } from '@/lib/subjects';
 import { useChildStore } from '@/store/child';
@@ -51,6 +52,7 @@ const PRIMARY_OFF = '#A8C2EA';
 type Stage = 'input' | 'solving' | 'result' | 'error';
 
 export default function LessonHelpScreen() {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const [subject, setSubject] = useState<Subject>('math');
   const [question, setQuestion] = useState('');
@@ -99,12 +101,12 @@ export default function LessonHelpScreen() {
               else askAgain();
             }}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.title}>Dars yordami</Text>
+          <Text style={styles.title}>{t('lessonHelp.title')}</Text>
           {/* Keeps the title centred. */}
           <View style={styles.headerButton} />
         </View>
@@ -116,7 +118,7 @@ export default function LessonHelpScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Fan tanlang</Text>
+                <Text style={styles.fieldLabel}>{t('lessonHelp.pickSubject')}</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -151,41 +153,43 @@ export default function LessonHelpScreen() {
                   look like the solid panes around it. */}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Vazifani yuklash"
+                accessibilityLabel={t('lessonHelp.upload')}
                 onPress={() =>
                   Alert.alert(
-                    'Tez orada',
-                    "Kamera/galereya integratsiyasi Faza 1'da qo'shiladi",
+                    t('common.comingSoon'),
+                    t('lessonHelp.uploadSoon'),
                   )
                 }
                 style={[styles.upload, styles.focusable]}
               >
                 <Camera size={30} color={PRIMARY} strokeWidth={1.9} />
-                <Text style={styles.uploadTitle}>Vazifani yuklash</Text>
+                <Text style={styles.uploadTitle}>{t('lessonHelp.upload')}</Text>
                 <Text style={styles.uploadBody}>
-                  Rasm chiqaring yoki galereyadan tanlang
+                  {t('lessonHelp.uploadHint')}
                 </Text>
               </Pressable>
 
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>yoki yozing</Text>
+                <Text style={styles.dividerText}>{t('lessonHelp.or')}</Text>
                 <View style={styles.dividerLine} />
               </View>
 
               <View style={[glass(22, 'md', 0.6), styles.inputCard]}>
                 <View style={styles.inputHead}>
                   <PenLine size={16} color={PRIMARY} strokeWidth={2.2} />
-                  <Text style={styles.inputLabel}>Vazifa matni</Text>
+                  <Text style={styles.inputLabel}>
+                    {t('lessonHelp.questionLabel')}
+                  </Text>
                 </View>
                 <TextInput
                   value={question}
                   onChangeText={setQuestion}
-                  placeholder="Vazifani shu yerga yozing..."
+                  placeholder={t('lessonHelp.questionPlaceholder')}
                   placeholderTextColor={PLACEHOLDER}
                   multiline
                   style={styles.input}
-                  accessibilityLabel="Vazifa matni"
+                  accessibilityLabel={t('lessonHelp.questionLabel')}
                 />
               </View>
 
@@ -193,9 +197,7 @@ export default function LessonHelpScreen() {
                   there is nothing honest to send. Said out loud rather than
                   left as a mysteriously dead button. */}
               {!child && (
-                <Text style={styles.notice}>
-                  Avval profilingni tanla — yordam bolaning yoshiga moslanadi.
-                </Text>
+                <Text style={styles.notice}>{t('lessonHelp.noProfile')}</Text>
               )}
 
               <Pressable
@@ -203,7 +205,7 @@ export default function LessonHelpScreen() {
                 disabled={!canSubmit}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canSubmit }}
-                accessibilityLabel="DUYO'dan yordam so'rash"
+                accessibilityLabel={t('lessonHelp.ask')}
                 style={[
                   styles.button,
                   canSubmit ? styles.buttonOn : styles.buttonOff,
@@ -212,7 +214,7 @@ export default function LessonHelpScreen() {
                 ]}
               >
                 <Sparkles size={18} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.buttonOnText}>DUYO'dan yordam so'rash</Text>
+                <Text style={styles.buttonOnText}>{t('lessonHelp.ask')}</Text>
               </Pressable>
             </ScrollView>
           )}
@@ -220,7 +222,7 @@ export default function LessonHelpScreen() {
           {stage === 'solving' && (
             <View style={styles.centre}>
               <Text style={styles.centreEmoji}>🤔</Text>
-              <Text style={styles.centreTitle}>DUYO yechimni o'ylayapti...</Text>
+              <Text style={styles.centreTitle}>{t('lessonHelp.thinking')}</Text>
               {/* Indeterminate on purpose. The bar this replaces was frozen at
                   60% — a progress claim nothing was measuring. */}
               <ActivityIndicator color={PRIMARY} />
@@ -236,7 +238,7 @@ export default function LessonHelpScreen() {
               <Pressable
                 onPress={handleSubmit}
                 accessibilityRole="button"
-                accessibilityLabel="Qayta urinish"
+                accessibilityLabel={t('common.retry')}
                 style={[
                   styles.button,
                   styles.buttonOn,
@@ -244,15 +246,15 @@ export default function LessonHelpScreen() {
                   styles.focusable,
                 ]}
               >
-                <Text style={styles.buttonOnText}>Qayta urinish</Text>
+                <Text style={styles.buttonOnText}>{t('common.retry')}</Text>
               </Pressable>
               <Pressable
                 onPress={askAgain}
                 accessibilityRole="button"
-                accessibilityLabel="Vazifani tahrirlash"
+                accessibilityLabel={t('lessonHelp.editTask')}
                 style={[styles.link, styles.focusable]}
               >
-                <Text style={styles.linkText}>Vazifani tahrirlash</Text>
+                <Text style={styles.linkText}>{t('lessonHelp.editTask')}</Text>
               </Pressable>
             </View>
           )}
@@ -263,7 +265,9 @@ export default function LessonHelpScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={[glass(22, 'md', 0.55), styles.askedCard]}>
-                <Text style={styles.askedCaption}>Sizning vazifangiz:</Text>
+                <Text style={styles.askedCaption}>
+                  {t('lessonHelp.yourTask')}
+                </Text>
                 <Text style={styles.askedText}>
                   {solve.variables?.question ?? question}
                 </Text>
@@ -277,19 +281,21 @@ export default function LessonHelpScreen() {
                   <View style={styles.apologyHead}>
                     <CloudOff size={18} color={DANGER} strokeWidth={2.1} />
                     <Text style={styles.apologyTitle}>
-                      {solve.data.steps[0]?.title ?? 'Hozir yordam berolmayman'}
+                      {solve.data.steps[0]?.title ??
+                        t('lessonHelp.apologyTitle')}
                     </Text>
                   </View>
                   <Text style={styles.apologyBody}>
-                    {solve.data.steps[0]?.detail ??
-                      "Kechir, hozir yechimni tayyorlay olmayapman. Birozdan so'ng yana urinib ko'r."}
+                    {solve.data.steps[0]?.detail ?? t('lessonHelp.apologyBody')}
                   </Text>
                 </View>
               ) : (
                 <View style={styles.steps}>
                   <View style={styles.stepsHead}>
                     <Sparkles size={18} color={PRIMARY} strokeWidth={2.1} />
-                    <Text style={styles.stepsTitle}>DUYO yechimi</Text>
+                    <Text style={styles.stepsTitle}>
+                      {t('lessonHelp.solution')}
+                    </Text>
                   </View>
                   {solve.data.steps.map((step, i) => (
                     <View key={i} style={[glass(20, 'sm', 0.55), styles.step]}>
@@ -310,7 +316,9 @@ export default function LessonHelpScreen() {
                 <View style={styles.finalCard}>
                   <View style={styles.finalHead}>
                     <CheckCircle2 size={20} color={GREEN} strokeWidth={2.2} />
-                    <Text style={styles.finalLabel}>Yakuniy javob</Text>
+                    <Text style={styles.finalLabel}>
+                      {t('lessonHelp.finalAnswer')}
+                    </Text>
                   </View>
                   <Text style={styles.finalAnswer}>{solve.data.answer}</Text>
                 </View>
@@ -321,19 +329,21 @@ export default function LessonHelpScreen() {
                   <Pressable
                     onPress={() => router.push('/(main)/(tabs)/chat')}
                     accessibilityRole="button"
-                    accessibilityLabel="Tushuntirish"
+                    accessibilityLabel={t('lessonHelp.explain')}
                     style={[styles.button, styles.buttonOn, styles.focusable]}
                   >
-                    <Text style={styles.buttonOnText}>Tushuntirish</Text>
+                    <Text style={styles.buttonOnText}>
+                      {t('lessonHelp.explain')}
+                    </Text>
                   </Pressable>
                 ) : (
                   <Pressable
                     onPress={handleSubmit}
                     accessibilityRole="button"
-                    accessibilityLabel="Qayta urinish"
+                    accessibilityLabel={t('common.retry')}
                     style={[styles.button, styles.buttonOn, styles.focusable]}
                   >
-                    <Text style={styles.buttonOnText}>Qayta urinish</Text>
+                    <Text style={styles.buttonOnText}>{t('common.retry')}</Text>
                   </Pressable>
                 )}
                 <Pressable
@@ -342,10 +352,10 @@ export default function LessonHelpScreen() {
                     setQuestion('');
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Yangi vazifa"
+                  accessibilityLabel={t('lessonHelp.newTask')}
                   style={[glass(18, 'md'), styles.button, styles.focusable]}
                 >
-                  <Text style={styles.buttonText}>Yangi vazifa</Text>
+                  <Text style={styles.buttonText}>{t('lessonHelp.newTask')}</Text>
                 </Pressable>
               </View>
             </ScrollView>

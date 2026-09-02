@@ -15,6 +15,7 @@ import { Text, TextInput } from '@/components/text';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { handleRejectionMessage } from '@/api/endpoints/social';
 import { useHandleSuggestions, useUpdateSocialSettings } from '@/hooks/use-social';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 
 const MAX_LEN = 20;
@@ -49,6 +50,7 @@ interface Props {
  * message, so it gets the same contact-detail screening a message body does.
  */
 export function HandleEditor({ visible, childId, current, onClose }: Props) {
+  const t = useT();
   const [value, setValue] = useState(current);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,10 +79,7 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
       {
         onSuccess: onClose,
         onError: (err) =>
-          setError(
-            handleRejectionMessage(err) ??
-              "Saqlanmadi. Internetni tekshirib, qayta urinib ko'ring.",
-          ),
+          setError(handleRejectionMessage(err) ?? t('handle.saveFailed')),
       },
     );
   };
@@ -92,21 +91,18 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
           {/* Chrome floating over the page: the top of the ladder, 'xl'. */}
           <View style={styles.sheet}>
             <View style={styles.titleRow}>
-              <Text style={styles.title}>Taxallusingni tanla</Text>
+              <Text style={styles.title}>{t('handle.title')}</Text>
               <Pressable
                 onPress={onClose}
                 accessibilityRole="button"
-                accessibilityLabel="Yopish"
+                accessibilityLabel={t('common.close')}
                 hitSlop={10}
                 style={[styles.closeButton, styles.focusable]}
               >
                 <X size={20} color={MUTED} />
               </Pressable>
             </View>
-            <Text style={styles.subtitle}>
-              Boshqa bolalar seni shu nom bilan ko'radi. Haqiqiy isming
-              ko'rinmaydi.
-            </Text>
+            <Text style={styles.subtitle}>{t('handle.subtitle')}</Text>
 
             <View style={styles.inputRow}>
               <TextInput
@@ -115,19 +111,19 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
                   setValue(t.slice(0, MAX_LEN));
                   setError(null);
                 }}
-                placeholder="Masalan: Burgut-42"
+                placeholder={t('handle.placeholder')}
                 placeholderTextColor={PLACEHOLDER}
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={MAX_LEN}
-                accessibilityLabel="Taxallus"
+                accessibilityLabel={t('handle.label')}
                 style={styles.input}
               />
               <Pressable
                 onPress={save}
                 disabled={!canSave}
                 accessibilityRole="button"
-                accessibilityLabel="Saqlash"
+                accessibilityLabel={t('common.save')}
                 style={[
                   styles.saveButton,
                   canSave ? styles.saveOn : styles.saveOff,
@@ -152,16 +148,16 @@ export function HandleEditor({ visible, childId, current, onClose }: Props) {
             ) : null}
 
             <View style={styles.suggestHead}>
-              <Text style={styles.suggestLabel}>Tayyor variantlar</Text>
+              <Text style={styles.suggestLabel}>{t('handle.suggestions')}</Text>
               <Pressable
                 onPress={() => suggestions.refetch()}
                 accessibilityRole="button"
-                accessibilityLabel="Yangi variantlar"
+                accessibilityLabel={t('handle.a11yRefresh')}
                 hitSlop={8}
                 style={[styles.refresh, styles.focusable]}
               >
                 <RefreshCw size={14} color={PRIMARY} />
-                <Text style={styles.refreshText}>Yangilash</Text>
+                <Text style={styles.refreshText}>{t('common.refresh')}</Text>
               </Pressable>
             </View>
 

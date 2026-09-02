@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DuyoAvatar } from '@/components/duyo-avatar';
 import { Text } from '@/components/text';
+import { useT, type TranslationKey } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 
 // ── The glass sky, the inner screens' cooler morning ─────────────────────────
@@ -26,8 +27,9 @@ const BG_BOTTOM = '#EDF2FD';
 type CrisisLevel = 'yellow' | 'orange' | 'red';
 
 interface LevelCopy {
-  title: string;
-  message: string;
+  /** Keys, not sentences — a module constant cannot follow a language switch. */
+  title: TranslationKey;
+  message: TranslationKey;
   /** The level's colour, on the card edge and nowhere else. */
   accent: string;
   /** The same colour washed over the sky, so the whole page carries the tone. */
@@ -40,22 +42,20 @@ interface LevelCopy {
 // look like nothing is being said.
 const COPY: Record<CrisisLevel, LevelCopy> = {
   yellow: {
-    title: 'Men seni tushunaman',
-    message: "Ba'zan qiyin paytlar bo'ladi. Men seni tinglashga tayyorman.",
+    title: 'crisis.yellow.title',
+    message: 'crisis.yellow.body',
     accent: '#D9A200',
     wash: 'rgba(250,204,21,0.20)',
   },
   orange: {
-    title: "Sen yolg'iz emassan",
-    message:
-      'Men senga yordam berishga tayyorman. Keling, ishonchli katta odam bilan gaplashaylik.',
+    title: 'crisis.orange.title',
+    message: 'crisis.orange.body',
     accent: '#E07B39',
     wash: 'rgba(224,123,57,0.18)',
   },
   red: {
-    title: 'Sen muhimsan',
-    message:
-      "Men sening xavfsizligingni o'ylayman. Keling, hozir senga yordam beradigan odamni topamiz.",
+    title: 'crisis.red.title',
+    message: 'crisis.red.body',
     accent: DANGER,
     wash: 'rgba(224,69,94,0.16)',
   },
@@ -74,6 +74,7 @@ function callHotline(number: string): void {
 }
 
 export default function CrisisScreen() {
+  const t = useT();
   const params = useLocalSearchParams<{ level?: string }>();
   const level = normalizeLevel(params.level);
   const copy = COPY[level];
@@ -111,8 +112,8 @@ export default function CrisisScreen() {
               { borderWidth: 2, borderColor: copy.accent },
             ]}
           >
-            <Text style={styles.heroTitle}>{copy.title}</Text>
-            <Text style={styles.heroMessage}>{copy.message}</Text>
+            <Text style={styles.heroTitle}>{t(copy.title)}</Text>
+            <Text style={styles.heroMessage}>{t(copy.message)}</Text>
           </View>
 
           <View style={styles.actions}>
@@ -122,41 +123,38 @@ export default function CrisisScreen() {
           </View>
 
           <View style={[glass(24, 'md', 0.55), styles.help]}>
-            <Text style={styles.helpTitle}>Yordam kerakmi?</Text>
-            <Text style={styles.helpBody}>
-              Sen xavfsizsan va sen yolg'iz emassan. Doimo yordam olish mumkin.
-            </Text>
+            <Text style={styles.helpTitle}>{t('crisis.helpTitle')}</Text>
+            <Text style={styles.helpBody}>{t('crisis.helpBody')}</Text>
             {level === 'red' && (
               <View style={styles.hotlines}>
-                <Text style={styles.hotlinesHeading}>Favqulodda raqamlar:</Text>
+                <Text style={styles.hotlinesHeading}>
+                  {t('crisis.hotlines')}
+                </Text>
                 <Pressable
                   onPress={() => callHotline(HOTLINE_PSYCH)}
                   accessibilityRole="button"
-                  accessibilityLabel="Psixologik yordamga qo'ng'iroq"
+                  accessibilityLabel={t('crisis.a11y.callPsych')}
                   style={[styles.hotline, styles.focusable]}
                 >
                   <Text style={styles.hotlineText}>
-                    {HOTLINE_PSYCH} — Psixologik yordam
+                    {HOTLINE_PSYCH} — {t('crisis.psychLine')}
                   </Text>
                 </Pressable>
                 <Pressable
                   onPress={() => callHotline(HOTLINE_CHILD)}
                   accessibilityRole="button"
-                  accessibilityLabel="Bolalar telefoniga qo'ng'iroq"
+                  accessibilityLabel={t('crisis.a11y.callChild')}
                   style={[styles.hotline, styles.focusable]}
                 >
                   <Text style={styles.hotlineText}>
-                    {HOTLINE_CHILD} — Bolalar telefoni
+                    {HOTLINE_CHILD} — {t('crisis.childLine')}
                   </Text>
                 </Pressable>
               </View>
             )}
           </View>
 
-          <Text style={styles.disclaimer}>
-            Bu suhbat maxfiy saqlanadi va faqat sen xavfsiz bo'lishingni
-            ta'minlash uchun ishlatiladi.
-          </Text>
+          <Text style={styles.disclaimer}>{t('crisis.disclaimer')}</Text>
 
           <Pressable
             onPress={() => router.back()}
@@ -168,7 +166,7 @@ export default function CrisisScreen() {
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.closeText}>Yopish</Text>
+            <Text style={styles.closeText}>{t('common.close')}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -177,15 +175,16 @@ export default function CrisisScreen() {
 }
 
 function YellowActions() {
+  const t = useT();
   return (
     <>
       <ActionButton
-        label="DUYO bilan gaplashishda davom etish"
+        label={t('crisis.action.keepTalking')}
         primary
         onPress={() => router.back()}
       />
       <ActionButton
-        label="Nafas olish mashqlari"
+        label={t('crisis.action.breathing')}
         onPress={() => router.back()}
       />
     </>
@@ -193,19 +192,20 @@ function YellowActions() {
 }
 
 function OrangeActions() {
+  const t = useT();
   return (
     <>
       <ActionButton
-        label="Ishonchli kattaga aytish"
+        label={t('crisis.action.tellAdult')}
         primary
         onPress={() => router.back()}
       />
       <ActionButton
-        label="DUYO bilan gaplashishda davom etish"
+        label={t('crisis.action.keepTalking')}
         onPress={() => router.back()}
       />
       <ActionButton
-        label="Nafas olish mashqlari"
+        label={t('crisis.action.breathing')}
         onPress={() => router.back()}
       />
     </>
@@ -213,20 +213,27 @@ function OrangeActions() {
 }
 
 function RedActions() {
+  const t = useT();
   return (
     <>
       <ActionButton
-        label={`${HOTLINE_PSYCH} ga qo'ng'iroq — Psixologik yordam`}
+        label={t('crisis.action.call', {
+          n: HOTLINE_PSYCH,
+          line: t('crisis.psychLine'),
+        })}
         destructive
         onPress={() => callHotline(HOTLINE_PSYCH)}
       />
       <ActionButton
-        label={`${HOTLINE_CHILD} ga qo'ng'iroq — Bolalar telefoni`}
+        label={t('crisis.action.call', {
+          n: HOTLINE_CHILD,
+          line: t('crisis.childLine'),
+        })}
         destructive
         onPress={() => callHotline(HOTLINE_CHILD)}
       />
       <ActionButton
-        label="Ishonchli kattaga aytish"
+        label={t('crisis.action.tellAdult')}
         primary
         onPress={() => router.back()}
       />

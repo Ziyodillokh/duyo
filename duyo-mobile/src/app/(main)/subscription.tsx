@@ -1,5 +1,6 @@
 import { Text } from '@/components/text';
 import { usePlans, useCurrentSubscription } from '@/hooks/use-subscription';
+import { useT, type TranslationKey } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -27,12 +28,14 @@ const BG_BOTTOM = '#EDF2FD';
 /** Premium keeps its gold — it is the tier's identity, not a theme colour. */
 const GOLD = '#FDC700';
 
-const ALL_PLAN_BENEFITS: readonly string[] = [
-  '7 kun bepul sinov',
-  'Istalgan vaqt bekor qilish',
-  'Xavfsiz to\'lov',
-  '24/7 yordam',
-];
+// Keys, not sentences: a module constant is frozen at import and would keep
+// speaking Uzbek after the child switches language.
+const ALL_PLAN_BENEFITS = [
+  'subscription.benefit.trial',
+  'subscription.benefit.cancel',
+  'subscription.benefit.securePay',
+  'subscription.benefit.support',
+] as const satisfies readonly TranslationKey[];
 
 const PAYMENT_METHODS = ['Click', 'Payme', 'Uzcard', 'Humo', 'Visa/Mastercard'];
 
@@ -54,6 +57,7 @@ const PREMIUM_KEY = 'premium';
  * may mention that — saying where to buy is itself the violation.
  */
 export default function SubscriptionScreen() {
+  const t = useT();
   const plansQuery = usePlans();
   const currentQuery = useCurrentSubscription();
   const plans = plansQuery.data ?? [];
@@ -73,7 +77,7 @@ export default function SubscriptionScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
@@ -86,10 +90,8 @@ export default function SubscriptionScreen() {
         >
           {/* Heading */}
           <View style={styles.heading}>
-            <Text style={styles.headingTitle}>Premium'ga o'ting</Text>
-            <Text style={styles.headingBlurb}>
-              DUYO bilan ko'proq o'rganing va o'sing
-            </Text>
+            <Text style={styles.headingTitle}>{t('subscription.title')}</Text>
+            <Text style={styles.headingBlurb}>{t('subscription.subtitle')}</Text>
           </View>
 
           {/* Pricing cards */}
@@ -100,14 +102,16 @@ export default function SubscriptionScreen() {
           )}
           {plansQuery.isError && (
             <View style={[glass(20, 'md'), styles.errorCard]}>
-              <Text style={styles.errorText}>Rejalarni yuklab bo'lmadi</Text>
+              <Text style={styles.errorText}>
+                {t('subscription.loadFailed')}
+              </Text>
               <Pressable
                 onPress={() => plansQuery.refetch()}
                 accessibilityRole="button"
-                accessibilityLabel="Qayta urinish"
+                accessibilityLabel={t('common.retry')}
                 style={[styles.retry, styles.focusable]}
               >
-                <Text style={styles.retryText}>Qayta urinish</Text>
+                <Text style={styles.retryText}>{t('common.retry')}</Text>
               </Pressable>
             </View>
           )}
@@ -139,7 +143,9 @@ export default function SubscriptionScreen() {
 
                 {isCurrent && (
                   <View style={styles.currentNote}>
-                    <Text style={styles.currentNoteText}>Joriy reja</Text>
+                    <Text style={styles.currentNoteText}>
+                      {t('subscription.current')}
+                    </Text>
                   </View>
                 )}
 
@@ -158,12 +164,12 @@ export default function SubscriptionScreen() {
 
           {/* All plans include */}
           <View style={[glass(24, 'md'), styles.plan]}>
-            <Text style={styles.includeTitle}>Barcha rejalarda:</Text>
+            <Text style={styles.includeTitle}>{t('subscription.allPlans')}</Text>
             <View style={styles.includeList}>
-              {ALL_PLAN_BENEFITS.map((b) => (
-                <View key={b} style={styles.featureRow}>
+              {ALL_PLAN_BENEFITS.map((key) => (
+                <View key={key} style={styles.featureRow}>
                   <Check size={15} color={PRIMARY} strokeWidth={2.4} />
-                  <Text style={styles.featureText}>{b}</Text>
+                  <Text style={styles.featureText}>{t(key)}</Text>
                 </View>
               ))}
             </View>
@@ -171,7 +177,9 @@ export default function SubscriptionScreen() {
 
           {/* Payment methods */}
           <View style={styles.payMethods}>
-            <Text style={styles.payMethodsTitle}>To'lov usullari</Text>
+            <Text style={styles.payMethodsTitle}>
+              {t('subscription.payMethods')}
+            </Text>
             <View style={styles.payMethodsRow}>
               {PAYMENT_METHODS.map((m) => (
                 <View key={m} style={[glass(14, 'sm', 0.5), styles.payChip]}>

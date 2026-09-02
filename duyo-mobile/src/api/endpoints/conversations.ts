@@ -1,4 +1,6 @@
 import { apiClient } from '@/api/client';
+import { translate } from '@/i18n';
+import { useLanguageStore } from '@/store/language';
 
 // Mirrors duyo-backend duyo/api/v1/conversations.py.
 
@@ -168,9 +170,15 @@ export async function deleteProject(
 
 /** Why a project write failed, in words the child can act on. */
 export function projectErrorMessage(err: unknown): string {
+  // No hooks in a plain module: the language is read at call time, which is
+  // the moment the write failed, so it is always the current one.
+  const language = useLanguageStore.getState().language;
   const res = (err as { response?: { status?: number; data?: { detail?: string } } })
     .response;
   if (res?.status === 429 && res.data?.detail) return res.data.detail;
-  if (res?.status === 422) return "Bu nomni ishlatib bo'lmaydi.";
-  return "Saqlanmadi. Internetni tekshirib, qayta urinib ko'r.";
+  if (res?.status === 422) return translate(language, 'projects.err.badName');
+  return `${translate(language, 'common.saveFailedTitle')} ${translate(
+    language,
+    'common.checkInternetRetry',
+  )}`;
 }

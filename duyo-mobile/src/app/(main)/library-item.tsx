@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { isContentNotFound } from '@/api/endpoints/content';
 import { Text } from '@/components/text';
 import { useContentItem } from '@/hooks/use-content';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 
 // ── The glass sky, the inner screens' cooler morning ─────────────────────────
@@ -47,6 +48,7 @@ function Sky() {
 }
 
 export default function LibraryItemScreen() {
+  const t = useT();
   const params = useLocalSearchParams<{ id: string }>();
   const id = params.id ?? '';
 
@@ -62,14 +64,14 @@ export default function LibraryItemScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={({ pressed }) => [
               styles.messageButton,
               styles.focusable,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.filledLabel}>Orqaga</Text>
+            <Text style={styles.filledLabel}>{t('common.back')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -82,7 +84,7 @@ export default function LibraryItemScreen() {
         <Sky />
         <SafeAreaView style={styles.safe} edges={['top']}>
           <View style={styles.centered}>
-            <Text style={styles.loadingText}>Yuklanmoqda…</Text>
+            <Text style={styles.loadingText}>{t('common.loading')}</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -91,19 +93,19 @@ export default function LibraryItemScreen() {
 
   if (isError) {
     return isContentNotFound(error)
-      ? renderMessage('🔍', 'Kontent topilmadi')
-      : renderMessage('⚠️', "Kontentni yuklab bo'lmadi");
+      ? renderMessage('🔍', t('libraryItem.notFound'))
+      : renderMessage('⚠️', t('libraryItem.loadFailed'));
   }
 
   if (!item) {
-    return renderMessage('🔍', 'Kontent topilmadi');
+    return renderMessage('🔍', t('libraryItem.notFound'));
   }
 
   const author = item.author ?? '';
   const isPhoto = item.type === 'photo';
   const isPdf = item.type === 'pdf';
   const hasBody = (item.body ?? '').trim() !== '';
-  const body = hasBody ? item.body : 'Kontent tez orada qo\'shiladi.';
+  const body = hasBody ? item.body : t('libraryItem.bodySoon');
   // `likes` is a real counter on the item. There is no per-child like endpoint
   // yet, so this is a readout, not a button — a heart that only changed colour
   // locally promised a save that never happened.
@@ -124,7 +126,7 @@ export default function LibraryItemScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
@@ -132,7 +134,7 @@ export default function LibraryItemScreen() {
           <View style={styles.headerRight}>
             {likes > 0 && (
               <View
-                accessibilityLabel={`${likes} ta yoqtirish`}
+                accessibilityLabel={t('libraryItem.a11yLikes', { count: likes })}
                 style={[glass(18, 'sm', 0.6), styles.likes]}
               >
                 <Heart size={16} color={DANGER} fill={DANGER} />
@@ -141,7 +143,7 @@ export default function LibraryItemScreen() {
             )}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Ulashish"
+              accessibilityLabel={t('common.share')}
               style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
             >
               <Share2 size={19} color={MUTED} strokeWidth={2} />
@@ -173,7 +175,7 @@ export default function LibraryItemScreen() {
             {item.audio_url ? (
               <View style={styles.audioRow}>
                 <Music size={14} color={PRIMARY} strokeWidth={2.2} />
-                <Text style={styles.audioText}>Audio mavjud</Text>
+                <Text style={styles.audioText}>{t('libraryItem.hasAudio')}</Text>
               </View>
             ) : null}
           </View>
@@ -182,7 +184,7 @@ export default function LibraryItemScreen() {
             <Pressable
               onPress={openPdf}
               accessibilityRole="button"
-              accessibilityLabel="PDF hujjatni ochish"
+              accessibilityLabel={t('libraryItem.openPdf')}
               style={({ pressed }) => [
                 styles.filled,
                 styles.filledRow,
@@ -191,7 +193,7 @@ export default function LibraryItemScreen() {
               ]}
             >
               <FileText size={18} color="#FFFFFF" strokeWidth={2.2} />
-              <Text style={styles.filledLabel}>PDF hujjatni ochish</Text>
+              <Text style={styles.filledLabel}>{t('libraryItem.openPdf')}</Text>
             </Pressable>
           ) : null}
 
@@ -199,7 +201,9 @@ export default function LibraryItemScreen() {
             <View style={[glass(24, 'md', 0.55), styles.bodyCard]}>
               <View style={styles.bodyHead}>
                 <BookOpen size={18} color={PRIMARY} strokeWidth={2.2} />
-                <Text style={styles.bodyHeadText}>Mazmun</Text>
+                <Text style={styles.bodyHeadText}>
+                  {t('libraryItem.content')}
+                </Text>
               </View>
               <Text style={styles.bodyText}>{body}</Text>
             </View>
@@ -208,14 +212,14 @@ export default function LibraryItemScreen() {
           <Pressable
             onPress={() => router.push('/(main)/(tabs)/chat')}
             accessibilityRole="button"
-            accessibilityLabel="DUYO bilan muhokama"
+            accessibilityLabel={t('libraryItem.discuss')}
             style={({ pressed }) => [
               styles.filled,
               styles.focusable,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.filledLabel}>DUYO bilan muhokama</Text>
+            <Text style={styles.filledLabel}>{t('libraryItem.discuss')}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

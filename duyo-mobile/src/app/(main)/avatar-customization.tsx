@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MascotImage } from '@/components/v2/mascot-image';
 import { useAvatar, useUpdateAvatar } from '@/hooks/use-gamification';
+import { useT, type TranslationKey } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 
 // ── The glass sky, the inner screens' cooler morning ─────────────────────────
@@ -38,42 +39,43 @@ type TabKey = 'body' | 'color' | 'accent' | 'face';
 interface AvatarOption {
   key: string;
   emoji: string;
-  label: string;
+  /** A key, not a word — these tables are built once, at import. */
+  label: TranslationKey;
   price?: number;
   isOwned?: boolean;
 }
 
-const TABS: readonly { key: TabKey; label: string }[] = [
-  { key: 'body', label: 'Tana' },
-  { key: 'color', label: 'Rang' },
-  { key: 'accent', label: 'Aksent' },
-  { key: 'face', label: 'Yuz' },
+const TABS: readonly { key: TabKey; label: TranslationKey }[] = [
+  { key: 'body', label: 'avatarEditor.tab.body' },
+  { key: 'color', label: 'avatarEditor.tab.colour' },
+  { key: 'accent', label: 'avatarEditor.tab.accent' },
+  { key: 'face', label: 'avatarEditor.tab.face' },
 ];
 
 const OPTIONS: Record<TabKey, readonly AvatarOption[]> = {
   body: [
-    { key: 'sphere', emoji: '⚪', label: 'Sharsimon', isOwned: true },
-    { key: 'cube', emoji: '🟦', label: 'Kubik', isOwned: true },
-    { key: 'vertical', emoji: '⬜', label: 'Vertikal', price: 100 },
-    { key: 'mini', emoji: '🔵', label: 'Mini', price: 150 },
+    { key: 'sphere', emoji: '⚪', label: 'avatarEditor.body.sphere', isOwned: true },
+    { key: 'cube', emoji: '🟦', label: 'avatarEditor.body.cube', isOwned: true },
+    { key: 'vertical', emoji: '⬜', label: 'avatarEditor.body.vertical', price: 100 },
+    { key: 'mini', emoji: '🔵', label: 'avatarEditor.body.mini', price: 150 },
   ],
   color: [
-    { key: 'blue', emoji: '🔵', label: 'Ko‘k', isOwned: true },
-    { key: 'purple', emoji: '🟣', label: 'Binafsha', price: 80 },
-    { key: 'green', emoji: '🟢', label: 'Yashil', price: 80 },
-    { key: 'red', emoji: '🔴', label: 'Qizil', price: 80 },
+    { key: 'blue', emoji: '🔵', label: 'avatarEditor.colour.blue', isOwned: true },
+    { key: 'purple', emoji: '🟣', label: 'avatarEditor.colour.purple', price: 80 },
+    { key: 'green', emoji: '🟢', label: 'avatarEditor.colour.green', price: 80 },
+    { key: 'red', emoji: '🔴', label: 'avatarEditor.colour.red', price: 80 },
   ],
   accent: [
-    { key: 'none', emoji: '⚪', label: 'Yo‘q', isOwned: true },
-    { key: 'star', emoji: '⭐', label: 'Yulduz', isOwned: true },
-    { key: 'cap', emoji: '🧢', label: 'Shapka', price: 120 },
-    { key: 'glasses', emoji: '🤓', label: 'Ko‘zoynak', price: 150 },
+    { key: 'none', emoji: '⚪', label: 'avatarEditor.accent.none', isOwned: true },
+    { key: 'star', emoji: '⭐', label: 'avatarEditor.accent.star', isOwned: true },
+    { key: 'cap', emoji: '🧢', label: 'avatarEditor.accent.cap', price: 120 },
+    { key: 'glasses', emoji: '🤓', label: 'avatarEditor.accent.glasses', price: 150 },
   ],
   face: [
-    { key: 'smile', emoji: '😊', label: 'Tabassum', isOwned: true },
-    { key: 'curious', emoji: '🤔', label: 'Qiziqish', isOwned: true },
-    { key: 'sunny', emoji: '😄', label: 'Quvonchli', price: 100 },
-    { key: 'wink', emoji: '😉', label: "Ko'z qisish", price: 100 },
+    { key: 'smile', emoji: '😊', label: 'avatarEditor.face.smile', isOwned: true },
+    { key: 'curious', emoji: '🤔', label: 'avatarEditor.face.curious', isOwned: true },
+    { key: 'sunny', emoji: '😄', label: 'avatarEditor.face.sunny', price: 100 },
+    { key: 'wink', emoji: '😉', label: 'avatarEditor.face.wink', price: 100 },
   ],
 };
 
@@ -85,6 +87,7 @@ const DEFAULTS: Record<TabKey, string> = {
 };
 
 export default function AvatarCustomizationScreen() {
+  const t = useT();
   const [activeTab, setActiveTab] = useState<TabKey>('body');
   const [config, setConfig] = useState<Record<TabKey, string>>({ ...DEFAULTS });
 
@@ -110,7 +113,10 @@ export default function AvatarCustomizationScreen() {
     if (isOwned) {
       setConfig((prev) => ({ ...prev, [activeTab]: key }));
     } else {
-      Alert.alert('Sotib olish', `${price} XP evaziga sotib olamiz?`);
+      Alert.alert(
+        t('avatarEditor.buy.title'),
+        t('avatarEditor.buy.body', { price: price ?? 0 }),
+      );
     }
   };
 
@@ -124,11 +130,11 @@ export default function AvatarCustomizationScreen() {
       },
       {
         onSuccess: () => {
-          Alert.alert('Saqlandi', 'Avatar yangilandi!');
+          Alert.alert(t('avatarEditor.saved.title'), t('avatarEditor.saved.body'));
           router.back();
         },
         onError: () =>
-          Alert.alert('Xatolik', "Saqlab bo'lmadi. Qayta urinib ko'ring."),
+          Alert.alert(t('common.error'), t('common.saveFailedRetry')),
       },
     );
   };
@@ -147,12 +153,12 @@ export default function AvatarCustomizationScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.title}>Avatar sozlash</Text>
+          <Text style={styles.title}>{t('avatarEditor.title')}</Text>
         </View>
 
         <ScrollView
@@ -174,19 +180,19 @@ export default function AvatarCustomizationScreen() {
 
           {/* ── Segmented control ─────────────────────────────────────── */}
           <View style={[glass(20, 'sm'), styles.tabs]}>
-            {TABS.map((t) => {
-              const isActive = t.key === activeTab;
+            {TABS.map((tab) => {
+              const isActive = tab.key === activeTab;
               return (
                 <Pressable
-                  key={t.key}
-                  onPress={() => setActiveTab(t.key)}
+                  key={tab.key}
+                  onPress={() => setActiveTab(tab.key)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isActive }}
-                  accessibilityLabel={t.label}
+                  accessibilityLabel={t(tab.label)}
                   style={[styles.tab, isActive && styles.tabOn, styles.focusable]}
                 >
                   <Text style={[styles.tabText, isActive && styles.tabTextOn]}>
-                    {t.label}
+                    {t(tab.label)}
                   </Text>
                 </Pressable>
               );
@@ -203,7 +209,7 @@ export default function AvatarCustomizationScreen() {
                   onPress={() => setOption(opt.key, opt.isOwned, opt.price)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={opt.label}
+                  accessibilityLabel={t(opt.label)}
                   style={({ pressed }) => [
                     glass(20, 'md'),
                     styles.option,
@@ -212,7 +218,7 @@ export default function AvatarCustomizationScreen() {
                   ]}
                 >
                   <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-                  <Text style={styles.optionLabel}>{opt.label}</Text>
+                  <Text style={styles.optionLabel}>{t(opt.label)}</Text>
                   {!owned ? (
                     <View style={styles.price}>
                       <Coins size={12} color={GOLD} strokeWidth={2.2} />
@@ -228,7 +234,7 @@ export default function AvatarCustomizationScreen() {
             onPress={handleSave}
             disabled={updateAvatar.isPending}
             accessibilityRole="button"
-            accessibilityLabel="Saqlash"
+            accessibilityLabel={t('common.save')}
             accessibilityState={{ disabled: updateAvatar.isPending }}
             style={({ pressed }) => [
               styles.save,
@@ -240,7 +246,7 @@ export default function AvatarCustomizationScreen() {
             {updateAvatar.isPending ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveText}>Saqlash</Text>
+              <Text style={styles.saveText}>{t('common.save')}</Text>
             )}
           </Pressable>
         </ScrollView>

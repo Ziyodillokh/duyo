@@ -44,6 +44,7 @@ import {
   useSocialSettings,
   useUpdateSocialSettings,
 } from '@/hooks/use-social';
+import { useT, type TranslationKey } from '@/i18n';
 import { categoryOf } from '@/lib/goal-categories';
 import { useChildStore } from '@/store/child';
 
@@ -121,9 +122,9 @@ function seedOf(text: string): number {
 // ── Categories and the mock's communities ────────────────────────────────────
 
 /** The mock's community circles, wired to the categories that exist. */
-const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
+const STORIES: readonly { label: TranslationKey; cat: string; spec: PortraitSpec }[] = [
   {
-    label: 'Talabalar',
+    label: 'mates.circle.students',
     cat: 'talim',
     spec: {
       scene: 'street', skin: '#E3B183', hair: '#241C18', hairStyle: 0,
@@ -131,7 +132,7 @@ const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
     },
   },
   {
-    label: 'IT & Code',
+    label: 'mates.circle.itCode',
     cat: 'it',
     spec: {
       scene: 'city', skin: '#EFC6A0', hair: '#3A2A1E', hairStyle: 3,
@@ -139,7 +140,7 @@ const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
     },
   },
   {
-    label: 'Sayohatchilar',
+    label: 'mates.circle.travellers',
     cat: 'sayohat',
     spec: {
       scene: 'mountains', skin: '#DFAE84', hair: '#1F1815', hairStyle: 0,
@@ -147,7 +148,7 @@ const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
     },
   },
   {
-    label: 'Sportchilar',
+    label: 'mates.circle.athletes',
     cat: 'sport',
     spec: {
       scene: 'gym', skin: '#D9A278', hair: '#1B1512', hairStyle: 0,
@@ -155,7 +156,7 @@ const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
     },
   },
   {
-    label: 'Kitobxonlar',
+    label: 'mates.circle.readers',
     cat: 'kitoblar',
     spec: {
       scene: 'library', skin: '#EFC6A0', hair: '#2A1F18', hairStyle: 4,
@@ -168,12 +169,12 @@ const STORIES: readonly { label: string; cat: string; spec: PortraitSpec }[] = [
  *  the server only ever suggests the same age segment within a year, so the
  *  whole list already IS nearby — the chip simply says so. */
 type ChipKey = 'all' | 'nearby' | 'active' | 'fresh' | 'top';
-const CHIPS: readonly { key: ChipKey; label: string }[] = [
-  { key: 'all', label: 'Barchasi' },
-  { key: 'nearby', label: 'Yaqin atrofimda' },
-  { key: 'active', label: 'Faol' },
-  { key: 'fresh', label: 'Yangi' },
-  { key: 'top', label: 'Top mentorlar' },
+const CHIPS: readonly { key: ChipKey; label: TranslationKey }[] = [
+  { key: 'all', label: 'common.all' },
+  { key: 'nearby', label: 'mates.chip.nearby' },
+  { key: 'active', label: 'mates.chip.active' },
+  { key: 'fresh', label: 'mates.chip.fresh' },
+  { key: 'top', label: 'mates.chip.topMentors' },
 ];
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
@@ -196,16 +197,16 @@ interface MateRow {
   state: MateState;
 }
 
-function statusOf(state: MateState): { dot: string; text: string } {
+function statusOf(state: MateState): { dot: string; text: TranslationKey } {
   switch (state.kind) {
     case 'friend':
-      return { dot: GREEN, text: "Do'stingiz" };
+      return { dot: GREEN, text: 'mates.status.friend' };
     case 'incoming':
-      return { dot: GREEN, text: "Sizga so'rov yubordi" };
+      return { dot: GREEN, text: 'mates.status.incoming' };
     case 'outgoing':
-      return { dot: MUTED, text: "So'rov yuborilgan" };
+      return { dot: MUTED, text: 'mates.status.outgoing' };
     case 'new':
-      return { dot: MUTED, text: 'Umumiy maqsad' };
+      return { dot: MUTED, text: 'mates.status.sharedGoal' };
   }
 }
 
@@ -224,6 +225,7 @@ function MateCard({
   onAccept: (f: Friendship) => void;
   onDecline: (f: Friendship) => void;
 }) {
+  const t = useT();
   const status = statusOf(row.state);
   const category = categoryOf(row.matchKey);
   // An unknown key (a badge this build has no art for) draws nothing
@@ -255,7 +257,7 @@ function MateCard({
         </Text>
         <View style={rowStyles.statusRow}>
           <View style={[rowStyles.dot, { backgroundColor: status.dot }]} />
-          <Text style={rowStyles.statusText}>{status.text}</Text>
+          <Text style={rowStyles.statusText}>{t(status.text)}</Text>
         </View>
         {category && (
           <View style={rowStyles.tagRow}>
@@ -270,7 +272,7 @@ function MateCard({
         <Pressable
           onPress={() => onChat(state.friendship)}
           accessibilityRole="button"
-          accessibilityLabel={`${row.name} bilan suhbat`}
+          accessibilityLabel={t('mates.a11y.chatWith', { name: row.name })}
           style={[glass(24), rowStyles.action]}
         >
           <MessageCircle size={24} color={PRIMARY} strokeWidth={1.9} />
@@ -286,7 +288,7 @@ function MateCard({
           onPress={() => !busy && onConnect(state.mate)}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel={`${row.name} — so'rov yuborish`}
+          accessibilityLabel={t('mates.a11y.sendRequest', { name: row.name })}
           style={[glass(24), rowStyles.action, busy && { opacity: 0.55 }]}
         >
           <UserPlus size={24} color={PRIMARY} strokeWidth={1.9} />
@@ -298,7 +300,7 @@ function MateCard({
             onPress={() => !busy && onAccept(state.friendship)}
             disabled={busy}
             accessibilityRole="button"
-            accessibilityLabel={`${row.name} — qabul qilish`}
+            accessibilityLabel={t('mates.a11y.accept', { name: row.name })}
             style={[glass(20), rowStyles.smallAction, busy && { opacity: 0.55 }]}
           >
             <Check size={21} color={GREEN} strokeWidth={2.2} />
@@ -307,7 +309,7 @@ function MateCard({
             onPress={() => !busy && onDecline(state.friendship)}
             disabled={busy}
             accessibilityRole="button"
-            accessibilityLabel={`${row.name} — rad etish`}
+            accessibilityLabel={t('mates.a11y.decline', { name: row.name })}
             style={[glass(20), rowStyles.smallAction, busy && { opacity: 0.55 }]}
           >
             <X size={21} color={DANGER} strokeWidth={2.2} />
@@ -331,6 +333,7 @@ function MateCard({
  * Every confirm and every error is inline UI: Alert does not exist on web.
  */
 export default function GoalMatesScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const navClearance = useNavClearance();
   const childId = useChildStore((s) => s.child?.id ?? undefined);
@@ -424,7 +427,7 @@ export default function GoalMatesScreen() {
 
     for (const f of friends) {
       const goalTitle =
-        (f.match_key && catalogTitles.get(f.match_key)) || 'Birga maqsad sari';
+        (f.match_key && catalogTitles.get(f.match_key)) || t('mates.goalFallback');
       if (f.status === 'accepted') {
         byPeer.set(f.peer.child_id, {
           peerId: f.peer.child_id,
@@ -500,7 +503,7 @@ export default function GoalMatesScreen() {
       );
     }
     return list;
-  }, [friendsQuery.data, matesQuery.data, catalogTitles, chip, goalKey, query, requested]);
+  }, [friendsQuery.data, matesQuery.data, catalogTitles, chip, goalKey, query, requested, t]);
 
   const hasConnections = rows.some((r) => r.state.kind !== 'new');
 
@@ -529,13 +532,13 @@ export default function GoalMatesScreen() {
   const accept = (f: Friendship) => {
     if (acceptRequest.isPending) return;
     acceptRequest.mutate(f.id, {
-      onError: () => say("Qabul qilinmadi — birozdan so'ng qayta urinib ko'r."),
+      onError: () => say(t('mates.acceptFailed')),
     });
   };
   const decline = (f: Friendship) => {
     if (declineRequest.isPending) return;
     declineRequest.mutate(f.id, {
-      onError: () => say("Rad etilmadi — birozdan so'ng qayta urinib ko'r."),
+      onError: () => say(t('mates.declineFailed')),
     });
   };
 
@@ -564,16 +567,16 @@ export default function GoalMatesScreen() {
           <Pressable
             onPress={toHome}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24), styles.headerButton]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.title}>Maqsaddoshlar</Text>
+          <Text style={styles.title}>{t('mates.title')}</Text>
           <Pressable
             onPress={() => router.push('/(main)/notifications')}
             accessibilityRole="button"
-            accessibilityLabel="Bildirishnomalar"
+            accessibilityLabel={t('notificationsScreen.title')}
             style={[glass(24), styles.headerButton]}
           >
             <Bell size={23} color={PRIMARY} strokeWidth={1.9} />
@@ -599,7 +602,10 @@ export default function GoalMatesScreen() {
                   })
                 }
                 accessibilityRole="button"
-                accessibilityLabel={`${g.label} guruhi — ${g.members} a'zo`}
+                accessibilityLabel={t('mates.a11y.group', {
+                  label: g.label,
+                  count: g.members,
+                })}
                 style={[styles.story, styles.focusable]}
               >
                 <View style={[styles.storyRing, g.joined && styles.storyRingActive]}>
@@ -620,13 +626,13 @@ export default function GoalMatesScreen() {
           <Pressable
             onPress={() => router.push('/(main)/my-goals')}
             accessibilityRole="button"
-            accessibilityLabel="Qo'shish — maqsadlarim"
+            accessibilityLabel={t('mates.a11y.addGoals')}
             style={[styles.story, styles.focusable]}
           >
             <View style={[glass(32), styles.storyPlus]}>
               <Plus size={28} color={PRIMARY} strokeWidth={1.9} />
             </View>
-            <Text style={styles.storyLabel}>Qo'shish</Text>
+            <Text style={styles.storyLabel}>{t('common.add')}</Text>
           </Pressable>
         </ScrollView>
 
@@ -636,15 +642,15 @@ export default function GoalMatesScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Maqsaddoshlarni qidirish..."
+            placeholder={t('mates.searchPlaceholder')}
             placeholderTextColor={PLACEHOLDER}
             style={styles.searchInput}
-            accessibilityLabel="Maqsaddoshlarni qidirish"
+            accessibilityLabel={t('mates.a11y.search')}
           />
           <Pressable
             onPress={() => setShowSettings((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel="Filtr va sozlamalar"
+            accessibilityLabel={t('mates.a11y.filters')}
             hitSlop={10}
           >
             <SlidersHorizontal
@@ -661,7 +667,7 @@ export default function GoalMatesScreen() {
           <Pressable
             onPress={() => setGoalKey(null)}
             accessibilityRole="button"
-            accessibilityLabel="Filtrni olib tashlash"
+            accessibilityLabel={t('mates.a11y.clearFilter')}
             style={styles.activeFilterBar}
           >
             <Text style={styles.activeFilterText} numberOfLines={1}>
@@ -676,7 +682,7 @@ export default function GoalMatesScreen() {
           <View style={[glass(20), styles.settingsCard]}>
             {/* Which goal to look on. "Barchasi" is the default and searches
                 every goal at once, the way the screen always has. */}
-            <Text style={styles.filterHeading}>Qaysi maqsad bo'yicha?</Text>
+            <Text style={styles.filterHeading}>{t('mates.filter.heading')}</Text>
             <View style={styles.filterList}>
               <Pressable
                 onPress={() => setGoalKey(null)}
@@ -687,7 +693,7 @@ export default function GoalMatesScreen() {
                 <Text
                   style={[styles.filterLabel, goalKey === null && styles.filterLabelOn]}
                 >
-                  Barcha maqsadlar
+                  {t('mates.filter.allGoals')}
                 </Text>
                 {goalKey === null && (
                   <Check size={16} color={ACTIVE_FILTER} strokeWidth={2.6} />
@@ -720,8 +726,8 @@ export default function GoalMatesScreen() {
               {filterGoals.length === 0 && (
                 <Text style={styles.filterEmpty}>
                   {myGoalsQuery.isPending
-                    ? 'Maqsadlar yuklanmoqda...'
-                    : "Hali tasdiqlangan maqsading yo'q — maqsad qo'shsang, shu yerda chiqadi."}
+                    ? t('mates.filter.loading')
+                    : t('mates.filter.empty')}
                 </Text>
               )}
             </View>
@@ -730,11 +736,13 @@ export default function GoalMatesScreen() {
 
             <View style={styles.settingsRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.settingsTitle}>Ko'rinish</Text>
+                <Text style={styles.settingsTitle}>{t('mates.visibility.title')}</Text>
                 <Text style={styles.settingsBody}>
                   {discoverable
-                    ? `Maqsaddoshlar seni "${settingsQuery.data?.display_name ?? ''}" nomi bilan ko'radi.`
-                    : "Hozir hech kim seni ko'rmaydi."}
+                    ? t('mates.visibility.onBody', {
+                        name: settingsQuery.data?.display_name ?? '',
+                      })
+                    : t('mates.visibility.offBody')}
                 </Text>
               </View>
               <Pressable
@@ -742,12 +750,12 @@ export default function GoalMatesScreen() {
                   !updateSettings.isPending &&
                   updateSettings.mutate(
                     { discoverable: !discoverable },
-                    { onError: () => say("Saqlanmadi — qayta urinib ko'r.") },
+                    { onError: () => say(t('common.saveFailedRetry')) },
                   )
                 }
                 accessibilityRole="switch"
                 accessibilityState={{ checked: discoverable }}
-                accessibilityLabel="Ko'rinishni almashtirish"
+                accessibilityLabel={t('mates.a11y.toggleVisibility')}
                 style={[styles.switch, discoverable && styles.switchOn]}
               >
                 <View style={[styles.knob, discoverable && styles.knobOn]} />
@@ -778,7 +786,7 @@ export default function GoalMatesScreen() {
                 />
               )}
               <Text style={[styles.chipText, chip === c.key && styles.chipTextActive]}>
-                {c.label}
+                {t(c.label)}
               </Text>
             </Pressable>
           ))}
@@ -815,30 +823,26 @@ export default function GoalMatesScreen() {
 
             {!discoverable ? (
               <View style={[glass(22), styles.consentCard]}>
-                <Text style={styles.consentTitle}>
-                  Yangi maqsaddoshlarni ko'rish uchun ko'rinishni yoq
-                </Text>
+                <Text style={styles.consentTitle}>{t('mates.consent.title')}</Text>
                 <Text style={styles.consentBody}>
-                  Sen faqat taxallusing bilan ko'rinasan — ismingni, raqamingni
-                  va rasmingni hech kim ko'rmaydi. Istalgan payt o'chirib
-                  qo'yishing mumkin.
-                  {hasConnections
-                    ? " Do'stlaring va suhbatlaring bunga bog'liq emas."
-                    : ''}
+                  {t('mates.consent.body')}
+                  {hasConnections ? ` ${t('mates.consent.keepsFriends')}` : ''}
                 </Text>
                 <Pressable
                   onPress={() =>
                     !updateSettings.isPending &&
                     updateSettings.mutate(
                       { discoverable: true },
-                      { onError: () => say("Saqlanmadi — qayta urinib ko'r.") },
+                      { onError: () => say(t('common.saveFailedRetry')) },
                     )
                   }
                   accessibilityRole="button"
-                  accessibilityLabel="Ko'rinishni yoqish"
+                  accessibilityLabel={t('mates.consent.enable')}
                   style={styles.consentButton}
                 >
-                  <Text style={styles.consentButtonText}>Ko'rinishni yoqish</Text>
+                  <Text style={styles.consentButtonText}>
+                    {t('mates.consent.enable')}
+                  </Text>
                 </Pressable>
               </View>
             ) : (
@@ -860,22 +864,22 @@ export default function GoalMatesScreen() {
                   <View style={[glass(22), styles.consentCard]}>
                     <Text style={styles.consentTitle}>
                       {query || goalKey
-                        ? 'Hech kim topilmadi'
-                        : "Hozircha maqsaddosh yo'q"}
+                        ? t('common.nothingFound')
+                        : t('mates.empty.title')}
                     </Text>
                     <Text style={styles.consentBody}>
                       {query || goalKey
-                        ? "Qidiruvni o'zgartirib ko'r."
-                        : "Maqsad qo'shsang, xuddi shu maqsaddagi bolalar shu yerda chiqadi."}
+                        ? t('mates.empty.searchBody')
+                        : t('mates.empty.body')}
                     </Text>
                     {!query && !goalKey && (
                       <Pressable
                         onPress={() => router.push('/(main)/my-goals')}
                         accessibilityRole="button"
-                        accessibilityLabel="Maqsad qo'shish"
+                        accessibilityLabel={t('goals.add')}
                         style={styles.consentButton}
                       >
-                        <Text style={styles.consentButtonText}>Maqsad qo'shish</Text>
+                        <Text style={styles.consentButtonText}>{t('goals.add')}</Text>
                       </Pressable>
                     )}
                   </View>

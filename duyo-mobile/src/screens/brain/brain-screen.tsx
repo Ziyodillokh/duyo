@@ -54,6 +54,7 @@ import {
 import { NoteGraph } from '@/components/note-graph';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
+import { useT, type TranslationKey } from '@/i18n';
 import { colourForTag, PALETTE, UNTAGGED } from '@/lib/galaxy-layout';
 import { useChildStore } from '@/store/child';
 import { useChromeStore } from '@/store/chrome';
@@ -73,10 +74,13 @@ type Screen =
 const EMPTY_NODES: never[] = [];
 const EMPTY_EDGES: never[] = [];
 
-const SORT_LABEL: Record<NoteSort, string> = {
-  updated: "O'zgargan",
-  created: 'Yaratilgan',
-  title: 'Nomi',
+/** Keys, not words. A module-level table is built once at import, so a table
+ *  of Uzbek sentences would keep the language the app booted in and never
+ *  follow a switch; the screen resolves these at render instead. */
+const SORT_LABEL: Record<NoteSort, TranslationKey> = {
+  updated: 'brain.sort.updated',
+  created: 'brain.sort.created',
+  title: 'brain.sort.title',
 };
 
 // An unclosed [[ before the caret means the child is picking a link target.
@@ -124,6 +128,7 @@ const ACCENT_WASH = 'rgba(96,165,250,0.15)';
 const ACCENT_WASH_STRONG = 'rgba(96,165,250,0.18)';
 
 export default function BrainScreen() {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const childId = child?.id ?? '';
   const qc = useQueryClient();
@@ -542,20 +547,24 @@ export default function BrainScreen() {
             <View style={styles.mapHeader}>
               <MapButton
                 Icon={ArrowLeft}
-                label="Bosh sahifaga qaytish"
+                label={t('brain.a11y.backHome')}
                 onPress={() => setScreen({ kind: 'home' })}
               />
               <Text style={styles.mapWordmark}>DUYO MIYA</Text>
               <MapButton
                 Icon={Search}
-                label="Qidirish"
+                label={t('common.search')}
                 on={searchOpen}
                 onPress={() => {
                   setSearchOpen((v) => !v);
                   if (searchOpen) setQuery('');
                 }}
               />
-              <MapButton Icon={Plus} label="Yangi qayd" onPress={() => startNew()} />
+              <MapButton
+                Icon={Plus}
+                label={t('brain.newNote')}
+                onPress={() => startNew()}
+              />
             </View>
           ) : screen.kind === 'home' ? (
             /* Glass header. The wordmark carries the page, so the two controls
@@ -571,7 +580,7 @@ export default function BrainScreen() {
               <Pressable
                 onPress={() => toHomeTab()}
                 accessibilityRole="button"
-                accessibilityLabel="Bosh sahifa"
+                accessibilityLabel={t('nav.home')}
                 style={({ pressed }) => [styles.focusable, pressed && styles.pressed70]}
               >
                 <GlassCircle size={52}>
@@ -584,7 +593,7 @@ export default function BrainScreen() {
               <Pressable
                 onPress={() => router.push('/(main)/notifications')}
                 accessibilityRole="button"
-                accessibilityLabel="Bildirishnomalar"
+                accessibilityLabel={t('notificationsScreen.title')}
                 style={({ pressed }) => [styles.focusable, pressed && styles.pressed70]}
               >
                 <GlassCircle size={52}>
@@ -600,20 +609,20 @@ export default function BrainScreen() {
             <Pressable
               onPress={() => setScreen({ kind: 'map' })}
               accessibilityRole="button"
-              accessibilityLabel="Xaritaga qaytish"
+              accessibilityLabel={t('brain.a11y.backToMap')}
               style={styles.iconButton}
             >
               <ArrowLeft size={20} color={ACCENT_LIGHT} />
             </Pressable>
             <Text style={styles.noteHeaderTitle}>
-              {preview ? title || 'Qayd' : 'Tahrir'}
+              {preview ? title || t('brain.note') : t('brain.editing')}
             </Text>
 
             <View style={styles.noteHeaderActions}>
               <Pressable
                 onPress={() => setPreview((p) => !p)}
                 accessibilityRole="button"
-                accessibilityLabel={preview ? 'Tahrirlash' : "Ko'rish"}
+                accessibilityLabel={preview ? t('common.edit') : t('common.preview')}
                 style={styles.previewToggle}
               >
                 {preview ? (
@@ -626,7 +635,7 @@ export default function BrainScreen() {
                 <Pressable
                   onPress={() => remove.mutate(screen.id)}
                   accessibilityRole="button"
-                  accessibilityLabel="Qaydni o'chirish"
+                  accessibilityLabel={t('brain.a11y.deleteNote')}
                   style={styles.iconButton}
                 >
                   <Trash2 size={18} color={PINK} />
@@ -685,7 +694,7 @@ export default function BrainScreen() {
                       />
                     ) : (
                       <Text style={[styles.bodyText, mutedText]}>
-                        Bu qayd hali bo'sh. Yozish uchun qalam tugmasini bos.
+                        {t('brain.emptyNote')}
                       </Text>
                     )}
                   </View>
@@ -693,7 +702,7 @@ export default function BrainScreen() {
                   {!!backlinks.data?.length && (
                     <View style={[styles.card, { backgroundColor: cardBg }]}>
                       <Text style={[styles.cardTitle, inkText]}>
-                        Bu qaydga bog'langanlar ({backlinks.data.length})
+                        {t('brain.backlinks', { count: backlinks.data.length })}
                       </Text>
                       {backlinks.data.map((b) => (
                         <Pressable
@@ -717,10 +726,10 @@ export default function BrainScreen() {
                   {!!mentions.data?.length && (
                     <View style={[styles.card, { backgroundColor: cardBg }]}>
                       <Text style={[styles.cardTitle, styles.cardTitleTight, inkText]}>
-                        Nomi tilga olingan ({mentions.data.length})
+                        {t('brain.mentions', { count: mentions.data.length })}
                       </Text>
                       <Text style={[styles.caption, styles.cardNote, mutedText]}>
-                        Bu qaydlar seni eslatgan, lekin hali bog'lanmagan.
+                        {t('brain.mentionsHint')}
                       </Text>
                       {mentions.data.map((m) => (
                         <View key={m.id} style={styles.mentionRow}>
@@ -749,14 +758,18 @@ export default function BrainScreen() {
                             onPress={() => link.mutate(m.id)}
                             disabled={link.isPending}
                             accessibilityRole="button"
-                            accessibilityLabel={`${m.title} ni bog'lash`}
+                            accessibilityLabel={t('brain.a11y.linkNote', {
+                              title: m.title,
+                            })}
                             style={({ pressed }) => [
                               styles.smallButton,
                               styles.accentFillStrong,
                               pressed && styles.pressed70,
                             ]}
                           >
-                            <Text style={styles.smallLinkText}>Bog'lash</Text>
+                            <Text style={styles.smallLinkText}>
+                              {t('brain.link')}
+                            </Text>
                           </Pressable>
                         </View>
                       ))}
@@ -768,27 +781,27 @@ export default function BrainScreen() {
                   <TextInput
                     value={title}
                     onChangeText={setTitle}
-                    placeholder="Sarlavha"
+                    placeholder={t('brain.titlePlaceholder')}
                     placeholderTextColor={PLACEHOLDER}
                     maxLength={120}
-                    accessibilityLabel="Qayd sarlavhasi"
+                    accessibilityLabel={t('brain.a11y.noteTitle')}
                     style={[styles.titleInput, inkText, { backgroundColor: cardBg }]}
                   />
                   <TextInput
                     value={body}
                     onChangeText={setBody}
-                    placeholder={"Yozishni boshla…\n\n# Sarlavha\n- ro'yxat\n**qalin**  *qiya*\n[[boshqa qayd]]  #teg"}
+                    placeholder={t('brain.bodyPlaceholder')}
                     placeholderTextColor={PLACEHOLDER}
                     multiline
                     textAlignVertical="top"
                     maxLength={20000}
-                    accessibilityLabel="Qayd matni"
+                    accessibilityLabel={t('brain.a11y.noteBody')}
                     style={[styles.bodyInput, inkText, { backgroundColor: cardBg }]}
                   />
 
                   <View style={styles.countRow}>
                     <Text style={[styles.caption, mutedText]}>
-                      {words} so'z · {body.length} belgi
+                      {t('brain.wordCount', { words, chars: body.length })}
                     </Text>
                   </View>
 
@@ -799,19 +812,21 @@ export default function BrainScreen() {
                     <Pressable
                       onPress={() => setBody((p) => `${p}[[`)}
                       accessibilityRole="button"
-                      accessibilityLabel="Boshqa qaydga bog'lash"
+                      accessibilityLabel={t('brain.a11y.linkToNote')}
                       style={({ pressed }) => [
                         styles.wideButton,
                         styles.accentFill,
                         pressed && styles.pressed70,
                       ]}
                     >
-                      <Text style={styles.buttonLinkText}>🔗 Qaydga bog'lash</Text>
+                      <Text style={styles.buttonLinkText}>
+                        {t('brain.linkButton')}
+                      </Text>
                     </Pressable>
                     <Pressable
                       onPress={() => setBody((p) => `${p}${p.endsWith(' ') || p === '' ? '' : ' '}#`)}
                       accessibilityRole="button"
-                      accessibilityLabel="Teg qo'shish"
+                      accessibilityLabel={t('brain.a11y.addTag')}
                       style={({ pressed }) => [
                         styles.wideButton,
                         styles.tagFill,
@@ -819,7 +834,7 @@ export default function BrainScreen() {
                       ]}
                     >
                       <Text style={styles.buttonTagText}>
-                        # Teg qo'shish
+                        {t('brain.addTagButton')}
                       </Text>
                     </Pressable>
                   </View>
@@ -834,20 +849,19 @@ export default function BrainScreen() {
                   {hasTag ? (
                     <View style={styles.tagNotice}>
                       <Text style={styles.tagNoticeText}>
-                        Rangni #teg belgilaydi — bir xil tegli qaydlar xaritada
-                        bir rangda turadi.
+                        {t('brain.colourByTag')}
                       </Text>
                     </View>
                   ) : (
                     <View style={styles.colourBlock}>
                       <Text style={[styles.caption, mutedText]}>
-                        Xaritadagi rangi
+                        {t('brain.colourLabel')}
                       </Text>
                       <View style={styles.swatchRow}>
                         <Pressable
                           onPress={() => setColour(null)}
                           accessibilityRole="button"
-                          accessibilityLabel="Rang: avtomatik"
+                          accessibilityLabel={t('brain.colourAuto')}
                           accessibilityState={{ selected: colour === null }}
                           style={({ pressed }) => [
                             styles.swatch,
@@ -867,7 +881,7 @@ export default function BrainScreen() {
                             key={c}
                             onPress={() => setColour(c)}
                             accessibilityRole="button"
-                            accessibilityLabel={`Rang ${c}`}
+                            accessibilityLabel={t('brain.a11y.colour', { colour: c })}
                             accessibilityState={{ selected: colour === c }}
                             style={({ pressed }) => [
                               styles.swatch,
@@ -890,16 +904,16 @@ export default function BrainScreen() {
                   {!!tags.data?.length && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={styles.chipRow}>
-                        {tags.data.slice(0, 12).map((t) => (
+                        {tags.data.slice(0, 12).map((tag) => (
                           <Pressable
-                            key={t}
+                            key={tag}
                             onPress={() =>
                               setBody((p) =>
-                                `${p}${p.endsWith(' ') || p === '' ? '' : ' '}#${t} `,
+                                `${p}${p.endsWith(' ') || p === '' ? '' : ' '}#${tag} `,
                               )
                             }
                             accessibilityRole="button"
-                            accessibilityLabel={`#${t} tegini qo'shish`}
+                            accessibilityLabel={t('brain.a11y.addNamedTag', { tag })}
                             style={({ pressed }) => [
                               styles.tagChip,
                               styles.focusable,
@@ -907,7 +921,7 @@ export default function BrainScreen() {
                             ]}
                           >
                             <Text style={styles.tagChipText}>
-                              #{t}
+                              #{tag}
                             </Text>
                           </Pressable>
                         ))}
@@ -922,7 +936,7 @@ export default function BrainScreen() {
                           key={s.id}
                           onPress={() => completeLink(s.title)}
                           accessibilityRole="button"
-                          accessibilityLabel={`${s.title} ga bog'lash`}
+                          accessibilityLabel={t('brain.a11y.linkTo', { title: s.title })}
                           style={({ pressed }) => [
                             styles.suggestionRow,
                             pressed && styles.pressed70,
@@ -938,17 +952,15 @@ export default function BrainScreen() {
                     onPress={() => title.trim() && save.mutate()}
                     disabled={!title.trim() || save.isPending}
                     accessibilityRole="button"
-                    accessibilityLabel="Saqlash"
+                    accessibilityLabel={t('common.save')}
                     style={[styles.save, title.trim() ? styles.saveOn : styles.saveOff]}
                   >
                     <Text style={styles.saveText}>
-                      {save.isPending ? 'Saqlanmoqda…' : 'Saqlash'}
+                      {save.isPending ? t('common.saving') : t('common.save')}
                     </Text>
                   </Pressable>
                   {save.isError && (
-                    <Text style={styles.error}>
-                      Saqlab bo'lmadi — bu nomli qayd allaqachon bormi?
-                    </Text>
+                    <Text style={styles.error}>{t('brain.saveFailed')}</Text>
                   )}
                 </>
               )}
@@ -970,20 +982,19 @@ export default function BrainScreen() {
                    it reads as everything being gone. Say which it is. */
                 <View style={styles.center}>
                   <Text style={styles.mapErrorTitle}>
-                    Xaritani yuklab bo‘lmadi
+                    {t('brain.mapLoadFailed')}
                   </Text>
                   <Text style={styles.mapErrorBody}>
-                    Qaydlaringiz joyida — ular serverda saqlanadi. Faqat
-                    hozir ularga ulanib bo‘lmadi.
+                    {t('brain.mapLoadFailedBody')}
                   </Text>
                   <Pressable
                     onPress={() => void graph.refetch()}
                     accessibilityRole="button"
-                    accessibilityLabel="Qaytadan urinish"
+                    accessibilityLabel={t('common.retry')}
                     style={styles.mapRetry}
                   >
                     <Text style={styles.mapRetryText}>
-                      {graph.isFetching ? 'Yuklanmoqda…' : 'Qaytadan urinish'}
+                      {graph.isFetching ? t('common.loading') : t('common.retry')}
                     </Text>
                   </Pressable>
                 </View>
@@ -1003,9 +1014,9 @@ export default function BrainScreen() {
                     <TextInput
                       value={query}
                       onChangeText={setQuery}
-                      placeholder="Qaydlardan qidirish…"
+                      placeholder={t('brain.searchPlaceholder')}
                       placeholderTextColor={PLACEHOLDER}
-                      accessibilityLabel="Qaydlardan qidirish"
+                      accessibilityLabel={t('brain.a11y.search')}
                       autoFocus
                       style={[styles.mapSearchInput, inkText]}
                     />
@@ -1056,26 +1067,26 @@ export default function BrainScreen() {
                       onChangeText={setRenameTo}
                       autoFocus
                       maxLength={40}
-                      accessibilityLabel="Tegning yangi nomi"
+                      accessibilityLabel={t('brain.a11y.tagNewName')}
                       style={[styles.renameInput, inkText]}
                     />
                     <Pressable
                       onPress={() => renameTo.trim() && rename.mutate()}
                       disabled={!renameTo.trim() || rename.isPending}
                       accessibilityRole="button"
-                      accessibilityLabel="Tegni qayta nomlash"
+                      accessibilityLabel={t('brain.a11y.renameTag')}
                       style={({ pressed }) => [
                         styles.smallButton,
                         styles.yellowFillStrong,
                         pressed && styles.pressed70,
                       ]}
                     >
-                      <Text style={styles.smallTagText}>Saqlash</Text>
+                      <Text style={styles.smallTagText}>{t('common.save')}</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => setRenaming(null)}
                       accessibilityRole="button"
-                      accessibilityLabel="Bekor qilish"
+                      accessibilityLabel={t('common.cancel')}
                       style={({ pressed }) => [
                         styles.glyphButton,
                         pressed && styles.pressed70,
@@ -1101,7 +1112,7 @@ export default function BrainScreen() {
                 >
                   <ScrollView contentContainerStyle={styles.resultsContent}>
                     <Text style={[styles.sheetTitle, inkText]}>
-                      Topildi ({results.data?.length ?? 0})
+                      {t('brain.found', { count: results.data?.length ?? 0 })}
                     </Text>
                     {results.data?.map((r) => (
                       <Pressable
@@ -1128,7 +1139,7 @@ export default function BrainScreen() {
                     ))}
                     {results.data?.length === 0 && (
                       <Text style={[styles.bodyText, mutedText]}>
-                        Hech narsa topilmadi.
+                        {t('common.nothingFoundDot')}
                       </Text>
                     )}
                   </ScrollView>
@@ -1140,7 +1151,7 @@ export default function BrainScreen() {
                 <Pressable
                   onPress={() => setListOpen(true)}
                   accessibilityRole="button"
-                  accessibilityLabel="Qaydlar ro'yxati"
+                  accessibilityLabel={t('brain.a11y.noteList')}
                   style={({ pressed }) => [
                     styles.listFab,
                     styles.focusable,
@@ -1164,7 +1175,7 @@ export default function BrainScreen() {
                 >
                   <View style={styles.listHeader}>
                     <Text style={[styles.sheetTitle, inkText]}>
-                      {activeTag ? `#${activeTag}` : 'Qaydlar'} ({notes.data?.length ?? 0})
+                      {activeTag ? `#${activeTag}` : t('brain.notes')} ({notes.data?.length ?? 0})
                     </Text>
                     <View style={styles.listHeaderActions}>
                       <Pressable
@@ -1174,19 +1185,23 @@ export default function BrainScreen() {
                           )
                         }
                         accessibilityRole="button"
-                        accessibilityLabel={`Tartib: ${SORT_LABEL[sort]}`}
+                        accessibilityLabel={t('brain.a11y.sortBy', {
+                          sort: t(SORT_LABEL[sort]),
+                        })}
                         style={({ pressed }) => [
                           styles.smallButton,
                           styles.accentFillSoft,
                           pressed && styles.pressed70,
                         ]}
                       >
-                        <Text style={styles.smallLinkText}>⇅ {SORT_LABEL[sort]}</Text>
+                        <Text style={styles.smallLinkText}>
+                          ⇅ {t(SORT_LABEL[sort])}
+                        </Text>
                       </Pressable>
                       <Pressable
                         onPress={() => setListOpen(false)}
                         accessibilityRole="button"
-                        accessibilityLabel="Ro'yxatni yopish"
+                        accessibilityLabel={t('brain.a11y.closeList')}
                         style={({ pressed }) => [
                           styles.glyphButton,
                           pressed && styles.pressed70,
@@ -1230,7 +1245,7 @@ export default function BrainScreen() {
         <Pressable
           onPress={() => setPeek(null)}
           accessibilityRole="button"
-          accessibilityLabel="Ko'rinishni yopish"
+          accessibilityLabel={t('brain.a11y.closePeek')}
           style={[StyleSheet.absoluteFill, styles.peekBackdrop]}
         >
           <View style={[styles.peekCard, { backgroundColor: cardBg }]}>
@@ -1245,20 +1260,20 @@ export default function BrainScreen() {
               </ScrollView>
             ) : (
               <Text style={[styles.bodyText, mutedText]}>
-                Bu qayd hali yozilmagan.
+                {t('brain.noteUnwritten')}
               </Text>
             )}
             <Pressable
               onPress={() => {
-                const t = peek;
+                const target = peek;
                 setPeek(null);
-                openByTitle(t);
+                openByTitle(target);
               }}
               accessibilityRole="button"
-              accessibilityLabel="Qaydni ochish"
+              accessibilityLabel={t('brain.a11y.openNote')}
               style={({ pressed }) => [styles.peekOpen, pressed && styles.pressed70]}
             >
-              <Text style={styles.linkText}>Ochish</Text>
+              <Text style={styles.linkText}>{t('common.open')}</Text>
             </Pressable>
           </View>
         </Pressable>

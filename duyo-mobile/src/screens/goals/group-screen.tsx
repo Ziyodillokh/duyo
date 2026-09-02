@@ -40,6 +40,7 @@ import {
   useSendGroupMessage,
   useSendGroupNote,
 } from '@/hooks/use-social';
+import { useT } from '@/i18n';
 import { categoryOf } from '@/lib/goal-categories';
 import { useChildStore } from '@/store/child';
 
@@ -364,11 +365,12 @@ function Bubble({
  * sender alone, never to the room.
  */
 export default function GroupScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const childId = useChildStore((s) => s.child?.id ?? undefined);
   const params = useLocalSearchParams<{ key: string; label?: string }>();
   const key = params.key;
-  const label = params.label ?? 'Guruh';
+  const label = params.label ?? t('groups.fallbackLabel');
 
   const groups = useGroups(childId);
   const group = (groups.data ?? []).find((g) => g.key === key);
@@ -420,7 +422,7 @@ export default function GroupScreen() {
         // words rather than inventing our own.
         const detail = (err as { response?: { data?: { detail?: string } } }).response
           ?.data?.detail;
-        setRefusal(detail ?? "Yuborilmadi — birozdan so'ng qayta urinib ko'r.");
+        setRefusal(detail ?? t('groups.sendFailed'));
       },
     });
   };
@@ -437,7 +439,7 @@ export default function GroupScreen() {
       onError: (err) => {
         const detail = (err as { response?: { data?: { detail?: string } } }).response
           ?.data?.detail;
-        setRefusal(detail ?? "Yuborilmadi — birozdan so'ng qayta urinib ko'r.");
+        setRefusal(detail ?? t('groups.sendFailed'));
       },
     });
   };
@@ -460,7 +462,7 @@ export default function GroupScreen() {
               router.canGoBack() ? router.back() : router.replace('/(main)/(tabs)/goals')
             }
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[pill(22), styles.backButton, styles.focusable]}
           >
             <ArrowLeft size={24} color={PRIMARY} strokeWidth={2.2} />
@@ -469,7 +471,9 @@ export default function GroupScreen() {
           <Pressable
             onPress={() => setRosterOpen((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel={`${group?.label ?? label} — a'zolar`}
+            accessibilityLabel={t('groups.a11y.members', {
+              label: group?.label ?? label,
+            })}
             style={[pill(24), styles.headerIdentity, styles.focusable]}
           >
             <View style={styles.groupAvatar}>
@@ -484,7 +488,7 @@ export default function GroupScreen() {
                 {group?.label ?? label}
               </Text>
               <Text style={styles.sub} numberOfLines={1}>
-                {group ? `${group.members} a'zo` : '...'}
+                {group ? t('groups.memberCount', { count: group.members }) : '...'}
               </Text>
             </View>
           </Pressable>
@@ -495,7 +499,7 @@ export default function GroupScreen() {
         {rosterOpen && joined && (
           <View style={[glass(18), styles.rosterSheet]}>
             {(members.data ?? []).length === 0 ? (
-              <Text style={styles.rosterEmpty}>Hozircha faqat sen bu yerdasan.</Text>
+              <Text style={styles.rosterEmpty}>{t('groups.rosterAlone')}</Text>
             ) : (
               (members.data ?? []).map((m) => (
                 <View key={m.child_id} style={styles.rosterRow}>
@@ -525,13 +529,9 @@ export default function GroupScreen() {
             ListHeaderComponent={
               <View style={[glass(22), styles.gate]}>
                 <Text style={styles.gateTitle}>
-                  {group?.label ?? label} guruhiga qo'shilish
+                  {t('groups.join.title', { label: group?.label ?? label })}
                 </Text>
-                <Text style={styles.gateBody}>
-                  Qaysi maqsad ustida ishlayotganingni tanla — shu bilan
-                  guruhga kirasan va o'sha maqsaddagi bolalarni ko'rasan.
-                  Maqsadni keyin olib tashlasang, guruhdan ham chiqasan.
-                </Text>
+                <Text style={styles.gateBody}>{t('groups.join.body')}</Text>
                 {joinFailed && <Text style={styles.joinError}>{joinFailed}</Text>}
               </View>
             }
@@ -544,39 +544,35 @@ export default function GroupScreen() {
                     { match_key: item.match_key, title: item.title, kind: item.kind },
                     {
                       onError: () =>
-                        setJoinFailed("Qo'shilib bo'lmadi — qayta urinib ko'r."),
+                        setJoinFailed(t('groups.joinFailed')),
                     },
                   );
                 }}
                 disabled={join.isPending}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.title} — bu maqsad bilan qo'shilish`}
+                accessibilityLabel={t('groups.a11y.joinWith', { title: item.title })}
                 style={[glass(20), styles.joinRow, join.isPending && { opacity: 0.6 }]}
               >
                 <Text style={styles.joinTitle} numberOfLines={2}>
                   {item.title}
                 </Text>
                 <Text style={styles.joinAges}>
-                  {item.age_min}–{item.age_max} yosh
+                  {t('groups.ageRange', { min: item.age_min, max: item.age_max })}
                 </Text>
               </Pressable>
             )}
             ListEmptyComponent={
               catalog.isPending ? null : (
                 <View style={[glass(22), styles.gate]}>
-                  <Text style={styles.gateTitle}>
-                    Bu guruh uchun sening yoshingga mos maqsad yo'q
-                  </Text>
-                  <Text style={styles.gateBody}>
-                    Boshqa guruhni ko'rib chiq yoki o'zing maqsad yozib qo'y.
-                  </Text>
+                  <Text style={styles.gateTitle}>{t('groups.noGoalForAge')}</Text>
+                  <Text style={styles.gateBody}>{t('groups.noGoalForAgeBody')}</Text>
                   <Pressable
                     onPress={() => router.push('/(main)/my-goals')}
                     accessibilityRole="button"
-                    accessibilityLabel="Maqsadlarim"
+                    accessibilityLabel={t('goals.title')}
                     style={styles.gateButton}
                   >
-                    <Text style={styles.gateButtonText}>Maqsadlarim</Text>
+                    <Text style={styles.gateButtonText}>{t('goals.title')}</Text>
                   </Pressable>
                 </View>
               )
@@ -627,8 +623,7 @@ export default function GroupScreen() {
                 <View style={styles.emptyWrap}>
                   <View style={styles.emptyPill}>
                     <Text style={styles.emptyText}>
-                      Hali hech kim yozmagan. Birinchi bo'lib salom ayt —
-                      shu maqsaddagi {group?.members ?? 0} bola shu yerda.
+                      {t('groups.empty', { count: group?.members ?? 0 })}
                     </Text>
                   </View>
                 </View>

@@ -26,6 +26,7 @@ import {
   type GoalMate,
 } from '@/api/endpoints/social';
 import { HandleEditor } from '@/components/goals/handle-editor';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import {
   useAcceptFriend,
@@ -93,6 +94,7 @@ function Row({
 }
 
 export function GoalMatesSection({ childId }: { childId: string | undefined }) {
+  const t = useT();
   const settingsQuery = useSocialSettings(childId);
   const updateSettings = useUpdateSocialSettings(childId);
   const discoverable = settingsQuery.data?.discoverable ?? false;
@@ -125,17 +127,18 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
       // suspension and a stale suggestion; collapsing all four into "try
       // again later" told a child to keep retrying something that cannot
       // succeed. See friendRequestErrorMessage.
-      onError: (err) => Alert.alert('Yuborilmadi', friendRequestErrorMessage(err)),
+      onError: (err) =>
+        Alert.alert(t('common.sendFailed'), friendRequestErrorMessage(err)),
     });
 
   const handleStopBeingDiscoverable = () =>
     Alert.alert(
-      "Ko'rinishni o'chirish",
-      "Yangi maqsaddoshlar seni topa olmaydi. Hozirgi do'stlaring va suhbatlaring saqlanib qoladi.",
+      t('mates.visibility.offTitle'),
+      t('mates.visibility.offBodyConfirm'),
       [
-        { text: 'Bekor qilish', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: "O'chirish",
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => updateSettings.mutate({ discoverable: false }),
         },
@@ -145,12 +148,12 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
   return (
     <>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Maqsaddoshlar</Text>
+        <Text style={styles.headerTitle}>{t('mates.title')}</Text>
         {discoverable && !!settingsQuery.data && (
           <Pressable
             onPress={() => setEditingHandle(true)}
             accessibilityRole="button"
-            accessibilityLabel="Taxallusni o'zgartirish"
+            accessibilityLabel={t('mates.changeHandle')}
             hitSlop={8}
             style={[styles.handleLink, styles.focusable]}
           >
@@ -178,18 +181,13 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
             <View style={styles.optInWell}>
               <Users size={26} color={PRIMARY} />
             </View>
-            <Text style={styles.optInTitle}>
-              Bir maqsaddagi bolalar bilan tanish
-            </Text>
-            <Text style={styles.optInBody}>
-              Ular sening ismingni ko'rmaydi — faqat taxallusing. Xohlagan
-              paytda o'chirib qo'yasan.
-            </Text>
+            <Text style={styles.optInTitle}>{t('mates.optIn.title')}</Text>
+            <Text style={styles.optInBody}>{t('mates.optIn.body')}</Text>
             {!!settingsQuery.data && (
               <Pressable
                 onPress={() => setEditingHandle(true)}
                 accessibilityRole="button"
-                accessibilityLabel="Taxallusni o'zgartirish"
+                accessibilityLabel={t('mates.changeHandle')}
                 style={[styles.handlePill, styles.focusable]}
               >
                 <Text style={styles.handlePillText}>
@@ -202,13 +200,13 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
               onPress={() => updateSettings.mutate({ discoverable: true })}
               disabled={updateSettings.isPending}
               accessibilityRole="button"
-              accessibilityLabel="Maqsaddoshlarni yoqish"
+              accessibilityLabel={t('mates.a11y.enable')}
               style={[styles.enableButton, styles.focusable]}
             >
               {updateSettings.isPending ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.enableLabel}>Yoqish</Text>
+                <Text style={styles.enableLabel}>{t('common.enable')}</Text>
               )}
             </Pressable>
           </View>
@@ -224,13 +222,13 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           <Row
             title={f.peer.display_name}
             badge={f.peer.badge}
-            subtitle="Sen bilan do'stlashmoqchi"
+            subtitle={t('mates.wantsToConnect')}
           >
             <View style={styles.actions}>
               <Pressable
                 onPress={() => acceptRequest.mutate(f.id)}
                 accessibilityRole="button"
-                accessibilityLabel="Qabul qilish"
+                accessibilityLabel={t('common.accept')}
                 style={[styles.iconButton, styles.solid, styles.focusable]}
               >
                 <Check size={20} color="#FFFFFF" />
@@ -238,7 +236,7 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
               <Pressable
                 onPress={() => declineRequest.mutate(f.id)}
                 accessibilityRole="button"
-                accessibilityLabel="Rad etish"
+                accessibilityLabel={t('common.decline')}
                 style={[styles.iconButton, styles.quiet, styles.focusable]}
               >
                 <X size={20} color={MUTED} />
@@ -254,16 +252,18 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           <Row
             title={f.peer.display_name}
             badge={f.peer.badge}
-            subtitle="Do'stingiz"
+            subtitle={t('mates.status.friend')}
           >
             <Pressable
               onPress={() => openThread(f)}
               accessibilityRole="button"
-              accessibilityLabel={`${f.peer.display_name} bilan suhbat`}
+              accessibilityLabel={t('mates.a11y.chatWith', {
+                name: f.peer.display_name,
+              })}
               style={[styles.pillButton, styles.solid, styles.focusable]}
             >
               <MessageSquare size={16} color="#FFFFFF" />
-              <Text style={styles.solidLabel}>Yozish</Text>
+              <Text style={styles.solidLabel}>{t('common.write')}</Text>
             </Pressable>
           </Row>
         </View>
@@ -280,11 +280,11 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           <Row
             title={f.peer.display_name}
             badge={f.peer.badge}
-            subtitle="Javobini kutyapmiz"
+            subtitle={t('mates.awaitingReply')}
           >
             <View style={[styles.pillButton, styles.quiet]}>
               <Clock size={15} color={MUTED} />
-              <Text style={styles.quietLabel}>Yuborildi</Text>
+              <Text style={styles.quietLabel}>{t('common.sent')}</Text>
             </View>
           </Row>
         </View>
@@ -307,13 +307,13 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
               <Row
                 title={mate.peer.display_name}
                 badge={mate.peer.badge}
-                subtitle={`Umumiy maqsad: ${mate.shared_goal}`}
+                subtitle={t('mates.sharedGoalWith', { goal: mate.shared_goal })}
               >
                 <Pressable
                   onPress={() => handleConnect(mate)}
                   disabled={pending || sendRequest.isPending}
                   accessibilityRole="button"
-                  accessibilityLabel="Do'stlashish"
+                  accessibilityLabel={t('mates.connect')}
                   style={[
                     styles.pillButton,
                     pending ? styles.quiet : styles.tinted,
@@ -324,7 +324,7 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
                   <Text
                     style={pending ? styles.quietLabel : styles.tintedLabel}
                   >
-                    {pending ? 'Yuborildi' : "Do'stlashish"}
+                    {pending ? t('common.sent') : t('mates.connect')}
                   </Text>
                 </Pressable>
               </Row>
@@ -340,11 +340,8 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
         !incoming.length && (
           <View style={[styles.emptyCard, styles.centered]}>
             <Text style={styles.emptyGlyph}>🔍</Text>
-            <Text style={styles.emptyTitle}>Hozircha maqsaddosh topilmadi</Text>
-            <Text style={styles.emptyBody}>
-              Maqsad qo'shsang, xuddi shu maqsaddagi tengdoshlaring bu yerda
-              paydo bo'ladi
-            </Text>
+            <Text style={styles.emptyTitle}>{t('mates.section.emptyTitle')}</Text>
+            <Text style={styles.emptyBody}>{t('mates.section.emptyBody')}</Text>
           </View>
         )}
 
@@ -356,12 +353,10 @@ export function GoalMatesSection({ childId }: { childId: string | undefined }) {
           onPress={handleStopBeingDiscoverable}
           disabled={updateSettings.isPending}
           accessibilityRole="button"
-          accessibilityLabel="Maqsaddoshlarga ko'rinishni o'chirish"
+          accessibilityLabel={t('mates.optOut')}
           style={[styles.optOut, styles.focusable]}
         >
-          <Text style={styles.optOutLabel}>
-            Maqsaddoshlarga ko'rinishni o'chirish
-          </Text>
+          <Text style={styles.optOutLabel}>{t('mates.optOut')}</Text>
         </Pressable>
       )}
     </>

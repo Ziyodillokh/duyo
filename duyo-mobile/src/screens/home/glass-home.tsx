@@ -30,6 +30,7 @@ import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-s
 import { ChildAvatar } from '@/components/child-avatar';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { MascotImage } from '@/components/v2/mascot-image';
+import { useT } from '@/i18n';
 import { glass } from '@/lib/glass';
 import { useAchievements, useBalls } from '@/hooks/use-gamification';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
@@ -301,7 +302,6 @@ function makeStyles({ s }: Sizes) {
     },
     fill: { height: 8, borderRadius: 4 },
     statCaption: { marginTop: s(10), fontSize: Math.max(11, s(13)), color: MUTED },
-    statCaptionStrong: { color: PRIMARY, fontWeight: '700' } as TextStyle,
 
     spacer: { flex: 1, minHeight: s(10) },
   });
@@ -323,6 +323,7 @@ function makeStyles({ s }: Sizes) {
  * the home tab is focused — two bars would double-announce the same places.
  */
 export function GlassHome() {
+  const t = useT();
   const balls = useBalls();
   const tamagochi = useTamagochi();
   const achievements = useAchievements();
@@ -348,9 +349,9 @@ export function GlassHome() {
 
   const credit = balls.data?.balance;
   const activity = useMemo(() => {
-    const t = tamagochi.data;
-    if (!t) return null;
-    return Math.round((t.energy + t.joy + t.learning + t.health) / 4);
+    const pet = tamagochi.data;
+    if (!pet) return null;
+    return Math.round((pet.energy + pet.joy + pet.learning + pet.health) / 4);
   }, [tamagochi.data]);
   const earned = achievements.data?.filter((a) => a.earned).length ?? null;
   const total = achievements.data?.length ?? null;
@@ -381,7 +382,7 @@ export function GlassHome() {
           <Pressable
             onPress={() => toTab('profile')}
             accessibilityRole="button"
-            accessibilityLabel="Profil"
+            accessibilityLabel={t('nav.profile')}
             style={[glass(28, 'sm'), styles.headerButton]}
           >
             {/* The child’s own face if they uploaded one. The person
@@ -400,7 +401,7 @@ export function GlassHome() {
           <Pressable
             onPress={() => router.push('/(main)/notifications')}
             accessibilityRole="button"
-            accessibilityLabel="Bildirishnomalar"
+            accessibilityLabel={t('notificationsScreen.title')}
             style={[glass(28, 'sm'), styles.headerButton]}
           >
             <Bell size={sizes.s(23)} color={PRIMARY} strokeWidth={1.8} />
@@ -412,27 +413,27 @@ export function GlassHome() {
         <Pressable
           onPress={() => router.push('/(main)/voice')}
           accessibilityRole="button"
-          accessibilityLabel="Ovozli suhbatni boshlash"
+          accessibilityLabel={t('home.a11yVoice')}
           style={styles.orbWrap}
         >
           <ListeningOrb size={orbSize} />
         </Pressable>
-        <Text style={styles.speaking}>boshlash uchun bosing</Text>
-        <Text style={styles.listening}>men sizni tinglayapman</Text>
+        <Text style={styles.speaking}>{t('home.tapToStart')}</Text>
+        <Text style={styles.listening}>{t('home.listening')}</Text>
 
         {/* ── AI kredit ──────────────────────────────────────────────── */}
         <Pressable
           onPress={() => router.push('/(main)/subscription')}
           accessibilityRole="button"
-          accessibilityLabel="AI kredit — batafsil"
+          accessibilityLabel={t('home.a11yCredit')}
           style={[glass(30, 'lg'), styles.creditCard]}
         >
           <View style={styles.creditText}>
-            <Text style={styles.creditLabel}>AI KREDIT</Text>
+            <Text style={styles.creditLabel}>{t('home.creditLabel')}</Text>
             <Text style={styles.creditValue}>
               {credit === undefined ? '—' : fmt(credit)}
             </Text>
-            <Text style={styles.creditHint}>rejangiz haqida</Text>
+            <Text style={styles.creditHint}>{t('home.creditHint')}</Text>
           </View>
           <View style={[glass(22, 'flush'), styles.creditArrow]}>
             <ArrowUpRight size={sizes.s(30)} color={PRIMARY} strokeWidth={2.2} />
@@ -447,11 +448,11 @@ export function GlassHome() {
           <Pressable
             onPress={() => router.push('/(main)/activity')}
             accessibilityRole="button"
-            accessibilityLabel="Faollik — batafsil"
+            accessibilityLabel={t('home.a11yActivity')}
             style={[glass(28, 'md'), styles.statCard]}
           >
             <View style={styles.statHead}>
-              <Text style={styles.statTitle}>Faollik</Text>
+              <Text style={styles.statTitle}>{t('activity.title')}</Text>
               <View style={[glass(20, 'flush'), styles.cardIcon]}>
                 <BarChart3 size={sizes.s(19)} color={PRIMARY} strokeWidth={2} />
               </View>
@@ -474,32 +475,29 @@ export function GlassHome() {
                 style={[styles.fill, { width: `${activity ?? 0}%` }]}
               />
             </View>
-            <Text style={styles.statCaption}>Bugungi faolligingiz</Text>
+            <Text style={styles.statCaption}>{t('home.activityCaption')}</Text>
           </Pressable>
 
           <Pressable
             onPress={() => router.push('/(main)/achievements')}
             accessibilityRole="button"
-            accessibilityLabel="Yutuqlar — batafsil"
+            accessibilityLabel={t('home.a11yBadges')}
             style={[glass(28, 'md'), styles.statCard]}
           >
             <View style={styles.statHead}>
-              <Text style={styles.statTitle}>Yutuqlar</Text>
+              <Text style={styles.statTitle}>{t('achievements.title')}</Text>
               <View style={[glass(20, 'flush'), styles.cardIcon]}>
                 <CheckCircle2 size={sizes.s(19)} color={PRIMARY} strokeWidth={2} />
               </View>
             </View>
             <Text style={styles.statValue}>{total === null ? '—' : total}</Text>
+            {/* One whole sentence rather than a bolded count between two
+                halves: word order around the number differs per language, and
+                a split caption can only ever be right in one of them. */}
             <Text style={styles.statCaption}>
-              {earned === null ? (
-                'Yutuqlar yuklanmoqda'
-              ) : (
-                <>
-                  Yutuqlardan{' '}
-                  <Text style={styles.statCaptionStrong}>{earned}</Text> tasi
-                  ochilgan
-                </>
-              )}
+              {earned === null
+                ? t('home.badgesLoading')
+                : t('home.badgesCaption', { count: earned })}
             </Text>
           </Pressable>
         </View>

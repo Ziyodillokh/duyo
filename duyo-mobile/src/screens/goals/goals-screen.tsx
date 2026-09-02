@@ -24,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { fetchGoalCatalog, type Goal, type GoalCatalogEntry } from '@/api/endpoints/goals';
 import { GoalMatesSection } from '@/components/goals/goal-mates-section';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import {
   useAddProgress,
@@ -102,9 +103,10 @@ function GoalCard({
   onComplete: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const [entry, setEntry] = useState('');
   const done = goal.status === 'completed';
-  const unit = goal.unit_label ?? 'qadam';
+  const unit = goal.unit_label ?? t('goals.unitStep');
   const canSave = entry.length > 0;
 
   return (
@@ -123,16 +125,20 @@ function GoalCard({
           {goal.current_unit !== null && (
             <Text style={styles.goalMeta}>
               {goal.total_units
-                ? `${goal.current_unit} / ${goal.total_units} ${unit}`
-                : `${goal.current_unit}-${unit}da`}
+                ? t('goals.progressOf', {
+                    cur: goal.current_unit,
+                    tot: goal.total_units,
+                    unit,
+                  })
+                : t('goals.progressAt', { cur: goal.current_unit, unit })}
             </Text>
           )}
-          {done && <Text style={styles.goalDone}>Tugatilgan 🎉</Text>}
+          {done && <Text style={styles.goalDone}>{t('goals.done')}</Text>}
         </View>
         <Pressable
           onPress={onDelete}
           accessibilityRole="button"
-          accessibilityLabel="Maqsadni o'chirish"
+          accessibilityLabel={t('goals.delete.title')}
           hitSlop={10}
           style={[styles.iconButton, styles.focusable]}
         >
@@ -162,10 +168,10 @@ function GoalCard({
           <TextInput
             value={entry}
             onChangeText={(t) => setEntry(t.replace(/\D/g, '').slice(0, 6))}
-            placeholder={`Nechanchi ${unit}?`}
+            placeholder={t('goals.progressPlaceholder', { unit })}
             placeholderTextColor={PLACEHOLDER}
             keyboardType="number-pad"
-            accessibilityLabel="Yangi progress"
+            accessibilityLabel={t('goals.a11y.progress')}
             style={styles.entryInput}
           />
           <Pressable
@@ -177,7 +183,7 @@ function GoalCard({
             }}
             disabled={!canSave}
             accessibilityRole="button"
-            accessibilityLabel="Progressni saqlash"
+            accessibilityLabel={t('goals.a11y.saveProgress')}
             style={({ pressed }) => [
               styles.saveButton,
               canSave ? styles.buttonOn : styles.buttonOff,
@@ -185,12 +191,12 @@ function GoalCard({
               styles.focusable,
             ]}
           >
-            <Text style={styles.buttonText}>Saqlash</Text>
+            <Text style={styles.buttonText}>{t('common.save')}</Text>
           </Pressable>
           <Pressable
             onPress={onComplete}
             accessibilityRole="button"
-            accessibilityLabel="Tugatdim"
+            accessibilityLabel={t('goals.markDone')}
             hitSlop={8}
             style={[styles.completeButton, styles.focusable]}
           >
@@ -203,6 +209,7 @@ function GoalCard({
 }
 
 export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
 
@@ -249,10 +256,7 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
           setPicked(null);
         },
         onError: () =>
-          Alert.alert(
-            'Saqlanmadi',
-            "Internetni tekshirib, qayta urinib ko'ring.",
-          ),
+          Alert.alert(t('common.saveFailedTitle'), t('common.checkInternetRetry')),
       },
     );
   };
@@ -283,17 +287,15 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
                 <Pressable
                   onPress={onBack}
                   accessibilityRole="button"
-                  accessibilityLabel="Orqaga"
+                  accessibilityLabel={t('common.back')}
                   style={[glass(23, 'sm', 0.9), styles.backButton, styles.focusable]}
                 >
                   <ArrowLeft size={22} color={PRIMARY} strokeWidth={2.1} />
                 </Pressable>
                 ) : null}
-                <Text style={styles.screenTitle}>Maqsadlarim</Text>
+                <Text style={styles.screenTitle}>{t('goals.title')}</Text>
               </View>
-              <Text style={styles.screenSubtitle}>
-                DUYO suhbat davomida maqsadingni o'zi eslab qoladi
-              </Text>
+              <Text style={styles.screenSubtitle}>{t('goals.subtitle')}</Text>
             </View>
 
             {/* Add a goal by hand — DUYO also adds them from conversation. */}
@@ -302,17 +304,17 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
                 <TextInput
                   value={draft}
                   onChangeText={handleChangeDraft}
-                  placeholder="Masalan: O'tkan Kunlarni o'qish"
+                  placeholder={t('goals.draftPlaceholder')}
                   placeholderTextColor={PLACEHOLDER}
                   maxLength={160}
-                  accessibilityLabel="Yangi maqsad"
+                  accessibilityLabel={t('goals.a11y.newGoal')}
                   style={styles.draftInput}
                 />
                 <Pressable
                   onPress={handleCreate}
                   disabled={!canAdd || createMutation.isPending}
                   accessibilityRole="button"
-                  accessibilityLabel="Maqsad qo'shish"
+                  accessibilityLabel={t('goals.add')}
                   style={({ pressed }) => [
                     styles.addButton,
                     canAdd ? styles.buttonOn : styles.buttonOff,
@@ -337,7 +339,9 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
                       key={entry.match_key}
                       onPress={() => handlePickSuggestion(entry)}
                       accessibilityRole="button"
-                      accessibilityLabel={`"${entry.title}" ni tanlash`}
+                      accessibilityLabel={t('goals.a11y.pickSuggestion', {
+                        title: entry.title,
+                      })}
                       style={({ pressed }) => [
                         styles.suggestion,
                         pressed && styles.pressed,
@@ -354,9 +358,7 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
               {picked && (
                 <View style={styles.matchNote}>
                   <Users size={13} color={GREEN} />
-                  <Text style={styles.matchNoteText}>
-                    Shu maqsaddagi boshqalar bilan moslashtiriladi
-                  </Text>
+                  <Text style={styles.matchNoteText}>{t('goals.matchNote')}</Text>
                 </View>
               )}
             </View>
@@ -372,7 +374,7 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
                 </View>
                 <View style={styles.signalBody}>
                   <Text style={styles.signalTitle}>
-                    {s.count} ta bola ham shu maqsadda
+                    {t('goals.signalCount', { count: s.count })}
                   </Text>
                   <Text style={styles.signalGoal} numberOfLines={1}>
                     {s.title}
@@ -389,11 +391,9 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
             ) : goalsQuery.isError && goals.length === 0 ? (
               <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
                 <Text style={styles.statusEmoji}>⚠️</Text>
-                <Text style={styles.statusTitle}>
-                  Maqsadlarni yuklab bo'lmadi
-                </Text>
+                <Text style={styles.statusTitle}>{t('goals.loadFailed')}</Text>
                 <Text style={styles.statusBody}>
-                  Internetni tekshirib, qaytadan urinib ko'ring
+                  {t('common.checkInternetRetry')}
                 </Text>
               </View>
             ) : goals.length === 0 ? (
@@ -401,18 +401,15 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
                 <View style={styles.emptyWell}>
                   <Target size={30} color={PRIMARY} />
                 </View>
-                <Text style={styles.statusTitle}>Hali maqsad yo'q</Text>
-                <Text style={styles.statusBody}>
-                  DUYO bilan gaplashganingda maqsadingni o'zi eslab qoladi —
-                  yoki yuqoriga o'zing yozib qo'ysang bo'ladi
-                </Text>
+                <Text style={styles.statusTitle}>{t('goals.empty.title')}</Text>
+                <Text style={styles.statusBody}>{t('goals.empty.body')}</Text>
               </View>
             ) : (
               <>
                 {goalsQuery.isError && (
                   <View style={styles.offline}>
                     <Text style={styles.offlineText}>
-                      Oflayn — oxirgi ma'lumot ko'rsatilyapti
+                      {t('common.offlineCached')}
                     </Text>
                   </View>
                 )}
@@ -435,12 +432,12 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
                     }
                     onDelete={() =>
                       Alert.alert(
-                        "Maqsadni o'chirish",
-                        `"${goal.title}" o'chirilsinmi?`,
+                        t('goals.delete.title'),
+                        t('goals.delete.body', { title: goal.title }),
                         [
-                          { text: 'Bekor qilish', style: 'cancel' },
+                          { text: t('common.cancel'), style: 'cancel' },
                           {
-                            text: "O'chirish",
+                            text: t('common.delete'),
                             style: 'destructive',
                             onPress: () => deleteMutation.mutate(goal.id),
                           },
@@ -453,7 +450,7 @@ export default function GoalsScreen({ onBack }: { onBack?: () => void } = {}) {
                 {finished.length > 0 && (
                   <>
                     <Text style={styles.sectionHeading}>
-                      Tugatilgan ({finished.length})
+                      {t('goals.finishedHeading', { count: finished.length })}
                     </Text>
                     {finished.map((goal) => (
                       <GoalCard

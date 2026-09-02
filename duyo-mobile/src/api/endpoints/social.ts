@@ -1,4 +1,6 @@
 import { apiClient } from '@/api/client';
+import { translate } from '@/i18n';
+import { useLanguageStore } from '@/store/language';
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
 
@@ -123,16 +125,19 @@ export function handleRejectionMessage(err: unknown): string | null {
  * which tells a child to keep retrying something that will never succeed.
  */
 export function friendRequestErrorMessage(err: unknown): string {
+  // No hooks in a plain module: the language is read at call time, which is
+  // the moment the child taps, so it is always the current one.
+  const language = useLanguageStore.getState().language;
   const status = (err as { response?: { status?: number } }).response?.status;
   switch (status) {
     case 429:
-      return "Hozircha yangi do'st qo'sha olmaysan — avvalgi so'rovlaringga javob kelsin yoki ro'yxatingda joy bo'shasin.";
+      return translate(language, 'social.err.capReached');
     case 403:
-      return "Hozir maqsaddoshlar bo'limi sen uchun vaqtincha yopiq.";
+      return translate(language, 'social.err.suspended');
     case 404:
-      return "Bu do'st taklifi endi mavjud emas. Ro'yxatni yangilab ko'r.";
+      return translate(language, 'social.err.stale');
     default:
-      return "So'rov yuborilmadi. Internetni tekshirib, qayta urinib ko'r.";
+      return translate(language, 'social.err.generic');
   }
 }
 

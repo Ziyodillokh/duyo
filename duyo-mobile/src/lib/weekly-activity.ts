@@ -2,6 +2,7 @@ import type {
   BallsTransactionWire,
   StreakWire,
 } from '@/api/endpoints/gamification';
+import type { TranslationKey } from '@/i18n';
 
 /**
  * The week strip shown on the dashboard, derived from data the backend really
@@ -10,11 +11,22 @@ import type {
  * no evidence renders as inactive.
  */
 
-export const WEEK_DAY_LABELS = ['Du', 'Se', 'Cho', 'Pa', 'Ju', 'Sha', 'Ya'] as const;
+/** Monday-first, and translation KEYS rather than words: the strip is built
+ *  once at module load, so a finished initial here could never follow a
+ *  language switch. The chart resolves each with `t()` as it draws. */
+export const WEEK_DAY_LABELS = [
+  'date.weekdayInitial.mon',
+  'date.weekdayInitial.tue',
+  'date.weekdayInitial.wed',
+  'date.weekdayInitial.thu',
+  'date.weekdayInitial.fri',
+  'date.weekdayInitial.sat',
+  'date.weekdayInitial.sun',
+] as const satisfies readonly TranslationKey[];
 
 export interface DayActivity {
-  /** 'Du' … 'Ya' */
-  label: string;
+  /** A `date.weekdayInitial.*` key, Monday → Sunday. */
+  label: TranslationKey;
   /** XP earned on this day, 0 when the ledger has nothing. */
   xp: number;
   /** The child was present (streak covers the day, or it earned XP). */

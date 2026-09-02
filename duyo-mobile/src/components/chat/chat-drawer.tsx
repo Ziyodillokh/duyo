@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
 import { useConversations, useProjects } from '@/hooks/use-history';
+import { useT } from '@/i18n';
 import { lift } from '@/lib/glass';
 import { shortWhen } from '@/lib/history-groups';
 import { useChatStore } from '@/store/chat';
@@ -60,6 +61,7 @@ export function ChatDrawer({
   onClose: () => void;
   onNewChat: () => void;
 }) {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   // Marks the row the child is already inside, so tapping it is obviously a
   // no-op rather than looking like a fresh conversation they might lose.
@@ -121,7 +123,7 @@ export function ChatDrawer({
         <Pressable
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="Yopish"
+          accessibilityLabel={t('common.close')}
           style={styles.scrim}
         />
       </Animated.View>
@@ -153,7 +155,7 @@ export function ChatDrawer({
             <Pressable
               onPress={() => go(onNewChat)}
               accessibilityRole="button"
-              accessibilityLabel="Yangi suhbat"
+              accessibilityLabel={t('history.newChat')}
               style={({ pressed }) => [
                 styles.newChat,
                 pressed && styles.pressedStrong,
@@ -173,20 +175,20 @@ export function ChatDrawer({
                   measure/draw split lives (RN #48320). These strings are
                   short and fixed; they cannot wrap in practice, and
                   without maxLines there is no ellipsize path at all. */}
-              <Text style={styles.newChatText}>Yangi suhbat</Text>
+              <Text style={styles.newChatText}>{t('history.newChat')}</Text>
             </Pressable>
           </View>
 
           <View style={[styles.gutter, styles.links]}>
             <DrawerLink
               icon={MessagesSquare}
-              label="Suhbatlar"
+              label={t('history.title')}
               count={all.length}
               onPress={() => go(() => router.push('/(main)/history'))}
             />
             <DrawerLink
               icon={Folder}
-              label="Loyihalar"
+              label={t('projects.title')}
               count={projectCount}
               expanded={projectsOpen}
               onPress={() => setProjectsOpen((v) => !v)}
@@ -244,13 +246,15 @@ export function ChatDrawer({
                 ))}
 
                 {projectCount === 0 && (
-                  <Text style={styles.projectsEmpty}>Hali loyiha yo‘q</Text>
+                  <Text style={styles.projectsEmpty}>
+                    {t('projects.emptyTitle')}
+                  </Text>
                 )}
 
                 <Pressable
                   onPress={() => go(() => router.push('/(main)/projects'))}
                   accessibilityRole="button"
-                  accessibilityLabel="Loyihalarni boshqarish"
+                  accessibilityLabel={t('projects.a11y.manage')}
                   style={({ pressed }) => [
                     styles.project,
                     pressed && styles.pressed,
@@ -259,7 +263,7 @@ export function ChatDrawer({
                 >
                   <View style={styles.projectIconGap} />
                   {/* No numberOfLines — see the note on "Yangi suhbat". */}
-                  <Text style={styles.projectManage}>Boshqarish</Text>
+                  <Text style={styles.projectManage}>{t('common.manage')}</Text>
                   <ChevronRight size={13} color={PRIMARY} />
                 </Pressable>
               </View>
@@ -268,7 +272,7 @@ export function ChatDrawer({
 
           <View style={styles.divider} />
 
-          <Text style={styles.sectionLabel}>So‘nggi suhbatlar</Text>
+          <Text style={styles.sectionLabel}>{t('history.recent')}</Text>
 
           <ScrollView
             contentContainerStyle={styles.listContent}
@@ -312,21 +316,21 @@ export function ChatDrawer({
             })}
 
             {recents.length === 0 && (
-              <Text style={styles.empty}>Hali suhbat yo‘q</Text>
+              <Text style={styles.empty}>{t('history.emptyTitle')}</Text>
             )}
 
             {all.length > RECENTS && (
               <Pressable
                 onPress={() => go(() => router.push('/(main)/history'))}
                 accessibilityRole="button"
-                accessibilityLabel="Barcha suhbatlarni ko'rish"
+                accessibilityLabel={t('history.a11y.seeAll')}
                 style={({ pressed }) => [
                   styles.seeAll,
                   pressed && styles.pressed,
                   styles.focusable,
                 ]}
               >
-                <Text style={styles.seeAllText}>Barchasini ko‘rish</Text>
+                <Text style={styles.seeAllText}>{t('common.seeAll')}</Text>
                 <ChevronRight size={14} color={PRIMARY} />
               </Pressable>
             )}
@@ -354,11 +358,14 @@ function DrawerLink({
   expanded?: boolean;
   onPress: () => void;
 }) {
+  const t = useT();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={count > 0 ? `${label}, ${count} ta` : label}
+      accessibilityLabel={
+        count > 0 ? t('common.a11y.countOf', { label, count }) : label
+      }
       style={({ pressed }) => [
         styles.link,
         pressed && styles.pressed,

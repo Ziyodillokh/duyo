@@ -13,6 +13,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { EmojiPicker } from '@/components/goals/emoji-picker';
 import { Text, TextInput } from '@/components/text';
+import { useT } from '@/i18n';
 
 import {
   MAX_AUDIO_MS,
@@ -74,6 +75,7 @@ export function ChatComposer({
   uploading = false,
   onNotice,
 }: Props) {
+  const t = useT();
   const rec = useMediaNote();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const hasText = draft.trim().length > 0;
@@ -103,7 +105,7 @@ export function ChatComposer({
   const finish = async () => {
     const note = await rec.stop();
     if (!note) {
-      onNotice("Hech narsa yozilmadi — yana urinib ko'ring.");
+      onNotice(t('composer.nothingRecorded'));
       return;
     }
     await onSendNote(note);
@@ -135,12 +137,14 @@ export function ChatComposer({
             <RecDot />
             <Text style={styles.recTime}>{clock(rec.durationMs)}</Text>
             <Text style={styles.recHint} numberOfLines={1}>
-              {rec.kind === 'video' ? 'Video yozilmoqda' : 'Ovoz yozilmoqda'}
+              {rec.kind === 'video'
+                ? t('composer.recVideo')
+                : t('composer.recAudio')}
             </Text>
             <Pressable
               onPress={rec.cancel}
               accessibilityRole="button"
-              accessibilityLabel="Bekor qilish"
+              accessibilityLabel={t('common.cancel')}
               hitSlop={8}
               style={styles.focusable}
             >
@@ -152,7 +156,7 @@ export function ChatComposer({
             <Pressable
               onPress={() => setEmojiOpen((v) => !v)}
               accessibilityRole="button"
-              accessibilityLabel="Emoji"
+              accessibilityLabel={t('composer.a11yEmoji')}
               // A real touch target, not just the glyph. The icon is 19px, and
               // a 19px target is far below what a seven-year-old's finger can
               // reliably hit — `hitSlop` does not help here, because on web it
@@ -168,7 +172,7 @@ export function ChatComposer({
             <TextInput
               value={draft}
               onChangeText={onChangeDraft}
-              placeholder="Xabar yozing..."
+              placeholder={t('common.messagePlaceholder')}
               placeholderTextColor={MUTED}
               style={[styles.input, styles.focusableText]}
               maxLength={500}
@@ -179,12 +183,12 @@ export function ChatComposer({
               // `maxHeight` as the text wraps.
               numberOfLines={1}
               editable={!uploading}
-              accessibilityLabel="Guruh xabari"
+              accessibilityLabel={t('groups.a11y.message')}
             />
             <Pressable
-              onPress={() => onNotice('Fayl biriktirish tez orada.')}
+              onPress={() => onNotice(t('composer.attachSoon'))}
               accessibilityRole="button"
-              accessibilityLabel="Fayl biriktirish"
+              accessibilityLabel={t('composer.attach')}
               style={[styles.iconHit, styles.focusable]}
             >
               <Paperclip size={18} color={MUTED} strokeWidth={1.9} />
@@ -200,7 +204,7 @@ export function ChatComposer({
           <Pressable
             onPress={finish}
             accessibilityRole="button"
-            accessibilityLabel="Yozuvni yuborish"
+            accessibilityLabel={t('composer.sendRecording')}
             style={[styles.round, styles.roundOn, styles.focusable]}
           >
             <Send size={18} color="#FFFFFF" strokeWidth={2.2} />
@@ -210,7 +214,7 @@ export function ChatComposer({
             onPress={onSendText}
             disabled={sending}
             accessibilityRole="button"
-            accessibilityLabel="Yuborish"
+            accessibilityLabel={t('common.send')}
             style={[
               styles.round,
               styles.roundOn,
@@ -225,7 +229,7 @@ export function ChatComposer({
             <Pressable
               onPress={() => begin('video')}
               accessibilityRole="button"
-              accessibilityLabel="Video xabar yozish"
+              accessibilityLabel={t('composer.a11yVideo')}
               style={[styles.round, styles.roundSoft, styles.focusable]}
             >
               <Video size={18} color={PRIMARY} strokeWidth={2} />
@@ -233,7 +237,7 @@ export function ChatComposer({
             <Pressable
               onPress={() => begin('audio')}
               accessibilityRole="button"
-              accessibilityLabel="Ovozli xabar yozish"
+              accessibilityLabel={t('composer.a11yAudio')}
               style={[styles.round, styles.roundOn, styles.focusable]}
             >
               <Mic size={18} color="#FFFFFF" strokeWidth={2} />

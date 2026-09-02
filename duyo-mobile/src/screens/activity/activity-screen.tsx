@@ -21,6 +21,7 @@ import {
   useStreak,
 } from '@/hooks/use-gamification';
 import { useTamagochi } from '@/hooks/use-tamagochi';
+import { useT, type TranslationKey } from '@/i18n';
 import { glass } from '@/lib/glass';
 import { buildWeeklyActivity, type DayActivity } from '@/lib/weekly-activity';
 
@@ -56,11 +57,12 @@ const BG_BOTTOM = '#EDF2FD';
 
 /** A 0–100 reading with its own name. */
 interface Meter {
-  label: string;
+  label: TranslationKey;
   value: number;
 }
 
 export default function ActivityScreen() {
+  const t = useT();
   const tamagochi = useTamagochi();
   const balls = useBalls();
   const streak = useStreak();
@@ -70,20 +72,26 @@ export default function ActivityScreen() {
   // only has to clear the home indicator.
   const insets = useSafeAreaInsets();
 
-  const t = tamagochi.data;
-  const meters: Meter[] = t
+  const wellbeing = tamagochi.data;
+  const meters: Meter[] = wellbeing
     ? [
-        { label: 'Energiya', value: t.energy },
-        { label: 'Quvonch', value: t.joy },
-        { label: "O'rganish", value: t.learning },
-        { label: 'Salomatlik', value: t.health },
+        { label: 'activity.meter.energy', value: wellbeing.energy },
+        { label: 'activity.meter.joy', value: wellbeing.joy },
+        { label: 'activity.meter.learning', value: wellbeing.learning },
+        { label: 'activity.meter.health', value: wellbeing.health },
       ]
     : [];
 
   // The headline. The same average the home dashboard shows, so the tile and
   // this page can never disagree about what "faollik" means.
-  const overall = t
-    ? Math.round((t.energy + t.joy + t.learning + t.health) / 4)
+  const overall = wellbeing
+    ? Math.round(
+        (wellbeing.energy +
+          wellbeing.joy +
+          wellbeing.learning +
+          wellbeing.health) /
+          4,
+      )
     : null;
 
   const week = useMemo(
@@ -109,12 +117,12 @@ export default function ActivityScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.headerTitle}>Faollik</Text>
+          <Text style={styles.headerTitle}>{t('activity.title')}</Text>
           <View style={styles.headerButton} />
         </View>
 
@@ -127,7 +135,7 @@ export default function ActivityScreen() {
         >
           {/* ── Today ───────────────────────────────────────────────────── */}
           <View style={[glass(26, 'lg'), styles.card]}>
-            <Text style={styles.cardLabel}>BUGUNGI HOLAT</Text>
+            <Text style={styles.cardLabel}>{t('activity.todayLabel')}</Text>
             <View style={styles.heroRow}>
               <Text style={styles.hero}>
                 {overall === null ? '—' : overall}
@@ -146,42 +154,52 @@ export default function ActivityScreen() {
                 <MeterRow key={m.label} meter={m} />
               ))}
               {meters.length === 0 && (
-                <Text style={styles.empty}>Ma'lumot yuklanmoqda…</Text>
+                <Text style={styles.empty}>{t('common.dataLoading')}</Text>
               )}
             </View>
           </View>
 
           {/* ── This week ───────────────────────────────────────────────── */}
           <View style={[glass(26, 'md'), styles.card]}>
-            <Text style={styles.cardLabel}>SHU HAFTA</Text>
+            <Text style={styles.cardLabel}>{t('activity.weekLabel')}</Text>
             <WeekChart days={week.days} />
 
             {week.totalXp === 0 && (
-              <Text style={styles.empty}>
-                Bu hafta hali ball yig‘ilmagan — suhbat, qayd yoki mashq boshlang
-              </Text>
+              <Text style={styles.empty}>{t('activity.weekEmpty')}</Text>
             )}
 
             <View style={styles.statRow}>
-              <Stat value={String(week.activeDays)} unit="/7" caption="faol kun" />
-              <Stat value={String(week.totalXp)} caption="jami ball" />
-              <Stat value={String(week.averageXp)} caption="kuniga o‘rtacha" />
+              <Stat
+                value={String(week.activeDays)}
+                unit="/7"
+                caption={t('activity.stat.activeDays')}
+              />
+              <Stat
+                value={String(week.totalXp)}
+                caption={t('activity.stat.totalXp')}
+              />
+              <Stat
+                value={String(week.averageXp)}
+                caption={t('activity.stat.dailyAverage')}
+              />
             </View>
           </View>
 
           {/* ── Streak ──────────────────────────────────────────────────── */}
           <View style={[glass(26, 'md'), styles.card]}>
-            <Text style={styles.cardLabel}>KETMA-KETLIK</Text>
+            <Text style={styles.cardLabel}>{t('activity.streakLabel')}</Text>
             <View style={styles.streakRow}>
               <View style={styles.streakMain}>
                 <Flame size={26} color={PRIMARY} strokeWidth={2.2} />
                 <Text style={styles.streakValue}>
                   {streak.data?.current_streak ?? 0}
-                  <Text style={styles.streakUnit}> kun</Text>
+                  <Text style={styles.streakUnit}> {t('activity.days')}</Text>
                 </Text>
               </View>
               <Text style={styles.streakBest}>
-                Eng uzuni: {streak.data?.longest_streak ?? 0} kun
+                {t('activity.longest', {
+                  count: streak.data?.longest_streak ?? 0,
+                })}
               </Text>
             </View>
           </View>
@@ -193,10 +211,10 @@ export default function ActivityScreen() {
           <Pressable
             onPress={() => router.push('/(main)/achievements')}
             accessibilityRole="button"
-            accessibilityLabel="Yutuqlar"
+            accessibilityLabel={t('achievements.title')}
             style={[glass(26, 'md'), styles.card, styles.focusable]}
           >
-            <Text style={styles.cardLabel}>YUTUQLAR</Text>
+            <Text style={styles.cardLabel}>{t('activity.badgesLabel')}</Text>
             <View style={styles.badgeHead}>
               <Trophy size={20} color={PRIMARY} strokeWidth={2.2} />
               <Text style={styles.badgeCount}>
@@ -229,16 +247,14 @@ export default function ActivityScreen() {
               </View>
             )}
             {earned.length === 0 && total > 0 && (
-              <Text style={styles.empty}>
-                Birinchi yutuq hali oldinda — ro‘yxatni ko‘rish uchun bosing
-              </Text>
+              <Text style={styles.empty}>{t('activity.badgesEmpty')}</Text>
             )}
           </Pressable>
 
           {/* ── The ledger ──────────────────────────────────────────────── */}
           {recent.length > 0 && (
             <View style={[glass(26, 'md'), styles.card]}>
-              <Text style={styles.cardLabel}>SO‘NGGI BALLAR</Text>
+              <Text style={styles.cardLabel}>{t('activity.ledgerLabel')}</Text>
               {recent.map((tx, i) => (
                 <LedgerRow key={`${tx.created_at}-${i}`} tx={tx} />
               ))}
@@ -253,9 +269,10 @@ export default function ActivityScreen() {
 /** A labelled 0–100 reading. The name and number are the identity; the bar is
  *  the magnitude. */
 function MeterRow({ meter }: { meter: Meter }) {
+  const t = useT();
   return (
     <View style={styles.meterRow}>
-      <Text style={styles.meterLabel}>{meter.label}</Text>
+      <Text style={styles.meterLabel}>{t(meter.label)}</Text>
       <View style={styles.meterBarWrap}>
         <Bar value={meter.value} />
       </View>
@@ -283,6 +300,7 @@ function Bar({ value }: { value: number }) {
  * underneath already says which day is which.
  */
 function WeekChart({ days }: { days: DayActivity[] }) {
+  const t = useT();
   const peak = Math.max(1, ...days.map((d) => d.xp));
   // A week with nothing in it does not get a full-height plot. Reserving
   // 100pt for seven hairlines leaves a hand-sized hole in the card, and a
@@ -310,7 +328,7 @@ function WeekChart({ days }: { days: DayActivity[] }) {
               />
             </View>
             <Text style={[styles.chartDay, d.isToday && styles.chartDayToday]}>
-              {d.label}
+              {t(d.label)}
             </Text>
           </View>
         );

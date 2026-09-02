@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type ContentListItem, type ContentType } from '@/api/endpoints/content';
 import { useContentLibrary } from '@/hooks/use-content';
+import { useT, type TranslationKey } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
 
@@ -32,7 +33,7 @@ const PLACEHOLDER = '#7693C2';
 
 // ── Categories ───────────────────────────────────────────────────────────────
 // Presentation only: the backend's ContentType is the real taxonomy, this map
-// just gives each type an Uzbek label and a colour. `lesson` and `audio` share
+// just gives each type a label key and a colour. `lesson` and `audio` share
 // the "Darslar" shelf because a narrated lesson is still a lesson to a child.
 
 type LibraryCategory =
@@ -57,24 +58,32 @@ const TYPE_TO_CATEGORY: Record<ContentType, LibraryCategory> = {
 
 interface CategoryMeta {
   key: LibraryCategory;
-  label: string;
+  /** A key, not a label: this table is frozen the moment the module loads,
+   *  so anything resolved here could never follow a language switch. */
+  label: TranslationKey;
   emoji: string;
   color: string;
 }
 
 const CATEGORIES: readonly CategoryMeta[] = [
-  { key: 'poems', label: "She'rlar", emoji: '📖', color: '#FDC700' },
-  { key: 'stories', label: 'Ertaklar', emoji: '📚', color: '#FB64B6' },
-  { key: 'lessons', label: 'Darslar', emoji: '🎓', color: '#60A5FA' },
-  { key: 'language', label: 'Til', emoji: '🌍', color: '#05DF72' },
-  { key: 'dtm', label: 'DTM/IELTS', emoji: '🎯', color: '#FF8904' },
-  { key: 'documents', label: 'Hujjatlar', emoji: '📄', color: '#A78BFA' },
-  { key: 'photos', label: 'Rasmlar', emoji: '🖼️', color: '#22D3EE' },
+  { key: 'poems', label: 'library.cat.poems', emoji: '📖', color: '#FDC700' },
+  { key: 'stories', label: 'library.cat.stories', emoji: '📚', color: '#FB64B6' },
+  { key: 'lessons', label: 'library.cat.lessons', emoji: '🎓', color: '#60A5FA' },
+  { key: 'language', label: 'library.cat.language', emoji: '🌍', color: '#05DF72' },
+  { key: 'dtm', label: 'library.cat.dtm', emoji: '🎯', color: '#FF8904' },
+  { key: 'documents', label: 'library.cat.documents', emoji: '📄', color: '#A78BFA' },
+  { key: 'photos', label: 'library.cat.photos', emoji: '🖼️', color: '#22D3EE' },
 ];
 
 const CATEGORY_BY_KEY = new Map(CATEGORIES.map((c) => [c.key, c]));
 
-const LANGUAGE_LABEL: Record<string, string> = { uz: "O'zbekcha", ru: 'Ruscha', en: 'Inglizcha' };
+// The item's own language, named in the READER's language — so these are
+// keys too, not the endonyms in i18n's LANGUAGE_NAMES.
+const LANGUAGE_LABEL: Record<string, TranslationKey> = {
+  uz: 'lang.uzName',
+  ru: 'lang.ruName',
+  en: 'lang.enName',
+};
 
 // ── Card ─────────────────────────────────────────────────────────────────────
 
@@ -85,12 +94,18 @@ function LibraryCard({
   item: ContentListItem;
   onPress: () => void;
 }) {
+  const t = useT();
   const meta = CATEGORY_BY_KEY.get(TYPE_TO_CATEGORY[item.type]);
   const author = item.author ?? '';
   // Only surfaced when it is not the app's own language — an English reading
   // is worth flagging, "O'zbekcha" on every card would just be noise.
+  const languageKey = LANGUAGE_LABEL[item.language];
   const foreignLanguage =
-    item.language !== 'uz' ? (LANGUAGE_LABEL[item.language] ?? item.language.toUpperCase()) : null;
+    item.language !== 'uz'
+      ? languageKey
+        ? t(languageKey)
+        : item.language.toUpperCase()
+      : null;
 
   return (
     <Pressable
@@ -133,7 +148,7 @@ function LibraryCard({
                 a pale ground. */}
             {meta ? (
               <View style={[styles.tag, { backgroundColor: `${meta.color}33` }]}>
-                <Text style={styles.tagText}>{meta.label}</Text>
+                <Text style={styles.tagText}>{t(meta.label)}</Text>
               </View>
             ) : null}
             {/* `? :`, not `&&`: a language code that came back empty would
@@ -167,6 +182,7 @@ function LibraryCard({
  * segment, the screen says so instead of inventing shelves.
  */
 export default function LibraryScreen() {
+  const t = useT();
   const ageSegment = useChildStore((s) => s.child?.age_segment);
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -228,12 +244,12 @@ export default function LibraryScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.title}>Kutubxona</Text>
+          <Text style={styles.title}>{t('library.title')}</Text>
           {/* Keeps the title centred. */}
           <View style={styles.headerButton} />
         </View>
@@ -248,10 +264,10 @@ export default function LibraryScreen() {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Nomi yoki muallifi bo'yicha qidiring..."
+              placeholder={t('library.searchPlaceholder')}
               placeholderTextColor={PLACEHOLDER}
               style={styles.searchInput}
-              accessibilityLabel="Kutubxonadan qidirish"
+              accessibilityLabel={t('library.a11y.search')}
               returnKeyType="search"
             />
           </View>
@@ -260,7 +276,7 @@ export default function LibraryScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
                 {/* Only claim age-matching when we actually know the age. */}
-                {ageSegment ? 'Yoshingizga mos' : "Bo'limlar"}
+                {ageSegment ? t('library.forYourAge') : t('library.sections')}
               </Text>
               <ScrollView
                 horizontal
@@ -270,7 +286,7 @@ export default function LibraryScreen() {
                 <Pressable
                   onPress={() => setSelectedCategory(null)}
                   accessibilityRole="button"
-                  accessibilityLabel="Barchasi"
+                  accessibilityLabel={t('common.all')}
                   accessibilityState={{ selected: selectedCategory === null }}
                   style={({ pressed }) => [
                     glass(16, 'sm', 0.86),
@@ -286,7 +302,7 @@ export default function LibraryScreen() {
                       selectedCategory === null && styles.chipTextOn,
                     ]}
                   >
-                    Barchasi
+                    {t('common.all')}
                   </Text>
                 </Pressable>
                 {availableCategories.map((c) => {
@@ -296,7 +312,7 @@ export default function LibraryScreen() {
                       key={c.key}
                       onPress={() => setSelectedCategory(sel ? null : c.key)}
                       accessibilityRole="button"
-                      accessibilityLabel={c.label}
+                      accessibilityLabel={t(c.label)}
                       accessibilityState={{ selected: sel }}
                       style={({ pressed }) => [
                         glass(16, 'sm', 0.86),
@@ -308,7 +324,7 @@ export default function LibraryScreen() {
                     >
                       <Text style={styles.chipEmoji}>{c.emoji}</Text>
                       <Text style={[styles.chipText, sel && styles.chipTextOn]}>
-                        {c.label}
+                        {t(c.label)}
                       </Text>
                     </Pressable>
                   );
@@ -330,16 +346,16 @@ export default function LibraryScreen() {
               <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
                 <Text style={styles.statusEmoji}>⚠️</Text>
                 <Text style={styles.statusTitle}>
-                  Kutubxonani yuklab bo'lmadi
+                  {t('library.loadFailed')}
                 </Text>
                 <Text style={styles.statusBody}>
-                  Internetni tekshirib, qaytadan urinib ko'ring
+                  {t('common.checkInternetRetry')}
                 </Text>
                 <Pressable
                   onPress={() => void results.refetch()}
                   disabled={results.isFetching}
                   accessibilityRole="button"
-                  accessibilityLabel="Qaytadan urinish"
+                  accessibilityLabel={t('common.retry')}
                   style={({ pressed }) => [
                     styles.retry,
                     results.isFetching && styles.busy,
@@ -349,7 +365,7 @@ export default function LibraryScreen() {
                 >
                   <RefreshCw size={16} color="#FFFFFF" />
                   <Text style={styles.retryText}>
-                    {results.isFetching ? 'Urinilmoqda…' : 'Qaytadan urinish'}
+                    {results.isFetching ? t('common.retrying') : t('common.retry')}
                   </Text>
                 </Pressable>
               </View>
@@ -357,14 +373,16 @@ export default function LibraryScreen() {
               <View style={[glass(28, 'lg', 0.6), styles.statusCard]}>
                 <Text style={styles.statusEmoji}>{narrowed ? '🔍' : '📚'}</Text>
                 <Text style={styles.statusTitle}>
-                  {narrowed ? 'Hech narsa topilmadi' : "Kutubxona hozircha bo'sh"}
+                  {narrowed
+                    ? t('common.nothingFound')
+                    : t('library.emptyTitle')}
                 </Text>
                 <Text style={styles.statusBody}>
                   {/* Not narrowed and still empty means the library really has
                       nothing for this child — say that, do not blame search. */}
                   {narrowed
-                    ? "Boshqa kalit so'z bilan yoki boshqa bo'limdan qidirib ko'ring"
-                    : "Yangi she'r, ertak va darslar qo'shilgach shu yerda paydo bo'ladi"}
+                    ? t('library.emptySearchBody')
+                    : t('library.emptyBody')}
                 </Text>
               </View>
             ) : (
@@ -386,9 +404,7 @@ export default function LibraryScreen() {
           {/* `? :`, not `&&`: an age segment that came back as an empty string
               would reach React as a text node, a hard error on the web build. */}
           {ageSegment && !libraryEmpty ? (
-            <Text style={styles.footnote}>
-              Barcha kontentlar yoshingizga mos ravishda tanlanadi
-            </Text>
+            <Text style={styles.footnote}>{t('library.ageFootnote')}</Text>
           ) : null}
         </ScrollView>
       </SafeAreaView>

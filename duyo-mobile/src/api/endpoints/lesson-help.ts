@@ -1,4 +1,7 @@
 import { AI_TIMEOUT_MS, apiClient } from '@/api/client';
+import { translate } from '@/i18n';
+import { SUBJECTS } from '@/lib/subjects';
+import { useLanguageStore } from '@/store/language';
 
 // Mirrors backend duyo.schemas.chat.LessonHelpRequest / LessonHelpResponse
 // (POST /v1/chat/lesson-help). Stateless on the server: nothing is persisted,
@@ -32,9 +35,24 @@ export interface LessonSolution {
 }
 
 export interface LessonHelpInput {
-  /** Human-readable Uzbek subject label ("Matematika"). */
+  /** A `subjects.ts` key ('math'), or a subject label the child already sees.
+   *  Either way the request carries the readable word — see `readable()`. */
   subject: string;
   question: string;
+}
+
+/**
+ * The readable subject word for the prompt.
+ *
+ * `SUBJECTS[].label` holds a translation KEY now, and a key going into the
+ * tutor prompt would read as "Fan: subject.math". Both the key and the label
+ * key resolve here, in the child's own language — the answer comes back in
+ * that language anyway (api/client sends Accept-Language).
+ */
+function readable(subject: string): string {
+  const language = useLanguageStore.getState().language;
+  const meta = SUBJECTS.find((s) => s.key === subject || s.label === subject);
+  return meta ? translate(language, meta.label) : subject;
 }
 
 /**
@@ -54,7 +72,7 @@ export async function solveLesson(
       // The backend feeds this straight into the prompt as "Fan: {subject}",
       // so it wants the readable label, NOT the textbook corpus slug that
       // api/endpoints/dtm.ts maps to for retrieval.
-      subject: input.subject,
+      subject: readable(input.subject),
       question: input.question,
     },
     // A grounded, multi-step generation — the 15s CRUD default cuts it off.
@@ -72,18 +90,21 @@ export async function solveLesson(
  * is not this case — that arrives as a 200 with available=false).
  */
 export function lessonHelpErrorMessage(err: unknown): string {
+  // No hooks in a plain module: the language is read at call time, which is
+  // the moment the request failed, so it is always the current one.
+  const language = useLanguageStore.getState().language;
   const status = (err as { response?: { status?: number } }).response?.status;
   switch (status) {
     case 401:
-      return 'Seansing tugabdi. Ilovaga qaytadan kirib, yana urinib ko\'r.';
+      return translate(language, 'lessonHelp.err.session');
     case 404:
       // The profile on this device no longer exists on the server.
-      return "Profilingni topa olmadim. Ilovani yopib, qaytadan ochib ko'r.";
+      return translate(language, 'lessonHelp.err.noProfile');
     case 422:
-      return "Vazifa matni tushunarsiz bo'ldi. Uni to'liqroq yozib yubor.";
+      return translate(language, 'lessonHelp.err.badQuestion');
     case 429:
-      return "Bugungi savollar chegarasiga yetding. Ertaga yana yordam beraman.";
+      return translate(language, 'lessonHelp.err.limit');
     default:
-      return "Yechimni olib kelolmadim. Internetni tekshirib, qayta urinib ko'r.";
+      return translate(language, 'lessonHelp.err.generic');
   }
 }

@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import {
   MEMORY_CATEGORY_COLOURS,
@@ -49,6 +50,7 @@ const ON_ACCENT = '#0A1628';
  * each rendering their own.
  */
 export function MemoryConsentSheet() {
+  const t = useT();
   const isDark = useIsDark();
   const pending = useMemoryConsentStore((s) => s.pending);
   const dismiss = useMemoryConsentStore((s) => s.dismiss);
@@ -101,7 +103,7 @@ export function MemoryConsentSheet() {
         <Pressable
           onPress={close}
           accessibilityRole="button"
-          accessibilityLabel="Yopish"
+          accessibilityLabel={t('common.close')}
           style={styles.scrim}
         />
 
@@ -136,7 +138,7 @@ export function MemoryConsentSheet() {
 
                 <View style={styles.headerText}>
                   <Text style={[styles.title, isDark && dark.title]}>
-                    Buni eslab qolaymi?
+                    {t('memory.consent.title')}
                   </Text>
                   <Text style={[styles.hint, isDark && dark.hint]}>{hint}</Text>
                 </View>
@@ -144,7 +146,7 @@ export function MemoryConsentSheet() {
                 <Pressable
                   onPress={close}
                   accessibilityRole="button"
-                  accessibilityLabel="Yopish"
+                  accessibilityLabel={t('common.close')}
                   hitSlop={10}
                   style={[styles.close, isDark && dark.close, styles.focusable]}
                 >
@@ -180,7 +182,7 @@ export function MemoryConsentSheet() {
                     style={[styles.promiseText, isDark && dark.promiseText]}
                     numberOfLines={1}
                   >
-                    Faqat shu telefonda, shifrlangan
+                    {t('memory.consent.promise')}
                   </Text>
                 </View>
               </View>
@@ -190,7 +192,7 @@ export function MemoryConsentSheet() {
                   onPress={close}
                   disabled={saving}
                   accessibilityRole="button"
-                  accessibilityLabel="Yo'q, eslab qolma"
+                  accessibilityLabel={t('memory.consent.decline')}
                   style={({ pressed }) => [
                     styles.button,
                     styles.decline,
@@ -200,7 +202,7 @@ export function MemoryConsentSheet() {
                   ]}
                 >
                   <Text style={[styles.declineText, isDark && dark.declineText]}>
-                    Yo‘q
+                    {t('memory.consent.declineShort')}
                   </Text>
                 </Pressable>
 
@@ -208,7 +210,7 @@ export function MemoryConsentSheet() {
                   onPress={accept}
                   disabled={saving}
                   accessibilityRole="button"
-                  accessibilityLabel="Ha, eslab qol"
+                  accessibilityLabel={t('memory.consent.accept')}
                   accessibilityState={{ disabled: saving }}
                   style={({ pressed }) => [
                     styles.button,
@@ -219,7 +221,9 @@ export function MemoryConsentSheet() {
                   ]}
                 >
                   <Sparkles size={17} color={ON_ACCENT} />
-                  <Text style={styles.acceptText}>Eslab qol</Text>
+                  <Text style={styles.acceptText}>
+                    {t('memory.consent.acceptShort')}
+                  </Text>
                 </Pressable>
               </View>
             </View>

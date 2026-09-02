@@ -162,7 +162,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
     // greetings, the mates list, the parent report. Refused here rather than
     // by a 422 the child cannot read.
     if (!child || !name) {
-      setSaveError('Ism bo‘sh bo‘lishi mumkin emas');
+      setSaveError(t('settings.name.empty'));
       return;
     }
     if (name === fullName) {
@@ -176,7 +176,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
       setChild(updated);
       setEditing(false);
     } catch (err) {
-      setSaveError(serverMessage(err, 'Saqlanmadi — internetni tekshiring'));
+      setSaveError(serverMessage(err, t('settings.saveFailedNet')));
     } finally {
       setSaving(false);
     }
@@ -202,7 +202,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
     setPickerOpen(false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setPhotoError('Galereyaga ruxsat berilmadi');
+      setPhotoError(t('settings.photo.noPermission'));
       return;
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
@@ -225,9 +225,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
       );
       setChild(updated);
     } catch (err) {
-      setPhotoError(
-        serverMessage(err, 'Rasm yuklanmadi — internetni tekshiring'),
-      );
+      setPhotoError(serverMessage(err, t('settings.photo.uploadFailed')));
     } finally {
       setPhotoBusy(false);
     }
@@ -241,7 +239,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
     try {
       setChild(await deleteChildPhoto(child.id));
     } catch (err) {
-      setPhotoError(serverMessage(err, 'O‘chirilmadi — internetni tekshiring'));
+      setPhotoError(serverMessage(err, t('settings.photo.deleteFailed')));
     } finally {
       setPhotoBusy(false);
     }
@@ -252,29 +250,34 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
   // over nothing is a control that lies about the state.
   const pickerActions: SheetAction[] = [
     {
-      label: hasPhoto ? 'Boshqa rasm tanlash' : 'Galereyadan rasm tanlash',
+      label: hasPhoto
+        ? t('settings.photo.pickAnother')
+        : t('settings.photo.pick'),
       icon: ImagePlus,
       onPress: () => void pickPhoto(),
     },
     {
-      label: mascot === 'duyo' ? 'DUYO ✓' : 'DUYO',
+      label: mascot === 'duyo' ? t('settings.mascot.duyoOn') : 'DUYO',
       icon: Sparkles,
       onPress: () => setMascot('duyo'),
     },
     {
-      label: mascot === 'raccoon' ? 'Yenot ✓' : 'Yenot',
+      label:
+        mascot === 'raccoon'
+          ? t('settings.mascot.raccoonOn')
+          : t('onboarding.avatar.bodyRaccoon'),
       icon: Sparkles,
       onPress: () => setMascot('raccoon'),
     },
     {
-      label: 'Ko‘rinishni tahrirlash',
+      label: t('settings.mascot.edit'),
       icon: PenLine,
       onPress: () => router.push('/(main)/avatar-customization'),
     },
     ...(hasPhoto
       ? [
           {
-            label: 'Rasmni o‘chirish',
+            label: t('settings.photo.delete'),
             icon: Trash2,
             destructive: true,
             onPress: () => void removePhoto(),
@@ -325,7 +328,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
             <Pressable
               onPress={() => setPickerOpen(true)}
               accessibilityRole="button"
-              accessibilityLabel="Rasmni o‘zgartirish"
+              accessibilityLabel={t('settings.a11y.changePhoto')}
               style={styles.avatarWrap}
             >
               <ChildAvatar size={78} glow="soft" />
@@ -345,7 +348,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
                 <TextInput
                   value={first}
                   onChangeText={setFirst}
-                  placeholder="Ism"
+                  placeholder={t('settings.firstName')}
                   placeholderTextColor={MUTED}
                   maxLength={40}
                   autoFocus
@@ -354,7 +357,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
                 <TextInput
                   value={last}
                   onChangeText={setLast}
-                  placeholder="Familiya"
+                  placeholder={t('settings.lastName')}
                   placeholderTextColor={MUTED}
                   maxLength={40}
                   style={styles.input}
@@ -364,17 +367,19 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
                   <Pressable
                     onPress={() => setEditing(false)}
                     accessibilityRole="button"
-                    accessibilityLabel="Bekor qilish"
+                    accessibilityLabel={t('common.cancel')}
                     style={[glass(16, 'sm', 0.6), styles.editButton, styles.focusable]}
                   >
                     <X size={16} color={MUTED} strokeWidth={2.4} />
-                    <Text style={styles.editCancelText}>Bekor</Text>
+                    <Text style={styles.editCancelText}>
+                      {t('settings.cancelShort')}
+                    </Text>
                   </Pressable>
                   <Pressable
                     onPress={() => void save()}
                     disabled={saving}
                     accessibilityRole="button"
-                    accessibilityLabel="Saqlash"
+                    accessibilityLabel={t('common.save')}
                     style={[styles.editButton, styles.editSave, styles.focusable]}
                   >
                     {saving ? (
@@ -382,7 +387,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
                     ) : (
                       <Check size={16} color="#FFFFFF" strokeWidth={2.6} />
                     )}
-                    <Text style={styles.editSaveText}>Saqlash</Text>
+                    <Text style={styles.editSaveText}>{t('common.save')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -390,12 +395,12 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
               <>
                 <View style={styles.identityBody}>
                   <Text style={styles.identityName} numberOfLines={1}>
-                    {fullName || 'Ism kiritilmagan'}
+                    {fullName || t('settings.noName')}
                   </Text>
                   <Text style={styles.identityMeta}>
                     {child?.age !== undefined
-                      ? `${child.age} yosh`
-                      : 'Profil yuklanmoqda'}
+                      ? t('settings.age', { age: child.age })
+                      : t('settings.profileLoading')}
                   </Text>
                   {photoError && (
                     <Text style={styles.error}>{photoError}</Text>
@@ -405,7 +410,7 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
                   onPress={beginEdit}
                   disabled={!child}
                   accessibilityRole="button"
-                  accessibilityLabel="Ism va familiyani o‘zgartirish"
+                  accessibilityLabel={t('settings.a11y.editName')}
                   style={[glass(18, 'sm'), styles.editIcon, styles.focusable]}
                 >
                   <PenLine size={17} color={PRIMARY} strokeWidth={2.2} />
@@ -425,17 +430,17 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
               dashboard would be the better home, but that screen is a
               fixed-height layout tuned by a scale factor and an extra row
               overflows it on a small phone. */}
-          <Section title="O‘rganish">
+          <Section title={t('settings.section.learning')}>
             <Row
               Icon={BookOpen}
-              label="Kutubxona"
-              value="She‘r, ertak, darslik"
+              label={t('library.title')}
+              value={t('settings.libraryValue')}
               onPress={() => router.push('/(main)/library')}
             />
             <Row
               Icon={PenLine}
-              label="Dars yordami"
-              value="Uy vazifasi"
+              label={t('lessonHelp.title')}
+              value={t('settings.lessonHelpValue')}
               onPress={() => router.push('/(main)/lesson-help')}
               isLast
             />
@@ -535,8 +540,8 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
 
       <ActionSheet
         visible={pickerOpen}
-        title="Profil rasmi"
-        message="Profil rasmingizni tanlang"
+        title={t('settings.photo.sheetTitle')}
+        message={t('settings.photo.sheetBody')}
         actions={pickerActions}
         onClose={() => setPickerOpen(false)}
       />

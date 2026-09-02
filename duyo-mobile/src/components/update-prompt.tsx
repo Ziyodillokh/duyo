@@ -12,6 +12,7 @@ import {
 import { Text } from '@/components/text';
 import { Card } from '@/components/v2/card';
 import { PrimaryButton } from '@/components/v2/primary-button';
+import { useT } from '@/i18n';
 import { glass } from '@/lib/glass';
 
 const INK = '#22406F';
@@ -50,6 +51,7 @@ function parseVersionInfo(data: unknown): AndroidVersionInfo | null {
  * yoki server javob bermasa — jim o'tib ketadi (ilova ishlashiga ta'sir yo'q).
  */
 export function UpdatePrompt() {
+  const t = useT();
   const [info, setInfo] = useState<AndroidVersionInfo | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -93,10 +95,9 @@ export function UpdatePrompt() {
         <View style={styles.holder}>
           <Card style={styles.sheet}>
             <View style={styles.heading}>
-              <Text style={styles.title}>Yangi versiya chiqdi! 🎉</Text>
+              <Text style={styles.title}>{t('update.promptTitle')}</Text>
               <Text style={styles.body}>
-                DUYO {info.version} tayyor. Yangilab olsangiz, eng so'nggi
-                imkoniyatlar va tuzatishlar qo'shiladi.
+                {t('update.promptBody', { version: info.version })}
               </Text>
               {info.notes ? (
                 <Text style={styles.notes}>{info.notes}</Text>
@@ -106,19 +107,19 @@ export function UpdatePrompt() {
             <View style={styles.cta}>
               <PrimaryButton
                 onPress={() => Linking.openURL(info.url)}
-                accessibilityLabel="Yangilash"
+                accessibilityLabel={t('update.now')}
               >
-                Yangilash
+                {t('update.now')}
               </PrimaryButton>
             </View>
 
             <Pressable
               onPress={() => setDismissed(true)}
               accessibilityRole="button"
-              accessibilityLabel="Keyinroq"
+              accessibilityLabel={t('update.later')}
               style={styles.later}
             >
-              <Text style={styles.laterText}>Keyinroq</Text>
+              <Text style={styles.laterText}>{t('update.later')}</Text>
             </Pressable>
           </Card>
         </View>

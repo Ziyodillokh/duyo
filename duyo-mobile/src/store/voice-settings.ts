@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import type { TranslationKey } from '@/i18n';
 import { asyncStorage } from '@/lib/async-storage';
 
 /**
@@ -9,9 +10,10 @@ import { asyncStorage } from '@/lib/async-storage';
  * ## Why the names are Google's and the labels are not
  *
  * `key` is a prebuilt Gemini voice name and goes to the server untranslated —
- * the model config takes that exact string. `label` is what a child reads, and
- * `hint` is Google's own one-word description of the voice's character,
- * rendered into Uzbek.
+ * the model config takes that exact string. `labelKey` is what a child reads,
+ * and `hintKey` is Google's own one-word description of the voice's character
+ * — both are translation keys, not words, because this table is built once at
+ * module load and a resolved string here could never follow a language switch.
  *
  * Google documents CHARACTER — Soft, Warm, Gentle, Youthful, Informative,
  * Gravelly — and does NOT document gender. So neither do we. Labelling one of
@@ -29,18 +31,46 @@ import { asyncStorage } from '@/lib/async-storage';
 export interface VoiceChoice {
   /** The prebuilt Gemini voice name. Sent verbatim; never translated. */
   key: string;
-  label: string;
-  hint: string;
+  labelKey: TranslationKey;
+  hintKey: TranslationKey;
 }
 
 export const VOICE_CHOICES: readonly VoiceChoice[] = [
-  { key: 'Achernar', label: 'Mayin', hint: 'Yumshoq va past ohangda' },
-  { key: 'Sulafat', label: 'Iliq', hint: 'Do‘stona, iliq ohangda' },
-  { key: 'Vindemiatrix', label: 'Muloyim', hint: 'Sekin va muloyim' },
-  { key: 'Leda', label: 'Yosh', hint: 'Tetik, yoshlarnikiga yaqin' },
-  { key: 'Charon', label: 'Bosiq', hint: 'Tinch va tushuntiruvchi' },
-  { key: 'Algenib', label: 'Qirrali', hint: 'Quyuq, biroz g‘adir-budir' },
-  { key: 'Kore', label: 'Qat’iy', hint: 'Aniq va ishonchli' },
+  {
+    key: 'Achernar',
+    labelKey: 'voice.choice.achernar',
+    hintKey: 'voice.choice.achernarHint',
+  },
+  {
+    key: 'Sulafat',
+    labelKey: 'voice.choice.sulafat',
+    hintKey: 'voice.choice.sulafatHint',
+  },
+  {
+    key: 'Vindemiatrix',
+    labelKey: 'voice.choice.vindemiatrix',
+    hintKey: 'voice.choice.vindemiatrixHint',
+  },
+  {
+    key: 'Leda',
+    labelKey: 'voice.choice.leda',
+    hintKey: 'voice.choice.ledaHint',
+  },
+  {
+    key: 'Charon',
+    labelKey: 'voice.choice.charon',
+    hintKey: 'voice.choice.charonHint',
+  },
+  {
+    key: 'Algenib',
+    labelKey: 'voice.choice.algenib',
+    hintKey: 'voice.choice.algenibHint',
+  },
+  {
+    key: 'Kore',
+    labelKey: 'voice.choice.kore',
+    hintKey: 'voice.choice.koreHint',
+  },
 ];
 
 /** What the server falls back to, so the app and the API agree on the default. */

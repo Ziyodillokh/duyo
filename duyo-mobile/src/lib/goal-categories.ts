@@ -1,3 +1,5 @@
+import type { TranslationKey } from '@/i18n';
+
 /**
  * Which catalogue goals belong to which room.
  *
@@ -23,21 +25,26 @@ export const CATEGORY_RULES: Record<string, CategoryRule> = {
   rivoj: (k) => k.startsWith('habit_') || k.startsWith('skill_'),
 };
 
-export const CATEGORY_LABELS: Record<string, string> = {
-  it: 'IT & Code',
-  til: "Til o'rganish",
-  talim: "Ta'lim",
-  kitoblar: 'Kitoblar',
-  sport: 'Sport',
-  sayohat: 'Sayohat',
-  ijod: 'Ijodkorlik',
-  rivoj: "O'zini rivojlantirish",
+/** Translation KEYS, not words: this table is built once at module load, so a
+ *  finished label here could never follow a language switch. The screen that
+ *  draws the tag resolves it with `t()` at render. */
+export const CATEGORY_LABELS: Record<string, TranslationKey> = {
+  it: 'goals.cat.it',
+  til: 'goals.cat.language',
+  talim: 'goals.cat.education',
+  kitoblar: 'goals.cat.books',
+  sport: 'goals.cat.sport',
+  sayohat: 'goals.cat.travel',
+  ijod: 'goals.cat.creativity',
+  rivoj: 'goals.cat.selfDev',
 };
 
 /** Precedence order, matching the server's tuple. */
 const ORDER = ['it', 'til', 'talim', 'kitoblar', 'sport', 'sayohat', 'ijod', 'rivoj'];
 
-export function categoryOf(matchKey: string | null): { key: string; label: string } | null {
+export function categoryOf(
+  matchKey: string | null,
+): { key: string; label: TranslationKey } | null {
   if (!matchKey) return null;
   for (const key of ORDER) {
     if (CATEGORY_RULES[key](matchKey)) return { key, label: CATEGORY_LABELS[key] };

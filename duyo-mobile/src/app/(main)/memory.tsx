@@ -23,6 +23,7 @@ import {
 import { Text, TextInput } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT, type TranslateFn } from '@/i18n';
 import { glass } from '@/lib/glass';
 import {
   MEMORY_CATEGORY_COLOURS,
@@ -63,16 +64,16 @@ const BG_BOTTOM = '#EDF2FD';
 
 type CategoryFilter = 'all' | MemoryCategory;
 
-/** Shared Uzbek explanation for a Guard rejection, from either write path. */
-function alertGuardBlocked(reasons: readonly string[]) {
+/** Shared explanation for a Guard rejection, from either write path. */
+function alertGuardBlocked(t: TranslateFn, reasons: readonly string[]) {
   Alert.alert(
-    "Bu ma'lumot saqlanmaydi",
-    `Bu matn ${describeGuardReasons(reasons)} ma'lumotga o'xshaydi. ` +
-      "Xavfsizlik uchun bunday ma'lumotlar xotiraga saqlanmaydi.",
+    t('memory.blocked.title'),
+    t('memory.blocked.body', { reasons: describeGuardReasons(reasons, t) }),
   );
 }
 
 export default function MemoryScreen() {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const items = useMemoryStore((s) => s.items);
   const counts = useMemoryStore((s) => s.counts);
@@ -144,12 +145,12 @@ export default function MemoryScreen() {
 
   const handleDelete = (memory: MemoryRecord) => {
     Alert.alert(
-      "Xotirani o'chirish",
-      `"${memory.content}" o'chirilsinmi? Bu amalni ortga qaytarib bo'lmaydi.`,
+      t('memory.delete.title'),
+      t('memory.delete.body', { content: memory.content }),
       [
-        { text: 'Bekor qilish', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: "O'chirish",
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => removeMemory(memory.id).catch(() => {}),
         },
@@ -160,12 +161,12 @@ export default function MemoryScreen() {
   const handleDeleteAll = () => {
     if (!child || totalCount === 0) return;
     Alert.alert(
-      "Barcha xotiralarni o'chirish",
-      `Jami ${totalCount} ta xotira o'chiriladi. Bu amalni ortga qaytarib bo'lmaydi.`,
+      t('memory.deleteAll.title'),
+      t('memory.deleteAll.body', { count: totalCount }),
       [
-        { text: 'Bekor qilish', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: "Barchasini o'chirish",
+          text: t('memory.deleteAll.confirm'),
           style: 'destructive',
           onPress: () => removeAll().catch(() => {}),
         },
@@ -175,7 +176,7 @@ export default function MemoryScreen() {
 
   const handleExport = async () => {
     if (totalCount === 0) {
-      Alert.alert("Xotira bo'sh", "Eksport qiladigan hali hech narsa yo'q.");
+      Alert.alert(t('memory.exportEmpty.title'), t('memory.exportEmpty.body'));
       return;
     }
     try {
@@ -183,9 +184,9 @@ export default function MemoryScreen() {
       // Device share sheet — the child/parent decides where it goes (Files,
       // email, etc). No automatic upload anywhere: this IS the manual
       // backup the local-first architecture relies on instead of cloud sync.
-      await Share.share({ message: json, title: 'DUYO — Mening Xotiram' });
+      await Share.share({ message: json, title: t('memory.exportTitle') });
     } catch {
-      Alert.alert('Xatolik', "Eksport qilishning iloji bo'lmadi.");
+      Alert.alert(t('common.error'), t('memory.exportFailed'));
     }
   };
 
@@ -203,16 +204,16 @@ export default function MemoryScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={22} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.title}>Mening Xotiram</Text>
+          <Text style={styles.title}>{t('settings.memory')}</Text>
           <Pressable
             onPress={() => setShowAdd((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel="Qo'lda xotira qo'shish"
+            accessibilityLabel={t('memory.addManual')}
             style={[
               glass(22, 'sm'),
               styles.headerButton,
@@ -232,10 +233,7 @@ export default function MemoryScreen() {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.note}>
-            Bu ma'lumotlar faqat shu qurilmada, shifrlangan holda saqlanadi.
-            Ular hech qachon serverga doimiy saqlash uchun yuborilmaydi.
-          </Text>
+          <Text style={styles.note}>{t('memory.privacyNote')}</Text>
 
           {/* Key loss. Distinct from `undecryptable`, which is a few rows
               left over from an older key — this is EVERY row, because the
@@ -249,11 +247,7 @@ export default function MemoryScreen() {
           {keyLost ? (
             <View style={[glass(20, 'md'), styles.warning]}>
               <Text style={styles.warningText}>
-                {keyLost} ta yozuv qulflanib qoldi. Ularni ochadigan kalit shu
-                qurilmadan yo‘qolgan — bu ilova qayta o‘rnatilganda, tizim
-                yangilanganda yoki ekran qulfi o‘zgarganda bo‘ladi. Yozuvlar
-                o‘zi joyida, lekin ularni hech qanday usul bilan ochib
-                bo‘lmaydi.
+                {t('memory.keyLost.body', { count: keyLost })}
               </Text>
               <Pressable
                 onPress={async () => {
@@ -266,11 +260,13 @@ export default function MemoryScreen() {
                 }}
                 disabled={resetting}
                 accessibilityRole="button"
-                accessibilityLabel="Qulflangan yozuvlarni tozalash"
+                accessibilityLabel={t('memory.keyLost.a11yClear')}
                 style={[glass(14, 'sm'), styles.keyLostButton]}
               >
                 <Text style={styles.keyLostButtonText}>
-                  {resetting ? 'Tozalanmoqda…' : 'Tozalab, boshidan boshlash'}
+                  {resetting
+                    ? t('memory.keyLost.clearing')
+                    : t('memory.keyLost.clear')}
                 </Text>
               </Pressable>
             </View>
@@ -279,10 +275,7 @@ export default function MemoryScreen() {
           {undecryptable > 0 ? (
             <View style={[glass(20, 'md'), styles.warning]}>
               <Text style={styles.warningText}>
-                {undecryptable} ta yozuvni ochib bo'lmadi. Ular shu qurilmada
-                boshqa kalit bilan shifrlangan bo'lishi mumkin (masalan ilova
-                qayta o'rnatilgandan keyin). Ularni tiklab bo'lmaydi —
-                "Barcha xotiralarni o'chirish" orqali tozalash mumkin.
+                {t('memory.undecryptable', { count: undecryptable })}
               </Text>
             </View>
           ) : null}
@@ -297,8 +290,9 @@ export default function MemoryScreen() {
                 } catch (err) {
                   // The form pre-screens for a friendlier message, but the
                   // store is the authoritative gate — honour its verdict too.
-                  if (err instanceof MemoryGuardError) alertGuardBlocked(err.reasons);
-                  else Alert.alert('Xatolik', "Saqlab bo'lmadi.");
+                  if (err instanceof MemoryGuardError)
+                    alertGuardBlocked(t, err.reasons);
+                  else Alert.alert(t('common.error'), t('common.saveFailed'));
                 }
               }}
             />
@@ -309,9 +303,9 @@ export default function MemoryScreen() {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Qidirish..."
+              placeholder={t('common.searchPlaceholder')}
               placeholderTextColor={PLACEHOLDER}
-              accessibilityLabel="Xotiradan qidirish"
+              accessibilityLabel={t('memory.a11y.search')}
               style={styles.searchInput}
             />
           </View>
@@ -319,14 +313,14 @@ export default function MemoryScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.chipRow}>
               <CategoryChip
-                label={`Barchasi (${totalCount})`}
+                label={t('memory.chipAll', { count: totalCount })}
                 active={filter === 'all'}
                 onPress={() => setFilter('all')}
               />
               {MEMORY_CATEGORIES.map((c) => (
                 <CategoryChip
                   key={c}
-                  label={`${MEMORY_CATEGORY_LABELS[c]} (${counts[c]})`}
+                  label={`${t(MEMORY_CATEGORY_LABELS[c])} (${counts[c]})`}
                   active={filter === c}
                   accent={MEMORY_CATEGORY_COLOURS[c]}
                   onPress={() => setFilter(c)}
@@ -339,8 +333,8 @@ export default function MemoryScreen() {
             <View style={styles.empty}>
               <Text style={styles.emptyText}>
                 {totalCount === 0
-                  ? "Hali hech narsa eslab qolinmagan.\nSuhbat davomida DUYO nimadir eslab qolishni taklif qilsa, shu yerda ko'rasiz."
-                  : 'Hech narsa topilmadi.'}
+                  ? t('memory.empty')
+                  : t('common.nothingFoundDot')}
               </Text>
             </View>
           ) : (
@@ -352,7 +346,7 @@ export default function MemoryScreen() {
                   related={relationsByMemory[memory.id] ?? []}
                   onDelete={() => handleDelete(memory)}
                   onSave={(content) => updateMemory(memory.id, content)}
-                  onBlocked={alertGuardBlocked}
+                  onBlocked={(reasons) => alertGuardBlocked(t, reasons)}
                 />
               ))}
             </View>
@@ -362,7 +356,7 @@ export default function MemoryScreen() {
             <Pressable
               onPress={handleExport}
               accessibilityRole="button"
-              accessibilityLabel="Xotirani eksport qilish"
+              accessibilityLabel={t('memory.a11y.export')}
               style={({ pressed }) => [
                 glass(20, 'md'),
                 styles.action,
@@ -370,14 +364,12 @@ export default function MemoryScreen() {
               ]}
             >
               <Download size={18} color={PRIMARY} strokeWidth={2.2} />
-              <Text style={styles.actionText}>
-                Xotirani eksport qilish (JSON)
-              </Text>
+              <Text style={styles.actionText}>{t('memory.export')}</Text>
             </Pressable>
             <Pressable
               onPress={handleDeleteAll}
               accessibilityRole="button"
-              accessibilityLabel="Barcha xotiralarni o'chirish"
+              accessibilityLabel={t('memory.deleteAll.title')}
               style={({ pressed }) => [
                 glass(20, 'md'),
                 styles.action,
@@ -387,7 +379,7 @@ export default function MemoryScreen() {
             >
               <Trash2 size={18} color={DANGER} strokeWidth={2.2} />
               <Text style={[styles.actionText, styles.actionTextDanger]}>
-                Barcha xotiralarni o'chirish
+                {t('memory.deleteAll.title')}
               </Text>
             </Pressable>
           </View>
@@ -445,6 +437,7 @@ function MemoryCard({
   onSave: (content: string) => Promise<void>;
   onBlocked: (reasons: readonly string[]) => void;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(memory.content);
   const Icon = MEMORY_CATEGORY_ICONS[memory.category];
@@ -467,7 +460,7 @@ function MemoryCard({
       setEditing(false);
     } catch (err) {
       if (err instanceof MemoryGuardError) onBlocked(err.reasons);
-      else Alert.alert('Xatolik', "Saqlab bo'lmadi.");
+      else Alert.alert(t('common.error'), t('common.saveFailed'));
     }
   };
 
@@ -481,7 +474,7 @@ function MemoryCard({
       <View style={styles.cardHead}>
         <Icon size={15} color={accent} />
         <Text style={styles.cardCategory}>
-          {MEMORY_CATEGORY_LABELS[memory.category]}
+          {t(MEMORY_CATEGORY_LABELS[memory.category])}
         </Text>
         <View style={styles.spacer} />
         {/* These two used to be bare 16px icons relying on hitSlop, which does
@@ -495,7 +488,7 @@ function MemoryCard({
               setEditing(true);
             }}
             accessibilityRole="button"
-            accessibilityLabel="Tahrirlash"
+            accessibilityLabel={t('common.edit')}
             hitSlop={8}
             style={({ pressed }) => [
               styles.iconButton,
@@ -509,7 +502,7 @@ function MemoryCard({
         <Pressable
           onPress={onDelete}
           accessibilityRole="button"
-          accessibilityLabel="O'chirish"
+          accessibilityLabel={t('common.delete')}
           hitSlop={8}
           style={({ pressed }) => [
             styles.iconButton,
@@ -557,7 +550,9 @@ function MemoryCard({
           {related.map((r) => (
             <Pressable
               key={r.id}
-              onPress={() => Alert.alert(MEMORY_CATEGORY_LABELS[r.category], r.content)}
+              onPress={() =>
+                Alert.alert(t(MEMORY_CATEGORY_LABELS[r.category]), r.content)
+              }
               accessibilityRole="button"
               style={({ pressed }) => [
                 styles.relatedChip,
@@ -583,6 +578,7 @@ function AddMemoryForm({
   onSave: (category: MemoryCategory, content: string) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [category, setCategory] = useState<MemoryCategory>('notes');
   const [content, setContent] = useState('');
 
@@ -595,7 +591,7 @@ function AddMemoryForm({
     // gate that no screen can skip.
     const guard = screenMemoryContent(trimmed);
     if (guard.verdict !== 'safe') {
-      alertGuardBlocked(guard.reasons);
+      alertGuardBlocked(t, guard.reasons);
       return;
     }
     await onSave(category, trimmed);
@@ -604,13 +600,13 @@ function AddMemoryForm({
 
   return (
     <View style={[glass(24, 'lg'), styles.form]}>
-      <Text style={styles.formTitle}>Qo'lda xotira qo'shish</Text>
+      <Text style={styles.formTitle}>{t('memory.addManual')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.chipRow}>
           {MEMORY_CATEGORIES.map((c) => (
             <CategoryChip
               key={c}
-              label={MEMORY_CATEGORY_LABELS[c]}
+              label={t(MEMORY_CATEGORY_LABELS[c])}
               active={category === c}
               accent={MEMORY_CATEGORY_COLOURS[c]}
               onPress={() => setCategory(c)}
@@ -621,7 +617,7 @@ function AddMemoryForm({
       <TextInput
         value={content}
         onChangeText={setContent}
-        placeholder="Nimani eslab qolish kerak?"
+        placeholder={t('memory.addPlaceholder')}
         placeholderTextColor={PLACEHOLDER}
         multiline
         maxLength={200}
@@ -633,14 +629,14 @@ function AddMemoryForm({
           accessibilityRole="button"
           style={({ pressed }) => [styles.formButton, pressed && styles.pressed]}
         >
-          <Text style={styles.formCancel}>Bekor qilish</Text>
+          <Text style={styles.formCancel}>{t('common.cancel')}</Text>
         </Pressable>
         <Pressable
           onPress={handleSave}
           accessibilityRole="button"
           style={({ pressed }) => [styles.formButton, pressed && styles.pressed]}
         >
-          <Text style={styles.formSave}>Saqlash</Text>
+          <Text style={styles.formSave}>{t('common.save')}</Text>
         </Pressable>
       </View>
     </View>

@@ -8,6 +8,7 @@ import { type AchievementWire } from '@/api/endpoints/gamification';
 import { Badge, BADGE_FOR, BADGE_RULE, topBadge } from '@/components/badges/badge';
 import { Text } from '@/components/text';
 import { useAchievements } from '@/hooks/use-gamification';
+import { useT } from '@/i18n';
 import { glass } from '@/lib/glass';
 
 const PRIMARY = '#2563EB';
@@ -36,6 +37,7 @@ const BG_BOTTOM = '#EDF2FD';
  * shelf is a page of stickers with no consequence.
  */
 export default function AchievementsScreen() {
+  const t = useT();
   const achievements = useAchievements();
   const insets = useSafeAreaInsets();
 
@@ -69,12 +71,12 @@ export default function AchievementsScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.headerTitle}>Yutuqlar</Text>
+          <Text style={styles.headerTitle}>{t('achievements.title')}</Text>
           <View style={styles.headerButton} />
         </View>
 
@@ -87,27 +89,28 @@ export default function AchievementsScreen() {
         >
           {/* ── What is beside your name right now ──────────────────────── */}
           <View style={[glass(26, 'lg'), styles.card]}>
-            <Text style={styles.cardLabel}>ISMINGIZ YONIDA</Text>
+            <Text style={styles.cardLabel}>{t('achievements.besideYourName')}</Text>
             {top && topName ? (
               <View style={styles.currentRow}>
                 <Badge kind={top.kind} tier={top.tier} size={56} />
                 <View style={styles.currentBody}>
                   <Text style={styles.currentName}>{topName.name}</Text>
                   <Text style={styles.currentHint}>
-                    Maqsaddoshlar ro‘yxatida ismingiz oldida shu belgi turadi
+                    {t('achievements.badgeHint')}
                   </Text>
                 </View>
               </View>
             ) : (
-              <Text style={styles.empty}>
-                Hali belgi yo‘q — birinchisini quyidagi ro‘yxatdan oching
-              </Text>
+              <Text style={styles.empty}>{t('achievements.noneYet')}</Text>
             )}
 
             <Text style={styles.progress}>
               <Text style={styles.progressCount}>{earned.length}</Text>
               <Text style={styles.progressTotal}> / {all.length}</Text>
-              <Text style={styles.progressWord}>  ochilgan</Text>
+              <Text style={styles.progressWord}>
+                {'  '}
+                {t('achievements.unlocked')}
+              </Text>
             </Text>
             <View style={styles.track}>
               <View
@@ -123,6 +126,7 @@ export default function AchievementsScreen() {
           {shown.map((a) => {
             const art = BADGE_FOR[a.key];
             if (!art) return null;
+            const rule = BADGE_RULE[a.key];
             return (
               <View
                 key={a.key}
@@ -133,7 +137,7 @@ export default function AchievementsScreen() {
                   <Text style={[styles.rowName, !a.earned && styles.rowNameLocked]}>
                     {a.name}
                   </Text>
-                  <Text style={styles.rowRule}>{BADGE_RULE[a.key] ?? ''}</Text>
+                  <Text style={styles.rowRule}>{rule ? t(rule) : ''}</Text>
                 </View>
                 {!a.earned && <Lock size={16} color={MUTED} strokeWidth={2.2} />}
               </View>
@@ -141,7 +145,7 @@ export default function AchievementsScreen() {
           })}
 
           {all.length === 0 && (
-            <Text style={styles.empty}>Ma‘lumot yuklanmoqda…</Text>
+            <Text style={styles.empty}>{t('common.dataLoading')}</Text>
           )}
         </ScrollView>
       </SafeAreaView>

@@ -27,6 +27,7 @@ import { BrainBackdrop } from '@/components/brain-backdrop';
 import { GLASS, GlassCard, raised } from '@/components/brain/glass';
 import { NoteGraph } from '@/components/note-graph';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
+import { useT } from '@/i18n';
 import { noteTimeLabel } from '@/lib/note-time';
 
 /**
@@ -98,6 +99,7 @@ export default function BrainHome({
   onOpenList,
   onOpenNote,
 }: BrainHomeProps) {
+  const t = useT();
   // The dock floats over this page rather than taking a strip of layout,
   // so the space it covers has to be reserved here or the last note row
   // sits under a live bar: unreadable, and tappable only by the bar.
@@ -180,33 +182,29 @@ export default function BrainHome({
           <Pressable
             onPress={onRetry}
             accessibilityRole="button"
-            accessibilityLabel="Qaytadan urinish"
+            accessibilityLabel={t('common.retry')}
             style={({ pressed }) => [
               styles.emptySky,
               pressed && styles.pressed80,
               styles.focusable,
             ]}
           >
-            <Text style={styles.emptyTitle}>Xaritani yuklab bo&lsquo;lmadi</Text>
-            <Text style={styles.emptyBody}>
-              Qaydlaringiz joyida — qaytadan urinish uchun bosing
-            </Text>
+            <Text style={styles.emptyTitle}>{t('brain.mapLoadFailed')}</Text>
+            <Text style={styles.emptyBody}>{t('brain.home.retryHint')}</Text>
           </Pressable>
         ) : (
           <Pressable
             onPress={onNewNote}
             accessibilityRole="button"
-            accessibilityLabel="Birinchi qaydni yozish"
+            accessibilityLabel={t('brain.home.a11yFirstNote')}
             style={({ pressed }) => [
               styles.emptySky,
               pressed && styles.pressed80,
               styles.focusable,
             ]}
           >
-            <Text style={styles.emptyTitle}>Osmoningiz hali bo&lsquo;sh</Text>
-            <Text style={styles.emptyBody}>
-              Birinchi qaydni yozing — birinchi yulduz paydo bo&lsquo;ladi
-            </Text>
+            <Text style={styles.emptyTitle}>{t('brain.home.emptyTitle')}</Text>
+            <Text style={styles.emptyBody}>{t('brain.home.emptyBody')}</Text>
           </Pressable>
         )}
 
@@ -216,13 +214,13 @@ export default function BrainHome({
         <View style={styles.titleBlock} pointerEvents="box-none">
           <View style={styles.titleRow}>
             <View style={styles.fill}>
-              <Text style={styles.skyTitle}>2-Miyya</Text>
-              <Text style={styles.skySubtitle}>Bilimlaringiz olami</Text>
+              <Text style={styles.skyTitle}>{t('brain.home.title')}</Text>
+              <Text style={styles.skySubtitle}>{t('brain.home.subtitle')}</Text>
             </View>
             <Pressable
               onPress={onExploreGraph}
               accessibilityRole="button"
-              accessibilityLabel="Xaritani to&lsquo;liq ochish"
+              accessibilityLabel={t('brain.home.a11yExpand')}
               hitSlop={10}
               style={({ pressed }) => [
                 styles.expandButton,
@@ -243,7 +241,9 @@ export default function BrainHome({
           <Pressable
             onPress={onExploreGraph}
             accessibilityRole="button"
-            accessibilityLabel={`${connections} bog'lanish — xaritani ochish`}
+            accessibilityLabel={t('brain.home.a11yConnections', {
+              count: connections,
+            })}
             style={({ pressed }) => [
               styles.fill,
               pressed && styles.pressed70,
@@ -253,14 +253,14 @@ export default function BrainHome({
             <Text style={styles.bigNumber}>{connections}</Text>
             <View style={styles.linkRow}>
               <Link2 size={12} color={SKY_MUTED} />
-              <Text style={styles.linkLabel}>Bog&lsquo;lanishlar</Text>
+              <Text style={styles.linkLabel}>{t('brain.home.connections')}</Text>
             </View>
           </Pressable>
 
           <Pressable
             onPress={onNewNote}
             accessibilityRole="button"
-            accessibilityLabel="Yangi qayd"
+            accessibilityLabel={t('brain.newNote')}
             style={({ pressed }) => [
               styles.newNote,
               raised('md'),
@@ -279,14 +279,14 @@ export default function BrainHome({
           growing a row by 6px takes 18px off the sky. */}
       <GlassCard style={styles.listCard} radius={26}>
         <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>So&lsquo;nggi yozuvlar</Text>
+          <Text style={styles.listTitle}>{t('brain.home.recent')}</Text>
           {/* "Barchasi", beside a list of notes, means the rest of the LIST.
               It used to open the bare graph — the one screen that does not
               show a note's name until you tap a planet. */}
           <Pressable
             onPress={onOpenList}
             accessibilityRole="button"
-            accessibilityLabel="Barcha qaydlar"
+            accessibilityLabel={t('brain.home.a11yAll')}
             hitSlop={8}
             style={({ pressed }) => [
               styles.allButton,
@@ -294,14 +294,14 @@ export default function BrainHome({
               styles.focusable,
             ]}
           >
-            <Text style={styles.allLabel}>Barchasi</Text>
+            <Text style={styles.allLabel}>{t('common.all')}</Text>
             <ChevronRight size={15} color={GLASS.blue} strokeWidth={2.5} />
           </Pressable>
         </View>
 
         {recent.length === 0 ? (
           <View style={styles.emptyList}>
-            <Text style={styles.emptyListText}>Hali qayd yo&lsquo;q</Text>
+            <Text style={styles.emptyListText}>{t('brain.home.noNotes')}</Text>
           </View>
         ) : (
           <View style={styles.rows}>
@@ -314,7 +314,10 @@ export default function BrainHome({
                   key={n.id}
                   onPress={() => onOpenNote?.(n.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${n.title} — ${noteTimeLabel(n.updated_at)}`}
+                  accessibilityLabel={t('brain.home.a11yRow', {
+                    title: n.title,
+                    time: noteTimeLabel(n.updated_at),
+                  })}
                   style={({ pressed }) => [
                     styles.row,
                     raised('sm'),

@@ -73,7 +73,7 @@ export default function VoiceSettingsScreen() {
                   onPress={() => setSelectedVoice(v.key)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSel }}
-                  accessibilityLabel={v.label}
+                  accessibilityLabel={t(v.labelKey)}
                   // The chosen voice sits a step nearer the reader and takes
                   // the primary edge — the tick alone is easy to miss.
                   style={({ pressed }) => [
@@ -85,8 +85,8 @@ export default function VoiceSettingsScreen() {
                 >
                   <View style={styles.optionRow}>
                     <View style={styles.optionBody}>
-                      <Text style={styles.optionLabel}>{v.label}</Text>
-                      <Text style={styles.optionHint}>{v.hint}</Text>
+                      <Text style={styles.optionLabel}>{t(v.labelKey)}</Text>
+                      <Text style={styles.optionHint}>{t(v.hintKey)}</Text>
 
                     </View>
                     {/* The listen button that used to sit here said

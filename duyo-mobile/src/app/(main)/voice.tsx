@@ -28,6 +28,7 @@ import { Chalkboard } from '@/components/chalkboard';
 import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { DuyoAvatar, type DuyoState } from '@/components/duyo-avatar';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
+import { useT, type TranslationKey } from '@/i18n';
 import { VoiceOrb } from '@/components/voice/voice-orb';
 import { useMicRecorder } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
@@ -43,10 +44,13 @@ type Phase = 'idle' | 'recording' | 'processing' | 'responding' | 'error';
 
 /** The three the app speaks, in the order the button walks through them. */
 const LANGUAGES: readonly Language[] = ['uz', 'ru', 'en'];
-const LANGUAGE_NAME: Record<Language, string> = {
-  uz: "O'zbekcha",
-  ru: 'Ruscha',
-  en: 'Inglizcha',
+/** Named in the reader's own language, not in its own — this is the app
+ *  telling a child WHICH language the orb will answer in, so it has to be a
+ *  key rather than a word frozen at module load. */
+const LANGUAGE_NAME: Record<Language, TranslationKey> = {
+  uz: 'lang.uz',
+  ru: 'lang.ru',
+  en: 'lang.en',
 };
 /** Two letters fit on the button; a name does not. */
 const LANGUAGE_SHORT: Record<Language, string> = { uz: 'UZ', ru: 'RU', en: 'EN' };
@@ -95,12 +99,14 @@ const BG_MID = '#EAF3FF';
 const BG_BOTTOM = '#EDF2FD';
 const HAIRLINE = 'rgba(47,111,228,0.10)';
 
-const STATUS_TEXT: Record<Phase, string> = {
-  idle: 'Boshlash uchun tugmani bosing',
-  recording: 'Eshitayapman...',
-  processing: "O'ylanyapti...",
-  responding: 'DUYO gapiryapti',
-  error: 'Xatolik yuz berdi',
+// Keys, not words: the table is built once when the module loads, so a
+// resolved sentence here would stay in whatever language the app started in.
+const STATUS_TEXT: Record<Phase, TranslationKey> = {
+  idle: 'voice.status.idle',
+  recording: 'voice.status.recording',
+  processing: 'voice.status.processing',
+  responding: 'voice.status.responding',
+  error: 'common.errorGeneric',
 };
 
 // A puzzle every few spoken turns, so a long voice session isn't only talking.
@@ -152,6 +158,7 @@ function avatarStateFor(
 }
 
 export default function VoiceScreen() {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const storeConversationId = useChatStore((s) => s.conversationId);
   const setStoreConversationId = useChatStore((s) => s.setConversationId);
@@ -333,7 +340,7 @@ export default function VoiceScreen() {
         return;
       }
       if (phaseRef.current === 'recording' || phaseRef.current === 'processing') {
-        setErrorMessage(`Aloqa uzildi (${code})`);
+        setErrorMessage(t('voice.disconnected', { code }));
         setPhase('error');
       }
     },
@@ -387,7 +394,7 @@ export default function VoiceScreen() {
       dbg(`mic.start returned ${started}`);
       if (!started) {
         voice.close();
-        setErrorMessage("Mikrofon ishga tushmadi");
+        setErrorMessage(t('voice.micFailed'));
         setPhase('error');
         return;
       }
@@ -415,12 +422,12 @@ export default function VoiceScreen() {
     turnSeqRef.current += 1;
     const resumed = await mic.start();
     if (!resumed) {
-      setErrorMessage('Mikrofon ishga tushmadi');
+      setErrorMessage(t('voice.micFailed'));
       setPhase('error');
       return;
     }
     setPhase('recording');
-  }, [child, mic, voice, phase, storeConversationId, level, voiceName, language]);
+  }, [child, mic, voice, phase, storeConversationId, level, voiceName, language, t]);
 
   // Only a missing profile stops the mic. It used to be disabled while DUYO
   // was thinking or speaking, which meant a child who had thought of the
@@ -445,12 +452,12 @@ export default function VoiceScreen() {
             <Pressable
               onPress={() => router.back()}
               accessibilityRole="button"
-              accessibilityLabel="Orqaga"
+              accessibilityLabel={t('common.back')}
               style={[glass(22, 'sm'), styles.headerButton, styles.focusable]}
             >
               <ArrowLeft size={26} color={PRIMARY} />
             </Pressable>
-            <Text style={styles.title}>AI Tutor</Text>
+            <Text style={styles.title}>{t('voice.title')}</Text>
           </View>
           {/* This used to be an empty pane, here only to balance the title
               against the back chip. It looked exactly like a button and did
@@ -460,7 +467,7 @@ export default function VoiceScreen() {
           <Pressable
             onPress={() => router.push('/(main)/settings-voice')}
             accessibilityRole="button"
-            accessibilityLabel="Ovoz sozlamalari"
+            accessibilityLabel={t('settings.voice')}
             style={[glass(20, 'sm'), styles.headerBalance, styles.focusable]}
           >
             <Settings2 size={21} color={PRIMARY} />
@@ -510,15 +517,13 @@ export default function VoiceScreen() {
 
           {/* Non-error status text */}
           {!isError && (
-            <Text style={styles.status}>{STATUS_TEXT[phase]}</Text>
+            <Text style={styles.status}>{t(STATUS_TEXT[phase])}</Text>
           )}
 
           {/* Crisis banner — preserved */}
           {crisisLevel ? (
             <View style={styles.crisis}>
-              <Text style={styles.crisisText}>
-                Yordam kerakmi? 1142 raqamiga qo'ng'iroq qiling
-              </Text>
+              <Text style={styles.crisisText}>{t('voice.crisisBanner')}</Text>
             </View>
           ) : null}
 
@@ -530,32 +535,27 @@ export default function VoiceScreen() {
                   <CloudOff size={32} color={PRIMARY} />
                 </View>
                 <Text style={styles.errorTitle}>
-                  {errorMessage ?? "Internet aloqasi yo'q"}
+                  {errorMessage ?? t('common.noInternet.title')}
                 </Text>
-                <Text style={styles.errorBody}>
-                  DUYO hozircha biroz dam olyapti. Aloqa tiklanganda suhbatni
-                  davom ettiramiz.
-                </Text>
+                <Text style={styles.errorBody}>{t('voice.offlineBody')}</Text>
                 <Pressable
                   onPress={handleTap}
                   accessibilityRole="button"
-                  accessibilityLabel="Keyinroq urinib ko'ramiz"
+                  accessibilityLabel={t('voice.retryLater')}
                   style={[styles.retry, styles.focusable]}
                 >
                   <RefreshCw size={18} color="#FFFFFF" />
-                  <Text style={styles.retryText}>
-                    Keyinroq urinib ko'ramiz
-                  </Text>
+                  <Text style={styles.retryText}>{t('voice.retryLater')}</Text>
                 </Pressable>
               </View>
               <Pressable
                 onPress={() => router.push('/(main)/settings-voice')}
                 accessibilityRole="button"
-                accessibilityLabel="Sozlamalarni tekshirish"
+                accessibilityLabel={t('voice.checkSettings')}
                 style={styles.errorLink}
               >
                 <Text style={styles.errorLinkText}>
-                  Sozlamalarni tekshirish
+                  {t('voice.checkSettings')}
                 </Text>
               </Pressable>
             </View>
@@ -578,7 +578,9 @@ export default function VoiceScreen() {
           {/* Left — translate (visual placeholder) */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Suhbat tili: ${LANGUAGE_NAME[language]}`}
+            accessibilityLabel={t('voice.a11y.language', {
+              name: t(LANGUAGE_NAME[language]),
+            })}
             style={[glass(24, 'flush', 0.5), styles.dockButton, styles.focusable]}
             onPress={cycleLanguage}
           >
@@ -595,7 +597,7 @@ export default function VoiceScreen() {
             disabled={buttonDisabled}
             accessibilityRole="button"
             accessibilityLabel={
-              isRecording ? "Yozishni to'xtatish" : 'Yozishni boshlash'
+              isRecording ? t('voice.a11y.stopRec') : t('voice.a11y.startRec')
             }
             style={[
               styles.micButton,

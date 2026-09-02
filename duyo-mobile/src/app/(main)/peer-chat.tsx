@@ -23,6 +23,7 @@ import {
   useReportFriend,
   useSendPeerMessage,
 } from '@/hooks/use-social';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
 
@@ -66,12 +67,13 @@ function Bubble({ message }: { message: PeerMessage }) {
 }
 
 export default function PeerChatScreen() {
+  const t = useT();
   const params = useLocalSearchParams<{
     friendshipId: string;
     peerName: string;
   }>();
   const friendshipId = params.friendshipId;
-  const peerName = params.peerName ?? 'Do‘st';
+  const peerName = params.peerName ?? t('peerChat.peerFallback');
 
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
@@ -106,7 +108,7 @@ export default function PeerChatScreen() {
         setDraft('');
       },
       onError: () =>
-        Alert.alert('Yuborilmadi', "Internetni tekshirib, qayta urinib ko'ring."),
+        Alert.alert(t('common.sendFailed'), t('common.checkInternetRetry')),
     });
   };
 
@@ -122,33 +124,35 @@ export default function PeerChatScreen() {
   // Previously no reason was sent at all, so every report reached review as
   // "something happened" with nothing to triage on.
   const confirmReport = () =>
-    Alert.alert(
-      'Shikoyat qilish',
-      "Nima bo'ldi? Suhbat to'xtatiladi va tekshiruvga yuboriladi.",
-      [
-        {
-          text: 'Qo\'pol gapirdi yoki xafa qildi',
-          onPress: () => submitReport('rude_or_upsetting'),
-        },
-        {
-          text: "Shaxsiy ma'lumot so'radi",
-          onPress: () => submitReport('asked_for_personal_info'),
-        },
-        { text: 'Boshqa sabab', onPress: () => submitReport('other') },
-        { text: 'Bekor qilish', style: 'cancel' },
-      ],
-    );
+    Alert.alert(t('peerChat.report.title'), t('peerChat.report.body'), [
+      {
+        text: t('peerChat.report.rude'),
+        onPress: () => submitReport('rude_or_upsetting'),
+      },
+      {
+        text: t('peerChat.report.personalInfo'),
+        onPress: () => submitReport('asked_for_personal_info'),
+      },
+      { text: t('peerChat.report.other'), onPress: () => submitReport('other') },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
 
   const confirmBlock = () =>
-    Alert.alert('Bloklash', `${peerName} bloklansinmi?`, [
-      { text: 'Bekor qilish', style: 'cancel' },
-      {
-        text: 'Bloklash',
-        style: 'destructive',
-        onPress: () =>
-          blockMutation.mutate(friendshipId, { onSuccess: () => router.back() }),
-      },
-    ]);
+    Alert.alert(
+      t('peerChat.block.title'),
+      t('peerChat.block.body', { name: peerName }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('peerChat.block.title'),
+          style: 'destructive',
+          onPress: () =>
+            blockMutation.mutate(friendshipId, {
+              onSuccess: () => router.back(),
+            }),
+        },
+      ],
+    );
 
   return (
     <View style={styles.root}>
@@ -164,7 +168,7 @@ export default function PeerChatScreen() {
             <Pressable
               onPress={() => router.back()}
               accessibilityRole="button"
-              accessibilityLabel="Orqaga"
+              accessibilityLabel={t('common.back')}
               hitSlop={10}
               style={[glass(20, 'sm'), styles.headerButton, styles.focusable]}
             >
@@ -179,7 +183,7 @@ export default function PeerChatScreen() {
             <Pressable
               onPress={confirmBlock}
               accessibilityRole="button"
-              accessibilityLabel="Bloklash"
+              accessibilityLabel={t('peerChat.block.title')}
               hitSlop={8}
               style={[glass(20, 'sm'), styles.headerButton, styles.focusable]}
             >
@@ -188,7 +192,7 @@ export default function PeerChatScreen() {
             <Pressable
               onPress={confirmReport}
               accessibilityRole="button"
-              accessibilityLabel="Shikoyat qilish"
+              accessibilityLabel={t('peerChat.report.title')}
               hitSlop={8}
               style={[glass(20, 'sm'), styles.headerButton, styles.focusable]}
             >
@@ -199,10 +203,7 @@ export default function PeerChatScreen() {
 
         {/* Never dismissible — the rule has to be present, not read once. */}
         <View style={styles.notice}>
-          <Text style={styles.noticeText}>
-            Xavfsizlik uchun xabarlar tekshiriladi. Telefon raqam, manzil yoki
-            maktabingni yozma.
-          </Text>
+          <Text style={styles.noticeText}>{t('peerChat.safetyNotice')}</Text>
         </View>
 
         <KeyboardAvoidingView style={styles.fill}>
@@ -220,10 +221,11 @@ export default function PeerChatScreen() {
               ListEmptyComponent={
                 <View style={styles.empty}>
                   <Text style={styles.emptyEmoji}>👋</Text>
-                  <Text style={styles.emptyTitle}>Suhbatni boshlang</Text>
+                  <Text style={styles.emptyTitle}>
+                    {t('peerChat.empty.title')}
+                  </Text>
                   <Text style={styles.emptyBody}>
-                    Sizni bir maqsad birlashtirdi — shu haqda gaplashsangiz
-                    bo'ladi
+                    {t('peerChat.empty.body')}
                   </Text>
                 </View>
               }
@@ -241,12 +243,12 @@ export default function PeerChatScreen() {
           <View style={[glass(28, 'xl', 0.72), styles.composer]}>
             <TextInput
               value={draft}
-              onChangeText={(t) => setDraft(t.slice(0, MAX_LEN))}
-              placeholder="Xabar yozing..."
+              onChangeText={(next) => setDraft(next.slice(0, MAX_LEN))}
+              placeholder={t('common.messagePlaceholder')}
               placeholderTextColor={PLACEHOLDER}
               multiline
               maxLength={MAX_LEN}
-              accessibilityLabel="Xabar"
+              accessibilityLabel={t('common.message')}
               // See chat.tsx: `glass()` is typed ViewStyle and TextStyle is
               // not a superset of it, though every property used here is valid
               // on both.
@@ -256,7 +258,7 @@ export default function PeerChatScreen() {
               onPress={handleSend}
               disabled={!canSend}
               accessibilityRole="button"
-              accessibilityLabel="Yuborish"
+              accessibilityLabel={t('common.send')}
               style={[
                 styles.send,
                 canSend ? styles.sendOn : styles.sendOff,

@@ -50,6 +50,7 @@ import { ChatHero } from '@/components/chat/chat-hero';
 import { EmojiPicker } from '@/components/goals/emoji-picker';
 import { MascotHead } from '@/components/v2/mascot-image';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
+import { useT, type TranslateFn } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { selectRelevantMemories, toMemoryContextLines } from '@/lib/memory-retrieval';
 import { type ChatMessage, useChatStore } from '@/store/chat';
@@ -80,10 +81,17 @@ const GREETING_ID = 'seed-greeting';
 // Rare enough not to interrupt a real conversation the child is having.
 const PUZZLE_EVERY_N_TURNS = 4;
 
-const GREETING_TEMPLATE = (name?: string): ChatMessage => ({
+/** The translator is threaded in rather than read here: this greeting is
+ *  appended to the thread as a MESSAGE, so whatever language it is written in
+ *  is the language it keeps — a later switch cannot rewrite a message already
+ *  said. Building it at call time at least means it is said in the language
+ *  the child is reading in right now. */
+const GREETING_TEMPLATE = (t: TranslateFn, name?: string): ChatMessage => ({
   id: GREETING_ID,
   role: 'assistant',
-  content: `Salom${name ? `, ${name}` : ''}! Men DUYO. Endi birga o'rganamiz, suhbatlashamiz va o'samiz. Bugun nima qilmoqchisiz?`,
+  content: name
+    ? t('chat.greetingNamed', { name })
+    : t('onboarding.firstChat.greeting'),
   timestamp: Date.now(),
 });
 
@@ -101,6 +109,7 @@ function startOfTodayMs(): number {
 }
 
 export default function ChatScreen() {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const messages = useChatStore((s) => s.messages);
   const conversationId = useChatStore((s) => s.conversationId);
@@ -149,14 +158,14 @@ export default function ChatScreen() {
     // child at the top of a conversation they had last week reads as DUYO
     // having forgotten it.
     if (state.messages.length === 0 && !state.conversationId) {
-      appendMessage(GREETING_TEMPLATE(child.name));
+      appendMessage(GREETING_TEMPLATE(t, child.name));
     }
     // Local encrypted memory for THIS child — see store/memory.ts. Loaded
     // eagerly so the first send() of the session already has something to
     // search; a slow/failed load just means that one message goes out
     // without local context, never a blocked chat.
     useMemoryStore.getState().load(child.id).catch(() => {});
-  }, [child, hydrated, setActiveChild, appendMessage]);
+  }, [child, hydrated, setActiveChild, appendMessage, t]);
 
   // Fill a conversation opened from the history list. `loadingHistory` is set
   // by openConversation, so this fires once per open and never on a chat the
@@ -269,8 +278,8 @@ export default function ChatScreen() {
     onError: (err) => {
       const detail =
         (err as AxiosErrorShape).response?.data?.detail ??
-        'Xabar yuborilmadi. Internetni tekshiring.';
-      Alert.alert('Xatolik', detail);
+        t('chat.sendFailed');
+      Alert.alert(t('common.error'), detail);
     },
   });
 
@@ -324,9 +333,9 @@ export default function ChatScreen() {
     // nothing at all.
     send.reset();
     useChatStore.getState().startNewConversation();
-    appendMessage(GREETING_TEMPLATE(child.name));
+    appendMessage(GREETING_TEMPLATE(t, child.name));
     setPuzzle(null);
-  }, [child, appendMessage, send]);
+  }, [child, appendMessage, send, t]);
 
   const showSuggestions =
     messages.length === 1 && messages[0]?.id === GREETING_ID;
@@ -379,18 +388,18 @@ export default function ChatScreen() {
           <Pressable
             onPress={() => navigation.navigate('index')}
             accessibilityRole="button"
-            accessibilityLabel="Bosh sahifa"
+            accessibilityLabel={t('nav.home')}
             style={[glass(22, 'sm'), styles.headerIcon, styles.focusable]}
           >
             <ArrowLeft size={22} color={PRIMARY} />
           </Pressable>
 
-          <Text style={styles.headerTitle}>AI Chat</Text>
+          <Text style={styles.headerTitle}>{t('chat.title')}</Text>
 
           <Pressable
             onPress={() => setDrawerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel="Menyu"
+            accessibilityLabel={t('common.menu')}
             style={[glass(22, 'sm'), styles.headerIcon, styles.focusable]}
           >
             <MoreHorizontal size={22} color={PRIMARY} />
@@ -470,12 +479,15 @@ export default function ChatScreen() {
               if (item.kind === 'counter') {
                 return (
                   <View style={[glass(18, 'sm', 0.5), styles.counter]}>
+                    {/* One Text, one key. The count used to be a tinted
+                        span inside the sentence, which meant translating two
+                        halves around it and pinning Uzbek's word order onto
+                        Russian and English. The colour is not worth that. */}
                     <Text style={styles.counterText}>
-                      Bugun{' '}
-                      <Text style={styles.counterCount}>
-                        {remaining}/{DAILY_LIMIT}
-                      </Text>{' '}
-                      suhbat qoldi
+                      {t('chat.remaining', {
+                        remaining,
+                        limit: DAILY_LIMIT,
+                      })}
                     </Text>
                   </View>
                 );
@@ -520,7 +532,7 @@ export default function ChatScreen() {
               <View style={styles.actionsRow}>
                 <ActionChip
                   Icon={Mic}
-                  label="Ovoz bilan gaplashish"
+                  label={t('chat.action.voice')}
                   onPress={() => {
                     setActionsOpen(false);
                     router.push('/(main)/voice');
@@ -528,7 +540,7 @@ export default function ChatScreen() {
                 />
                 <ActionChip
                   Icon={NotebookPen}
-                  label="Yozuv yaratish"
+                  label={t('chat.action.note')}
                   onPress={() => {
                     setActionsOpen(false);
                     navigation.navigate('brain');
@@ -545,7 +557,9 @@ export default function ChatScreen() {
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={
-                  actionsOpen ? 'Amallarni yopish' : 'Boshqa amallar'
+                  actionsOpen
+                    ? t('chat.a11y.closeActions')
+                    : t('chat.a11y.moreActions')
                 }
                 style={[
                   glass(16, 'sm', 0.92),
@@ -567,14 +581,14 @@ export default function ChatScreen() {
                   onChangeText={setInput}
                   placeholder={
                     limitReached
-                      ? 'Bugungi limit tugadi. Ertaga davom etamiz.'
-                      : 'Chatda yozish...'
+                      ? t('chat.limitReached')
+                      : t('chat.inputPlaceholder')
                   }
                   placeholderTextColor={PLACEHOLDER}
                   multiline
                   maxLength={2000}
                   editable={!send.isPending && !limitReached}
-                  accessibilityLabel="Chat xabari"
+                  accessibilityLabel={t('chat.a11y.input')}
                   style={styles.input}
                 />
                 <Pressable
@@ -594,7 +608,7 @@ export default function ChatScreen() {
                 onPress={handleSend}
                 disabled={!canSend}
                 accessibilityRole="button"
-                accessibilityLabel="Yuborish"
+                accessibilityLabel={t('common.send')}
                 style={[
                   styles.send,
                   canSend ? styles.sendOn : styles.sendOff,
@@ -715,6 +729,7 @@ function MessageBubble({
   onRate,
   sending,
 }: MessageBubbleProps) {
+  const t = useT();
   const isChild = message.role === 'child';
   const source = message.source;
   const quickReplies = message.quickReplies;
@@ -786,7 +801,7 @@ function MessageBubble({
             <Pressable
               onPress={() => onRate(message.id, 'up')}
               accessibilityRole="button"
-              accessibilityLabel="Bu javob yoqdi"
+              accessibilityLabel={t('chat.a11y.rateUp')}
               accessibilityState={{ selected: rating === 'up' }}
               hitSlop={8}
               style={[styles.rateButton, styles.focusable]}
@@ -796,7 +811,7 @@ function MessageBubble({
             <Pressable
               onPress={() => onRate(message.id, 'down')}
               accessibilityRole="button"
-              accessibilityLabel="Bu javob yoqmadi"
+              accessibilityLabel={t('chat.a11y.rateDown')}
               accessibilityState={{ selected: rating === 'down' }}
               hitSlop={8}
               style={[styles.rateButton, styles.focusable]}

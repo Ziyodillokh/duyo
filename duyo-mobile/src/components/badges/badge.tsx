@@ -9,6 +9,8 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 
+import type { TranslationKey } from '@/i18n';
+
 /**
  * The achievement badges.
  *
@@ -89,15 +91,19 @@ export const BADGE_FOR: Record<
 };
 
 /** What earns each one, in the child's words. The predicates themselves live
- *  in gamification/achievements.py; this is the same rule, said out loud. */
-export const BADGE_RULE: Record<string, string> = {
-  first_chat: 'DUYO bilan birinchi marta gaplashing',
-  curious: '10 ta xabar yozing',
-  explorer: '50 ta xabar yozing',
-  streak_3: '3 kun ketma-ket kiring',
-  streak_7: '7 kun ketma-ket kiring',
-  level_up: '2-darajaga chiqing',
-  duyo_dust: '3-darajaga chiqing',
+ *  in gamification/achievements.py; this is the same rule, said out loud.
+ *
+ *  Translation KEYS: the table is built once at module load, so a finished
+ *  sentence here could never follow a language switch. The shelf resolves
+ *  each with `t()` as it draws the row. */
+export const BADGE_RULE: Record<string, TranslationKey> = {
+  first_chat: 'badge.rule.firstChat',
+  curious: 'badge.rule.curious',
+  explorer: 'badge.rule.explorer',
+  streak_3: 'badge.rule.streak3',
+  streak_7: 'badge.rule.streak7',
+  level_up: 'badge.rule.levelUp',
+  duyo_dust: 'badge.rule.duyoDust',
 };
 
 /**

@@ -7,6 +7,7 @@ import {
   User,
 } from 'lucide-react-native';
 
+import type { TranslationKey } from '@/i18n';
 import { type MemoryCategory } from '@/lib/memory-db';
 
 // Matches the `typeof Download`-style icon typing already used in
@@ -14,13 +15,18 @@ import { type MemoryCategory } from '@/lib/memory-db';
 // `LucideIcon` type from its public entry point.
 type IconType = typeof User;
 
-export const MEMORY_CATEGORY_LABELS: Record<MemoryCategory, string> = {
-  profile: 'Profil',
-  preferences: 'Yoqtirganlarim',
-  interests: 'Qiziqishlarim',
-  learning: "O'qish",
-  research: 'Ilmiy ish',
-  notes: 'Boshqa',
+/**
+ * Keys, not finished text. This table is built once when the module is
+ * evaluated, so a resolved label could never follow a language switch —
+ * every screen calls `t()` on it at render instead.
+ */
+export const MEMORY_CATEGORY_LABELS: Record<MemoryCategory, TranslationKey> = {
+  profile: 'memory.cat.profile',
+  preferences: 'memory.cat.preferences',
+  interests: 'memory.cat.interests',
+  learning: 'memory.cat.learning',
+  research: 'memory.cat.research',
+  notes: 'memory.cat.notes',
 };
 
 export const MEMORY_CATEGORY_ICONS: Record<MemoryCategory, IconType> = {
@@ -48,11 +54,11 @@ export const MEMORY_CATEGORY_COLOURS: Record<MemoryCategory, string> = {
 };
 
 /** A short line telling the child WHY this kind of thing is worth keeping. */
-export const MEMORY_CATEGORY_HINTS: Record<MemoryCategory, string> = {
-  profile: 'Sen haqingda',
-  preferences: 'Yoqtirgan narsang',
-  interests: 'Qiziqishing',
-  learning: "O'qishing haqida",
-  research: 'Ilmiy ishing',
-  notes: 'Eslatma',
+export const MEMORY_CATEGORY_HINTS: Record<MemoryCategory, TranslationKey> = {
+  profile: 'memory.hint.profile',
+  preferences: 'memory.hint.preferences',
+  interests: 'memory.hint.interests',
+  learning: 'memory.hint.learning',
+  research: 'memory.hint.research',
+  notes: 'memory.hint.notes',
 };

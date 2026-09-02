@@ -17,6 +17,8 @@
  * number is a privacy incident. Every pattern below is tuned to over-block.
  */
 
+import { translate, type TranslateFn, type TranslationKey } from '@/i18n';
+
 export type GuardVerdict = 'safe' | 'sensitive';
 
 export interface GuardResult {
@@ -109,17 +111,33 @@ export function screenMemoryContent(content: string): GuardResult {
     : { verdict: 'safe', reasons: [] };
 }
 
-/** Human-readable (Uzbek) hint for why something was blocked — best-effort, for UI only. */
-export function describeGuardReasons(reasons: readonly string[]): string {
-  const labels: Record<string, string> = {
-    empty: "bo'sh matn",
-    phone_number: 'telefon raqamiga oxshash',
-    card_number: 'karta raqamiga oxshash',
-    email: 'email manzil',
-    address: 'manzilga oxshash',
-    credential: 'parol/kalit so\'zga oxshash',
-    payment: "to'lov ma'lumotiga oxshash",
-    live_location: 'hozirgi joylashuvga oxshash',
-  };
-  return reasons.map((r) => labels[r] ?? r).join(', ');
+const REASON_KEYS: Record<string, TranslationKey> = {
+  empty: 'memory.guard.empty',
+  phone_number: 'memory.guard.phone',
+  card_number: 'memory.guard.card',
+  email: 'memory.guard.email',
+  address: 'memory.guard.address',
+  credential: 'memory.guard.password',
+  payment: 'memory.guard.payment',
+  live_location: 'memory.guard.location',
+};
+
+/**
+ * Human-readable hint for why something was blocked — best-effort, for UI only.
+ *
+ * The child reads this inside an alert, so it has to follow the app's language;
+ * a lib has no hooks, so the screen hands its own `t` down. The Uzbek default is
+ * for the callers that are not talking to a child — store/memory.ts puts this
+ * string into a developer-facing Error message.
+ */
+export function describeGuardReasons(
+  reasons: readonly string[],
+  t: TranslateFn = (key, vars) => translate('uz', key, vars),
+): string {
+  return reasons
+    .map((r) => {
+      const key = REASON_KEYS[r];
+      return key ? t(key) : r;
+    })
+    .join(', ');
 }
