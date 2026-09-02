@@ -150,6 +150,10 @@ function NotificationRow({
   notification: NotificationWire;
   onOpen: () => void;
 }) {
+  // Its own, rather than threaded from the screen: this is what subscribes the
+  // ROW to the language, so the timestamp under it redraws on a switch instead
+  // of waiting for the next time something else moves the list.
+  const t = useT();
   const unread = !notification.read;
   return (
     <Pressable
@@ -173,7 +177,7 @@ function NotificationRow({
             {notification.title}
           </Text>
           {!!notification.sent_at && (
-            <Text style={styles.when}>{shortWhen(notification.sent_at)}</Text>
+            <Text style={styles.when}>{shortWhen(notification.sent_at, t)}</Text>
           )}
         </View>
         <Text style={styles.rowBody} numberOfLines={2}>

@@ -38,6 +38,7 @@ import {
   useProjects,
   useUpdateProject,
 } from '@/hooks/use-history';
+import { useT } from '@/i18n';
 import { glass } from '@/lib/glass';
 import { useChildStore } from '@/store/child';
 
@@ -58,6 +59,7 @@ const BG_BOTTOM = '#EDF2FD';
  * it, so they need not be repeated at the top of each one.
  */
 export default function ProjectsScreen() {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
 
@@ -80,14 +82,14 @@ export default function ProjectsScreen() {
   const [deleting, setDeleting] = useState<Project | null>(null);
 
   const failed = (err: unknown) =>
-    Alert.alert('Saqlanmadi', projectErrorMessage(err));
+    Alert.alert(t('common.saveFailedTitle'), projectErrorMessage(err));
 
   const actions: SheetAction[] = actionsFor
     ? [
         {
           // First: the only reversible one-tap action here, and the one a
           // child reaches for repeatedly.
-          label: actionsFor.pinned_at ? 'Qadashni bekor qilish' : 'Qadab qo‘yish',
+          label: actionsFor.pinned_at ? t('projects.unpin') : t('projects.pin'),
           icon: actionsFor.pinned_at ? PinOff : Pin,
           onPress: () =>
             update.mutate(
@@ -96,7 +98,7 @@ export default function ProjectsScreen() {
             ),
         },
         {
-          label: 'Suhbatlarini ko‘rish',
+          label: t('projects.viewChats'),
           icon: MessagesSquare,
           onPress: () =>
             router.push({
@@ -105,17 +107,17 @@ export default function ProjectsScreen() {
             }),
         },
         {
-          label: 'Nomini o‘zgartirish',
+          label: t('common.rename'),
           icon: Pencil,
           onPress: () => setRenaming(actionsFor),
         },
         {
-          label: 'Ko‘rsatmalarni tahrirlash',
+          label: t('projects.editInstructions'),
           icon: FileText,
           onPress: () => setEditingInstructions(actionsFor),
         },
         {
-          label: 'O‘chirish',
+          label: t('common.delete'),
           icon: Trash2,
           destructive: true,
           onPress: () => setDeleting(actionsFor),
@@ -136,16 +138,16 @@ export default function ProjectsScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.title}>Loyihalar</Text>
+          <Text style={styles.title}>{t('projects.title')}</Text>
           <Pressable
             onPress={() => setCreating(true)}
             accessibilityRole="button"
-            accessibilityLabel="Yangi loyiha"
+            accessibilityLabel={t('projects.new')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <Plus size={22} color={PRIMARY} strokeWidth={2.2} />
@@ -176,11 +178,10 @@ export default function ProjectsScreen() {
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Text style={styles.emptyGlyph}>📁</Text>
-                <Text style={styles.emptyTitle}>Hali loyiha yo‘q</Text>
-                <Text style={styles.emptyBody}>
-                  Loyiha — bir mavzudagi suhbatlarni bir joyga yig‘ish uchun.
-                  Masalan "Matematika" yoki "Ilmiy ishim".
+                <Text style={styles.emptyTitle}>
+                  {t('projects.emptyTitle')}
                 </Text>
+                <Text style={styles.emptyBody}>{t('projects.emptyBody')}</Text>
               </View>
             }
           />
@@ -190,10 +191,10 @@ export default function ProjectsScreen() {
       <TextPrompt
         key={creating ? 'create-open' : 'create-closed'}
         visible={creating}
-        title="Yangi loyiha"
-        placeholder="Masalan: Matematika"
+        title={t('projects.new')}
+        placeholder={t('projects.namePlaceholder')}
         maxLength={60}
-        confirmLabel="Yaratish"
+        confirmLabel={t('common.create')}
         onCancel={() => setCreating(false)}
         onSubmit={(name) => {
           setCreating(false);
@@ -216,7 +217,7 @@ export default function ProjectsScreen() {
       <TextPrompt
         key={renaming?.id ?? 'rename-none'}
         visible={renaming !== null}
-        title="Nomini o‘zgartirish"
+        title={t('common.rename')}
         maxLength={60}
         initialValue={renaming?.name ?? ''}
         onCancel={() => setRenaming(null)}
@@ -235,17 +236,17 @@ export default function ProjectsScreen() {
 
       <ActionSheet
         visible={!!deleting}
-        title="Loyihani o‘chirish"
+        title={t('projects.delete.title')}
         message={
           deleting
-            ? `"${deleting.name}" o‘chirilsinmi? Ichidagi suhbatlar o‘chmaydi — ular loyihasiz ro‘yxatga qaytadi.`
+            ? t('projects.delete.body', { name: deleting.name })
             : undefined
         }
         actions={
           deleting
             ? [
                 {
-                  label: 'O‘chirish',
+                  label: t('common.delete'),
                   icon: Trash2,
                   destructive: true,
                   onPress: () =>
@@ -260,8 +261,8 @@ export default function ProjectsScreen() {
       <TextPrompt
         key={editingInstructions?.id ?? 'instructions-none'}
         visible={editingInstructions !== null}
-        title="Loyiha ko‘rsatmalari"
-        placeholder="Masalan: menga 6-sinf darajasida tushuntir"
+        title={t('projects.instructions')}
+        placeholder={t('projects.instructionsPlaceholder')}
         maxLength={1000}
         multiline
         initialValue={editingInstructions?.instructions ?? ''}
@@ -289,6 +290,7 @@ function ProjectRow({
   onOpen: () => void;
   onActions: () => void;
 }) {
+  const t = useT();
   // The project's own colour is data, not theme — it is what tells two folders
   // apart in the history list, so the tile keeps tinting with it.
   const colour = project.colour ?? PRIMARY;
@@ -327,8 +329,8 @@ function ProjectRow({
             )}
           </View>
           <Text style={styles.rowMeta}>
-            {project.conversation_count} ta suhbat
-            {project.instructions ? ' · ko‘rsatmali' : ''}
+            {t('projects.chatCount', { count: project.conversation_count })}
+            {project.instructions ? t('projects.hasInstructions') : ''}
           </Text>
         </View>
 
@@ -337,7 +339,7 @@ function ProjectRow({
         <Pressable
           onPress={onActions}
           accessibilityRole="button"
-          accessibilityLabel="Amallar"
+          accessibilityLabel={t('common.actions')}
           hitSlop={10}
           style={[styles.moreButton, styles.focusable]}
         >

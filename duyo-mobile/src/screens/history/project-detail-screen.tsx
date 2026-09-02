@@ -13,6 +13,7 @@ import { Text } from '@/components/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useConversations, useProjects } from '@/hooks/use-history';
+import { useT } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
@@ -28,6 +29,7 @@ const BG_BOTTOM = '#EDF2FD';
 
 /** One project: its standing instructions, and the chats filed inside it. */
 export default function ProjectDetailScreen() {
+  const t = useT();
   const child = useChildStore((s) => s.child);
   const childId = child?.id;
   const { projectId, name } = useLocalSearchParams<{
@@ -61,16 +63,18 @@ export default function ProjectDetailScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Orqaga"
+            accessibilityLabel={t('common.back')}
             style={[glass(24, 'sm'), styles.headerButton, styles.focusable]}
           >
             <ArrowLeft size={23} color={PRIMARY} strokeWidth={2} />
           </Pressable>
           <View style={styles.headerText}>
             <Text style={styles.title} numberOfLines={1}>
-              {project?.name ?? name ?? 'Loyiha'}
+              {project?.name ?? name ?? t('projects.fallbackName')}
             </Text>
-            <Text style={styles.subtitle}>{rows.length} ta suhbat</Text>
+            <Text style={styles.subtitle}>
+              {t('projects.chatCount', { count: rows.length })}
+            </Text>
           </View>
         </View>
 
@@ -82,12 +86,12 @@ export default function ProjectDetailScreen() {
               <View style={styles.instructionsHead}>
                 <Sparkles size={14} color={PRIMARY} strokeWidth={2.2} />
                 <Text style={styles.instructionsLabel}>
-                  Loyiha ko‘rsatmalari
+                  {t('projects.instructions')}
                 </Text>
               </View>
               <Text style={styles.instructionsBody}>{project.instructions}</Text>
               <Text style={styles.instructionsNote}>
-                Bu ko‘rsatma shu loyihadagi har bir suhbatda hisobga olinadi.
+                {t('projects.instructionsNote')}
               </Text>
             </View>
           )}
@@ -95,7 +99,7 @@ export default function ProjectDetailScreen() {
           <Pressable
             onPress={startChatHere}
             accessibilityRole="button"
-            accessibilityLabel="Shu loyihada yangi suhbat"
+            accessibilityLabel={t('projects.detail.newChat')}
             style={({ pressed }) => [
               styles.cta,
               styles.focusable,
@@ -103,7 +107,7 @@ export default function ProjectDetailScreen() {
             ]}
           >
             <Plus size={18} color="#FFFFFF" strokeWidth={2.4} />
-            <Text style={styles.ctaText}>Shu loyihada yangi suhbat</Text>
+            <Text style={styles.ctaText}>{t('projects.detail.newChat')}</Text>
           </Pressable>
         </View>
 
@@ -123,7 +127,9 @@ export default function ProjectDetailScreen() {
                   router.push('/(main)/(tabs)/chat');
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={item.title}
+                accessibilityLabel={[item.title, item.preview]
+                  .filter(Boolean)
+                  .join(', ')}
                 style={({ pressed }) => [
                   glass(20, 'md'),
                   styles.row,
@@ -154,11 +160,10 @@ export default function ProjectDetailScreen() {
               <View style={styles.empty}>
                 <Text style={styles.emptyGlyph}>💬</Text>
                 <Text style={styles.emptyTitle}>
-                  Bu loyihada hali suhbat yo‘q
+                  {t('projects.detail.emptyTitle')}
                 </Text>
                 <Text style={styles.emptyBody}>
-                  Yuqoridagi tugma bilan boshla, yoki tarixdan mavjud suhbatni
-                  shu loyihaga sol.
+                  {t('projects.detail.emptyBody')}
                 </Text>
               </View>
             }

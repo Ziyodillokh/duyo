@@ -310,7 +310,7 @@ export function ChatDrawer({
                   >
                     {conv.title}
                   </Text>
-                  <Text style={styles.when}>{shortWhen(conv.updated_at)}</Text>
+                  <Text style={styles.when}>{shortWhen(conv.updated_at, t)}</Text>
                 </Pressable>
               );
             })}
