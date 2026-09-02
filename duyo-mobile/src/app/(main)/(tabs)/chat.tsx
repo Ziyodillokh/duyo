@@ -372,6 +372,18 @@ export default function ChatScreen() {
   const canSend =
     input.trim().length > 0 && !send.isPending && !!child && !limitReached;
 
+  /**
+   * An empty field offers the microphone; a written one offers send.
+   *
+   * Voice used to live in two places a thread never shows: the empty-state
+   * hero, which stands down the moment there is a conversation, and behind the
+   * `+`. So the moment the child had something to talk about, the way to talk
+   * about it out loud was gone. This is the one control that is always there,
+   * and swapping it costs no width on a narrow phone — the alternative was a
+   * fourth button beside `+`, the field, emoji and send.
+   */
+  const offersVoice = input.trim().length === 0 && !send.isPending;
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -605,17 +617,25 @@ export default function ChatScreen() {
               </View>
 
               <Pressable
-                onPress={handleSend}
-                disabled={!canSend}
+                onPress={
+                  offersVoice ? () => router.push('/(main)/voice') : handleSend
+                }
+                disabled={!offersVoice && !canSend}
                 accessibilityRole="button"
-                accessibilityLabel={t('common.send')}
+                accessibilityLabel={
+                  offersVoice ? t('chat.action.voice') : t('common.send')
+                }
                 style={[
                   styles.send,
-                  canSend ? styles.sendOn : styles.sendOff,
+                  offersVoice || canSend ? styles.sendOn : styles.sendOff,
                   styles.focusable,
                 ]}
               >
-                <Send size={19} color={canSend ? '#FFFFFF' : MUTED} />
+                {offersVoice ? (
+                  <Mic size={20} color="#FFFFFF" />
+                ) : (
+                  <Send size={19} color={canSend ? '#FFFFFF' : MUTED} />
+                )}
               </Pressable>
             </View>
           </View>
