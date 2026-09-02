@@ -3,13 +3,7 @@ import { AccessibilityInfo } from 'react-native';
 
 import { FIELD_PAD, galaxyRadius, type Galaxy } from '@/lib/galaxy-layout';
 import { GraphPhysics, type SettleFilm } from '@/lib/graph-physics';
-
-/** Stable per-title number for the scatter order. */
-function hashOf(title: string): number {
-  let h = 0;
-  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
-  return h;
-}
+import { hash32 } from '@/lib/seeded';
 
 /**
  * Deterministic scattered homes. The galaxy layout groups by connectivity —
@@ -26,7 +20,7 @@ function scatterSeeds(
 ): { x: number; y: number }[] {
   const { nodes, cx, cy } = galaxy;
   const order = nodes
-    .map((n, i) => ({ i, h: hashOf(n.title) }))
+    .map((n, i) => ({ i, h: hash32(n.title) }))
     .sort((a, b) => a.h - b.h || a.i - b.i);
   const pos = new Array<{ x: number; y: number }>(nodes.length);
   // Seeds land at a fraction of the size the physics will settle to, and the
@@ -179,6 +173,17 @@ export interface GraphSim {
    * still picture.
    */
   grabAt(x: number, y: number): string | null;
+  /**
+   * Grab a body BY TITLE, pinning it at a point the caller supplies rather
+   * than at the physics position.
+   *
+   * This exists for the wanderers. A drifting planet is drawn up to sixteen
+   * points from where the simulation thinks it is, so the ordinary
+   * position-based `grabAt` would either miss it or snap it back. Pinning it
+   * where it was drawn hands it to the physics with no jump at all, and from
+   * that moment it is an ordinary planet.
+   */
+  grabTitleAt(title: string, x: number, y: number): boolean;
   dragTo(x: number, y: number): void;
   release(): void;
   reduceMotion: boolean;
@@ -445,6 +450,21 @@ export function useGraphSim(
         built.sim.pin(best, built.sim.xs[best], built.sim.ys[best]);
         setDragging(true);
         return built.nodes[best].title;
+      },
+      grabTitleAt(title: string, x: number, y: number) {
+        if (!built || reduceMotion || still) return false;
+        const i = built.index.get(title.toLowerCase());
+        if (i === undefined) return false;
+        setOpened(built);
+        setReleaseFilm(null);
+        setFrameAt(-1);
+        // Where it was DRAWN becomes where it is. The bodies around it will
+        // find the new arrangement on the drag's own loop.
+        built.sim.xs[i] = x;
+        built.sim.ys[i] = y;
+        built.sim.pin(i, x, y);
+        setDragging(true);
+        return true;
       },
       dragTo(x: number, y: number) {
         // No setState: the drag loop is already running and will pick the new

@@ -9,9 +9,16 @@ import type { Galaxy } from '@/lib/galaxy-layout';
  * counts them exactly, off the same branches note-graph.tsx renders.
  */
 
-/** 51 <Defs> children + 4 star paths. Paid once whatever the notebook holds. */
-const FIXED = 55;
-const SUN = 3;
+/** 47 <Defs> children + 4 star paths. Paid once whatever the notebook holds.
+ *
+ *  The sun's glow gradient and its three stops moved to sky-ambient.tsx, where
+ *  they are rasterised once into a canvas of their own. Counted as gone
+ *  unconditionally: the still paths (a thumbnail, reduce-motion) keep the glow
+ *  in this canvas, but neither of them animates a settle, so the only number
+ *  this count ever decides is the one for the animated case. */
+const FIXED = 51;
+/** <G> + the core circle. The glow is a separate canvas now. */
+const SUN = 2;
 const TAG_STAR = 5;
 const UNWRITTEN = 1;
 const FLAT_PLANET = 2;
@@ -53,6 +60,9 @@ export function sceneElements(
   galaxy: Galaxy,
   withLabels: boolean,
   labels: number,
+  /** Unlinked bodies lifted out into their own drifting canvases. Each takes
+   *  a flat planet off this count — the main sky is cheaper for having them. */
+  lifted = 0,
 ): number {
   let total = FIXED + galaxy.edges.length;
   for (const n of galaxy.nodes) {
@@ -69,5 +79,5 @@ export function sceneElements(
           : DETAILED_PLANET;
     }
   }
-  return withLabels ? total + labels : total;
+  return (withLabels ? total + labels : total) - lifted * FLAT_PLANET;
 }

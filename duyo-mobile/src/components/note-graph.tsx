@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
   LayoutChangeEvent,
   PixelRatio,
   Pressable,
@@ -10,8 +11,12 @@ import {
 import { Text } from '@/components/text';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, {
@@ -27,7 +32,21 @@ import Svg, {
 } from 'react-native-svg';
 
 import type { GraphEdge, GraphNode } from '@/api/endpoints/notes';
+import {
+  DustRing,
+  SunBreath,
+  TwinkleField,
+  useWanderClock,
+  Wanderer,
+  type Camera,
+} from '@/components/sky-ambient';
 import { SETTLE_MS, useGraphSim } from '@/hooks/use-graph-sim';
+import {
+  wanderAt,
+  WANDER_MAX,
+  WANDER_MIN_NODES,
+  WANDER_REACH,
+} from '@/lib/ambient';
 import {
   FIELD_PAD,
   galaxyRadius,
@@ -35,6 +54,7 @@ import {
   starField,
   UNFORMED,
   UNTAGGED,
+  type Galaxy,
   type OrbitedNode,
 } from '@/lib/galaxy-layout';
 import { lift } from '@/lib/glass';
@@ -43,6 +63,7 @@ import {
   PLANET_DETAIL_ABOVE,
   sceneElements,
 } from '@/lib/scene-cost';
+import { hash32, rand01 } from '@/lib/seeded';
 
 /** As close to invisible as a line can be and still be findable — the
  *  threads are a secret the selection reveals. */
@@ -130,6 +151,13 @@ const READABLE_ZOOM = 0.85;
  *  parent transform and alpha never dirty the SvgView's bitmap. */
 const INTRO_MS = 520;
 
+/** One frozen empty set, so "this notebook has landed nothing" is a stable
+ *  reference and every memo keyed on it keeps its bail-out. */
+const EMPTY_TITLES: ReadonlySet<string> = new Set<string>();
+/** And the same for "nothing drifts", so reduce-motion does not hand every
+ *  memo below it a fresh array on every render. */
+const NO_BODIES: OrbitedNode[] = [];
+
 /** What a screen reader says. A tag is not an unwritten note — it has no note
  *  behind it by design, and calling it "unwritten" would invite the child to
  *  write one. */
@@ -173,126 +201,137 @@ const RIM_LIGHT: Record<PlanetKey, string> = {
   neptune: '#9FB6FF',
 };
 
-/** Stable per-note number, so a planet keeps its character across visits. */
-function seedOf(title: string): number {
-  let h = 0;
-  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
-  return h;
-}
+/** A wanderer's own canvas: room for a 5.5pt disc and the name under it.
+ *  96 x 56pt is 194 KB on a 3x phone — the whole four-planet drift costs
+ *  less bitmap than one twinkle cluster and a half. */
+const WANDER_W = 96;
+const WANDER_H = 56;
+/** Where the disc's centre sits in it, leaving the label its 13pt drop. */
+const WANDER_TOP = 22;
 
-/** Deterministic 0..1 from an integer — mulberry32's mixing step. Meteors
- *  are timed off the simulation clock, so even they replay identically. */
-function rand01(seed: number): number {
-  let t = (seed + 0x6d2b79f5) >>> 0;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
+/** A shooting star every ~11 seconds. */
+const METEOR_GAP_MS = 11000;
+const METEOR_FLY_MS = 900;
+/** The streak's own canvas. Fixed and tiny: the flight is a parent-view
+ *  transform over it, so this bitmap is rasterised ONCE per shot and never
+ *  again — 120x40pt is 43 KB on a 3x phone against the 11.8 MB a
+ *  viewport-sized canvas used to re-rasterise thirty times a second. */
+const STREAK_W = 120;
+const STREAK_H = 40;
 
-/** A shooting star every ~11 seconds, each with its own moment, path and
- *  length. Returns null between meteors. */
-const METEOR_PERIOD = 320;
-const METEOR_LIFE = 26;
-function meteorAt(tick: number, w: number, h: number) {
-  const m = Math.floor(tick / METEOR_PERIOD);
-  // Each meteor waits a different slice of its window before flying.
-  const delay = Math.floor(rand01(m * 7919 + 13) * (METEOR_PERIOD - METEOR_LIFE - 30));
-  const p = (tick % METEOR_PERIOD) - delay;
-  if (p < 0 || p >= METEOR_LIFE) return null;
-
-  const sx = rand01(m * 104729 + 7) * w;
-  const sy = rand01(m * 130363 + 3) * h * 0.55;
-  const toRight = rand01(m * 15485863 + 1) < 0.5;
-  const run = (0.3 + 0.25 * rand01(m * 6151 + 9)) * w * (toRight ? 1 : -1);
-  const fall = 0.14 * h + 0.1 * h * rand01(m * 3571 + 5);
-
-  const t = p / METEOR_LIFE;
-  const hx = sx + run * t;
-  const hy = sy + fall * t;
-  const tailT = Math.max(0, t - 0.22);
-  // Bright near the head, gone by the tail; fades in fast, out slow.
-  const fade = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+/** One meteor's whole flight, decided before it starts. */
+function meteorShot(i: number, w: number, h: number) {
+  const toRight = rand01(i * 15485863 + 1) < 0.5;
+  const runX = (0.3 + 0.25 * rand01(i * 6151 + 9)) * w * (toRight ? 1 : -1);
+  const runY = 0.14 * h + 0.1 * h * rand01(i * 3571 + 5);
   return {
-    hx,
-    hy,
-    tx: sx + run * tailT,
-    ty: sy + fall * tailT,
-    fade,
+    // Where the streak's canvas starts, top-left, in the parent's coordinates.
+    x0: rand01(i * 104729 + 7) * w - STREAK_W / 2,
+    y0: rand01(i * 130363 + 3) * h * 0.55 - STREAK_H / 2,
+    runX,
+    runY,
+    // The streak is drawn pointing right; the flight angle turns it.
+    angle: (Math.atan2(runY, runX) * 180) / Math.PI,
+    // 0.6s to 1.4s of waiting past the base gap, so meteors do not arrive
+    // on a metronome.
+    waitMs: METEOR_GAP_MS * (0.6 + 0.8 * rand01(i * 7919 + 13)),
   };
 }
 
 /**
- * The shooting star, on its own canvas and its own clock.
+ * The shooting star.
  *
- * It is the one thing on this screen that genuinely needs a clock: the sky
- * itself is settled and still, and a meteor that only moved when the physics
- * did would never fly at all. So it keeps a tick of its own — but the tick
- * re-renders THIS component and nothing else, and this component is three
- * elements in a canvas of its own, so a frame costs a three-element repaint
- * instead of a five-hundred-element one.
+ * It used to keep a 30fps tick and recompute its head and tail positions per
+ * frame. Three elements is not what that cost: an SvgView repaint
+ * re-rasterises the WHOLE canvas, and that canvas was viewport-sized — 11.8 MB
+ * allocated, zeroed and painted, thirty times a second, for 0.9s out of every
+ * 11. It was the most expensive thing on this screen.
  *
- * It also stops between meteors: `meteorAt` returns null for most of the
- * period, and the loop idles at 8fps until one is due rather than running at
- * 30 to discover there is nothing to draw.
+ * Now the streak is a fixed drawing in a 120x40 canvas and the flight is a
+ * translate/rotate/fade on the parent View, which Android composites without
+ * redrawing a pixel. Per frame: zero elements, zero allocations, no JS. React
+ * renders once per meteor — about five times a minute — to pick the next
+ * flight, and that render re-rasterises 43 KB.
  */
-const METEOR_IDLE_MS = 1000 / 8;
-const METEOR_FLY_MS = 1000 / 30;
-
 function Meteor({
   width,
   height,
   dim,
+  on,
 }: {
   width: number;
   height: number;
   dim: boolean;
+  on: boolean;
 }) {
-  const [tick, setTick] = useState(0);
+  const [shot, setShot] = useState(0);
+  const t = useSharedValue(0);
+  const m = useMemo(() => meteorShot(shot, width, height), [shot, width, height]);
 
   useEffect(() => {
-    let frame: number | null = null;
-    let last = 0;
-    let flying = false;
+    if (!on) {
+      cancelAnimation(t);
+      t.set(0);
+      return;
+    }
+    const next = shot + 1;
+    t.set(0);
+    t.set(
+      withDelay(
+        m.waitMs,
+        withTiming(
+          1,
+          { duration: METEOR_FLY_MS, easing: Easing.linear },
+          (finished) => {
+            'worklet';
+            // The next flight is chosen on the JS thread, once, when this one
+            // lands — not thirty times a second to discover nothing is due.
+            if (finished) runOnJS(setShot)(next);
+          },
+        ),
+      ),
+    );
+    return () => cancelAnimation(t);
+  }, [on, m, t, shot]);
 
-    const loop = (now: number) => {
-      const gap = flying ? METEOR_FLY_MS : METEOR_IDLE_MS;
-      if (now - last >= gap) {
-        last = now;
-        setTick((t) => {
-          const next = t + 1;
-          flying = meteorAt(next, width, height) !== null;
-          return next;
-        });
-      }
-      frame = requestAnimationFrame(loop);
+  const style = useAnimatedStyle(() => {
+    const u = t.get();
+    // Bright near the head, gone by the tail; fades in fast, out slow.
+    const fade = u <= 0 || u >= 1 ? 0 : u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85;
+    return {
+      opacity: Math.max(0, fade) * (dim ? 0.5 : 1),
+      transform: [
+        { translateX: m.x0 + m.runX * u },
+        { translateY: m.y0 + m.runY * u },
+        { rotate: `${m.angle}deg` },
+      ],
     };
-    frame = requestAnimationFrame(loop);
-    return () => {
-      if (frame !== null) cancelAnimationFrame(frame);
-    };
-  }, [width, height]);
-
-  const met = meteorAt(tick, width, height);
-  if (!met) return null;
+  });
 
   return (
-    <Svg
-      width={width}
-      height={height}
-      style={StyleSheet.absoluteFill}
+    <Animated.View
       pointerEvents="none"
+      // Explicit: an alpha under 1 on a view Android thinks has overlapping
+      // children is drawn through an offscreen buffer, which would put back
+      // the per-frame allocation this rewrite exists to remove. One child, no
+      // overlap, so alpha is applied straight into the draw.
+      needsOffscreenAlphaCompositing={false}
+      style={[
+        { position: 'absolute', left: 0, top: 0, width: STREAK_W, height: STREAK_H },
+        style,
+      ]}
     >
-      <G opacity={met.fade * (dim ? 0.5 : 1)}>
+      <Svg width={STREAK_W} height={STREAK_H}>
         <Path
-          d={`M ${met.tx} ${met.ty} L ${met.hx} ${met.hy}`}
+          d={`M 6 ${STREAK_H / 2} L ${STREAK_W - 8} ${STREAK_H / 2}`}
           stroke="rgba(255,255,255,0.85)"
           strokeWidth={1.4}
           strokeLinecap="round"
           fill="none"
         />
-        <Circle cx={met.hx} cy={met.hy} r={1.8} fill="#FFFFFF" />
-      </G>
-    </Svg>
+        <Circle cx={STREAK_W - 8} cy={STREAK_H / 2} r={1.8} fill="#FFFFFF" />
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -696,12 +735,67 @@ export function NoteGraph({
     );
   }, [stars, focus]);
 
+  /**
+   * Wanderers a finger has landed, and the notebook they belong to.
+   *
+   * Keyed by the galaxy object rather than reset from an effect: a rebuilt
+   * notebook is a different object, so the set simply stops matching and the
+   * derived `landedTitles` below is empty again. Nothing has to run to clear
+   * it, and no render is spent discovering that it should have.
+   */
+  const [landed, setLanded] = useState<{
+    of: Galaxy | null;
+    titles: ReadonlySet<string>;
+  }>(() => ({ of: null, titles: new Set<string>() }));
+  const landedTitles = landed.of === galaxy ? landed.titles : EMPTY_TITLES;
+
+  /**
+   * Which bodies are allowed to drift.
+   *
+   * Unlinked notes only, and never more than four. An edge lives in the shared
+   * canvas, so a linked planet cannot move without its thread being redrawn —
+   * and redrawing one thread repaints all five hundred elements of the sky.
+   * A note nothing links to has no thread, so it is free to go.
+   *
+   * Computed from the galaxy alone, ABOVE the scene cost, and that ordering is
+   * load-bearing: the cost feeds `canAnimate`, which feeds `sim`, so anything
+   * derived from `sim` cannot also be an input to the cost. Reduce-motion is
+   * therefore not consulted here — `drifting` below is what actually lifts
+   * bodies out of the canvas, and it keeps them in when motion is off.
+   */
+  const wanderers = useMemo(() => {
+    if (preview || !galaxy) return [];
+    if (galaxy.nodes.length < WANDER_MIN_NODES) return [];
+    const linked = new Set<string>();
+    for (const e of galaxy.edges) {
+      linked.add(e.sourceTitle.toLowerCase());
+      linked.add(e.targetTitle.toLowerCase());
+    }
+    return galaxy.nodes
+      .filter(
+        (n) =>
+          n.ring !== 0 &&
+          // Written notes only. A #tag is a star and an unwritten [[link]] is
+          // a ghost — each is drawn by a branch of its own in the canvas, and
+          // a body lifted out has to be one the small canvas below can draw.
+          // Both always carry an edge in practice, so this only ever costs the
+          // scene-cost subtraction its right to be wrong.
+          n.kind === 'note' &&
+          !linked.has(n.title.toLowerCase()) &&
+          !landedTitles.has(n.title),
+      )
+      // Hash order, so which four wander is stable for a given notebook.
+      .sort((a, b) => hash32(a.title) - hash32(b.title))
+      .slice(0, WANDER_MAX);
+  }, [galaxy, preview, landedTitles]);
+
   /** What one repaint of this sky costs, in native views. It is what decides
    *  whether the settle can be animated at all — see lib/scene-cost. Counted
-   *  without labels, because none are drawn while the sky is in flight. */
+   *  without labels, because none are drawn while the sky is in flight, and
+   *  minus the bodies that leave for a canvas of their own. */
   const sceneCost = useMemo(
-    () => (galaxy ? sceneElements(galaxy, false, 0) : 0),
-    [galaxy],
+    () => (galaxy ? sceneElements(galaxy, false, 0, wanderers.length) : 0),
+    [galaxy, wanderers.length],
   );
 
   // `still` for the thumbnail: nobody drags a 330x230 card, so it never
@@ -729,6 +823,86 @@ export function NoteGraph({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [galaxy, sim.version],
   );
+
+  /**
+   * Whether the sky's ambient layers exist, and whether they are moving.
+   *
+   * `lifted` is the shape of the scene. With it false — a thumbnail, or
+   * reduce-motion — the sun keeps its glow inside the main canvas, no body
+   * leaves it, and not one ambient view is mounted: the still sky is exactly
+   * what ships today.
+   *
+   * `ambient` waits for the arrival to finish, and that is not taste. During
+   * the intro the canvas view carries an alpha under 1, and an alpha under 1
+   * over overlapping children is composited through an offscreen buffer.
+   * Mounting seventeen more layers into that buffer would make the one
+   * animation that is already free stop being free.
+   *
+   * `moving` parks when the app leaves the foreground. Nothing here touches
+   * the JS thread, but a screen that never reaches an idle frame never lets
+   * the display drop its refresh rate, and that is battery a backgrounded app
+   * has no business spending. The layers stay MOUNTED across it — unmounting
+   * would re-rasterise every one of them on the way back in.
+   */
+  const lifted = !preview && !sim.reduceMotion;
+  const [arrived, setArrived] = useState(false);
+  const [foreground, setForeground] = useState(true);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) =>
+      setForeground(next === 'active'),
+    );
+    return () => sub.remove();
+  }, []);
+  // Armed on a timer rather than off the intro's own callback, so that
+  // reduce-motion being switched OFF with the map already open still wakes the
+  // sky: the arrival that would have armed it is never going to replay.
+  useEffect(() => {
+    if (preview || sim.settling || arrived) return;
+    const id = setTimeout(() => setArrived(true), INTRO_MS);
+    return () => clearTimeout(id);
+  }, [preview, sim.settling, arrived]);
+  const ambient = lifted && arrived;
+  const moving = ambient && foreground;
+
+  /** The bodies that actually leave the main canvas. Lifted from the first
+   *  paint, not from the moment the drift starts: moving them out later would
+   *  cost the one full re-rasterisation of the main sky this whole design
+   *  exists to avoid. */
+  const drifting = lifted ? wanderers : NO_BODIES;
+  const driftSet = useMemo(
+    () => new Set(drifting.map((n) => n.title)),
+    [drifting],
+  );
+  /** Their LIVE positions — a wanderer follows the settle film and any drag
+   *  its neighbours cause, exactly as it did inside the canvas. */
+  const driftBodies = useMemo(
+    () => liveNodes.filter((n) => driftSet.has(n.title)),
+    [liveNodes, driftSet],
+  );
+  const wanderClock = useWanderClock(moving && drifting.length > 0);
+
+  /** Read by the pan gesture on the JS thread, so a finger finds a wanderer
+   *  where it is DRAWN. Refs, not closures: `pan` is memoised on the viewport
+   *  and must not be rebuilt every time the sky moves. */
+  const driftRef = useRef(driftBodies);
+  const landRef = useRef<(title: string) => void>(() => {});
+  useEffect(() => {
+    driftRef.current = driftBodies;
+    landRef.current = (title: string) =>
+      setLanded((prev) => ({
+        of: galaxy,
+        titles:
+          prev.of === galaxy ? new Set(prev.titles).add(title) : new Set([title]),
+      }));
+  });
+
+  /** The sun with its live position. Its corona and its dust belt are drawn
+   *  BESIDE the canvas rather than in it, so they can breathe and turn. */
+  const sunBody = useMemo(
+    () => liveNodes.find((n) => n.ring === 0) ?? null,
+    [liveNodes],
+  );
+  const sunRd = sunBody ? Math.max(8, sunBody.r * 0.72) : 0;
 
   // Which titles are one hop from the focused note.
   const neighbours = useMemo(() => {
@@ -761,6 +935,16 @@ export function NoteGraph({
   const ty = useSharedValue(0);
   const savedTx = useSharedValue(0);
   const savedTy = useSharedValue(0);
+  /** Where the fit parked the camera. The ambient layers decline to follow a
+   *  fraction of the child's pan, and that fraction has to be measured from
+   *  HERE: the fit leaves tx/ty a long way from the origin, and a layer
+   *  counting from zero would open displaced by the whole of it. */
+  const camX = useSharedValue(0);
+  const camY = useSharedValue(0);
+  const skyCam = useMemo<Camera>(
+    () => ({ tx, ty, x0: camX, y0: camY, scale }),
+    [tx, ty, camX, camY, scale],
+  );
 
   // .set()/.get() rather than .value: React Compiler can prove these are
   // shared-value accessors, where a bare `.value =` reads as mutating state.
@@ -841,6 +1025,30 @@ export function NoteGraph({
     .onStart((e) => {
       // The gesture activates a few points in; grab from where it BEGAN.
       const origin = toCanvas(e.x - e.translationX, e.y - e.translationY);
+
+      // A wanderer first: it is drawn away from its physics home, so it has to
+      // be hit-tested where the eye sees it. `wanderAt` is the same function
+      // the animated style calls on the UI thread — a worklet is an ordinary
+      // function on this side — so the two can never disagree about where the
+      // planet is.
+      // Reading a shared value from this side is a blocking hop to the UI
+      // runtime, so it is not paid on a sky that has nothing adrift.
+      if (e.numberOfPointers === 1 && driftRef.current.length > 0) {
+        const u = wanderClock.get();
+        for (const w of driftRef.current) {
+          const o = wanderAt(u, hash32(w.title), WANDER_REACH);
+          const dx = w.x + o.x - origin.x;
+          const dy = w.y + o.y - origin.y;
+          if (dx * dx + dy * dy > 24 * 24) continue;
+          if (!simRef.current.grabTitleAt(w.title, w.x + o.x, w.y + o.y)) continue;
+          // Retired from the drift for this notebook: a planet the child has
+          // touched belongs to them now.
+          landRef.current(w.title);
+          panMode.current = { kind: 'node', dx, dy };
+          return;
+        }
+      }
+
       const grabbed =
         e.numberOfPointers === 1 ? simRef.current.grabAt(origin.x, origin.y) : null;
       if (grabbed) {
@@ -993,6 +1201,8 @@ export function NoteGraph({
     savedTx.set(fx);
     ty.set(sim.reduceMotion ? fy : withTiming(fy, glide));
     savedTy.set(fy);
+    camX.set(fx);
+    camY.set(fy);
     // The reveal is the floor under everything: it costs no SVG repaint, so
     // even a notebook too big to animate its settle still arrives.
     intro.set(
@@ -1014,6 +1224,8 @@ export function NoteGraph({
     ty,
     savedTx,
     savedTy,
+    camX,
+    camY,
     minZoom,
     intro,
   ]);
@@ -1176,11 +1388,18 @@ export function NoteGraph({
                   <Stop offset="75%" stopColor="#F59E0B" stopOpacity={1} />
                   <Stop offset="100%" stopColor="#C2410C" stopOpacity={0.9} />
                 </RadialGradient>
-                <RadialGradient id="sun-glow" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="#FFD86B" stopOpacity={0.4} />
-                  <Stop offset="55%" stopColor="#F59E0B" stopOpacity={0.14} />
-                  <Stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
-                </RadialGradient>
+                {/* The corona's gradient, and the corona itself further
+                    down, are here ONLY while the sky is still — a thumbnail or
+                    reduce-motion. Otherwise both live in sky-ambient's own
+                    canvas, where the glow can breathe, and this canvas is five
+                    elements cheaper for every repaint it ever does. */}
+                {!lifted && (
+                  <RadialGradient id="sun-glow" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0%" stopColor="#FFD86B" stopOpacity={0.4} />
+                    <Stop offset="55%" stopColor="#F59E0B" stopOpacity={0.14} />
+                    <Stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
+                  </RadialGradient>
+                )}
 
                 {/* One sphere per planet: an off-centre highlight is the
                     trick that turns a flat disc into a globe, and each
@@ -1322,7 +1541,9 @@ export function NoteGraph({
                   a planet keeps its character forever. Drawn smaller than
                   their physics radius (`n.r` still spaces the simulation and
                   the touch targets), which is what gives the graph its air. */}
-              {liveNodes.map((n) => {
+              {/* The drifting bodies are drawn below, in canvases of their
+                  own — they cannot be in here and move. */}
+              {liveNodes.filter((n) => !driftSet.has(n.title)).map((n) => {
                 const a = alpha(n.title);
                 const { x, y } = n;
                 // The neon verdicts: gold for the chosen planet, cyan for
@@ -1359,7 +1580,9 @@ export function NoteGraph({
                   const rd = Math.max(8, n.r * 0.72);
                   return (
                     <G key={`n-${n.title}`} opacity={a}>
-                      <Circle cx={x} cy={y} r={rd * 2.5} fill="url(#sun-glow)" />
+                      {!lifted && (
+                        <Circle cx={x} cy={y} r={rd * 2.5} fill="url(#sun-glow)" />
+                      )}
                       <Circle cx={x} cy={y} r={rd} fill="url(#sun-core)" />
                       {neonRings(rd)}
                     </G>
@@ -1417,7 +1640,7 @@ export function NoteGraph({
                   );
                 }
 
-                const seed = seedOf(n.title);
+                const seed = hash32(n.title);
                 const planet = PLANET_TYPES[seed % PLANET_TYPES.length];
                 const clipId = `pc-${seed.toString(36)}`;
 
@@ -1509,7 +1732,7 @@ export function NoteGraph({
                   their planet faces, so the label is what still says which
                   collection a note belongs to. */}
               {liveNodes
-                .filter((n) => visibleLabels.has(n.title))
+                .filter((n) => visibleLabels.has(n.title) && !driftSet.has(n.title))
                 .map((n) => (
                 <SvgText
                   key={`t-${n.title}`}
@@ -1547,19 +1770,160 @@ export function NoteGraph({
               ))}
             </Svg>
 
+            {/* ── The living sky ───────────────────────────────────────
+                Everything that moves forever, and none of it inside the canvas
+                above. Each of these is a small <Svg> whose contents never
+                change, under an Animated.View that does — a RenderNode
+                property, which Android composites without redrawing a pixel.
+                Per frame the whole stack repaints zero elements and does no JS
+                work at all, which is why it is safe at any notebook size and
+                why it can simply never stop. See components/sky-ambient.tsx. */}
+            {ambient && (
+              <>
+                <TwinkleField
+                  width={field.width}
+                  height={field.height}
+                  on={moving}
+                  cam={skyCam}
+                />
+                {sunBody && (
+                  <>
+                    <SunBreath
+                      x={sunBody.x}
+                      y={sunBody.y}
+                      r={sunRd}
+                      on={moving}
+                      dim={!!focus}
+                    />
+                    <DustRing
+                      x={sunBody.x}
+                      y={sunBody.y}
+                      r={sunRd * 4.2}
+                      on={moving}
+                      dim={!!focus}
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {/* The unlinked planets, each with its name, adrift in a canvas of
+                its own. Mounted from the first paint rather than when the
+                drift starts: moving a body between canvases costs a full
+                re-rasterisation of the main sky, and it should be paid once at
+                most. Until `moving`, the clock stands still and they are
+                ordinary planets that happen to be drawn elsewhere. */}
+            {driftBodies.map((n) => {
+              const seed = hash32(n.title);
+              const gradient = `amb-w-${seed.toString(36)}`;
+              const planet = PLANET_TYPES[seed % PLANET_TYPES.length];
+              // The same expression the canvas draws with. An unlinked body is
+              // always at the 5.5 floor — `n.r` for a note nothing links to is
+              // minBody, and 0.74 of that never reaches it — so this is always
+              // the flat branch, which is what makes the canvas below seven
+              // elements and 194 KB.
+              const rd = Math.max(5.5, n.r * 0.74);
+              return (
+                <Wanderer
+                  key={`w-${n.title}`}
+                  x={n.x}
+                  y={n.y}
+                  w={WANDER_W}
+                  h={WANDER_H}
+                  seed={seed}
+                  clock={wanderClock}
+                >
+                  <Svg width={WANDER_W} height={WANDER_H} pointerEvents="none">
+                    <Defs>
+                      <RadialGradient id={gradient} cx="35%" cy="30%" r="75%">
+                        <Stop offset="0%" stopColor={planet.stops[0]} stopOpacity={1} />
+                        <Stop offset="42%" stopColor={planet.stops[1]} stopOpacity={1} />
+                        <Stop offset="100%" stopColor={planet.stops[2]} stopOpacity={1} />
+                      </RadialGradient>
+                    </Defs>
+                    <Circle
+                      cx={WANDER_W / 2}
+                      cy={WANDER_TOP}
+                      r={rd}
+                      fill={`url(#${gradient})`}
+                      opacity={alpha(n.title)}
+                    />
+                    {/* The chosen planet's ring, drawn here because a drifting
+                        body is not in the canvas that draws everyone else's —
+                        without it a tap on a wanderer dims the whole sky and
+                        gives no sign of what was picked. Only the green one:
+                        a wanderer has no links, so it can never be the red
+                        `linked` case. */}
+                    {focus === n.title && (
+                      <>
+                        <Circle
+                          cx={WANDER_W / 2}
+                          cy={WANDER_TOP}
+                          r={rd + 5}
+                          fill="none"
+                          stroke={NEON_SELECTED}
+                          strokeOpacity={0.22}
+                          strokeWidth={5}
+                        />
+                        <Circle
+                          cx={WANDER_W / 2}
+                          cy={WANDER_TOP}
+                          r={rd + 3}
+                          fill="none"
+                          stroke={NEON_SELECTED}
+                          strokeOpacity={0.95}
+                          strokeWidth={1.7}
+                        />
+                      </>
+                    )}
+                    {visibleLabels.has(n.title) && (
+                      <SvgText
+                        x={WANDER_W / 2}
+                        y={WANDER_TOP + rd + 13}
+                        fill={n.colour !== UNTAGGED ? n.colour : LABEL}
+                        fontSize={10}
+                        fontFamily="Inter_500Medium"
+                        textAnchor="middle"
+                        opacity={alpha(n.title) * 0.9}
+                      >
+                        {n.title.length > 14 ? `${n.title.slice(0, 13)}…` : n.title}
+                      </SvgText>
+                    )}
+                  </Svg>
+                  {!sim.settling && (
+                    <Pressable
+                      onPress={() => tap(n)}
+                      onLongPress={() => hold(n)}
+                      accessibilityRole="button"
+                      accessibilityLabel={labelOf(n)}
+                      style={[
+                        styles.touch,
+                        styles.focusable,
+                        {
+                          left: WANDER_W / 2 - 24,
+                          top: WANDER_TOP - 24,
+                          width: 48,
+                          height: 48,
+                          borderRadius: 24,
+                        },
+                      ]}
+                    />
+                  )}
+                </Wanderer>
+              );
+            })}
+
             {/* The shooting star lives in its own canvas, deliberately.
                 Android rasterises an SvgView's children into ONE bitmap and
                 repaints the whole thing when any child changes — so a meteor
                 animating inside the sky above would repaint all ~500 of its
                 elements every frame, which is exactly the cost the settled
-                sim exists to remove. Alone in a three-element canvas it
-                repaints only itself. */}
-            {!sim.reduceMotion && !preview && !sim.settling && (
-              // Viewport-sized, centred on the field, and NOT field-sized: it
-              // is a second SvgView and Android gives it a bitmap of its own,
-              // so letting it grow with the notebook would double the memory
-              // the bigger canvas costs — to fly one hairline across a region
-              // the camera is not looking at anyway.
+                sim exists to remove. */}
+            {lifted && (
+              // The wrapper is viewport-sized and centred on the field, but it
+              // is a plain View: it holds no bitmap, it only gives the flight
+              // the coordinates the old canvas used to give it. The streak's
+              // own canvas is 120x40.
               <View
                 pointerEvents="none"
                 style={{
@@ -1570,7 +1934,12 @@ export function NoteGraph({
                   height: size.height,
                 }}
               >
-                <Meteor width={size.width} height={size.height} dim={!!focus} />
+                <Meteor
+                  width={size.width}
+                  height={size.height}
+                  dim={!!focus}
+                  on={moving}
+                />
               </View>
             )}
 
@@ -1578,7 +1947,11 @@ export function NoteGraph({
                 moves — and there is nothing to tap on a planet that has not
                 landed yet. It arms when the sky stops. */}
             {!sim.settling && (
-              <TouchLayer nodes={liveNodes} onTap={tap} onHold={hold} />
+              <TouchLayer
+                nodes={liveNodes.filter((n) => !driftSet.has(n.title))}
+                onTap={tap}
+                onHold={hold}
+              />
             )}
           </Animated.View>
         )}
