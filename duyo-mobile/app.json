@@ -39,7 +39,7 @@
         {
           "backgroundColor": "#E3EFFF",
           "image": "./assets/images/duyo-splash.png",
-          "imageWidth": 220
+          "imageWidth": 160
         }
       ],
       "expo-secure-store",
