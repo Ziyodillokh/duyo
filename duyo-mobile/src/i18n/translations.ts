@@ -30,10 +30,6 @@ const UZ = {
   'common.copyright': '© 2026 DUYO. Barcha huquqlar himoyalangan.',
 
   // ── in-app update (direct-APK installs) ─────────────────────────────────
-  'update.title': 'Yangi versiya chiqdi',
-  'update.body':
-    "DUYO'ning yangilangan versiyasi tayyor. Hozir yuklab olib o'rnatasizmi?",
-  'update.download': 'Yuklab olish',
   'update.later': 'Keyinroq',
 
   // ── splash ──────────────────────────────────────────────────────────────
@@ -161,23 +157,8 @@ const UZ = {
   'settings.privacyScreen.readFullA11y': 'Toliq matn',
   'settings.privacyScreen.policySoon': "Maxfiylik siyosati matni Faza 1'da qo'shiladi",
   'settings.privacyScreen.dataSection': "Ma'lumotlar boshqaruvi",
-  'settings.privacyScreen.exportLabel': "Ma'lumotlarni eksport qilish",
-  'settings.privacyScreen.exportDesc': "Barcha ma'lumotlarni JSON ko'rinishida yuklab oling",
-  'settings.privacyScreen.exportBody':
-    "Sizning barcha ma'lumotlaringiz JSON formatida emailingizga yuboriladi.",
-  'settings.privacyScreen.exportConfirm': "So'rash",
-  'settings.privacyScreen.exportSent': 'Yuborildi',
-  'settings.privacyScreen.deleteChatsLabel': "Suhbat tarixini o'chirish",
-  'settings.privacyScreen.deleteChatsDesc': 'Barcha suhbatlar va xabarlarni tozalash',
-  'settings.privacyScreen.deleteChatsTitle': "Suhbatlarni o'chirish",
-  'settings.privacyScreen.deleteChatsBody':
-    "Barcha suhbatlar tarixi o'chiriladi. Bu amal ortga qaytarib bo'lmaydi.",
-  'settings.privacyScreen.deleteChatsDone': 'Suhbatlar tozalandi',
   'settings.privacyScreen.closeAccountLabel': 'Hisobni yopish',
   'settings.privacyScreen.closeAccountDesc': "Hisob va barcha ma'lumotlarni o'chirish",
-  'settings.privacyScreen.closeAccountBody':
-    "Hisobingiz va barcha ma'lumotlar 30 kun ichida o'chiriladi.",
-  'settings.privacyScreen.closeAccountSoon': "Faza 1'da to'liq integratsiya qo'shiladi",
 
   // ── settings: help ──────────────────────────────────────────────────────
   'settings.helpScreen.faqSection': "Ko'p so'raladigan",
@@ -189,13 +170,13 @@ const UZ = {
     "Ha. Suhbatlar shifrlangan, faqat sizning hisobingizdan ko'rish mumkin. Ota-ona ulanmasa, faqat siz va DUYO ko'radi.",
   'settings.helpScreen.q3': 'Kunlik limit qancha?',
   'settings.helpScreen.a3':
-    "Bepul rejada kuniga 30 ta suhbat. Premium uchun cheksiz, kelajakda Click/Payme orqali to'lov qo'shiladi.",
+    'Bepul rejada kuniga 30 ta suhbat. Premium bilan cheksiz.',
   'settings.helpScreen.q4': 'Ovozli suhbat ishlaydimi?',
   'settings.helpScreen.a4':
     'Ha — Suhbat sahifasidagi mikrofon tugmasi ovozli rejimni ochadi. DUYO real vaqtda ovoz bilan javob beradi.',
   'settings.helpScreen.q5': "Ma'lumotlarimni qanday o'chirishim mumkin?",
   'settings.helpScreen.a5':
-    "Sozlamalar → Maxfiylik bo'limidan suhbat tarixini yoki hisobni yopishingiz mumkin.",
+    "support@duyo.uz ga yozing — hisobingiz va barcha ma'lumotlaringiz o'chiriladi.",
   'settings.helpScreen.contact': "Bog'lanish",
   'settings.helpScreen.email': 'Email yuborish',
   'settings.helpScreen.emailBody': 'support@duyo.uz manziliga email yozing',
@@ -675,12 +656,9 @@ const UZ = {
   'subject.physics': 'Fizika',
   'subscription.allPlans': 'Barcha rejalarda:',
   'subscription.benefit.cancel': 'Istalgan vaqt bekor qilish',
-  'subscription.benefit.securePay': "Xavfsiz to'lov",
   'subscription.benefit.support': '24/7 yordam',
-  'subscription.benefit.trial': '7 kun bepul sinov',
   'subscription.current': 'Joriy reja',
   'subscription.loadFailed': "Rejalarni yuklab bo'lmadi",
-  'subscription.payMethods': "To'lov usullari",
   'subscription.subtitle': "DUYO bilan ko'proq o'rganing va o'sing",
   'subscription.title': "Premium'ga o'ting",
   'update.now': 'Yangilash',
@@ -775,6 +753,35 @@ const UZ = {
   'projects.pin': 'Qadab qo‘yish',
   'projects.unpin': 'Qadashni bekor qilish',
   'projects.viewChats': 'Suhbatlarini ko‘rish',
+
+  // ── extracted from screens ──────────────────────────────────
+  'groups.safety.a11yFlag': 'Bu xabar haqida: shikoyat qilish yoki bloklash',
+  'groups.safety.blockBody': "U endi senga ko'rinmaydi, sen ham unga. Unga hech narsa aytilmaydi.",
+  'groups.safety.blockTitle': '{name} bloklansinmi?',
+  'groups.safety.blocked': "{name} bloklandi. Endi bir-biringizni ko'rmaysizlar.",
+  'groups.safety.failed': "Bajarilmadi — internetni tekshirib, qayta urinib ko'r.",
+  'groups.safety.menuBody': "Buni hech kim ko'rmaydi va u odamga aytilmaydi.",
+  'groups.safety.menuTitle': '{name} haqida',
+  'groups.safety.notice': 'Xabarlar xavfsizlik uchun tekshiriladi. Telefon raqam, manzil yoki maktabingni yozma. Kimdir seni xafa qilsa — xabar yonidagi bayroqchani bos.',
+  'groups.safety.reasonBody': "Tanlaganingni kattalar o'qib chiqadi. Shu bilan bu odam senga ko'rinmay qoladi.",
+  'groups.safety.reasonTitle': "Nima bo'ldi?",
+  'groups.safety.reported': "Rahmat, xabaring yetib bordi. Kattalar o'qib chiqadi, bu odam esa endi senga ko'rinmaydi.",
+  'settings.privacyScreen.closeAccountManual': "Hisobni o'chirishni hozircha ilova ichida qilib bo'lmaydi. support@duyo.uz ga yozing — hisobingiz va barcha ma'lumotlaringiz o'chiriladi.",
+  'voice.mic.accept': 'Tushundim, boshlaymiz',
+  'voice.mic.blockedBody': 'Telefon sozlamalarida DUYO uchun mikrofonni yoq — keyin shu yerga qaytib, suhbatni davom ettiramiz.',
+  'voice.mic.blockedTitle': 'Mikrofon sozlamalarda yopilgan',
+  'voice.mic.decline': 'Hozir emas',
+  'voice.mic.deniedBody': "Ruxsat berilmadi. Qayta urinib ko'rasanmi? Yoki yozishmada davom etamiz — DUYO u yerda ham shu yerdagidek.",
+  'voice.mic.deniedTitle': 'Mikrofonsiz eshita olmayman',
+  'voice.mic.lead': "Mikrofonni so'rashdan oldin — qisqacha.",
+  'voice.mic.notStored': 'Yozuv telefoningda saqlanmaydi.',
+  'voice.mic.openSettings': 'Sozlamalarni ochish',
+  'voice.mic.rationaleBody': "DUYO seni eshitishi uchun mikrofon kerak. Ovozing javob tayyorlash uchun Google Gemini'ga yuboriladi va telefoningda saqlanmaydi.",
+  'voice.mic.rationaleTitle': 'Mikrofonga ruxsat',
+  'voice.mic.stopAnytime': "Istagan payting to'xtatasan — tugmani bos yoki shu ekrandan chiq.",
+  'voice.mic.title': "Ovozing bilan nima bo'ladi",
+  'voice.mic.toGemini': 'Ovozing telefondan chiqib, Google Gemini xizmatiga boradi — u seni tushunib, javob berishi uchun.',
+  'voice.mic.whileOpen': "DUYO faqat shu ekran ochiq va sen gapirayotgan paytda yozib oladi. Boshqa payt mikrofon o'chiq.",
 } as const;
 
 export type TranslationKey = keyof typeof UZ;
@@ -800,9 +807,6 @@ const RU: Record<TranslationKey, string> = {
   'common.copyright': '© 2026 DUYO. Все права защищены.',
 
   // ── in-app update (direct-APK installs) ─────────────────────────────────
-  'update.title': 'Вышла новая версия',
-  'update.body': 'Обновлённая версия DUYO готова. Скачать и установить сейчас?',
-  'update.download': 'Скачать',
   'update.later': 'Позже',
 
   // ── splash ──────────────────────────────────────────────────────────────
@@ -931,24 +935,8 @@ const RU: Record<TranslationKey, string> = {
   'settings.privacyScreen.policySoon':
     'Текст политики конфиденциальности появится в Фазе 1',
   'settings.privacyScreen.dataSection': 'Управление данными',
-  'settings.privacyScreen.exportLabel': 'Экспорт данных',
-  'settings.privacyScreen.exportDesc': 'Скачайте все свои данные в формате JSON',
-  'settings.privacyScreen.exportBody':
-    'Все ваши данные будут отправлены на вашу почту в формате JSON.',
-  'settings.privacyScreen.exportConfirm': 'Запросить',
-  'settings.privacyScreen.exportSent': 'Отправлено',
-  'settings.privacyScreen.deleteChatsLabel': 'Удалить историю разговоров',
-  'settings.privacyScreen.deleteChatsDesc': 'Очистить все разговоры и сообщения',
-  'settings.privacyScreen.deleteChatsTitle': 'Удаление разговоров',
-  'settings.privacyScreen.deleteChatsBody':
-    'Вся история разговоров будет удалена. Это действие необратимо.',
-  'settings.privacyScreen.deleteChatsDone': 'Разговоры очищены',
   'settings.privacyScreen.closeAccountLabel': 'Закрыть аккаунт',
   'settings.privacyScreen.closeAccountDesc': 'Удалить аккаунт и все данные',
-  'settings.privacyScreen.closeAccountBody':
-    'Ваш аккаунт и все данные будут удалены в течение 30 дней.',
-  'settings.privacyScreen.closeAccountSoon':
-    'Полная интеграция появится в Фазе 1',
 
   // ── settings: help ──────────────────────────────────────────────────────
   'settings.helpScreen.faqSection': 'Частые вопросы',
@@ -960,13 +948,13 @@ const RU: Record<TranslationKey, string> = {
     'Да. Разговоры зашифрованы и доступны только с вашего аккаунта. Пока родитель не подключён, их видите только вы и DUYO.',
   'settings.helpScreen.q3': 'Какой дневной лимит?',
   'settings.helpScreen.a3':
-    'На бесплатном тарифе — 30 разговоров в день. На Premium без ограничений, оплата через Click/Payme появится позже.',
+    'На бесплатном тарифе — 30 разговоров в день. На Premium — без ограничений.',
   'settings.helpScreen.q4': 'Работает ли голосовой разговор?',
   'settings.helpScreen.a4':
     'Да — кнопка микрофона на странице разговора открывает голосовой режим. DUYO отвечает голосом в реальном времени.',
   'settings.helpScreen.q5': 'Как удалить мои данные?',
   'settings.helpScreen.a5':
-    'В разделе Настройки → Приватность можно удалить историю разговоров или закрыть аккаунт.',
+    'Напиши на support@duyo.uz — мы удалим аккаунт и все твои данные.',
   'settings.helpScreen.contact': 'Связаться с нами',
   'settings.helpScreen.email': 'Написать на email',
   'settings.helpScreen.emailBody': 'Напишите на адрес support@duyo.uz',
@@ -1446,12 +1434,9 @@ const RU: Record<TranslationKey, string> = {
   'subject.physics': 'Физика',
   'subscription.allPlans': 'Во всех тарифах:',
   'subscription.benefit.cancel': 'Отмена в любой момент',
-  'subscription.benefit.securePay': 'Безопасная оплата',
   'subscription.benefit.support': 'Поддержка 24/7',
-  'subscription.benefit.trial': '7 дней бесплатно',
   'subscription.current': 'Твой тариф',
   'subscription.loadFailed': 'Не удалось загрузить тарифы',
-  'subscription.payMethods': 'Способы оплаты',
   'subscription.subtitle': 'Учись и расти вместе с DUYO',
   'subscription.title': 'Перейди на Premium',
   'update.now': 'Обновить',
@@ -1546,6 +1531,35 @@ const RU: Record<TranslationKey, string> = {
   'projects.pin': 'Закрепить',
   'projects.unpin': 'Открепить',
   'projects.viewChats': 'Посмотреть разговоры',
+
+  // ── extracted from screens ──────────────────────────────────
+  'groups.safety.a11yFlag': 'Это сообщение: пожаловаться или заблокировать',
+  'groups.safety.blockBody': 'Он больше не увидит тебя, а ты — его. Ему ничего не скажут.',
+  'groups.safety.blockTitle': 'Заблокировать {name}?',
+  'groups.safety.blocked': '{name} заблокирован. Вы больше не видите друг друга.',
+  'groups.safety.failed': 'Не получилось — проверь интернет и попробуй ещё раз.',
+  'groups.safety.menuBody': 'Никто этого не увидит, и ему не сообщат.',
+  'groups.safety.menuTitle': 'Насчёт {name}',
+  'groups.safety.notice': 'Сообщения проверяются ради безопасности. Не пиши номер, адрес или школу. Если кто-то тебя обижает — нажми флажок рядом с сообщением.',
+  'groups.safety.reasonBody': 'Твой выбор прочитают взрослые. И этот человек перестанет тебе показываться.',
+  'groups.safety.reasonTitle': 'Что случилось?',
+  'groups.safety.reported': 'Спасибо, мы получили. Взрослые прочитают, а этот человек больше тебе не покажется.',
+  'settings.privacyScreen.closeAccountManual': 'Пока удалить аккаунт прямо в приложении нельзя. Напиши на support@duyo.uz — мы удалим аккаунт и все твои данные.',
+  'voice.mic.accept': 'Понятно, начнём',
+  'voice.mic.blockedBody': 'Включи микрофон для DUYO в настройках телефона, вернись сюда — и продолжим.',
+  'voice.mic.blockedTitle': 'Микрофон закрыт в настройках',
+  'voice.mic.decline': 'Не сейчас',
+  'voice.mic.deniedBody': 'Доступ не дан. Попробуешь ещё раз? Или продолжим перепиской — там DUYO такой же.',
+  'voice.mic.deniedTitle': 'Без микрофона я тебя не слышу',
+  'voice.mic.lead': 'Коротко — прежде чем спросить про микрофон.',
+  'voice.mic.notStored': 'Запись не сохраняется на твоём телефоне.',
+  'voice.mic.openSettings': 'Открыть настройки',
+  'voice.mic.rationaleBody': 'Чтобы DUYO тебя слышал, нужен микрофон. Голос уходит в Google Gemini для ответа и не сохраняется на телефоне.',
+  'voice.mic.rationaleTitle': 'Доступ к микрофону',
+  'voice.mic.stopAnytime': 'Остановить можно в любой момент — нажми кнопку или выйди с этого экрана.',
+  'voice.mic.title': 'Что происходит с твоим голосом',
+  'voice.mic.toGemini': 'Твой голос уходит с телефона в сервис Google Gemini — чтобы он понял тебя и ответил.',
+  'voice.mic.whileOpen': 'DUYO записывает только пока этот экран открыт и ты говоришь. В остальное время микрофон выключен.',
 };
 
 const EN: Record<TranslationKey, string> = {
@@ -1569,9 +1583,6 @@ const EN: Record<TranslationKey, string> = {
   'common.copyright': '© 2026 DUYO. All rights reserved.',
 
   // ── in-app update (direct-APK installs) ─────────────────────────────────
-  'update.title': 'A new version is out',
-  'update.body': 'An updated version of DUYO is ready. Download and install it now?',
-  'update.download': 'Download',
   'update.later': 'Later',
 
   // ── splash ──────────────────────────────────────────────────────────────
@@ -1699,23 +1710,8 @@ const EN: Record<TranslationKey, string> = {
   'settings.privacyScreen.readFullA11y': 'Full text',
   'settings.privacyScreen.policySoon': 'The privacy policy text arrives in Phase 1',
   'settings.privacyScreen.dataSection': 'Data controls',
-  'settings.privacyScreen.exportLabel': 'Export my data',
-  'settings.privacyScreen.exportDesc': 'Download all of your data as JSON',
-  'settings.privacyScreen.exportBody':
-    'All of your data will be emailed to you as JSON.',
-  'settings.privacyScreen.exportConfirm': 'Request',
-  'settings.privacyScreen.exportSent': 'Sent',
-  'settings.privacyScreen.deleteChatsLabel': 'Delete conversation history',
-  'settings.privacyScreen.deleteChatsDesc': 'Clear every conversation and message',
-  'settings.privacyScreen.deleteChatsTitle': 'Delete conversations',
-  'settings.privacyScreen.deleteChatsBody':
-    'All conversation history will be deleted. This cannot be undone.',
-  'settings.privacyScreen.deleteChatsDone': 'Conversations cleared',
   'settings.privacyScreen.closeAccountLabel': 'Close account',
   'settings.privacyScreen.closeAccountDesc': 'Delete the account and all data',
-  'settings.privacyScreen.closeAccountBody':
-    'Your account and all data will be deleted within 30 days.',
-  'settings.privacyScreen.closeAccountSoon': 'Full integration arrives in Phase 1',
 
   // ── settings: help ──────────────────────────────────────────────────────
   'settings.helpScreen.faqSection': 'Frequently asked',
@@ -1727,13 +1723,13 @@ const EN: Record<TranslationKey, string> = {
     'Yes. Conversations are encrypted and only visible from your account. Until a parent is connected, only you and DUYO can see them.',
   'settings.helpScreen.q3': 'What is the daily limit?',
   'settings.helpScreen.a3':
-    'The free plan allows 30 conversations a day. Premium is unlimited; Click/Payme payments arrive later.',
+    'The free plan gives you 30 conversations a day. Premium is unlimited.',
   'settings.helpScreen.q4': 'Does voice chat work?',
   'settings.helpScreen.a4':
     'Yes — the microphone button on the chat screen opens voice mode. DUYO answers out loud in real time.',
   'settings.helpScreen.q5': 'How do I delete my data?',
   'settings.helpScreen.a5':
-    'Settings → Privacy lets you clear conversation history or close your account.',
+    "Write to support@duyo.uz and we'll delete your account and all your data.",
   'settings.helpScreen.contact': 'Contact us',
   'settings.helpScreen.email': 'Send an email',
   'settings.helpScreen.emailBody': 'Write to support@duyo.uz',
@@ -2212,12 +2208,9 @@ const EN: Record<TranslationKey, string> = {
   'subject.physics': 'Physics',
   'subscription.allPlans': 'In every plan:',
   'subscription.benefit.cancel': 'Cancel any time',
-  'subscription.benefit.securePay': 'Secure payment',
   'subscription.benefit.support': '24/7 support',
-  'subscription.benefit.trial': '7 days free',
   'subscription.current': 'Your plan',
   'subscription.loadFailed': "Couldn't load the plans",
-  'subscription.payMethods': 'Payment methods',
   'subscription.subtitle': 'Learn more and grow with DUYO',
   'subscription.title': 'Go Premium',
   'update.now': 'Update',
@@ -2312,6 +2305,35 @@ const EN: Record<TranslationKey, string> = {
   'projects.pin': 'Pin',
   'projects.unpin': 'Unpin',
   'projects.viewChats': 'See its chats',
+
+  // ── extracted from screens ──────────────────────────────────
+  'groups.safety.a11yFlag': 'This message: report or block',
+  'groups.safety.blockBody': 'You stop seeing each other. They are not told.',
+  'groups.safety.blockTitle': 'Block {name}?',
+  'groups.safety.blocked': "{name} is blocked. You won't see each other any more.",
+  'groups.safety.failed': "That didn't go through — check your connection and try again.",
+  'groups.safety.menuBody': 'Nobody sees this, and they are not told.',
+  'groups.safety.menuTitle': 'About {name}',
+  'groups.safety.notice': "Messages are checked for safety. Don't share your number, address or school. If someone upsets you, tap the flag next to their message.",
+  'groups.safety.reasonBody': 'An adult will read this. That person also stops showing up for you.',
+  'groups.safety.reasonTitle': 'What happened?',
+  'groups.safety.reported': "Thanks — we got it. An adult will read it, and that person won't show up for you any more.",
+  'settings.privacyScreen.closeAccountManual': "You can't delete your account inside the app yet. Write to support@duyo.uz and we'll delete your account and all your data.",
+  'voice.mic.accept': "Got it, let's start",
+  'voice.mic.blockedBody': "Turn the microphone on for DUYO in your phone's settings, come back here, and we'll carry on.",
+  'voice.mic.blockedTitle': 'The microphone is switched off in Settings',
+  'voice.mic.decline': 'Not now',
+  'voice.mic.deniedBody': "Permission wasn't given. Want to try again? Or we can keep going in chat — DUYO is the same there.",
+  'voice.mic.deniedTitle': "Without the microphone I can't hear you",
+  'voice.mic.lead': 'Quickly, before we ask for the microphone.',
+  'voice.mic.notStored': "The recording isn't saved on your phone.",
+  'voice.mic.openSettings': 'Open settings',
+  'voice.mic.rationaleBody': "DUYO needs the microphone to hear you. Your voice goes to Google Gemini to make a reply, and isn't saved on your phone.",
+  'voice.mic.rationaleTitle': 'Microphone access',
+  'voice.mic.stopAnytime': 'You can stop any time — tap the button or leave this screen.',
+  'voice.mic.title': 'What happens to your voice',
+  'voice.mic.toGemini': 'Your voice leaves the phone and goes to Google Gemini, so it can understand you and answer.',
+  'voice.mic.whileOpen': "DUYO records only while this screen is open and you're speaking. The rest of the time the microphone is off.",
 };
 
 export const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {

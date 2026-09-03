@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Check } from 'lucide-react-native';
+import { ArrowLeft, Check, Flag, ShieldAlert } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,11 +12,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Text } from '@/components/text';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { apiClient } from '@/api/client';
 import { fetchGoalCatalog, type GoalCatalogEntry } from '@/api/endpoints/goals';
 import type { GroupMessage } from '@/api/endpoints/social';
+import { ActionSheet, type SheetAction } from '@/components/action-sheet';
 import {
   BUBBLE_THEIRS,
   ChatWallpaper,
@@ -49,6 +51,11 @@ const TITLE = '#2A63DC';
 const INK = '#22406F';
 const MUTED = '#8CA3CB';
 const DANGER = '#E0455E';
+/** The safety notice, matched to peer-chat's: warm enough to be noticed, dark
+ *  enough to be read on a pale page. */
+const WARN = '#A76314';
+const WARN_FILL = 'rgba(240,161,52,0.16)';
+const WARN_EDGE = 'rgba(240,161,52,0.34)';
 const BG_TOP = '#E3EFFF';
 const BG_MID = '#EAF3FF';
 const BG_BOTTOM = '#EDF2FD';
@@ -88,6 +95,41 @@ function portraitFor(id: string): PortraitSpec {
     lightFromLeft: at(2, 11) === 0,
     turn: at(9, 13) - 4,
   };
+}
+
+/**
+ * A room message, as the server actually sends it.
+ *
+ * `sender_name` is the pseudonym FROZEN at send time, so history does not
+ * rewrite itself when a child renames — which also means it names nobody: after
+ * a handle regeneration it matches no one in the roster. Reporting and blocking
+ * have to name a child, so social.py sends the sender's id on every row. The
+ * shared endpoint type has not caught up with it, so it is widened here rather
+ * than the pseudonym being guessed back into an identity.
+ */
+type RoomMessage = GroupMessage & { sender_child_id?: string | null };
+
+/**
+ * Report and block, on every message a peer sent.
+ *
+ * A visible control rather than a long-press, for the same reason peer-chat
+ * keeps its pair in the header and never in a menu: a child who needs this is
+ * not in a state to discover a gesture, and a reporting mechanism nobody can
+ * find is not one.
+ */
+function FlagButton({ onPress }: { onPress: () => void }) {
+  const t = useT();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={t('groups.safety.a11yFlag')}
+      hitSlop={12}
+      style={[styles.flagButton, styles.focusable]}
+    >
+      <Flag size={13} color={MUTED} strokeWidth={2.2} />
+    </Pressable>
+  );
 }
 
 /**
@@ -138,10 +180,12 @@ function RoundVideo({
   m,
   grouped,
   last,
+  onFlag,
 }: {
   m: GroupMessage;
   grouped: boolean;
   last: boolean;
+  onFlag?: () => void;
 }) {
   const caption = captionOf(m);
   const body = (
@@ -180,6 +224,7 @@ function RoundVideo({
         {!grouped && <Text style={styles.senderOutside}>{m.sender_name}</Text>}
         {body}
       </View>
+      {onFlag ? <FlagButton onPress={onFlag} /> : null}
     </View>
   );
 }
@@ -197,12 +242,14 @@ function Sticker({
   count,
   grouped,
   last,
+  onFlag,
 }: {
   m: GroupMessage;
   text: string;
   count: number;
   grouped: boolean;
   last: boolean;
+  onFlag?: () => void;
 }) {
   const size = count === 1 ? 56 : count === 2 ? 46 : 38;
   const meta = (
@@ -239,6 +286,7 @@ function Sticker({
         <Text style={{ fontSize: size, lineHeight: size * 1.25 }}>{text}</Text>
         {meta}
       </View>
+      {onFlag ? <FlagButton onPress={onFlag} /> : null}
     </View>
   );
 }
@@ -247,6 +295,7 @@ function Bubble({
   m,
   grouped,
   last,
+  onFlag,
 }: {
   m: GroupMessage;
   /** Previous message is the same sender's: drop the repeated name. */
@@ -254,12 +303,15 @@ function Bubble({
   /** Last of a run — only this one wears the tail, which is what makes a run
    *  read as one turn rather than three separate ones. */
   last: boolean;
+  /** Absent on the child's own messages, and on one whose author has deleted
+   *  their profile: there is nobody left to report. */
+  onFlag?: () => void;
 }) {
   const time = clockOf(m.created_at);
 
   // A round video is not a bubble at all — it takes the whole other path.
   if (m.media_kind === 'video' && m.media_url) {
-    return <RoundVideo m={m} grouped={grouped} last={last} />;
+    return <RoundVideo m={m} grouped={grouped} last={last} onFlag={onFlag} />;
   }
 
   const caption = captionOf(m);
@@ -276,6 +328,7 @@ function Bubble({
         count={stickerCount}
         grouped={grouped}
         last={last}
+        onFlag={onFlag}
       />
     );
   }
@@ -347,6 +400,7 @@ function Bubble({
           <Text style={styles.time}>{time}</Text>
         </View>
       </View>
+      {onFlag ? <FlagButton onPress={onFlag} /> : null}
     </View>
   );
 }
@@ -407,6 +461,122 @@ export default function GroupScreen() {
   const [joinFailed, setJoinFailed] = useState<string | null>(null);
   const [rosterOpen, setRosterOpen] = useState(false);
   const listRef = useRef<FlatList<GroupMessage>>(null);
+
+  // ── Report and block ──────────────────────────────────────────────────
+  // Written here rather than in hooks/use-social.ts because the room's safety
+  // routes are the only callers; if a second screen ever needs them, that is
+  // the moment to lift them out.
+  const qc = useQueryClient();
+  const [safety, setSafety] = useState<{
+    step: 'menu' | 'reason' | 'block';
+    target: { messageId: string; peerId: string; name: string };
+  } | null>(null);
+  const [safetyNotice, setSafetyNotice] = useState<string | null>(null);
+
+  const roomPath = `/social/${childId}/groups/${encodeURIComponent(key)}`;
+
+  /** The room, the roster and the mates list all change the moment a peer is
+   *  blocked — the server stops returning them from every one of them. */
+  const forgetPeer = () => {
+    qc.invalidateQueries({ queryKey: ['group-messages', childId, key] });
+    qc.invalidateQueries({ queryKey: ['group-members', childId, key] });
+    qc.invalidateQueries({ queryKey: ['goal-mates', childId] });
+    qc.invalidateQueries({ queryKey: ['friends', childId] });
+  };
+
+  const report = useMutation({
+    mutationFn: (vars: { messageId: string; reason: string }) =>
+      apiClient.post(`${roomPath}/messages/${vars.messageId}/report`, {
+        reason: vars.reason,
+      }),
+    onSuccess: () => {
+      setRefusal(null);
+      setSafetyNotice(t('groups.safety.reported'));
+      forgetPeer();
+    },
+    onError: () => setRefusal(t('groups.safety.failed')),
+  });
+
+  const block = useMutation({
+    mutationFn: (vars: { peerId: string; name: string }) =>
+      apiClient.post(`${roomPath}/members/${vars.peerId}/block`),
+    onSuccess: (_data, vars) => {
+      setRefusal(null);
+      setSafetyNotice(t('groups.safety.blocked', { name: vars.name }));
+      forgetPeer();
+    },
+    onError: () => setRefusal(t('groups.safety.failed')),
+  });
+
+  /**
+   * The sheet's contents for whichever step it is on.
+   *
+   * One sheet across all three steps, not three: ActionSheet closes itself
+   * before running an action, and a step that re-opens it in the same tick
+   * batches into a content swap rather than a dismiss — where two sheets would
+   * fight over presenting at once.
+   */
+  const safetyActions = (): SheetAction[] => {
+    if (!safety) return [];
+    const { target } = safety;
+    if (safety.step === 'menu') {
+      return [
+        {
+          label: t('peerChat.report.title'),
+          icon: Flag,
+          onPress: () => setSafety({ step: 'reason', target }),
+        },
+        {
+          label: t('peerChat.block.title'),
+          icon: ShieldAlert,
+          destructive: true,
+          onPress: () => setSafety({ step: 'block', target }),
+        },
+      ];
+    }
+    if (safety.step === 'reason') {
+      // Fixed reasons, exactly as peer-chat uses: a child in distress should
+      // not have to compose a sentence, and a free field here would be one
+      // more unscreened channel between two children. Picking one IS the
+      // confirmation — nothing is sent by opening the sheet.
+      const withReason = (reason: string) => () =>
+        report.mutate({ messageId: target.messageId, reason });
+      return [
+        {
+          label: t('peerChat.report.rude'),
+          onPress: withReason('rude_or_upsetting'),
+        },
+        {
+          label: t('peerChat.report.personalInfo'),
+          onPress: withReason('asked_for_personal_info'),
+        },
+        { label: t('peerChat.report.other'), onPress: withReason('other') },
+      ];
+    }
+    return [
+      {
+        label: t('peerChat.block.title'),
+        icon: ShieldAlert,
+        destructive: true,
+        onPress: () => block.mutate({ peerId: target.peerId, name: target.name }),
+      },
+    ];
+  };
+
+  const safetyTitle = () => {
+    if (!safety) return undefined;
+    if (safety.step === 'reason') return t('groups.safety.reasonTitle');
+    if (safety.step === 'block')
+      return t('groups.safety.blockTitle', { name: safety.target.name });
+    return t('groups.safety.menuTitle', { name: safety.target.name });
+  };
+
+  const safetyBody = () => {
+    if (!safety) return undefined;
+    if (safety.step === 'reason') return t('groups.safety.reasonBody');
+    if (safety.step === 'block') return t('groups.safety.blockBody');
+    return t('groups.safety.menuBody');
+  };
 
   const submit = () => {
     const body = draft.trim();
@@ -515,6 +685,14 @@ export default function GroupScreen() {
           </View>
         )}
 
+        {/* Never dismissible, and it names the affordance: a rule read once
+            in onboarding is not present when it is needed. */}
+        {joined && (
+          <View style={styles.notice}>
+            <Text style={styles.noticeText}>{t('groups.safety.notice')}</Text>
+          </View>
+        )}
+
         {/* ── Body ─────────────────────────────────────────────────────── */}
         {groups.isPending ? (
           <View style={styles.centre}>
@@ -606,10 +784,31 @@ export default function GroupScreen() {
                 new Date(next.created_at).getTime() -
                   new Date(item.created_at).getTime() >=
                   5 * 60 * 1000;
+              // No flag on the child's own message, and none on one whose
+              // author has deleted their profile — the server has nobody left
+              // to report, so offering it would be a button that only fails.
+              const peerId = (item as RoomMessage).sender_child_id;
               return (
                 <>
                   {newDay && <DayPill label={dayLabel(item.created_at)} />}
-                  <Bubble m={item} grouped={grouped} last={last} />
+                  <Bubble
+                    m={item}
+                    grouped={grouped}
+                    last={last}
+                    onFlag={
+                      item.mine || !peerId
+                        ? undefined
+                        : () =>
+                            setSafety({
+                              step: 'menu',
+                              target: {
+                                messageId: item.id,
+                                peerId,
+                                name: item.sender_name,
+                              },
+                            })
+                    }
+                  />
                 </>
               );
             }}
@@ -635,6 +834,16 @@ export default function GroupScreen() {
         {/* ── Composer ─────────────────────────────────────────────────── */}
         {joined && (
           <View style={{ paddingBottom: insets.bottom + 10 }}>
+            {safetyNotice && (
+              <Pressable
+                onPress={() => setSafetyNotice(null)}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+                style={[glass(16), styles.confirmed, styles.focusable]}
+              >
+                <Text style={styles.confirmedText}>{safetyNotice}</Text>
+              </Pressable>
+            )}
             {refusal && (
               <View style={[glass(16), styles.refusal]}>
                 <Text style={styles.refusalText}>{refusal}</Text>
@@ -652,6 +861,14 @@ export default function GroupScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <ActionSheet
+        visible={safety !== null}
+        title={safetyTitle()}
+        message={safetyBody()}
+        actions={safetyActions()}
+        onClose={() => setSafety(null)}
+      />
     </View>
   );
 }
@@ -807,4 +1024,29 @@ const styles = StyleSheet.create({
 
   refusal: { marginHorizontal: 16, marginBottom: 8, padding: 12 },
   refusalText: { fontSize: 13.5, color: DANGER, fontWeight: '600' },
+
+  // ── Safety ─────────────────────────────────────────────────────────────
+  notice: {
+    marginHorizontal: 12,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WARN_EDGE,
+    backgroundColor: WARN_FILL,
+  },
+  noticeText: { fontSize: 12, lineHeight: 17, color: WARN },
+  // Small and quiet on purpose: present on every peer message without
+  // competing with the message itself, and big enough to hit with the hitSlop.
+  flagButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  confirmed: { marginHorizontal: 16, marginBottom: 8, padding: 12 },
+  confirmedText: { fontSize: 13.5, lineHeight: 19, color: INK, fontWeight: '600' },
 });

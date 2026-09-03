@@ -6,12 +6,14 @@ import {
   CloudOff,
   Languages,
   Mic,
+  MicOff,
   RefreshCw,
   Settings2,
   Square,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Linking,
   Pressable,
   StyleSheet,
   View,
@@ -29,8 +31,12 @@ import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
 import { DuyoAvatar, type DuyoState } from '@/components/duyo-avatar';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
 import { useT, type TranslationKey } from '@/i18n';
+import {
+  MicDisclosure,
+  useMicDisclosureStore,
+} from '@/components/voice/mic-disclosure';
 import { VoiceOrb } from '@/components/voice/voice-orb';
-import { useMicRecorder } from '@/hooks/use-mic-recorder';
+import { useMicRecorder, type MicPermission } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
 import { useVoiceSession } from '@/hooks/use-voice-session';
 import { glass, lift } from '@/lib/glass';
@@ -41,6 +47,26 @@ import { useVoiceSettingsStore } from '@/store/voice-settings';
 import { useMemoryStore } from '@/store/memory';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'responding' | 'error';
+
+/** A refused microphone, kept apart from a broken one. */
+type MicIssue = Exclude<MicPermission, 'granted'>;
+
+/** What the error card says for each refusal, and what its button then does. */
+const MIC_ISSUE_TEXT: Record<
+  MicIssue,
+  { title: TranslationKey; body: TranslationKey; action: TranslationKey }
+> = {
+  denied: {
+    title: 'voice.mic.deniedTitle',
+    body: 'voice.mic.deniedBody',
+    action: 'common.retry',
+  },
+  blocked: {
+    title: 'voice.mic.blockedTitle',
+    body: 'voice.mic.blockedBody',
+    action: 'voice.mic.openSettings',
+  },
+};
 
 /** The three the app speaks, in the order the button walks through them. */
 const LANGUAGES: readonly Language[] = ['uz', 'ru', 'en'];
@@ -209,6 +235,14 @@ export default function VoiceScreen() {
   );
   const [crisisLevel, setCrisisLevel] = useState<'orange' | 'red' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [micIssue, setMicIssue] = useState<MicIssue | null>(null);
+
+  // The disclosure is shown once per install, before the microphone is ever
+  // asked for — see components/voice/mic-disclosure.tsx for why it exists.
+  const micDisclosureSeen = useMicDisclosureStore((st) => st.accepted);
+  const micDisclosureHydrated = useMicDisclosureStore((st) => st.hydrated);
+  const acceptMicDisclosure = useMicDisclosureStore((st) => st.accept);
+  const [disclosureOpen, setDisclosureOpen] = useState(false);
   const [board, setBoard] = useState<BoardSolution | null>(null);
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   // Spoken turns so far — drives how often a puzzle interrupts the talking.
@@ -365,40 +399,75 @@ export default function VoiceScreen() {
     },
   });
 
+  /**
+   * Open the session, once the child has read the disclosure.
+   *
+   * The permission is settled FIRST and the socket opens only after it comes
+   * back granted. It used to be the other way round, which meant a child who
+   * tapped "Don't allow" still had a backend voice session — and whatever
+   * server-side record it implies — created for a turn they never spoke.
+   */
+  const beginSession = useCallback(async () => {
+    if (!child) return;
+    // The orb settles back to rest; the words from the last turn are
+    // already in the conversation and are not this screen's to clear.
+    level.set(withTiming(0, { duration: 200 }));
+    setCrisisLevel(null);
+    setErrorMessage(null);
+    setMicIssue(null);
+    setBoard(null);
+    setPuzzle(null);
+    utteranceRef.current = '';
+    turnSeqRef.current += 1;
+    chunkCountRef.current = 0;
+
+    const permission = await mic.requestPermission();
+    dbg(`mic permission ${permission}`);
+    if (permission !== 'granted') {
+      setMicIssue(permission);
+      setPhase('error');
+      return;
+    }
+
+    dbg('connect+mic.start');
+    voice.connect({
+      childId: child.id,
+      conversationId: storeConversationId,
+      // Both are read when the socket opens: the voice pins the timbre
+      // for the session, the language becomes a line in the system prompt.
+      voiceName,
+      lang: language,
+    });
+    const started = await mic.start();
+    dbg(`mic.start returned ${started}`);
+    if (!started) {
+      voice.close();
+      setErrorMessage(t('voice.micFailed'));
+      setPhase('error');
+      return;
+    }
+    setPhase('recording');
+  }, [child, mic, voice, storeConversationId, level, voiceName, language, t]);
+
   const handleTap = useCallback(async () => {
     if (!child) {
       dbg('no child profile');
       return;
     }
     if (phase === 'idle' || phase === 'error') {
-      // The orb settles back to rest; the words from the last turn are
-      // already in the conversation and are not this screen's to clear.
-      level.set(withTiming(0, { duration: 200 }));
-      setCrisisLevel(null);
-      setErrorMessage(null);
-      setBoard(null);
-      setPuzzle(null);
-      utteranceRef.current = '';
-      turnSeqRef.current += 1;
-      chunkCountRef.current = 0;
-      dbg('connect+mic.start');
-      voice.connect({
-        childId: child.id,
-        conversationId: storeConversationId,
-        // Both are read when the socket opens: the voice pins the timbre
-        // for the session, the language becomes a line in the system prompt.
-        voiceName,
-        lang: language,
-      });
-      const started = await mic.start();
-      dbg(`mic.start returned ${started}`);
-      if (!started) {
-        voice.close();
-        setErrorMessage(t('voice.micFailed'));
-        setPhase('error');
+      // Nothing may reach the OS prompt before the disclosure has been read,
+      // so a tap made in the moment between mount and the flag coming back
+      // from storage waits rather than guessing — it is a single frame at
+      // cold start, and guessing wrong means showing the sheet twice.
+      if (!micDisclosureHydrated) {
+        dbg('mic disclosure not hydrated');
         return;
       }
-      setPhase('recording');
+      if (!micDisclosureSeen) {
+        setDisclosureOpen(true);
+        return;
+      }
+      await beginSession();
       return;
     }
     if (phase === 'recording') {
@@ -427,7 +496,37 @@ export default function VoiceScreen() {
       return;
     }
     setPhase('recording');
-  }, [child, mic, voice, phase, storeConversationId, level, voiceName, language, t]);
+  }, [
+    child,
+    mic,
+    voice,
+    phase,
+    level,
+    t,
+    beginSession,
+    micDisclosureHydrated,
+    micDisclosureSeen,
+  ]);
+
+  // Accepting the sheet flows straight into the OS prompt: the child has just
+  // read what the microphone does, and making them tap the mic a second time
+  // would put a screen between the explanation and the question it answers.
+  const handleDisclosureAccept = useCallback(() => {
+    acceptMicDisclosure();
+    setDisclosureOpen(false);
+    void beginSession();
+  }, [acceptMicDisclosure, beginSession]);
+
+  const micIssueText = micIssue ? MIC_ISSUE_TEXT[micIssue] : null;
+  // 'blocked' has no dialog left to raise — Android answers every further
+  // request instantly — so Settings is the only door.
+  const handleErrorAction = useCallback(() => {
+    if (micIssue === 'blocked') {
+      void Linking.openSettings();
+      return;
+    }
+    void handleTap();
+  }, [micIssue, handleTap]);
 
   // Only a missing profile stops the mic. It used to be disabled while DUYO
   // was thinking or speaking, which meant a child who had thought of the
@@ -506,10 +605,15 @@ export default function VoiceScreen() {
           <View style={styles.avatarStage}>
             <VoiceOrb size={orbSize} level={level} phase={phase} />
 
-            {/* Offline signal-error badge */}
+            {/* Error badge — a refused microphone is not a lost connection,
+                and the icon is the first thing that says which. */}
             {isError && (
               <View style={styles.errorBadge}>
-                <CloudOff size={24} color="#FFFFFF" />
+                {micIssue ? (
+                  <MicOff size={24} color="#FFFFFF" />
+                ) : (
+                  <CloudOff size={24} color="#FFFFFF" />
+                )}
               </View>
             )}
           </View>
@@ -527,37 +631,60 @@ export default function VoiceScreen() {
             </View>
           ) : null}
 
-          {/* Offline / error card */}
+          {/* Error card — the offline story, or the microphone one. A refused
+              permission used to land here as "the microphone didn't start",
+              which told a child their phone was broken when in fact they had
+              just answered a question. */}
           {isError && (
             <View style={styles.errorBlock}>
               <View style={[glass(32, 'lg', 0.7), styles.errorCard]}>
                 <View style={styles.errorWell}>
-                  <CloudOff size={32} color={PRIMARY} />
+                  {micIssue ? (
+                    <MicOff size={32} color={PRIMARY} />
+                  ) : (
+                    <CloudOff size={32} color={PRIMARY} />
+                  )}
                 </View>
                 <Text style={styles.errorTitle}>
-                  {errorMessage ?? t('common.noInternet.title')}
+                  {micIssueText
+                    ? t(micIssueText.title)
+                    : (errorMessage ?? t('common.noInternet.title'))}
                 </Text>
-                <Text style={styles.errorBody}>{t('voice.offlineBody')}</Text>
+                <Text style={styles.errorBody}>
+                  {t(micIssueText ? micIssueText.body : 'voice.offlineBody')}
+                </Text>
                 <Pressable
-                  onPress={handleTap}
+                  onPress={handleErrorAction}
                   accessibilityRole="button"
-                  accessibilityLabel={t('voice.retryLater')}
+                  accessibilityLabel={t(
+                    micIssueText ? micIssueText.action : 'voice.retryLater',
+                  )}
                   style={[styles.retry, styles.focusable]}
                 >
-                  <RefreshCw size={18} color="#FFFFFF" />
-                  <Text style={styles.retryText}>{t('voice.retryLater')}</Text>
+                  {micIssue === 'blocked' ? (
+                    <Settings2 size={18} color="#FFFFFF" />
+                  ) : (
+                    <RefreshCw size={18} color="#FFFFFF" />
+                  )}
+                  <Text style={styles.retryText}>
+                    {t(micIssueText ? micIssueText.action : 'voice.retryLater')}
+                  </Text>
                 </Pressable>
               </View>
-              <Pressable
-                onPress={() => router.push('/(main)/settings-voice')}
-                accessibilityRole="button"
-                accessibilityLabel={t('voice.checkSettings')}
-                style={styles.errorLink}
-              >
-                <Text style={styles.errorLinkText}>
-                  {t('voice.checkSettings')}
-                </Text>
-              </Pressable>
+              {/* The voice settings are no help when the microphone itself is
+                  the thing that was refused. */}
+              {!micIssue && (
+                <Pressable
+                  onPress={() => router.push('/(main)/settings-voice')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('voice.checkSettings')}
+                  style={styles.errorLink}
+                >
+                  <Text style={styles.errorLinkText}>
+                    {t('voice.checkSettings')}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
         </View>
@@ -623,6 +750,12 @@ export default function VoiceScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
+
+      <MicDisclosure
+        visible={disclosureOpen}
+        onAccept={handleDisclosureAccept}
+        onDismiss={() => setDisclosureOpen(false)}
+      />
     </View>
   );
 }
