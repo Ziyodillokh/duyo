@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DUYO — Maxfiylik siyosati</title>
+    <meta
+      name="description"
+      content="DUYO ilovasi qanday ma'lumot yig'adi, kim bilan bo'lishadi va qancha vaqt saqlaydi — oddiy tilda."
+    />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="canonical" href="https://duyo.uz/privacy.html" />
+
+    <!-- Favicon (inline SVG) -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232563eb'/%3E%3Ccircle cx='12' cy='15' r='2.2' fill='white'/%3E%3Ccircle cx='20' cy='15' r='2.2' fill='white'/%3E%3Cpath d='M12 21c1.4 1.4 6.6 1.4 8 0' stroke='white' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Cpath d='M16 8V5' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='4' r='2' fill='%23ffc700'/%3E%3C/svg%3E"
+    />
+
+    <!-- Shrift -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="assets/base.css" />
+    <link rel="stylesheet" href="assets/sections.css" />
+
+    <!-- Uzun huquqiy matn uchun tipografiya. base.css tokenlari ustida
+         ishlaydi va faqat shu sahifada kerak, shuning uchun shu yerda. -->
+    <style>
+      .legal {
+        max-width: 760px;
+        margin-inline: auto;
+      }
+
+      .legal__meta {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .legal__intro {
+        margin-top: 20px;
+        font-size: 17px;
+        line-height: 1.7;
+      }
+
+      .legal h2 {
+        margin-top: 44px;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+
+      .legal h3 {
+        margin-top: 26px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .legal p {
+        margin-top: 12px;
+      }
+
+      .legal ul {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .legal li {
+        position: relative;
+        padding-left: 22px;
+      }
+
+      .legal li::before {
+        content: "—";
+        position: absolute;
+        left: 0;
+        color: var(--blue);
+      }
+
+      .legal a {
+        color: var(--blue);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: rgba(37, 99, 235, 0.4);
+      }
+
+      .legal a:hover {
+        text-decoration-color: var(--blue);
+      }
+
+      .legal__scroll {
+        overflow-x: auto;
+        margin-top: 18px;
+      }
+
+      .legal table {
+        font-size: 15px;
+        min-width: 480px;
+      }
+
+      .legal th,
+      .legal td {
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .legal thead th {
+        background: var(--sky);
+        font-weight: 700;
+        border-bottom-color: var(--border-strong);
+      }
+
+      .legal tbody th {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .legal__note {
+        margin-top: 18px;
+        padding: 18px 20px;
+        background: var(--sky);
+        border-radius: var(--r-md);
+      }
+
+      .legal__note p:first-child {
+        margin-top: 0;
+      }
+    </style>
+
+    <!-- Til blokini tanlash. Huquqiy matn assets/i18n.js lug'ati orqali emas,
+         uchta to'liq blok bilan beriladi: kalit sifatida butun bir xatboshi
+         ishlatilsa, matndagi bitta vergul tuzatilishi tarjimani jimgina
+         yo'qotardi. Tanlov app.js bilan bir xil joyda saqlanadi, shuning
+         uchun saytda tanlangan til bu sahifada ham ochiladi. JS ishlamasa
+         o'zbekcha bloki ko'rinib turaveradi. -->
+    <script>
+      (function () {
+        var LANGS = ["uz", "ru", "en"];
+        var KEY = "duyo-lang";
+
+        function pick() {
+          var fromUrl = null;
+          var saved = null;
+          try {
+            fromUrl = new URL(window.location.href).searchParams.get("lang");
+          } catch (e) {
+            /* eski brauzer — saqlangan tilga tushamiz */
+          }
+          try {
+            saved = localStorage.getItem(KEY);
+          } catch (e) {
+            /* private rejim — o'zbekcha qoladi */
+          }
+          if (LANGS.indexOf(fromUrl) >= 0) return fromUrl;
+          if (LANGS.indexOf(saved) >= 0) return saved;
+          return "uz";
+        }
+
+        function show(code) {
+          var blocks = document.querySelectorAll("[data-legal-lang]");
+          for (var i = 0; i < blocks.length; i++) {
+            blocks[i].hidden = blocks[i].getAttribute("data-legal-lang") !== code;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          show(pick());
+          var items = document.querySelectorAll("[data-lang-menu] [data-lang]");
+          for (var i = 0; i < items.length; i++) {
+            items[i].addEventListener("click", function () {
+              show(this.getAttribute("data-lang"));
+            });
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Asosiy kontentga o'tish</a>
+
+    <header class="sec-nav" data-nav aria-label="DUYO — asosiy navigatsiya">
+      <div class="container sec-nav__inner">
+        <a href="index.html" class="sec-nav__logo" aria-label="DUYO — bosh sahifa">
+          <span class="sec-nav__logo-mark" aria-hidden="true">
+            <img class="logo-img" src="assets/img/logo.png" alt="" onerror="this.remove()" onload="var s=this.parentNode.querySelector('svg'); if(s) s.remove();">
+            <svg viewBox="0 0 40 44" fill="none" aria-hidden="true"><path d="M20 9.6V5" stroke="#FFC700" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="3.4" r="3.4" fill="#FFC700"/><circle cx="20" cy="26" r="15" fill="url(#duyoNav)"/><ellipse cx="14.6" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><ellipse cx="25.4" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><circle cx="15.3" cy="24.3" r="1.85" fill="#102033"/><circle cx="26.1" cy="24.3" r="1.85" fill="#102033"/><path d="M15.4 31.2c2.6 2.7 6.6 2.7 9.2 0" stroke="#102033" stroke-width="2.1" stroke-linecap="round"/><defs><linearGradient id="duyoNav" x1="7" y1="12" x2="33" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#5B96F9"/><stop offset="1" stop-color="#1D4ED8"/></linearGradient></defs></svg>
+          </span>
+          <span class="sec-nav__logo-text">DUYO</span>
+        </a>
+
+        <div class="sec-nav__actions">
+          <div class="sec-nav__lang-wrap">
+            <button type="button" class="sec-nav__lang" data-lang-toggle aria-expanded="false" aria-haspopup="true" aria-label="Interfeys tilini tanlash">
+              <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg>
+              <span class="sec-nav__lang-code" data-lang-current>UZ</span>
+              <svg class="sec-nav__lang-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            <div class="sec-nav__lang-menu" data-lang-menu>
+              <button type="button" class="sec-nav__lang-item" data-lang="uz" aria-current="true">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg><span>O'zbekcha</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+              <button type="button" class="sec-nav__lang-item" data-lang="ru" aria-current="false">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 5.33h24v5.34H0z" fill="#0039A6"/><path d="M0 10.67h24v2.73A2.6 2.6 0 0 1 21.4 16H2.6A2.6 2.6 0 0 1 0 13.4v-2.73Z" fill="#D52B1E"/></svg><span>Русский</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+              <button type="button" class="sec-nav__lang-item" data-lang="en" aria-current="false">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#012169"/><path d="m0 0 24 16M24 0 0 16" stroke="#fff" stroke-width="3.2"/><path d="m0 0 24 16M24 0 0 16" stroke="#C8102E" stroke-width="1.8"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.4"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="3.2"/></svg><span>English</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="section">
+      <div class="container legal">
+
+        <!-- ============================ O'ZBEKCHA ============================ -->
+        <article lang="uz" data-legal-lang="uz">
+          <h1 class="h1">Maxfiylik siyosati</h1>
+          <p class="legal__meta">Oxirgi yangilanish: 2026-yil 3-sentabr</p>
+
+          <p class="legal__intro">
+            Bu sahifa DUYO ilovasi siz haqingizda qanday ma'lumot yig'ishini,
+            nima uchun yig'ishini, kim bilan bo'lishishini va qancha vaqt
+            saqlashini tushuntiradi. Uni 13 yoshli foydalanuvchi ham, uning
+            ota-onasi ham o'qib tushunishi uchun oddiy tilda yozdik.
+          </p>
+
+          <p>
+            DUYO — O'zbekistonda yaratilgan AI hamroh ilovasi. Ilova va duyo.uz
+            sayti DUYO jamoasi (XRR) tomonidan boshqariladi. Savollaringiz bo'lsa:
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+
+          <h2>1. DUYO kim uchun</h2>
+          <p>
+            DUYO 13-16 yoshdagi o'smirlar uchun. Ro'yxatdan o'tishda yosh
+            so'raladi va 13 dan kichik yosh qabul qilinmaydi. Agar 13 yoshga
+            to'lmagan bola hisob ochib qo'yganini bilsak, uni o'chiramiz —
+            bu haqda <a href="mailto:info@duyo.uz">info@duyo.uz</a> ga yozing.
+          </p>
+
+          <h2>2. Biz nima yig'amiz va nima uchun</h2>
+
+          <h3>Telefon raqami</h3>
+          <p>
+            Ro'yxatdan o'tish va kirish uchun. Bu yagona majburiy ma'lumot:
+            DUYO'da parol yo'q, siz SMS orqali keladigan kod bilan kirasiz.
+          </p>
+
+          <h3>Ism, yosh va qiziqishlar</h3>
+          <p>
+            DUYO sizga ismingiz bilan murojaat qilishi, javoblarni yoshingizga
+            moslashi va suhbatni qiziqishlaringizga qarab olib borishi uchun.
+          </p>
+
+          <h3>DUYO bilan suhbatlaringiz</h3>
+          <p>
+            Yozgan xabarlaringiz va DUYO'ning javoblari serverimizda saqlanadi —
+            shuning uchun ertaga ilovani ochganingizda suhbat tarixi joyida
+            turadi.
+          </p>
+
+          <h3>Ovozli suhbat</h3>
+          <p>
+            Ovozli rejimda mikrofondan kelayotgan ovoz to'g'ridan-to'g'ri
+            Google'ning Gemini Live xizmatiga uzatiladi va javob qaytadi.
+            Ovoz yozuvi saqlanmaydi — suhbatdan faqat matn tarixda qoladi.
+            Mikrofon boshqa hech qanday holatda yoqilmaydi.
+          </p>
+
+          <h3>Tengdoshlar bilan xabarlar</h3>
+          <p>
+            Agar maqsad-do'stlar (goal-mates) imkoniyatini yoqsangiz, yozgan
+            xabarlaringiz saqlanadi va yetkazilishidan oldin xavfsizlik
+            tekshiruvidan o'tadi. Ovozli va video eslatmalar avval matnga
+            o'giriladi, tekshiriladi va shundan keyin yetkaziladi. Tengdoshlar
+            sizning haqiqiy ismingizni, telefon raqamingizni yoki suratingizni
+            ko'rmaydi — faqat tizim bergan taxallus va yosh guruhini.
+          </p>
+
+          <h3>Profil surati</h3>
+          <p>
+            Ixtiyoriy. O'z serverimizda saqlanadi, boshqa foydalanuvchilarga
+            ko'rsatilmaydi va tashqi xizmatlarga yuborilmaydi.
+          </p>
+
+          <h3>Qurilmangizdagi "xotiralar"</h3>
+          <p>
+            DUYO siz haqingizdagi ayrim faktlarni eslab qolishi mumkin — masalan
+            sevimli faningiz. Ular telefoningizning ichida AES-256-GCM bilan
+            shifrlangan holda saqlanadi, kalit telefonning xavfsiz omborida
+            (Keychain / Keystore) turadi va serverga nusxa ko'chirilmaydi. Har bir
+            yozuv saqlanishidan oldin sizdan alohida rozilik so'raladi. Javob
+            berish uchun kerak bo'lgan qismi o'sha savol bilan birga Gemini'ga
+            yuboriladi.
+          </p>
+
+          <h3>Ilova ichidagi faoliyat</h3>
+          <p>
+            Maqsadlar, daftar yozuvlari, kayfiyat belgilari, XP, daraja, kunlik
+            seriya va tamagochi holati.
+          </p>
+
+          <h3>Xavf belgilari</h3>
+          <p>
+            DUYO xabarlarda o'ziga zarar yetkazish yoki jiddiy xavf belgilarini
+            qidiradi. Bunday holat aniqlansa, hodisa alohida yozuvda qayd
+            etiladi va sizga ishonch telefoni (1142) darhol ko'rsatiladi. Bu
+            yozuvlar sezgir ma'lumot hisoblanadi va alohida himoyalanadi.
+          </p>
+
+          <h2>3. Biz yig'maydigan narsalar</h2>
+          <ul>
+            <li>Reklama identifikatori — ilovada reklama umuman yo'q.</li>
+            <li>Joylashuv, kontaktlar, kalendar, SMS matnlari va telefondagi fayllar.</li>
+            <li>Analitika va nosozlik kuzatuvi (crash) uchun tashqi SDK'lar — ular ilovada o'rnatilmagan.</li>
+            <li>Bank kartasi ma'lumotlari — ilova ichida to'lov qabul qilinmaydi.</li>
+          </ul>
+          <p>
+            Mikrofon ruxsati faqat ovozli suhbat uchun so'raladi; galereya ruxsati
+            faqat siz profil surati tanlaganingizda.
+          </p>
+
+          <h2>4. Ma'lumotlar kim bilan bo'lishiladi</h2>
+          <p>
+            Biz ma'lumotlaringizni sotmaymiz va reklama uchun ishlatmaymiz.
+            Ular ikkita tashqi xizmatga — faqat ish uchun zarur bo'lgan qismi —
+            yetib boradi.
+          </p>
+
+          <h3>Google (Gemini) — suhbat va ovoz</h3>
+          <p>
+            DUYO'ning javoblari Google'ning Gemini modellari orqali yaratiladi.
+            Google'ga yuboriladi: yozgan xabaringiz va suhbatning oxirgi qismi,
+            ismingiz, yoshingiz va qiziqishlaringiz kabi moslash uchun kerakli
+            ma'lumot, ovozli rejimdagi ovoz oqimi, tengdoshlarga yuborilgan
+            ovozli/video eslatma va siz ruxsat bergan "xotiralar". Google bu
+            ma'lumotni o'z shartlariga muvofiq qayta ishlaydi —
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.
+          </p>
+
+          <h3>Eskiz.uz — SMS</h3>
+          <p>
+            Telefon raqamingiz SMS yuborish uchun O'zbekistondagi Eskiz.uz
+            operatoriga uzatiladi: kirish kodi va xavf holatidagi ogohlantirish.
+            Xavf ogohlantirishida ismingizning birinchi qismi ham SMS matnida
+            boradi. Boshqa hech narsa yuborilmaydi.
+          </p>
+
+          <h3>Boshqa hech kim</h3>
+          <p>
+            Serverimiz, ma'lumotlar bazasi va fayl ombori bizga tegishli va bitta
+            serverda turadi — bu tashqi xizmat emas. Ma'lumotni faqat qonun
+            talab qilgan hollarda va faqat rasmiy so'rov bo'yicha berishimiz
+            mumkin.
+          </p>
+
+          <h2>5. Qancha vaqt saqlaymiz</h2>
+          <div class="legal__scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Ma'lumot</th>
+                  <th scope="col">Muddat</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">SMS tasdiqlash kodi</th>
+                  <td>5 daqiqa</td>
+                </tr>
+                <tr>
+                  <th scope="row">Kirish sessiyasi</th>
+                  <td>30 kun</td>
+                </tr>
+                <tr>
+                  <th scope="row">Hisob: telefon, ism, yosh, qiziqishlar</th>
+                  <td>hisob ochiq turganda; yopilgandan keyin 30 kun ichida o'chiriladi</td>
+                </tr>
+                <tr>
+                  <th scope="row">DUYO bilan suhbatlar</th>
+                  <td>hisob ochiq turganda; o'zingiz o'chirsangiz darhol</td>
+                </tr>
+                <tr>
+                  <th scope="row">Ovoz yozuvi</th>
+                  <td>saqlanmaydi</td>
+                </tr>
+                <tr>
+                  <th scope="row">Profil surati</th>
+                  <td>siz almashtirmaguningizcha; hisob bilan birga o'chiriladi</td>
+                </tr>
+                <tr>
+                  <th scope="row">Tengdoshlar bilan xabarlar</th>
+                  <td>12 oy — xavfsizlik tekshiruvi uchun; hisobingiz yopilsa, xabar sizning nomingizdan ajratiladi</td>
+                </tr>
+                <tr>
+                  <th scope="row">Xavf hodisasi yozuvi</th>
+                  <td>7 yil — bolalar xavfsizligi bo'yicha qonuniy talab</td>
+                </tr>
+                <tr>
+                  <th scope="row">Qurilmadagi "xotiralar"</th>
+                  <td>siz o'chirmaguningizcha; ilovani telefondan olib tashlasangiz, ular ham yo'qoladi</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>6. Xavfsizlik</h2>
+          <ul>
+            <li>Ilova bilan server o'rtasidagi barcha aloqa TLS (HTTPS / WSS) orqali shifrlanadi.</li>
+            <li>Qurilmadagi "xotiralar" AES-256-GCM bilan shifrlanadi, kalit qurilmaning o'zida qoladi.</li>
+            <li>Tengdoshlarga yuborilgan har bir xabar yetkazilishidan oldin tekshiriladi; xavfli xabar umuman yetib bormaydi.</li>
+            <li>Hech bir tizim 100% xavfsiz emas. Ma'lumot sizib chiqsa, biz sizga xabar beramiz.</li>
+          </ul>
+
+          <h2>7. Sizning huquqlaringiz</h2>
+          <ul>
+            <li>Ma'lumotlaringizni ko'rish va tuzatish — ilovaning Sozlamalar bo'limida.</li>
+            <li>Bitta suhbatni o'chirish — suhbat tarixidan.</li>
+            <li>Hisobni butunlay o'chirish — <a href="account-deletion.html">hisobni o'chirish sahifasi</a>.</li>
+            <li>Savol yoki shikoyat — <a href="mailto:info@duyo.uz">info@duyo.uz</a>.</li>
+          </ul>
+
+          <h2>8. Ota-onalar uchun</h2>
+          <div class="legal__note">
+            <p>
+              DUYO'da ota-ona paneli yo'q va biz suhbatlarni ota-onaga
+              ko'rsatmaymiz: ilova o'smirning o'z hisobi sifatida ishlaydi.
+              Buning o'rniga xavfsizlik ilovaning ichida: reklama yo'q, notanish
+              kattalar bilan aloqa yo'q, tengdoshlarning har bir xabari
+              yuborilishidan oldin tekshiriladi va xavf belgilari aniqlanganda
+              yordam telefoni ko'rsatiladi.
+            </p>
+            <p>
+              Farzandingiz hisobini o'chirishni so'rashingiz mumkin —
+              <a href="account-deletion.html">hisobni o'chirish sahifasiga</a>
+              qarang.
+            </p>
+          </div>
+
+          <h2>9. O'zgarishlar</h2>
+          <p>
+            Siyosat o'zgarsa, sahifa boshidagi sana yangilanadi. Muhim
+            o'zgarishlar haqida ilova ichida ham xabar beramiz.
+          </p>
+
+          <h2>10. Aloqa</h2>
+          <p>
+            DUYO jamoasi (XRR) —
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+        </article>
+
+        <!-- ============================ РУССКИЙ ============================ -->
+        <article lang="ru" data-legal-lang="ru" hidden>
+          <h1 class="h1">Политика конфиденциальности</h1>
+          <p class="legal__meta">Последнее обновление: 3 сентября 2026 года</p>
+
+          <p class="legal__intro">
+            Здесь мы объясняем, какие данные собирает приложение DUYO, зачем,
+            кому они передаются и сколько хранятся. Мы написали это простым
+            языком, чтобы понял и тринадцатилетний пользователь, и его родители.
+          </p>
+
+          <p>
+            DUYO — AI-собеседник, сделанный в Узбекистане. Приложением и сайтом
+            duyo.uz управляет команда DUYO (XRR). Вопросы:
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+
+          <h2>1. Для кого DUYO</h2>
+          <p>
+            DUYO — для подростков 13–16 лет. При регистрации спрашивается
+            возраст, и возраст младше 13 не принимается. Если мы узнаем, что
+            аккаунт завёл ребёнок младше 13, мы его удалим — напишите нам на
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+
+          <h2>2. Что мы собираем и зачем</h2>
+
+          <h3>Номер телефона</h3>
+          <p>
+            Для регистрации и входа. Это единственные обязательные данные:
+            пароля в DUYO нет, вы входите по коду из SMS.
+          </p>
+
+          <h3>Имя, возраст и интересы</h3>
+          <p>
+            Чтобы DUYO обращался к вам по имени, отвечал с учётом возраста и вёл
+            разговор вокруг того, что вам интересно.
+          </p>
+
+          <h3>Ваши разговоры с DUYO</h3>
+          <p>
+            Ваши сообщения и ответы DUYO хранятся на нашем сервере — поэтому
+            завтра, открыв приложение, вы найдёте историю разговора на месте.
+          </p>
+
+          <h3>Голосовое общение</h3>
+          <p>
+            В голосовом режиме звук с микрофона передаётся напрямую в сервис
+            Google Gemini Live, и оттуда приходит ответ. Запись голоса не
+            сохраняется — от разговора в истории остаётся только текст. Ни в
+            каких других случаях микрофон не включается.
+          </p>
+
+          <h3>Сообщения со сверстниками</h3>
+          <p>
+            Если вы включите функцию «друзья по целям» (goal-mates), ваши
+            сообщения сохраняются и перед доставкой проходят проверку
+            безопасности. Голосовые и видеозаметки сначала переводятся в текст,
+            проверяются и только потом доставляются. Сверстники не видят вашего
+            настоящего имени, номера телефона и фотографии — только выданный
+            системой псевдоним и возрастную группу.
+          </p>
+
+          <h3>Фото профиля</h3>
+          <p>
+            По желанию. Хранится на нашем собственном сервере, не показывается
+            другим пользователям и не отправляется во внешние сервисы.
+          </p>
+
+          <h3>«Воспоминания» на вашем устройстве</h3>
+          <p>
+            DUYO может запомнить отдельные факты о вас — например любимый
+            предмет. Они хранятся внутри вашего телефона в зашифрованном виде
+            (AES-256-GCM), ключ лежит в защищённом хранилище телефона
+            (Keychain / Keystore), копии на сервере нет. Перед сохранением
+            каждой записи мы отдельно спрашиваем разрешение. Нужная для ответа
+            часть отправляется в Gemini вместе с вашим вопросом.
+          </p>
+
+          <h3>Активность в приложении</h3>
+          <p>
+            Цели, заметки, отметки настроения, XP, уровень, серия дней и
+            состояние тамагочи.
+          </p>
+
+          <h3>Признаки опасности</h3>
+          <p>
+            DUYO ищет в сообщениях признаки самоповреждения или серьёзной
+            опасности. Если такое обнаружено, событие фиксируется отдельной
+            записью, а вам сразу показывается телефон доверия (1142). Эти записи
+            считаются чувствительными данными и защищаются отдельно.
+          </p>
+
+          <h2>3. Чего мы не собираем</h2>
+          <ul>
+            <li>Рекламный идентификатор — рекламы в приложении нет вообще.</li>
+            <li>Геолокацию, контакты, календарь, тексты SMS и файлы на телефоне.</li>
+            <li>Внешние SDK аналитики и сбора сбоев — их в приложении нет.</li>
+            <li>Данные банковской карты — оплата внутри приложения не принимается.</li>
+          </ul>
+          <p>
+            Доступ к микрофону запрашивается только для голосового общения;
+            доступ к галерее — только когда вы сами выбираете фото профиля.
+          </p>
+
+          <h2>4. Кому передаются данные</h2>
+          <p>
+            Мы не продаём ваши данные и не используем их для рекламы. Они
+            попадают в два внешних сервиса — и только в той части, которая нужна
+            для работы.
+          </p>
+
+          <h3>Google (Gemini) — переписка и голос</h3>
+          <p>
+            Ответы DUYO создаются моделями Google Gemini. В Google уходят: ваше
+            сообщение и последняя часть разговора, данные для персонализации
+            (имя, возраст, интересы), звуковой поток в голосовом режиме,
+            голосовые и видеозаметки для сверстников и те «воспоминания»,
+            на которые вы дали разрешение. Google обрабатывает эти данные по
+            своим условиям —
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.
+          </p>
+
+          <h3>Eskiz.uz — SMS</h3>
+          <p>
+            Ваш номер телефона передаётся узбекскому SMS-оператору Eskiz.uz:
+            код входа и предупреждение в опасной ситуации. В тексте
+            предупреждения также идёт первая часть имени. Больше ничего не
+            передаётся.
+          </p>
+
+          <h3>Больше никому</h3>
+          <p>
+            Наш сервер, база данных и файловое хранилище принадлежат нам и стоят
+            на одном сервере — это не внешний сервис. Передать данные мы можем
+            только по официальному требованию закона.
+          </p>
+
+          <h2>5. Сколько мы храним</h2>
+          <div class="legal__scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Данные</th>
+                  <th scope="col">Срок</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Код подтверждения из SMS</th>
+                  <td>5 минут</td>
+                </tr>
+                <tr>
+                  <th scope="row">Сессия входа</th>
+                  <td>30 дней</td>
+                </tr>
+                <tr>
+                  <th scope="row">Аккаунт: телефон, имя, возраст, интересы</th>
+                  <td>пока аккаунт открыт; удаляется в течение 30 дней после закрытия</td>
+                </tr>
+                <tr>
+                  <th scope="row">Разговоры с DUYO</th>
+                  <td>пока аккаунт открыт; если удалите сами — сразу</td>
+                </tr>
+                <tr>
+                  <th scope="row">Запись голоса</th>
+                  <td>не сохраняется</td>
+                </tr>
+                <tr>
+                  <th scope="row">Фото профиля</th>
+                  <td>пока вы его не замените; удаляется вместе с аккаунтом</td>
+                </tr>
+                <tr>
+                  <th scope="row">Сообщения со сверстниками</th>
+                  <td>12 месяцев — для проверки безопасности; при закрытии аккаунта сообщение отвязывается от вашего имени</td>
+                </tr>
+                <tr>
+                  <th scope="row">Запись о признаках опасности</th>
+                  <td>7 лет — требование закона о безопасности детей</td>
+                </tr>
+                <tr>
+                  <th scope="row">«Воспоминания» на устройстве</th>
+                  <td>пока вы их не удалите; при удалении приложения исчезают вместе с ним</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>6. Безопасность</h2>
+          <ul>
+            <li>Вся связь между приложением и сервером шифруется по TLS (HTTPS / WSS).</li>
+            <li>«Воспоминания» на устройстве шифруются AES-256-GCM, ключ не покидает телефон.</li>
+            <li>Каждое сообщение сверстникам проверяется до доставки; опасное сообщение не доходит вовсе.</li>
+            <li>Абсолютно безопасных систем не бывает. Если данные утекут, мы вам сообщим.</li>
+          </ul>
+
+          <h2>7. Ваши права</h2>
+          <ul>
+            <li>Посмотреть и исправить свои данные — в разделе «Настройки» приложения.</li>
+            <li>Удалить отдельный разговор — из истории разговоров.</li>
+            <li>Удалить аккаунт полностью — <a href="account-deletion.html">страница удаления аккаунта</a>.</li>
+            <li>Вопрос или жалоба — <a href="mailto:info@duyo.uz">info@duyo.uz</a>.</li>
+          </ul>
+
+          <h2>8. Родителям</h2>
+          <div class="legal__note">
+            <p>
+              В DUYO нет родительской панели, и мы не показываем разговоры
+              родителям: приложение работает как личный аккаунт подростка.
+              Вместо этого безопасность встроена внутрь: нет рекламы, нет
+              контакта с незнакомыми взрослыми, каждое сообщение сверстникам
+              проверяется до отправки, а при признаках опасности показывается
+              телефон доверия.
+            </p>
+            <p>
+              Вы можете попросить удалить аккаунт вашего ребёнка — см.
+              <a href="account-deletion.html">страницу удаления аккаунта</a>.
+            </p>
+          </div>
+
+          <h2>9. Изменения</h2>
+          <p>
+            Если политика изменится, мы обновим дату в начале страницы. О важных
+            изменениях сообщим и внутри приложения.
+          </p>
+
+          <h2>10. Связь</h2>
+          <p>
+            Команда DUYO (XRR) —
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+        </article>
+
+        <!-- ============================ ENGLISH ============================ -->
+        <article lang="en" data-legal-lang="en" hidden>
+          <h1 class="h1">Privacy policy</h1>
+          <p class="legal__meta">Last updated: 3 September 2026</p>
+
+          <p class="legal__intro">
+            This page explains what the DUYO app collects about you, why, who it
+            goes to and how long we keep it. We wrote it in plain language so
+            that a thirteen-year-old and their parent can both read it.
+          </p>
+
+          <p>
+            DUYO is an AI companion app made in Uzbekistan. The app and the
+            duyo.uz website are run by the DUYO team (XRR). Questions:
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+
+          <h2>1. Who DUYO is for</h2>
+          <p>
+            DUYO is for teenagers aged 13 to 16. Sign-up asks for your age and
+            anything under 13 is refused. If we learn that a child under 13 has
+            created an account, we delete it — tell us at
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+
+          <h2>2. What we collect, and why</h2>
+
+          <h3>Phone number</h3>
+          <p>
+            For signing up and signing in. It is the only required piece of
+            data: DUYO has no password — you sign in with a code sent by SMS.
+          </p>
+
+          <h3>Name, age and interests</h3>
+          <p>
+            So DUYO can call you by your name, pitch its answers at your age and
+            talk about what you actually care about.
+          </p>
+
+          <h3>Your conversations with DUYO</h3>
+          <p>
+            Your messages and DUYO's replies are stored on our server — which is
+            why your history is still there when you open the app tomorrow.
+          </p>
+
+          <h3>Voice chat</h3>
+          <p>
+            In voice mode the audio from your microphone is streamed straight to
+            Google's Gemini Live service, and the reply comes back the same way.
+            The audio is not saved — only the text of the conversation stays in
+            your history. The microphone is never switched on at any other time.
+          </p>
+
+          <h3>Messages with other teenagers</h3>
+          <p>
+            If you turn on goal-mates, your messages are stored and screened for
+            safety before they are delivered. Voice and video notes are
+            transcribed, screened, and only then delivered. Other teenagers
+            never see your real name, phone number or photo — only a handle the
+            system gives you and your age band.
+          </p>
+
+          <h3>Profile photo</h3>
+          <p>
+            Optional. It is kept on our own server, is not shown to other users
+            and is not sent to any outside service.
+          </p>
+
+          <h3>"Memories" on your device</h3>
+          <p>
+            DUYO can remember certain facts about you — your favourite school
+            subject, say. They are stored inside your phone, encrypted with
+            AES-256-GCM, with the key held in the phone's secure store
+            (Keychain / Keystore). There is no copy on our server. We ask you
+            separately before saving each one. The part needed to answer a
+            question is sent to Gemini along with that question.
+          </p>
+
+          <h3>Activity in the app</h3>
+          <p>
+            Goals, notes, mood entries, XP, level, daily streak and tamagotchi
+            state.
+          </p>
+
+          <h3>Signs of risk</h3>
+          <p>
+            DUYO watches messages for signs of self-harm or serious risk. When
+            it finds them, the event is recorded separately and the helpline
+            number (1142) is shown to you immediately. These records count as
+            sensitive data and are protected separately.
+          </p>
+
+          <h2>3. What we do not collect</h2>
+          <ul>
+            <li>Advertising identifiers — there are no ads in the app at all.</li>
+            <li>Location, contacts, calendar, SMS content or files on your phone.</li>
+            <li>Third-party analytics or crash-reporting SDKs — none are installed in the app.</li>
+            <li>Card details — the app takes no payments.</li>
+          </ul>
+          <p>
+            Microphone permission is asked for voice chat only; photo-library
+            permission only when you pick a profile picture yourself.
+          </p>
+
+          <h2>4. Who your data is shared with</h2>
+          <p>
+            We do not sell your data and we do not use it for advertising. It
+            reaches two outside services, and only the part they need to do
+            their job.
+          </p>
+
+          <h3>Google (Gemini) — chat and voice</h3>
+          <p>
+            DUYO's answers are generated by Google's Gemini models. What goes to
+            Google: your message and the recent part of the conversation; the
+            details used to personalise replies (name, age, interests); the
+            audio stream in voice mode; voice and video notes sent to other
+            teenagers; and the "memories" you have allowed. Google processes
+            this data under its own terms —
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.
+          </p>
+
+          <h3>Eskiz.uz — SMS</h3>
+          <p>
+            Your phone number goes to the Uzbek SMS provider Eskiz.uz, for the
+            sign-in code and for a warning message when a risk is detected. The
+            warning message also carries the first part of your name. Nothing
+            else is sent.
+          </p>
+
+          <h3>Nobody else</h3>
+          <p>
+            Our server, database and file storage belong to us and sit on one
+            machine — that is not an outside service. We would hand data over
+            only where the law requires it, and only on a formal request.
+          </p>
+
+          <h2>5. How long we keep it</h2>
+          <div class="legal__scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Data</th>
+                  <th scope="col">Kept for</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">SMS confirmation code</th>
+                  <td>5 minutes</td>
+                </tr>
+                <tr>
+                  <th scope="row">Sign-in session</th>
+                  <td>30 days</td>
+                </tr>
+                <tr>
+                  <th scope="row">Account: phone, name, age, interests</th>
+                  <td>while the account is open; deleted within 30 days of closing it</td>
+                </tr>
+                <tr>
+                  <th scope="row">Conversations with DUYO</th>
+                  <td>while the account is open; immediately if you delete them yourself</td>
+                </tr>
+                <tr>
+                  <th scope="row">Voice recording</th>
+                  <td>not stored</td>
+                </tr>
+                <tr>
+                  <th scope="row">Profile photo</th>
+                  <td>until you replace it; deleted with the account</td>
+                </tr>
+                <tr>
+                  <th scope="row">Messages with other teenagers</th>
+                  <td>12 months, for safety review; if you close your account the message is detached from your name</td>
+                </tr>
+                <tr>
+                  <th scope="row">Risk-event record</th>
+                  <td>7 years — a legal requirement for child-safety records</td>
+                </tr>
+                <tr>
+                  <th scope="row">"Memories" on your device</th>
+                  <td>until you delete them; they go when you remove the app</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>6. Security</h2>
+          <ul>
+            <li>All traffic between the app and the server is encrypted with TLS (HTTPS / WSS).</li>
+            <li>On-device "memories" are encrypted with AES-256-GCM and the key never leaves the phone.</li>
+            <li>Every message to another teenager is screened before delivery; an unsafe one never arrives.</li>
+            <li>No system is completely safe. If data ever leaks, we will tell you.</li>
+          </ul>
+
+          <h2>7. Your rights</h2>
+          <ul>
+            <li>See and correct your data — in the app's Settings.</li>
+            <li>Delete a single conversation — from your chat history.</li>
+            <li>Delete your account entirely — <a href="account-deletion.html">account deletion page</a>.</li>
+            <li>Ask a question or complain — <a href="mailto:info@duyo.uz">info@duyo.uz</a>.</li>
+          </ul>
+
+          <h2>8. For parents</h2>
+          <div class="legal__note">
+            <p>
+              DUYO has no parent dashboard and we do not show conversations to
+              parents: the app works as the teenager's own account. Safety sits
+              inside the app instead — no ads, no contact with unknown adults,
+              every message to another teenager screened before it is sent, and
+              the helpline shown whenever signs of risk appear.
+            </p>
+            <p>
+              You can ask us to delete your child's account — see the
+              <a href="account-deletion.html">account deletion page</a>.
+            </p>
+          </div>
+
+          <h2>9. Changes</h2>
+          <p>
+            If this policy changes we update the date at the top of the page,
+            and we tell you inside the app when the change matters.
+          </p>
+
+          <h2>10. Contact</h2>
+          <p>
+            The DUYO team (XRR) —
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+        </article>
+
+      </div>
+    </main>
+
+    <footer class="sec-foot">
+      <div class="container">
+        <div class="sec-foot__bottom">
+          <div class="sec-foot__legal">
+            <a href="index.html">DUYO</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="privacy.html">Maxfiylik siyosati</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="terms.html">Foydalanish shartlari</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="account-deletion.html">Hisobni o'chirish</a>
+            <span class="sec-foot__copy">&copy; <span data-year>2026</span> XRR. Barcha huquqlar himoyalangan.</span>
+          </div>
+
+          <a class="sec-foot__contact-item" href="mailto:info@duyo.uz">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="3" />
+              <path d="m3.8 7 6.9 4.8c.8.5 1.8.5 2.6 0L20.2 7" />
+            </svg>
+            <span>info@duyo.uz</span>
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/i18n.js" defer></script>
+    <script src="assets/app.js" defer></script>
+  </body>
+</html>

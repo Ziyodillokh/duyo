@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DUYO — Foydalanish shartlari</title>
+    <meta
+      name="description"
+      content="DUYO ilovasidan foydalanish qoidalari: jamoa qoidalari, tengdoshlar bilan suhbat, obuna va javobgarlik."
+    />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="canonical" href="https://duyo.uz/terms.html" />
+
+    <!-- Favicon (inline SVG) -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232563eb'/%3E%3Ccircle cx='12' cy='15' r='2.2' fill='white'/%3E%3Ccircle cx='20' cy='15' r='2.2' fill='white'/%3E%3Cpath d='M12 21c1.4 1.4 6.6 1.4 8 0' stroke='white' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Cpath d='M16 8V5' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='4' r='2' fill='%23ffc700'/%3E%3C/svg%3E"
+    />
+
+    <!-- Shrift -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="assets/base.css" />
+    <link rel="stylesheet" href="assets/sections.css" />
+
+    <!-- Uzun huquqiy matn uchun tipografiya. base.css tokenlari ustida
+         ishlaydi va faqat shu sahifada kerak, shuning uchun shu yerda. -->
+    <style>
+      .legal {
+        max-width: 760px;
+        margin-inline: auto;
+      }
+
+      .legal__meta {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .legal__intro {
+        margin-top: 20px;
+        font-size: 17px;
+        line-height: 1.7;
+      }
+
+      .legal h2 {
+        margin-top: 44px;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+
+      .legal h3 {
+        margin-top: 26px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .legal p {
+        margin-top: 12px;
+      }
+
+      .legal ul {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .legal li {
+        position: relative;
+        padding-left: 22px;
+      }
+
+      .legal li::before {
+        content: "—";
+        position: absolute;
+        left: 0;
+        color: var(--blue);
+      }
+
+      .legal a {
+        color: var(--blue);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: rgba(37, 99, 235, 0.4);
+      }
+
+      .legal a:hover {
+        text-decoration-color: var(--blue);
+      }
+
+      .legal__scroll {
+        overflow-x: auto;
+        margin-top: 18px;
+      }
+
+      .legal table {
+        font-size: 15px;
+        min-width: 480px;
+      }
+
+      .legal th,
+      .legal td {
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .legal thead th {
+        background: var(--sky);
+        font-weight: 700;
+        border-bottom-color: var(--border-strong);
+      }
+
+      .legal tbody th {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .legal__note {
+        margin-top: 18px;
+        padding: 18px 20px;
+        background: var(--sky);
+        border-radius: var(--r-md);
+      }
+
+      .legal__note p:first-child {
+        margin-top: 0;
+      }
+    </style>
+
+    <!-- Til blokini tanlash. Huquqiy matn assets/i18n.js lug'ati orqali emas,
+         uchta to'liq blok bilan beriladi: kalit sifatida butun bir xatboshi
+         ishlatilsa, matndagi bitta vergul tuzatilishi tarjimani jimgina
+         yo'qotardi. Tanlov app.js bilan bir xil joyda saqlanadi, shuning
+         uchun saytda tanlangan til bu sahifada ham ochiladi. JS ishlamasa
+         o'zbekcha bloki ko'rinib turaveradi. -->
+    <script>
+      (function () {
+        var LANGS = ["uz", "ru", "en"];
+        var KEY = "duyo-lang";
+
+        function pick() {
+          var fromUrl = null;
+          var saved = null;
+          try {
+            fromUrl = new URL(window.location.href).searchParams.get("lang");
+          } catch (e) {
+            /* eski brauzer — saqlangan tilga tushamiz */
+          }
+          try {
+            saved = localStorage.getItem(KEY);
+          } catch (e) {
+            /* private rejim — o'zbekcha qoladi */
+          }
+          if (LANGS.indexOf(fromUrl) >= 0) return fromUrl;
+          if (LANGS.indexOf(saved) >= 0) return saved;
+          return "uz";
+        }
+
+        function show(code) {
+          var blocks = document.querySelectorAll("[data-legal-lang]");
+          for (var i = 0; i < blocks.length; i++) {
+            blocks[i].hidden = blocks[i].getAttribute("data-legal-lang") !== code;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          show(pick());
+          var items = document.querySelectorAll("[data-lang-menu] [data-lang]");
+          for (var i = 0; i < items.length; i++) {
+            items[i].addEventListener("click", function () {
+              show(this.getAttribute("data-lang"));
+            });
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Asosiy kontentga o'tish</a>
+
+    <header class="sec-nav" data-nav aria-label="DUYO — asosiy navigatsiya">
+      <div class="container sec-nav__inner">
+        <a href="index.html" class="sec-nav__logo" aria-label="DUYO — bosh sahifa">
+          <span class="sec-nav__logo-mark" aria-hidden="true">
+            <img class="logo-img" src="assets/img/logo.png" alt="" onerror="this.remove()" onload="var s=this.parentNode.querySelector('svg'); if(s) s.remove();">
+            <svg viewBox="0 0 40 44" fill="none" aria-hidden="true"><path d="M20 9.6V5" stroke="#FFC700" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="3.4" r="3.4" fill="#FFC700"/><circle cx="20" cy="26" r="15" fill="url(#duyoNav)"/><ellipse cx="14.6" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><ellipse cx="25.4" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><circle cx="15.3" cy="24.3" r="1.85" fill="#102033"/><circle cx="26.1" cy="24.3" r="1.85" fill="#102033"/><path d="M15.4 31.2c2.6 2.7 6.6 2.7 9.2 0" stroke="#102033" stroke-width="2.1" stroke-linecap="round"/><defs><linearGradient id="duyoNav" x1="7" y1="12" x2="33" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#5B96F9"/><stop offset="1" stop-color="#1D4ED8"/></linearGradient></defs></svg>
+          </span>
+          <span class="sec-nav__logo-text">DUYO</span>
+        </a>
+
+        <div class="sec-nav__actions">
+          <div class="sec-nav__lang-wrap">
+            <button type="button" class="sec-nav__lang" data-lang-toggle aria-expanded="false" aria-haspopup="true" aria-label="Interfeys tilini tanlash">
+              <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg>
+              <span class="sec-nav__lang-code" data-lang-current>UZ</span>
+              <svg class="sec-nav__lang-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            <div class="sec-nav__lang-menu" data-lang-menu>
+              <button type="button" class="sec-nav__lang-item" data-lang="uz" aria-current="true">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg><span>O'zbekcha</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+              <button type="button" class="sec-nav__lang-item" data-lang="ru" aria-current="false">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 5.33h24v5.34H0z" fill="#0039A6"/><path d="M0 10.67h24v2.73A2.6 2.6 0 0 1 21.4 16H2.6A2.6 2.6 0 0 1 0 13.4v-2.73Z" fill="#D52B1E"/></svg><span>Русский</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+              <button type="button" class="sec-nav__lang-item" data-lang="en" aria-current="false">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#012169"/><path d="m0 0 24 16M24 0 0 16" stroke="#fff" stroke-width="3.2"/><path d="m0 0 24 16M24 0 0 16" stroke="#C8102E" stroke-width="1.8"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.4"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="3.2"/></svg><span>English</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="section">
+      <div class="container legal">
+
+        <!-- ============================ O'ZBEKCHA ============================ -->
+        <article lang="uz" data-legal-lang="uz">
+          <h1 class="h1">Foydalanish shartlari</h1>
+          <p class="legal__meta">Oxirgi yangilanish: 2026-yil 3-sentabr</p>
+
+          <p class="legal__intro">
+            Bu sahifada DUYO ilovasidan foydalanish qoidalari yozilgan: nima
+            qilsa bo'ladi, nima qilib bo'lmaydi va biz nimaga javob beramiz.
+            Ilovadan foydalanishni boshlashingiz shu shartlarga rozilik
+            bildirganingizni anglatadi.
+          </p>
+
+          <h2>1. Kim foydalanishi mumkin</h2>
+          <p>
+            DUYO 13-16 yoshdagi o'smirlar uchun. 13 yoshga to'lmagan bo'lsangiz,
+            ilovadan foydalana olmaysiz. Ro'yxatdan o'tishda to'g'ri yoshingizni
+            ko'rsating — DUYO javoblarni aynan shunga qarab moslaydi.
+          </p>
+
+          <h2>2. Hisobingiz</h2>
+          <ul>
+            <li>Hisob telefon raqamingizga bog'lanadi; parol o'rniga SMS orqali kod keladi.</li>
+            <li>Kodni hech kimga bermang — u sizning kalitingiz.</li>
+            <li>Hisobingizdan boshqa odam foydalanmasligi kerak.</li>
+            <li>Raqamingizni yo'qotsangiz yoki hisobingizga begona kirganini sezsangiz, darhol <a href="mailto:info@duyo.uz">info@duyo.uz</a> ga yozing.</li>
+          </ul>
+
+          <h2>3. Jamoa qoidalari</h2>
+          <p>DUYO ichida — DUYO bilan ham, tengdoshlar bilan ham — quyidagilar taqiqlanadi:</p>
+          <ul>
+            <li>haqorat, tahdid, kamsitish, masxara qilish yoki ta'qib;</li>
+            <li>jinsiy mazmundagi matn, rasm, ovoz yoki video;</li>
+            <li>zo'ravonlik, o'ziga yoki boshqaga zarar yetkazishga undash;</li>
+            <li>giyohvand modda, alkogol, qurol targ'ibi;</li>
+            <li>boshqa odamning shaxsiy ma'lumotini so'rash yoki tarqatish;</li>
+            <li>o'zini boshqa odam qilib ko'rsatish, aldash, firibgarlik;</li>
+            <li>reklama, spam, ommaviy bir xil xabarlar;</li>
+            <li>ilovani yoki serverni buzishga, avtomatlashtirishga, cheklovlarni aylanib o'tishga urinish.</li>
+          </ul>
+
+          <h2>4. Tengdoshlar bilan suhbat</h2>
+          <p>
+            Maqsad-do'stlar (goal-mates) suhbati ixtiyoriy va uni istagan vaqtda
+            o'chirib qo'yish mumkin. Unda quyidagilar amal qiladi:
+          </p>
+          <ul>
+            <li>Suhbatdoshingiz sizning ismingizni, telefon raqamingizni va suratingizni ko'rmaydi.</li>
+            <li>Siz ham familiyangizni, maktabingizni, manzilingizni yoki telefon raqamingizni yozmang. Kimdir buni so'rasa — shikoyat qiling.</li>
+            <li>Har bir xabar yetkazilishidan oldin tekshiriladi; qoidaga zid xabar umuman yetib bormaydi.</li>
+            <li>Har bir suhbatda "shikoyat qilish" va "bloklash" tugmalari doim ko'rinib turadi.</li>
+            <li>Shikoyatlarni jamoamiz o'qib chiqadi va zarur bo'lsa hisobni to'xtatadi.</li>
+          </ul>
+
+          <h2>5. Qoidani buzsangiz</h2>
+          <p>
+            Vaziyatga qarab: xabar yetkazilmaydi, ogohlantirish beriladi,
+            tengdoshlar bilan suhbat imkoniyati o'chiriladi yoki hisob butunlay
+            to'xtatiladi. Jiddiy holatlarda — masalan boshqa bolaga real xavf
+            solinganda — biz tegishli organlarga murojaat qilishimiz mumkin.
+          </p>
+
+          <h2>6. DUYO'ning javoblari haqida</h2>
+          <div class="legal__note">
+            <p>
+              DUYO — sun'iy intellekt. U xato qilishi, noto'g'ri yoki to'liq
+              bo'lmagan javob berishi mumkin. Uning gaplarini muhim qaror uchun
+              yagona manba sifatida ishlatmang.
+            </p>
+            <p>
+              DUYO tibbiy, psixologik, huquqiy yoki moliyaviy maslahat bermaydi
+              va shifokor, psixolog yoki o'qituvchi o'rnini bosmaydi. O'zingizni
+              yomon his qilsangiz — yaqiningizga yoki ishonchli kattaga ayting.
+              Shoshilinch holatda: ishonch telefoni <strong>1142</strong>,
+              tez yordam <strong>103</strong>.
+            </p>
+          </div>
+
+          <h2>7. Kontent va huquqlar</h2>
+          <p>
+            Ilova, uning dizayni, matnlari, kutubxonasi va logotipi bizga
+            tegishli. Siz yozgan xabarlar, maqsadlar va daftar yozuvlari sizniki
+            bo'lib qoladi — biz ularni faqat ilovani ishlatish uchun saqlaymiz,
+            ko'rsatamiz va xavfsizlik uchun tekshiramiz. Biz ularni sotmaymiz va
+            reklama uchun ishlatmaymiz. Batafsil:
+            <a href="privacy.html">maxfiylik siyosati</a>.
+          </p>
+
+          <h2>8. Obuna va to'lov</h2>
+          <p>
+            DUYO'ning asosiy imkoniyatlari bepul. Pullik rejalar va ularning
+            narxlari <a href="index.html#narxlar">duyo.uz saytida</a>
+            ko'rsatilgan; obunani rasmiylashtirish yoki bekor qilish uchun
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a> ga yozing. Obunani
+            bekor qilganingizdan keyin ham to'langan davr oxirigacha barcha
+            imkoniyatlar saqlanadi.
+          </p>
+
+          <h2>9. Xizmatning ishlashi</h2>
+          <p>
+            Biz DUYO doim ishlab turishi uchun harakat qilamiz, lekin uzluksiz
+            ishlashini kafolatlay olmaymiz: texnik ishlar, internet uzilishi yoki
+            tashqi xizmatlardagi nosozlik ta'sir qilishi mumkin. Ayrim
+            imkoniyatlarni o'zgartirishimiz yoki olib tashlashimiz mumkin —
+            muhim o'zgarishlar haqida oldindan xabar beramiz.
+          </p>
+
+          <h2>10. Hisobni yopish</h2>
+          <p>
+            Hisobingizni istagan vaqtda o'chirishingiz mumkin —
+            <a href="account-deletion.html">hisobni o'chirish sahifasi</a>.
+            Biz esa yuqoridagi qoidalar qattiq buzilganda hisobni to'xtatishimiz
+            yoki o'chirishimiz mumkin.
+          </p>
+
+          <h2>11. Shartlarning o'zgarishi</h2>
+          <p>
+            Shartlar o'zgarsa, sahifa boshidagi sana yangilanadi va muhim
+            o'zgarishlar haqida ilova ichida xabar beramiz. O'zgarishdan keyin
+            ilovadan foydalanishda davom etsangiz, yangi shartlarga rozi
+            bo'lasiz.
+          </p>
+
+          <h2>12. Qonun</h2>
+          <p>
+            Bu shartlarga O'zbekiston Respublikasi qonunchiligi qo'llaniladi.
+            Nizolar avval muzokara yo'li bilan, kelishuv bo'lmasa O'zbekiston
+            Respublikasi sudlari orqali hal qilinadi.
+          </p>
+
+          <h2>13. Aloqa</h2>
+          <p>
+            DUYO jamoasi (XRR) —
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+        </article>
+
+        <!-- ============================ РУССКИЙ ============================ -->
+        <article lang="ru" data-legal-lang="ru" hidden>
+          <h1 class="h1">Условия использования</h1>
+          <p class="legal__meta">Последнее обновление: 3 сентября 2026 года</p>
+
+          <p class="legal__intro">
+            Здесь описаны правила пользования приложением DUYO: что можно, чего
+            нельзя и за что отвечаем мы. Начав пользоваться приложением, вы
+            соглашаетесь с этими условиями.
+          </p>
+
+          <h2>1. Кто может пользоваться</h2>
+          <p>
+            DUYO — для подростков 13–16 лет. Если вам меньше 13, пользоваться
+            приложением нельзя. При регистрации указывайте настоящий возраст —
+            именно под него DUYO подстраивает ответы.
+          </p>
+
+          <h2>2. Ваш аккаунт</h2>
+          <ul>
+            <li>Аккаунт привязан к номеру телефона; вместо пароля приходит код в SMS.</li>
+            <li>Никому не сообщайте код — это ваш ключ.</li>
+            <li>Вашим аккаунтом не должен пользоваться никто другой.</li>
+            <li>Если вы потеряли номер или заметили чужой вход, сразу напишите на <a href="mailto:info@duyo.uz">info@duyo.uz</a>.</li>
+          </ul>
+
+          <h2>3. Правила сообщества</h2>
+          <p>В DUYO — и в разговоре с DUYO, и в переписке со сверстниками — запрещено:</p>
+          <ul>
+            <li>оскорбления, угрозы, унижение, травля и преследование;</li>
+            <li>материалы сексуального характера — текст, изображения, аудио, видео;</li>
+            <li>насилие, призывы навредить себе или другим;</li>
+            <li>реклама наркотиков, алкоголя, оружия;</li>
+            <li>запрашивать или распространять личные данные других людей;</li>
+            <li>выдавать себя за другого человека, обманывать, мошенничать;</li>
+            <li>реклама, спам, массовая рассылка одинаковых сообщений;</li>
+            <li>попытки взломать приложение или сервер, автоматизировать работу, обойти ограничения.</li>
+          </ul>
+
+          <h2>4. Общение со сверстниками</h2>
+          <p>
+            Общение с «друзьями по целям» (goal-mates) — по желанию, его можно
+            выключить в любой момент. В нём действуют такие правила:
+          </p>
+          <ul>
+            <li>Собеседник не видит вашего имени, номера телефона и фотографии.</li>
+            <li>И вы не пишите свою фамилию, школу, адрес и номер телефона. Если кто-то об этом спрашивает — пожалуйтесь.</li>
+            <li>Каждое сообщение проверяется до доставки; нарушающее правила сообщение не доходит вовсе.</li>
+            <li>Кнопки «пожаловаться» и «заблокировать» всегда на виду в каждом разговоре.</li>
+            <li>Жалобы читает наша команда и при необходимости блокирует аккаунт.</li>
+          </ul>
+
+          <h2>5. Если вы нарушите правила</h2>
+          <p>
+            В зависимости от ситуации: сообщение не будет доставлено, вы получите
+            предупреждение, общение со сверстниками отключат или аккаунт
+            заблокируют полностью. В серьёзных случаях — например при реальной
+            угрозе другому ребёнку — мы можем обратиться в компетентные органы.
+          </p>
+
+          <h2>6. Об ответах DUYO</h2>
+          <div class="legal__note">
+            <p>
+              DUYO — искусственный интеллект. Он может ошибаться и давать
+              неточный или неполный ответ. Не полагайтесь на его слова как на
+              единственный источник для важного решения.
+            </p>
+            <p>
+              DUYO не даёт медицинских, психологических, юридических и
+              финансовых консультаций и не заменяет врача, психолога или
+              учителя. Если вам плохо — скажите близкому человеку или взрослому,
+              которому доверяете. В экстренной ситуации: телефон доверия
+              <strong>1142</strong>, скорая помощь <strong>103</strong>.
+            </p>
+          </div>
+
+          <h2>7. Контент и права</h2>
+          <p>
+            Приложение, его дизайн, тексты, библиотека и логотип принадлежат нам.
+            Написанные вами сообщения, цели и заметки остаются вашими — мы
+            храним, показываем и проверяем их только для работы приложения и его
+            безопасности. Мы не продаём их и не используем для рекламы.
+            Подробнее — <a href="privacy.html">политика конфиденциальности</a>.
+          </p>
+
+          <h2>8. Подписка и оплата</h2>
+          <p>
+            Основные возможности DUYO бесплатны. Платные планы и цены указаны
+            <a href="index.html#narxlar">на сайте duyo.uz</a>; чтобы оформить
+            или отменить подписку, напишите на
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>. После отмены все
+            возможности сохраняются до конца оплаченного периода.
+          </p>
+
+          <h2>9. Работа сервиса</h2>
+          <p>
+            Мы стараемся, чтобы DUYO работал всегда, но не можем гарантировать
+            бесперебойность: технические работы, перебои с интернетом или сбои у
+            внешних сервисов могут на это повлиять. Отдельные функции мы можем
+            изменить или убрать — о важных изменениях предупредим заранее.
+          </p>
+
+          <h2>10. Закрытие аккаунта</h2>
+          <p>
+            Вы можете удалить аккаунт в любой момент —
+            <a href="account-deletion.html">страница удаления аккаунта</a>.
+            Мы, со своей стороны, можем заблокировать или удалить аккаунт при
+            грубом нарушении правил выше.
+          </p>
+
+          <h2>11. Изменения условий</h2>
+          <p>
+            Если условия изменятся, мы обновим дату в начале страницы и сообщим
+            о важных изменениях внутри приложения. Продолжая пользоваться
+            приложением после изменения, вы принимаете новые условия.
+          </p>
+
+          <h2>12. Право</h2>
+          <p>
+            К этим условиям применяется законодательство Республики Узбекистан.
+            Споры решаются переговорами, а при недостижении согласия — в судах
+            Республики Узбекистан.
+          </p>
+
+          <h2>13. Связь</h2>
+          <p>
+            Команда DUYO (XRR) —
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+        </article>
+
+        <!-- ============================ ENGLISH ============================ -->
+        <article lang="en" data-legal-lang="en" hidden>
+          <h1 class="h1">Terms of use</h1>
+          <p class="legal__meta">Last updated: 3 September 2026</p>
+
+          <p class="legal__intro">
+            These are the rules for using the DUYO app: what you can do, what you
+            must not do, and what we are responsible for. By starting to use the
+            app you agree to them.
+          </p>
+
+          <h2>1. Who can use DUYO</h2>
+          <p>
+            DUYO is for teenagers aged 13 to 16. If you are under 13 you cannot
+            use the app. Give your real age at sign-up — DUYO pitches its
+            answers to it.
+          </p>
+
+          <h2>2. Your account</h2>
+          <ul>
+            <li>Your account is tied to your phone number; instead of a password you get a code by SMS.</li>
+            <li>Never give the code to anyone — it is your key.</li>
+            <li>Nobody else should use your account.</li>
+            <li>If you lose the number or notice someone else signing in, write to <a href="mailto:info@duyo.uz">info@duyo.uz</a> straight away.</li>
+          </ul>
+
+          <h2>3. Community rules</h2>
+          <p>Inside DUYO — with DUYO and with other teenagers alike — the following is not allowed:</p>
+          <ul>
+            <li>insults, threats, humiliation, bullying or harassment;</li>
+            <li>sexual content in text, pictures, audio or video;</li>
+            <li>violence, or urging anyone to harm themselves or others;</li>
+            <li>promoting drugs, alcohol or weapons;</li>
+            <li>asking for or spreading someone else's personal details;</li>
+            <li>pretending to be another person, deceiving or defrauding;</li>
+            <li>advertising, spam or mass identical messages;</li>
+            <li>trying to break into the app or the server, automate it, or work around its limits.</li>
+          </ul>
+
+          <h2>4. Talking to other teenagers</h2>
+          <p>
+            Goal-mates chat is optional and you can switch it off at any time.
+            While it is on:
+          </p>
+          <ul>
+            <li>The other person does not see your name, phone number or photo.</li>
+            <li>Do not write your surname, school, address or phone number either. If someone asks for them — report it.</li>
+            <li>Every message is screened before delivery; one that breaks the rules never arrives.</li>
+            <li>The "report" and "block" buttons are always visible in every conversation.</li>
+            <li>Our team reads the reports and suspends accounts where it is needed.</li>
+          </ul>
+
+          <h2>5. If you break the rules</h2>
+          <p>
+            Depending on what happened: the message is not delivered, you get a
+            warning, peer chat is switched off, or the account is suspended
+            entirely. In serious cases — a real threat to another child, for
+            example — we may contact the authorities.
+          </p>
+
+          <h2>6. About DUYO's answers</h2>
+          <div class="legal__note">
+            <p>
+              DUYO is an artificial intelligence. It can be wrong, and it can
+              give an inaccurate or incomplete answer. Do not treat what it says
+              as the only source for an important decision.
+            </p>
+            <p>
+              DUYO gives no medical, psychological, legal or financial advice and
+              does not replace a doctor, a psychologist or a teacher. If you feel
+              bad, tell someone close to you or an adult you trust. In an
+              emergency: helpline <strong>1142</strong>, ambulance
+              <strong>103</strong>.
+            </p>
+          </div>
+
+          <h2>7. Content and rights</h2>
+          <p>
+            The app, its design, its texts, its library and its logo belong to
+            us. The messages, goals and notes you write stay yours — we store,
+            display and screen them only to run the app and keep it safe. We do
+            not sell them and we do not use them for advertising. More detail in
+            the <a href="privacy.html">privacy policy</a>.
+          </p>
+
+          <h2>8. Subscription and payment</h2>
+          <p>
+            DUYO's core features are free. Paid plans and their prices are listed
+            <a href="index.html#narxlar">on duyo.uz</a>; to start or cancel a
+            subscription, write to
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>. After you cancel,
+            everything stays available until the end of the period you paid for.
+          </p>
+
+          <h2>9. Service availability</h2>
+          <p>
+            We work to keep DUYO running, but we cannot guarantee it never stops:
+            maintenance, internet outages or failures at outside services can
+            affect it. We may change or remove individual features — we will
+            give notice of the ones that matter.
+          </p>
+
+          <h2>10. Closing your account</h2>
+          <p>
+            You can delete your account at any time — see the
+            <a href="account-deletion.html">account deletion page</a>. We may
+            suspend or delete an account for a serious breach of the rules above.
+          </p>
+
+          <h2>11. Changes to these terms</h2>
+          <p>
+            If the terms change we update the date at the top of the page and
+            tell you inside the app when the change matters. If you keep using
+            the app after a change, you accept the new terms.
+          </p>
+
+          <h2>12. Law</h2>
+          <p>
+            These terms are governed by the law of the Republic of Uzbekistan.
+            Disputes are settled by negotiation first, and failing that in the
+            courts of the Republic of Uzbekistan.
+          </p>
+
+          <h2>13. Contact</h2>
+          <p>
+            The DUYO team (XRR) —
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+          </p>
+        </article>
+
+      </div>
+
+    </main>
+
+    <footer class="sec-foot">
+      <div class="container">
+        <div class="sec-foot__bottom">
+          <div class="sec-foot__legal">
+            <a href="index.html">DUYO</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="privacy.html">Maxfiylik siyosati</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="terms.html">Foydalanish shartlari</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="account-deletion.html">Hisobni o'chirish</a>
+            <span class="sec-foot__copy">&copy; <span data-year>2026</span> XRR. Barcha huquqlar himoyalangan.</span>
+          </div>
+
+          <a class="sec-foot__contact-item" href="mailto:info@duyo.uz">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="3" />
+              <path d="m3.8 7 6.9 4.8c.8.5 1.8.5 2.6 0L20.2 7" />
+            </svg>
+            <span>info@duyo.uz</span>
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/i18n.js" defer></script>
+    <script src="assets/app.js" defer></script>
+  </body>
+</html>

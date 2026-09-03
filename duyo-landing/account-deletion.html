@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DUYO — Hisobni o'chirish</title>
+    <meta
+      name="description"
+      content="DUYO hisobini qanday o'chirish mumkin, nima o'chadi va nima qoladi — ilovasiz ham."
+    />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="canonical" href="https://duyo.uz/account-deletion.html" />
+
+    <!-- Favicon (inline SVG) -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232563eb'/%3E%3Ccircle cx='12' cy='15' r='2.2' fill='white'/%3E%3Ccircle cx='20' cy='15' r='2.2' fill='white'/%3E%3Cpath d='M12 21c1.4 1.4 6.6 1.4 8 0' stroke='white' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Cpath d='M16 8V5' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='4' r='2' fill='%23ffc700'/%3E%3C/svg%3E"
+    />
+
+    <!-- Shrift -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="assets/base.css" />
+    <link rel="stylesheet" href="assets/sections.css" />
+
+    <!-- Uzun huquqiy matn uchun tipografiya. base.css tokenlari ustida
+         ishlaydi va faqat shu sahifada kerak, shuning uchun shu yerda. -->
+    <style>
+      .legal {
+        max-width: 760px;
+        margin-inline: auto;
+      }
+
+      .legal__meta {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .legal__intro {
+        margin-top: 20px;
+        font-size: 17px;
+        line-height: 1.7;
+      }
+
+      .legal h2 {
+        margin-top: 44px;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+
+      .legal h3 {
+        margin-top: 26px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .legal p {
+        margin-top: 12px;
+      }
+
+      .legal ul {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .legal li {
+        position: relative;
+        padding-left: 22px;
+      }
+
+      .legal li::before {
+        content: "—";
+        position: absolute;
+        left: 0;
+        color: var(--blue);
+      }
+
+      .legal a {
+        color: var(--blue);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: rgba(37, 99, 235, 0.4);
+      }
+
+      .legal a:hover {
+        text-decoration-color: var(--blue);
+      }
+
+      .legal__scroll {
+        overflow-x: auto;
+        margin-top: 18px;
+      }
+
+      .legal table {
+        font-size: 15px;
+        min-width: 480px;
+      }
+
+      .legal th,
+      .legal td {
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .legal thead th {
+        background: var(--sky);
+        font-weight: 700;
+        border-bottom-color: var(--border-strong);
+      }
+
+      .legal tbody th {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .legal__note {
+        margin-top: 18px;
+        padding: 18px 20px;
+        background: var(--sky);
+        border-radius: var(--r-md);
+      }
+
+      .legal__note p:first-child {
+        margin-top: 0;
+      }
+    </style>
+
+    <!-- Til blokini tanlash. Huquqiy matn assets/i18n.js lug'ati orqali emas,
+         uchta to'liq blok bilan beriladi: kalit sifatida butun bir xatboshi
+         ishlatilsa, matndagi bitta vergul tuzatilishi tarjimani jimgina
+         yo'qotardi. Tanlov app.js bilan bir xil joyda saqlanadi, shuning
+         uchun saytda tanlangan til bu sahifada ham ochiladi. JS ishlamasa
+         o'zbekcha bloki ko'rinib turaveradi. -->
+    <script>
+      (function () {
+        var LANGS = ["uz", "ru", "en"];
+        var KEY = "duyo-lang";
+
+        function pick() {
+          var fromUrl = null;
+          var saved = null;
+          try {
+            fromUrl = new URL(window.location.href).searchParams.get("lang");
+          } catch (e) {
+            /* eski brauzer — saqlangan tilga tushamiz */
+          }
+          try {
+            saved = localStorage.getItem(KEY);
+          } catch (e) {
+            /* private rejim — o'zbekcha qoladi */
+          }
+          if (LANGS.indexOf(fromUrl) >= 0) return fromUrl;
+          if (LANGS.indexOf(saved) >= 0) return saved;
+          return "uz";
+        }
+
+        function show(code) {
+          var blocks = document.querySelectorAll("[data-legal-lang]");
+          for (var i = 0; i < blocks.length; i++) {
+            blocks[i].hidden = blocks[i].getAttribute("data-legal-lang") !== code;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          show(pick());
+          var items = document.querySelectorAll("[data-lang-menu] [data-lang]");
+          for (var i = 0; i < items.length; i++) {
+            items[i].addEventListener("click", function () {
+              show(this.getAttribute("data-lang"));
+            });
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Asosiy kontentga o'tish</a>
+
+    <header class="sec-nav" data-nav aria-label="DUYO — asosiy navigatsiya">
+      <div class="container sec-nav__inner">
+        <a href="index.html" class="sec-nav__logo" aria-label="DUYO — bosh sahifa">
+          <span class="sec-nav__logo-mark" aria-hidden="true">
+            <img class="logo-img" src="assets/img/logo.png" alt="" onerror="this.remove()" onload="var s=this.parentNode.querySelector('svg'); if(s) s.remove();">
+            <svg viewBox="0 0 40 44" fill="none" aria-hidden="true"><path d="M20 9.6V5" stroke="#FFC700" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="3.4" r="3.4" fill="#FFC700"/><circle cx="20" cy="26" r="15" fill="url(#duyoNav)"/><ellipse cx="14.6" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><ellipse cx="25.4" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><circle cx="15.3" cy="24.3" r="1.85" fill="#102033"/><circle cx="26.1" cy="24.3" r="1.85" fill="#102033"/><path d="M15.4 31.2c2.6 2.7 6.6 2.7 9.2 0" stroke="#102033" stroke-width="2.1" stroke-linecap="round"/><defs><linearGradient id="duyoNav" x1="7" y1="12" x2="33" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#5B96F9"/><stop offset="1" stop-color="#1D4ED8"/></linearGradient></defs></svg>
+          </span>
+          <span class="sec-nav__logo-text">DUYO</span>
+        </a>
+
+        <div class="sec-nav__actions">
+          <div class="sec-nav__lang-wrap">
+            <button type="button" class="sec-nav__lang" data-lang-toggle aria-expanded="false" aria-haspopup="true" aria-label="Interfeys tilini tanlash">
+              <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg>
+              <span class="sec-nav__lang-code" data-lang-current>UZ</span>
+              <svg class="sec-nav__lang-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            <div class="sec-nav__lang-menu" data-lang-menu>
+              <button type="button" class="sec-nav__lang-item" data-lang="uz" aria-current="true">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg><span>O'zbekcha</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+              <button type="button" class="sec-nav__lang-item" data-lang="ru" aria-current="false">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 5.33h24v5.34H0z" fill="#0039A6"/><path d="M0 10.67h24v2.73A2.6 2.6 0 0 1 21.4 16H2.6A2.6 2.6 0 0 1 0 13.4v-2.73Z" fill="#D52B1E"/></svg><span>Русский</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+              <button type="button" class="sec-nav__lang-item" data-lang="en" aria-current="false">
+                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#012169"/><path d="m0 0 24 16M24 0 0 16" stroke="#fff" stroke-width="3.2"/><path d="m0 0 24 16M24 0 0 16" stroke="#C8102E" stroke-width="1.8"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.4"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="3.2"/></svg><span>English</span>
+                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="section">
+      <div class="container legal">
+
+        <!-- ============================ O'ZBEKCHA ============================ -->
+        <article lang="uz" data-legal-lang="uz">
+          <h1 class="h1">Hisobni o'chirish</h1>
+          <p class="legal__meta">Oxirgi yangilanish: 2026-yil 3-sentabr</p>
+
+          <p class="legal__intro">
+            DUYO hisobingizni istagan vaqtda o'chirishingiz mumkin. Bu sahifada
+            buni qanday qilish, nima o'chishi va nima qolishi yozilgan. Sahifani
+            o'qish uchun ilovani o'rnatish shart emas.
+          </p>
+
+          <!-- Bu bo'lim faqat ilovadagi joyni ko'rsatadi, natijani va'da
+               qilmaydi: "Hisobni yopish" tugmasi ortidagi oqim o'zgarishi
+               mumkin, quyidagi xat yo'li esa doim ishlaydi. -->
+          <h2>1. Ilova orqali</h2>
+          <p>
+            Ilovani oching va <strong>Sozlamalar → Maxfiylik → Hisobni
+            yopish</strong> bo'limiga o'ting, so'ng ekrandagi ko'rsatmaga amal
+            qiling.
+          </p>
+
+          <h2>2. Ilovasiz — xat orqali</h2>
+          <p>
+            Telefoningiz yo'q yoki ilova o'chirilgan bo'lsa:
+          </p>
+          <ul>
+            <li><a href="mailto:info@duyo.uz?subject=Hisobni%20o'chirish">info@duyo.uz</a> ga "Hisobni o'chirish" mavzusi bilan yozing.</li>
+            <li>Xatda ro'yxatdan o'tgan telefon raqamingizni ko'rsating.</li>
+            <li>Biz o'sha raqamga SMS orqali tasdiqlash kodi yuboramiz — kodni javob xatida qaytarasiz. Bu boshqa odam sizning hisobingizni o'chirib yubormasligi uchun.</li>
+            <li>Kod tasdiqlangach hisob odatda 7 kun ichida, har qanday holatda 30 kundan kechiktirmay o'chiriladi. O'chirilgani haqida sizga xat yuboramiz.</li>
+          </ul>
+          <p>
+            Ota-ona ham farzandining hisobini o'chirishni so'rashi mumkin —
+            tasdiqlash kodi o'sha ro'yxatdan o'tgan raqamga boradi.
+          </p>
+
+          <h2>3. Nima o'chadi</h2>
+          <ul>
+            <li>hisobingiz va unga bog'langan telefon raqami;</li>
+            <li>ismingiz, yoshingiz, qiziqishlaringiz, avatar va maskot tanlovi;</li>
+            <li>DUYO bilan bo'lgan barcha suhbatlar va ularning matni;</li>
+            <li>maqsadlar, daftar yozuvlari, kayfiyat belgilari, XP, daraja, kunlik seriya va tamagochi holati;</li>
+            <li>profil suratingiz va tengdoshlarga yuborgan ovozli/video eslatmalaringizning yozuvlari;</li>
+            <li>tengdoshlar bilan aloqalaringiz, taxallusingiz va suhbat ro'yxatlaringiz.</li>
+          </ul>
+
+          <h2>4. Nima qoladi va nima uchun</h2>
+          <ul>
+            <li><strong>Tengdoshlarga yuborgan xabarlaringiz</strong> — ular boshqa bolaning suhbatida qoladi, lekin sizning nomingizdan ajratiladi. Xavfsizlik tekshiruvi uchun 12 oy saqlanadi, keyin o'chiriladi.</li>
+            <li><strong>Xavf hodisalari yozuvi</strong> — bolalar xavfsizligi bo'yicha qonuniy talabga ko'ra 7 yil saqlanadi, lekin sizga bog'lanmagan holda: hisobingiz o'chirilganda yozuvdan ism ham, o'sha xabar matni ham chiqarib tashlanadi — faqat aniqlanish faktining o'zi qoladi. Bunday yozuv faqat xavf aniqlangan hollarda paydo bo'ladi.</li>
+            <li><strong>To'lov hujjatlari</strong> — agar obuna to'lagan bo'lsangiz, buxgalteriya yozuvlari qonun talab qilgan muddat davomida saqlanadi.</li>
+            <li><strong>Zaxira nusxalar</strong> — server zaxiralari 30 kun ichida yangilanadi va o'chirilgan ma'lumot ulardan ham chiqib ketadi.</li>
+          </ul>
+
+          <h2>5. Telefoningizdagi ma'lumot</h2>
+          <p>
+            DUYO'ning "xotiralari" telefoningizning ichida shifrlangan holda
+            turadi va serverda nusxasi yo'q. Ularni ilovaning o'zidan
+            o'chirishingiz mumkin; ilovani telefondan olib tashlasangiz ham
+            yo'qoladi. Hisobni serverdan o'chirish telefoningizdagi bu
+            yozuvlarga tegmaydi.
+          </p>
+
+          <h2>6. O'chirish qaytarilmaydi</h2>
+          <div class="legal__note">
+            <p>
+              Hisob o'chirilgandan keyin uni tiklab bo'lmaydi va suhbatlaringiz
+              qaytmaydi. Agar siz faqat suhbatlarni tozalamoqchi bo'lsangiz,
+              hisobni o'chirmang — ilovadagi suhbatlar tarixidan har bir
+              suhbatni alohida o'chirish mumkin.
+            </p>
+          </div>
+
+          <h2>7. Savolingiz bormi</h2>
+          <p>
+            <a href="mailto:info@duyo.uz">info@duyo.uz</a> ga yozing.
+            Ma'lumotlaringiz haqida batafsil:
+            <a href="privacy.html">maxfiylik siyosati</a>.
+          </p>
+        </article>
+
+        <!-- ============================ РУССКИЙ ============================ -->
+        <article lang="ru" data-legal-lang="ru" hidden>
+          <h1 class="h1">Удаление аккаунта</h1>
+          <p class="legal__meta">Последнее обновление: 3 сентября 2026 года</p>
+
+          <p class="legal__intro">
+            Вы можете удалить аккаунт DUYO в любой момент. Здесь написано, как
+            это сделать, что будет удалено и что останется. Чтобы прочитать эту
+            страницу, устанавливать приложение не нужно.
+          </p>
+
+          <h2>1. Через приложение</h2>
+          <p>
+            Откройте приложение, перейдите в
+            <strong>Настройки → Конфиденциальность → Закрыть аккаунт</strong>
+            и следуйте указаниям на экране.
+          </p>
+
+          <h2>2. Без приложения — письмом</h2>
+          <p>Если телефона под рукой нет или приложение удалено:</p>
+          <ul>
+            <li>Напишите на <a href="mailto:info@duyo.uz?subject=Удаление%20аккаунта">info@duyo.uz</a> с темой «Удаление аккаунта».</li>
+            <li>Укажите в письме номер телефона, на который зарегистрирован аккаунт.</li>
+            <li>Мы отправим на этот номер код подтверждения в SMS — вы вернёте код ответным письмом. Это нужно, чтобы ваш аккаунт не удалил кто-то другой.</li>
+            <li>После подтверждения кода аккаунт удаляется обычно в течение 7 дней и в любом случае не позднее 30 дней. Об удалении мы сообщим письмом.</li>
+          </ul>
+          <p>
+            Родитель тоже может попросить удалить аккаунт своего ребёнка — код
+            подтверждения придёт на тот же зарегистрированный номер.
+          </p>
+
+          <h2>3. Что удаляется</h2>
+          <ul>
+            <li>аккаунт и привязанный к нему номер телефона;</li>
+            <li>имя, возраст, интересы, выбранные аватар и маскот;</li>
+            <li>все разговоры с DUYO и их текст;</li>
+            <li>цели, заметки, отметки настроения, XP, уровень, серия дней и состояние тамагочи;</li>
+            <li>фото профиля и записи голосовых/видеозаметок, отправленных сверстникам;</li>
+            <li>связи со сверстниками, ваш псевдоним и списки разговоров.</li>
+          </ul>
+
+          <h2>4. Что остаётся и почему</h2>
+          <ul>
+            <li><strong>Сообщения, отправленные сверстникам</strong> — они остаются в разговоре другого ребёнка, но отвязываются от вашего имени. Для проверки безопасности хранятся 12 месяцев, затем удаляются.</li>
+            <li><strong>Записи о признаках опасности</strong> — по требованию закона о безопасности детей хранятся 7 лет, но уже без связи с вами: при удалении аккаунта из записи убирается и имя, и текст того сообщения — остаётся только сам факт срабатывания. Такая запись появляется только тогда, когда опасность была обнаружена.</li>
+            <li><strong>Платёжные документы</strong> — если вы оплачивали подписку, бухгалтерские записи хранятся в сроки, установленные законом.</li>
+            <li><strong>Резервные копии</strong> — копии сервера обновляются в течение 30 дней, и удалённые данные уходят и из них.</li>
+          </ul>
+
+          <h2>5. Данные на вашем телефоне</h2>
+          <p>
+            «Воспоминания» DUYO лежат внутри вашего телефона в зашифрованном
+            виде, копии на сервере нет. Их можно удалить в самом приложении; они
+            исчезают и при удалении приложения. Удаление аккаунта на сервере
+            этих записей на телефоне не касается.
+          </p>
+
+          <h2>6. Удаление необратимо</h2>
+          <div class="legal__note">
+            <p>
+              После удаления аккаунт восстановить нельзя, и разговоры не
+              вернутся. Если вы хотите лишь очистить переписку, не удаляйте
+              аккаунт — каждый разговор можно удалить по отдельности в истории
+              разговоров.
+            </p>
+          </div>
+
+          <h2>7. Остались вопросы</h2>
+          <p>
+            Напишите на <a href="mailto:info@duyo.uz">info@duyo.uz</a>.
+            Подробнее о ваших данных — в
+            <a href="privacy.html">политике конфиденциальности</a>.
+          </p>
+        </article>
+
+        <!-- ============================ ENGLISH ============================ -->
+        <article lang="en" data-legal-lang="en" hidden>
+          <h1 class="h1">Deleting your account</h1>
+          <p class="legal__meta">Last updated: 3 September 2026</p>
+
+          <p class="legal__intro">
+            You can delete your DUYO account whenever you want. This page
+            explains how to do it, what gets deleted and what stays. You do not
+            need to install the app to read it.
+          </p>
+
+          <h2>1. In the app</h2>
+          <p>
+            Open the app, go to
+            <strong>Settings → Privacy → Close account</strong> and follow the
+            instructions on the screen.
+          </p>
+
+          <h2>2. Without the app — by email</h2>
+          <p>If you no longer have the phone, or the app is uninstalled:</p>
+          <ul>
+            <li>Write to <a href="mailto:info@duyo.uz?subject=Account%20deletion">info@duyo.uz</a> with the subject "Account deletion".</li>
+            <li>Give the phone number the account is registered to.</li>
+            <li>We send a confirmation code by SMS to that number and you send the code back by email. This is so that nobody else can delete your account.</li>
+            <li>Once the code checks out, the account is deleted — usually within 7 days, and never later than 30. We email you when it is done.</li>
+          </ul>
+          <p>
+            A parent can also ask us to delete their child's account — the
+            confirmation code goes to the same registered number.
+          </p>
+
+          <h2>3. What is deleted</h2>
+          <ul>
+            <li>your account and the phone number attached to it;</li>
+            <li>your name, age, interests, avatar and mascot choices;</li>
+            <li>every conversation with DUYO and all of its text;</li>
+            <li>goals, notes, mood entries, XP, level, daily streak and tamagotchi state;</li>
+            <li>your profile photo, and the recordings of any voice or video notes you sent to other teenagers;</li>
+            <li>your connections with other teenagers, your handle and your conversation lists.</li>
+          </ul>
+
+          <h2>4. What stays, and why</h2>
+          <ul>
+            <li><strong>Messages you sent to other teenagers</strong> — they stay in the other person's conversation but are detached from your name. They are kept for 12 months for safety review, then deleted.</li>
+            <li><strong>Risk-event records</strong> — kept for 7 years as a legal requirement for child-safety records, but no longer tied to you: deleting the account strips both your name and the text of the message from the record, leaving only the fact that the detection happened. Such a record only exists where a risk was actually detected.</li>
+            <li><strong>Payment records</strong> — if you paid for a subscription, the accounting records are kept for as long as the law requires.</li>
+            <li><strong>Backups</strong> — server backups roll over within 30 days, and deleted data leaves them too.</li>
+          </ul>
+
+          <h2>5. Data on your phone</h2>
+          <p>
+            DUYO's "memories" sit inside your phone, encrypted, with no copy on
+            our server. You can delete them in the app, and they go when you
+            uninstall it. Deleting your account on the server does not touch
+            them.
+          </p>
+
+          <h2>6. Deletion cannot be undone</h2>
+          <div class="legal__note">
+            <p>
+              Once the account is deleted it cannot be restored and your
+              conversations do not come back. If you only want to clear your
+              chats, do not delete the account — you can delete each
+              conversation on its own from your chat history.
+            </p>
+          </div>
+
+          <h2>7. Questions</h2>
+          <p>
+            Write to <a href="mailto:info@duyo.uz">info@duyo.uz</a>. There is
+            more about your data in the
+            <a href="privacy.html">privacy policy</a>.
+          </p>
+        </article>
+
+      </div>
+
+    </main>
+
+    <footer class="sec-foot">
+      <div class="container">
+        <div class="sec-foot__bottom">
+          <div class="sec-foot__legal">
+            <a href="index.html">DUYO</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="privacy.html">Maxfiylik siyosati</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="terms.html">Foydalanish shartlari</a>
+            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
+            <a href="account-deletion.html">Hisobni o'chirish</a>
+            <span class="sec-foot__copy">&copy; <span data-year>2026</span> XRR. Barcha huquqlar himoyalangan.</span>
+          </div>
+
+          <a class="sec-foot__contact-item" href="mailto:info@duyo.uz">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="3" />
+              <path d="m3.8 7 6.9 4.8c.8.5 1.8.5 2.6 0L20.2 7" />
+            </svg>
+            <span>info@duyo.uz</span>
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/i18n.js" defer></script>
+    <script src="assets/app.js" defer></script>
+  </body>
+</html>

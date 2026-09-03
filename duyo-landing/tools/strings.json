@@ -1,7 +1,7 @@
 [
  {
   "where": "head/title",
-  "text": "DUYO — bolalar uchun xavfsiz AI hamroh | Ilovani yuklab oling"
+  "text": "DUYO — o'smirlar uchun xavfsiz AI hamroh | Ilovani yuklab oling"
  },
  {
   "where": "body/a",
@@ -53,7 +53,7 @@
  },
  {
   "where": "div/span",
-  "text": "O'zbek tilida · 7-16 yosh"
+  "text": "O'zbek tilida · 13-16 yosh"
  },
  {
   "where": "div/h1",
@@ -93,7 +93,7 @@
  },
  {
   "where": "ul/li",
-  "text": "Ota-ona nazorati"
+  "text": "Xavfsizlik filtri"
  },
  {
   "where": "ul/li",
@@ -113,15 +113,11 @@
  },
  {
   "where": "article/p",
-  "text": "iOS 15.0+ · 180 MB"
+  "text": "Tez orada"
  },
  {
   "where": "article/p",
-  "text": "Apple smartfonlari va planshetlari uchun to‘liq optimallashtirilgan. Barcha funksiyalar va ovozli suhbat qo‘llab-quvvatlanadi."
- },
- {
-  "where": "article/a",
-  "text": "App Store’dan yuklab olish"
+  "text": "iPhone uchun versiya ustida ishlayapmiz. Tayyor bo‘lgach shu yerda e’lon qilamiz."
  },
  {
   "where": "article/p",
@@ -137,11 +133,11 @@
  },
  {
   "where": "article/p",
-  "text": "Google Play do‘konidan bepul va xavfsiz o‘rnatish. Barcha Android telefon va planshetlariga moslashgan."
+  "text": "Saytimizdan bepul yuklab oling. Barcha Android telefonlariga moslashgan; Google Play’da tez orada."
  },
  {
   "where": "article/a",
-  "text": "Google Play’dan olish"
+  "text": "Yuklab olish (APK)"
  },
  {
   "where": "article/h3",
@@ -245,7 +241,7 @@
  },
  {
   "where": "div/p",
-  "text": "Biz bolalarning virtual dunyoda butunlay xavfsiz bo'lishini ta'minlaymiz. DUYO maxsus modalliklar orqali nazorat va yuqori darajadagi himoyani taqdim etadi."
+  "text": "Xavfsizlik ilovaning ichida ishlaydi: suhbat xavf belgilariga qarab tekshiriladi, reklama umuman yo'q va tengdoshlarga yozilgan har bir xabar yuborilishidan oldin ko'rib chiqiladi."
  },
  {
   "where": "li/span",
@@ -253,11 +249,11 @@
  },
  {
   "where": "li/span",
-  "text": "10 kunlik ota-ona hisoboti"
+  "text": "Xavf belgilari aniqlansa, ishonch telefoni darhol ko'rsatiladi"
  },
  {
   "where": "li/span",
-  "text": "Reklama va begonalar bilan aloqa yo'q"
+  "text": "Reklama yo'q, ma'lumotlar reklama uchun ishlatilmaydi"
  },
  {
   "where": "li/span",
@@ -265,7 +261,7 @@
  },
  {
   "where": "div/a",
-  "text": "Ota-ona panelini ko'rish"
+  "text": "Maxfiylik siyosatini o'qish"
  },
  {
   "where": "div/h2",
@@ -277,15 +273,7 @@
  },
  {
   "where": "div/h3",
-  "text": "Junior (7-10 yosh)"
- },
- {
-  "where": "div/p",
-  "text": "Kichik yoshdagi bolalar uchun sodda va tasvirli o'yin-suhbatlar, ertaklar va xavfsiz qo'llab-quvvatlash."
- },
- {
-  "where": "div/h3",
-  "text": "Explorer (11-13 yosh)"
+  "text": "Explorer (13 yosh)"
  },
  {
   "where": "div/p",
@@ -485,11 +473,11 @@
  },
  {
   "where": "button/span",
-  "text": "Bolam necha yoshdan foydalanishi mumkin?"
+  "text": "Necha yoshdan foydalanish mumkin?"
  },
  {
   "where": "div/p",
-  "text": "DUYO 7 yoshdan 16 yoshgacha bo'lgan bolalar uchun mo'ljallangan. Ro'yxatdan o'tishda yosh ko'rsatiladi va ilova avtomatik ravishda uchta uslubdan birini tanlaydi: Junior (7-10), Explorer (11-13) yoki Companion (14-16)."
+  "text": "DUYO 13 yoshdan 16 yoshgacha bo'lgan o'smirlar uchun mo'ljallangan. Ro'yxatdan o'tishda yosh ko'rsatiladi va 13 dan kichik yosh qabul qilinmaydi. Ilova ikkita uslubdan birini avtomatik tanlaydi: Explorer (13) yoki Companion (14-16)."
  },
  {
   "where": "button/span",
@@ -497,15 +485,15 @@
  },
  {
   "where": "div/p",
-  "text": "Barcha ma'lumotlar shifrlangan holda saqlanadi va uchinchi shaxslarga berilmaydi. Biz bolalar ma'lumotlarini reklama maqsadida ishlatmaymiz — ilovada reklama umuman yo'q."
- },
- {
-  "where": "button/span",
-  "text": "Ota-ona suhbatlarni ko'ra oladimi?"
+  "text": "Ma'lumotlar shifrlangan aloqa orqali uzatiladi va o'z serverimizda saqlanadi. DUYO javob bera olishi uchun suhbat matni Google Gemini'ga, SMS kod yuborish uchun telefon raqami Eskiz.uz'ga uzatiladi — bundan boshqa hech kimga berilmaydi. Ma'lumotlarni sotmaymiz va reklama uchun ishlatmaymiz; ilovada reklama umuman yo'q."
  },
  {
   "where": "div/p",
-  "text": "Ota-ona panelida har 10 kunda umumlashtirilgan hisobot ko'rsatiladi: faollik, kayfiyat tendensiyasi va muhokama qilingan mavzular. Bolaning ishonchini saqlash uchun suhbatlar so'zma-so'z ko'rsatilmaydi, ammo xavf belgilari aniqlansa, ota-ona darhol xabardor qilinadi."
+  "text": "Batafsil:"
+ },
+ {
+  "where": "p/a",
+  "text": "maxfiylik siyosati"
  },
  {
   "where": "button/span",
@@ -521,7 +509,7 @@
  },
  {
   "where": "div/p",
-  "text": "Obunani istalgan vaqtda ilovaning \"Obuna\" bo'limidan bir marta bosish bilan bekor qilish mumkin. To'lov qilingan davr oxirigacha barcha imkoniyatlar saqlanib qoladi."
+  "text": "Obunani istagan vaqtda bekor qilishingiz mumkin — buning uchun info@duyo.uz ga yozing. To'lov qilingan davr oxirigacha barcha imkoniyatlar saqlanib qoladi."
  },
  {
   "where": "div/p",
@@ -553,7 +541,7 @@
  },
  {
   "where": "div/p",
-  "text": "7-16 yoshdagi bolalar uchun xavfsiz AI hamroh. O'zbek tilida yaratilgan, ota-onalar nazorati ostida."
+  "text": "13-16 yoshdagi o'smirlar uchun xavfsiz AI hamroh. O'zbek tilida yaratilgan, reklamasiz."
  },
  {
   "where": "nav/h3",
@@ -564,12 +552,12 @@
   "text": "Yosh guruhlari"
  },
  {
-  "where": "li/a",
-  "text": "Xavfsizlik tizimi"
+  "where": "nav/h3",
+  "text": "Xavfsizlik va maxfiylik"
  },
  {
   "where": "li/a",
-  "text": "Ota-ona paneli"
+  "text": "Xavfsizlik tizimi"
  },
  {
   "where": "li/a",
@@ -577,7 +565,11 @@
  },
  {
   "where": "li/a",
-  "text": "Foydali maslahatlar"
+  "text": "Foydalanish shartlari"
+ },
+ {
+  "where": "li/a",
+  "text": "Hisobni o'chirish"
  },
  {
   "where": "nav/h3",
@@ -628,24 +620,20 @@
   "text": "@duyo_uz"
  },
  {
-  "where": "div/a",
-  "text": "Foydalanish shartlari"
- },
- {
   "where": "div/span",
   "text": "XRR. Barcha huquqlar himoyalangan."
  },
  {
   "where": "@meta:description",
-  "text": "DUYO — 7-16 yoshdagi bolalar uchun xavfsiz AI hamroh: suhbatlashadi, o'rgatadi va qo'llab-quvvatlaydi. iPhone va Android uchun bepul yuklab oling."
+  "text": "DUYO — 13-16 yoshdagi o'smirlar uchun xavfsiz AI hamroh: suhbatlashadi, o'rgatadi va qo'llab-quvvatlaydi. iPhone va Android uchun bepul yuklab oling."
  },
  {
   "where": "@meta:og:title",
-  "text": "DUYO — bolalar uchun xavfsiz AI hamroh"
+  "text": "DUYO — o'smirlar uchun xavfsiz AI hamroh"
  },
  {
   "where": "@meta:og:description",
-  "text": "7-16 yoshdagi bolalar uchun AI hamroh. Ota-ona nazorati, reklama yo'q, o'zbek tilida. iPhone va Android'da bepul boshlang."
+  "text": "13-16 yoshdagi o'smirlar uchun AI hamroh. Reklama yo'q, o'zbek tilida. iPhone va Android'da bepul boshlang."
  },
  {
   "where": "@aria-label",
@@ -674,10 +662,6 @@
  {
   "where": "@alt",
   "text": "DUYO ilovasi iPhone va Android telefonlarida: suhbat ekrani va bosh sahifa"
- },
- {
-  "where": "@alt",
-  "text": "Ota-ona paneli — bolalar faoliyati tahlili"
  },
  {
   "where": "@aria-label",
