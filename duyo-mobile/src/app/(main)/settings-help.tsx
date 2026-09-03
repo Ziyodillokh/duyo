@@ -167,7 +167,7 @@ export default function HelpSettingsScreen() {
                   <Text style={styles.contactLabel}>
                     {t('settings.helpScreen.email')}
                   </Text>
-                  <Text style={styles.contactValue}>support@duyo.uz</Text>
+                  <Text style={styles.contactValue}>duyosupport@gmail.com</Text>
                 </View>
                 <ExternalLink size={18} color={MUTED} strokeWidth={2.2} />
               </View>

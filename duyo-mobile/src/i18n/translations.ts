@@ -174,10 +174,10 @@ const UZ = {
     'Ha — Suhbat sahifasidagi mikrofon tugmasi ovozli rejimni ochadi. DUYO real vaqtda ovoz bilan javob beradi.',
   'settings.helpScreen.q5': "Ma'lumotlarimni qanday o'chirishim mumkin?",
   'settings.helpScreen.a5':
-    "support@duyo.uz ga yozing — hisobingiz va barcha ma'lumotlaringiz o'chiriladi.",
+    "duyosupport@gmail.com ga yozing — hisobingiz va barcha ma'lumotlaringiz o'chiriladi.",
   'settings.helpScreen.contact': "Bog'lanish",
   'settings.helpScreen.email': 'Email yuborish',
-  'settings.helpScreen.emailBody': 'support@duyo.uz manziliga email yozing',
+  'settings.helpScreen.emailBody': 'duyosupport@gmail.com manziliga email yozing',
   'settings.helpScreen.telegram': "Telegram qo'llab-quvvatlash",
   'settings.helpScreen.telegramBody':
     "Tez orada Telegram bot qo'llab-quvvatlash qo'shiladi",
@@ -970,10 +970,10 @@ const RU: Record<TranslationKey, string> = {
     'Да — кнопка микрофона на странице разговора открывает голосовой режим. DUYO отвечает голосом в реальном времени.',
   'settings.helpScreen.q5': 'Как удалить мои данные?',
   'settings.helpScreen.a5':
-    'Напиши на support@duyo.uz — мы удалим аккаунт и все твои данные.',
+    'Напиши на duyosupport@gmail.com — мы удалим аккаунт и все твои данные.',
   'settings.helpScreen.contact': 'Связаться с нами',
   'settings.helpScreen.email': 'Написать на email',
-  'settings.helpScreen.emailBody': 'Напишите на адрес support@duyo.uz',
+  'settings.helpScreen.emailBody': 'Напишите на адрес duyosupport@gmail.com',
   'settings.helpScreen.telegram': 'Поддержка в Telegram',
   'settings.helpScreen.telegramBody':
     'Поддержка через Telegram-бота появится совсем скоро',
@@ -1764,10 +1764,10 @@ const EN: Record<TranslationKey, string> = {
     'Yes — the microphone button on the chat screen opens voice mode. DUYO answers out loud in real time.',
   'settings.helpScreen.q5': 'How do I delete my data?',
   'settings.helpScreen.a5':
-    "Write to support@duyo.uz and we'll delete your account and all your data.",
+    "Write to duyosupport@gmail.com and we'll delete your account and all your data.",
   'settings.helpScreen.contact': 'Contact us',
   'settings.helpScreen.email': 'Send an email',
-  'settings.helpScreen.emailBody': 'Write to support@duyo.uz',
+  'settings.helpScreen.emailBody': 'Write to duyosupport@gmail.com',
   'settings.helpScreen.telegram': 'Telegram support',
   'settings.helpScreen.telegramBody': 'Telegram bot support arrives soon',
 

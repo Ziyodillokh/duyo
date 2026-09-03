@@ -66,7 +66,7 @@ Quyidagilar hozircha placeholder — real ma'lumot bilan almashtiring:
 | App Store havolasi | `data-store="ios"` bo'lgan barcha havolalar | `#` |
 | Google Play havolasi | `data-store="android"` | `#` |
 | QR kodlar | hero va CTA bo'limidagi inline SVG | soxta naqsh |
-| Aloqa | footer | `support@duyo.uz`, `@duyo_uz` |
+| Aloqa | footer | `duyosupport@gmail.com`, `@duyo_uz` |
 | Telefon ekranlari | `assets/img/screen-chat.png`, `screen-home.png` | chizilgan maket |
 | OG rasm | `<head>` dagi `og:image` | `assets/og-image.png` (hali yo'q) |
 | Domen | `<head>` dagi `og:url` va `canonical` | `https://duyo.uz/` |
