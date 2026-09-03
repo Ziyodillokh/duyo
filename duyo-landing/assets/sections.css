@@ -2488,62 +2488,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   To'lov usullari
-   -------------------------------------------------------------------------- */
-.sec-price__pay {
-  margin-top: 48px;
-  text-align: center;
-}
-
-.sec-price__pay-list {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 32px;
-  margin-top: 16px;
-}
-
-.sec-price__pay-item {
-  display: inline-flex;
-  align-items: center;
-  opacity: 0.85;
-  transition: opacity var(--t);
-}
-
-.sec-price__pay-item:hover {
-  opacity: 1;
-}
-
-/* Rasmiy logolar o'z ranglarida. Bazaviy balandlik 22px; nisbatlari har xil
-   bo'lgani uchun ayrimlari optik muvozanat uchun alohida sozlanadi. */
-.sec-price__pay-logo {
-  display: block;
-  height: 22px;
-  width: auto;
-}
-
-.sec-price__pay-logo--click {
-  height: 26px; /* aylana emblema matndan ancha baland — kichikroq ko'rinadi */
-}
-
-.sec-price__pay-logo--payme {
-  height: 20px; /* keng wordmark — 22px da qo'shnilaridan uzun ko'rinadi */
-}
-
-.sec-price__pay-logo--uzcard {
-  height: 30px; /* tik belgi: "U" + ostida UZCARD yozuvi */
-}
-
-.sec-price__pay-logo--visa {
-  height: 18px; /* yakka wordmark og'ir turadi — biroz pastroq */
-}
-
-.sec-price__pay-logo--mc {
-  height: 28px; /* ikki doira belgisi tor — balandroq berilmasa yo'qolib ketadi */
-}
-
-/* --------------------------------------------------------------------------
    Responsiv
    -------------------------------------------------------------------------- */
 
@@ -2567,11 +2511,6 @@
   }
 }
 
-@media (max-width: 860px) {
-  .sec-price__pay-list {
-    gap: 24px 28px;
-  }
-}
 
 /* 1 ustun — tabiiy tartib saqlanadi */
 @media (max-width: 760px) {
@@ -2590,10 +2529,6 @@
   .sec-price__desc {
     min-height: 0;
   }
-
-  .sec-price__pay {
-    margin-top: 40px;
-  }
 }
 
 @media (max-width: 640px) {
@@ -2603,14 +2538,6 @@
 
   .sec-price__cta {
     margin-top: 24px;
-  }
-
-  .sec-price__pay-list {
-    gap: 20px 24px;
-  }
-
-  .sec-price__pay-item {
-    font-size: 16px;
   }
 }
 
@@ -2952,7 +2879,6 @@
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.72);
 }
-
 
 /* --------------------------------------------------------------------------
    O'ng ustun — robot va yenot (dumaloq rasm)

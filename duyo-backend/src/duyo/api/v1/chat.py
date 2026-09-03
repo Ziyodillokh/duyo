@@ -18,6 +18,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
@@ -31,6 +32,7 @@ from duyo.crisis.detector import KeywordCrisisDetector
 from duyo.crisis.router import get_detector
 from duyo.crisis.semantic import Layer3Result
 from duyo.crisis.semantic import classify as classify_l3
+from duyo.models.ai_report import AiMessageReport, AiReportReason
 from duyo.models.child import AgeSegment, ChildProfile
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel, highest
@@ -63,6 +65,7 @@ from duyo.schemas.chat import (
 )
 from duyo.services.conversations import build_project_context, title_from_message
 from duyo.services.crisis_l2 import Layer2Result, classify
+from duyo.services.crisis_notify import resolve_trusted_adult_phone
 from duyo.services.gemini import (
     GeminiReply,
     chat_with_web_search,
@@ -72,6 +75,7 @@ from duyo.services.gemini import (
 from duyo.services.gemini import chat as gemini_chat
 from duyo.services.goals import extract_child_insights
 from duyo.services.images import search_images
+from duyo.services.limit_notice import daily_limit_message
 from duyo.services.memory_candidates import MemoryCandidate, extract_memory_candidate
 from duyo.services.personalization import (
     build_goal_context,
@@ -572,9 +576,8 @@ async def chat_turn(
     if not limit_status.allowed:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                f"Kunlik xabar chegarasi tugadi ({limit_status.used}/"
-                f"{limit_status.limit}). Ko'proq suhbat uchun obunani yangilang."
+            detail=daily_limit_message(
+                child.language, used=limit_status.used, limit=limit_status.limit
             ),
         )
 
@@ -763,30 +766,36 @@ async def chat_turn(
     )
 
     if should_notify_parent:
-        # The chatting account is the CHILD's own login once a family is
-        # linked (child_user_id), so the alert must go to the parent's
-        # phone specifically — never to whoever is holding the phone that's
-        # actually chatting, which for a linked child is the child.
-        parent_phone = (
-            current_user.phone if child.parent_id == current_user.id
-            else await db.scalar(select(User.phone).where(User.id == child.parent_id))
-        )
-        now = datetime.now(UTC)
-        for ce in crisis_events:
-            ce.parent_notified = True
-            ce.parent_notified_at = now
-        if parent_phone:
+        # An alert only goes out to somebody who is provably not the child in
+        # front of the screen — see services/crisis_notify.py for why that has
+        # to be established structurally and why, today, it never is.
+        adult_phone = await resolve_trusted_adult_phone(db, child, current_user)
+        if adult_phone:
+            now = datetime.now(UTC)
+            for ce in crisis_events:
+                ce.parent_notified = True
+                ce.parent_notified_at = now
             background_tasks.add_task(
                 _dispatch_parent_alert,
-                parent_phone,
+                adult_phone,
                 child.name,
                 final_level,
                 child.id,
             )
-        log.warning(
-            "CRISIS dispatched level=%s child=%s msg=%s notified=%s",
-            final_level.value, child.id, child_msg.id, bool(parent_phone),
-        )
+            log.warning(
+                "CRISIS dispatched level=%s child=%s msg=%s",
+                final_level.value, child.id, child_msg.id,
+            )
+        else:
+            # Left parent_notified=False on purpose. It is the flag the admin
+            # safety queue filters on, and its manual "notify parent" action is
+            # the only route this event now has to a human. Marking it true
+            # because we tried would hide the one case that needs a person.
+            log.error(
+                "CRISIS NOT NOTIFIED — no trusted adult separate from the child. "
+                "level=%s child=%s msg=%s",
+                final_level.value, child.id, child_msg.id,
+            )
     elif final_level in (CrisisLevel.ORANGE, CrisisLevel.RED):
         # ORANGE + abuse-only: skip parent, log for 3rd-party safety provider routing later
         log.warning(
@@ -1171,3 +1180,73 @@ async def rate_message(
     await db.flush()
 
     return FeedbackResponse(message_id=message_id, rating=rating.value)
+
+
+class AiReportRequest(BaseModel):
+    child_id: UUID
+    #: A closed set, not free text. This is the boundary that rejects an
+    #: unknown reason, which is why the column underneath is a plain string.
+    reason: AiReportReason
+
+
+@router.post(
+    "/messages/{message_id}/report",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def report_message(
+    message_id: UUID,
+    payload: AiReportRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Report one of DUYO's replies as harmful.
+
+    NOT the same act as the 👎 next to it, and the two must not be merged: a
+    rating asks whether the answer was any good, this asks whether the app said
+    something to a child that it should not have. Play requires the second from
+    anything that declares an AI feature.
+
+    The reply's text is copied into the report, so the record survives the
+    child deleting the conversation — see models/ai_report.py. Re-reporting the
+    same message replaces the reason and re-opens it for triage rather than
+    filing a second row; nobody is helped by one upset child appearing in the
+    queue eleven times.
+    """
+    child = await _get_owned_child(payload.child_id, current_user, db)
+
+    # Same ownership scoping as rate_message: an assistant turn inside one of
+    # THIS child's conversations, or nothing.
+    message = await db.scalar(
+        select(Message)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Message.id == message_id,
+            Message.role == MessageRole.ASSISTANT,
+            Conversation.child_id == child.id,
+        )
+    )
+    if message is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Message not found")
+
+    existing = await db.scalar(
+        select(AiMessageReport).where(
+            AiMessageReport.message_id == message_id,
+            AiMessageReport.child_id == child.id,
+        )
+    )
+    if existing is None:
+        db.add(AiMessageReport(
+            message_id=message_id,
+            child_id=child.id,
+            reason=payload.reason.value,
+            model_output=message.content,
+            model_name=message.model,
+        ))
+    else:
+        existing.reason = payload.reason.value
+        # A re-report re-opens the item, the way a changed rating does.
+        existing.reviewed_at = None
+        existing.reviewed_by = None
+    await db.flush()
+
+    return {"status": "received"}

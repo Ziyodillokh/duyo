@@ -46,6 +46,7 @@ import { Text, TextInput } from '@/components/text';
 import { useNavClearance } from '@/components/v2/dark/bottom-nav';
 import { ChildAvatar } from '@/components/child-avatar';
 import { LANGUAGE_NAMES, useT } from '@/i18n';
+import { useCurrentSubscription } from '@/hooks/use-subscription';
 import { glass, lift } from '@/lib/glass';
 import { useAuthStore } from '@/store/auth';
 import { useChildStore } from '@/store/child';
@@ -118,6 +119,7 @@ function serverMessage(err: unknown, fallback: string): string {
  * "back" means, and whether the dock is floating over the bottom.
  */
 export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' }) {
+  const subscription = useCurrentSubscription();
   const t = useT();
   const language = useLanguageStore((s) => s.language);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -504,7 +506,14 @@ export function SettingsScreen({ variant = 'page' }: { variant?: 'tab' | 'page' 
             <Row
               Icon={Crown}
               label={t('settings.plan')}
-              value={t('settings.planValue')}
+              // The real tier, not a literal. This row read "Do'st" for
+              // everyone, so every free user was told they were on a paid
+              // plan — on the one screen where they would go to check.
+              value={
+                subscription.data
+                  ? subscription.data.tier
+                  : t('settings.planLoading')
+              }
               onPress={() => router.push('/(main)/subscription')}
               isLast
             />

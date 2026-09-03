@@ -201,7 +201,7 @@
  },
  {
   "where": "li/p",
-  "text": "O'zbek xalq ertaklari, mashhur she'rlar va audio versiyalar. Har bir asar bolaning yoshiga qarab tanlanadi."
+  "text": "O'zbek xalq ertaklari, mashhur she'rlar va audio versiyalar. Har bir asar o'smirning yoshiga qarab tanlanadi."
  },
  {
   "where": "li/h3",
@@ -452,10 +452,6 @@
   "text": "Premium kontent va aksessuarlar"
  },
  {
-  "where": "div/p",
-  "text": "Qulay to'lov usullari"
- },
- {
   "where": "div/h2",
   "text": "Ko'p so'raladigan savollar"
  },
@@ -525,7 +521,7 @@
  },
  {
   "where": "div/p",
-  "text": "Bolangiz uchun xavfsiz sun'iy intellekt muhitini bepul sinab ko'ring va natijalarni 10 kun ichida kuzating."
+  "text": "O'smiringiz uchun xavfsiz sun'iy intellekt muhitini bepul sinab ko'ring."
  },
  {
   "where": "div/span",
@@ -662,34 +658,6 @@
  {
   "where": "@alt",
   "text": "DUYO ilovasi iPhone va Android telefonlarida: suhbat ekrani va bosh sahifa"
- },
- {
-  "where": "@aria-label",
-  "text": "Qabul qilinadigan to'lov usullari"
- },
- {
-  "where": "@alt",
-  "text": "Click"
- },
- {
-  "where": "@alt",
-  "text": "Payme"
- },
- {
-  "where": "@alt",
-  "text": "Uzcard"
- },
- {
-  "where": "@alt",
-  "text": "Humo"
- },
- {
-  "where": "@alt",
-  "text": "Visa"
- },
- {
-  "where": "@alt",
-  "text": "Mastercard"
  },
  {
   "where": "@aria-label",

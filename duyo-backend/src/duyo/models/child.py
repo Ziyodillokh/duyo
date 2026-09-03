@@ -61,8 +61,12 @@ _language_enum = ENUM(
 
 class ChildProfile(Base, UUIDPK, TimestampMixin):
     __tablename__ = "child_profiles"
+    # 13, matching AgeSegment.from_age and the 13+ content rating the app is
+    # published under. The old floor of 7 outlived the decision by a release: a
+    # database that still accepts an eight-year-old is the thing that makes the
+    # store declaration untrue, whatever the client's ruler renders.
     __table_args__ = (
-        CheckConstraint("age >= 7 AND age <= 16", name="ck_child_age_range"),
+        CheckConstraint("age >= 13 AND age <= 16", name="ck_child_age_range"),
     )
 
     parent_id: Mapped[UUID] = mapped_column(

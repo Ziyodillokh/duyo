@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  Flag,
   Mic,
   MoreHorizontal,
   NotebookPen,
@@ -34,7 +35,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import {
   rateMessage,
+  reportMessage,
   sendChatMessage,
+  type AiReportReason,
   type FeedbackRating,
   type QuickReply,
 } from '@/api/endpoints/chat';
@@ -47,9 +50,11 @@ import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { ChatDrawer } from '@/components/chat/chat-drawer';
 import { ChatHero } from '@/components/chat/chat-hero';
+import { ReportMessageSheet } from '@/components/chat/report-message-sheet';
 import { EmojiPicker } from '@/components/goals/emoji-picker';
 import { MascotHead } from '@/components/v2/mascot-image';
 import { useMemoryConsent } from '@/hooks/use-memory-consent';
+import { usePlans, useCurrentSubscription } from '@/hooks/use-subscription';
 import { useT, type TranslateFn } from '@/i18n';
 import { glass, lift } from '@/lib/glass';
 import { selectRelevantMemories, toMemoryContextLines } from '@/lib/memory-retrieval';
@@ -73,10 +78,20 @@ const BG_BOTTOM = '#EDF2FD';
 /** The two states the status dot ever has: settled, and mid-thought. */
 const GREEN = '#22B573';
 
-// Free tier daily limit — backend enforces real limits once subscription
-// system lands (Faza 1). Until then we show a soft local count.
-const DAILY_LIMIT = 30;
+/**
+ * The fallback, used only until /plans answers.
+ *
+ * This was a hardcoded 30 with a comment saying the backend would enforce the
+ * real number "once the subscription system lands". It has landed, and it
+ * enforces 20 — so the counter promised ten messages that the server then
+ * refused, and the child hit a wall the app said was not there. The real
+ * number now comes from the plan the child is actually on.
+ */
+const DAILY_LIMIT_FALLBACK = 20;
 const GREETING_ID = 'seed-greeting';
+// Long enough that dragging the list past a bubble never opens the report
+// sheet, short enough that a deliberate press is not a wait.
+const REPORT_LONG_PRESS_MS = 400;
 // A puzzle every few turns keeps the chat from being wall-to-wall talking.
 // Rare enough not to interrupt a real conversation the child is having.
 const PUZZLE_EVERY_N_TURNS = 4;
@@ -111,6 +126,11 @@ function startOfTodayMs(): number {
 export default function ChatScreen() {
   const t = useT();
   const child = useChildStore((s) => s.child);
+  const plans = usePlans();
+  const subscription = useCurrentSubscription();
+  const dailyLimit =
+    plans.data?.find((tier) => tier.key === subscription.data?.tier)
+      ?.daily_message_limit ?? DAILY_LIMIT_FALLBACK;
   const messages = useChatStore((s) => s.messages);
   const conversationId = useChatStore((s) => s.conversationId);
   const projectId = useChatStore((s) => s.projectId);
@@ -125,6 +145,8 @@ export default function ChatScreen() {
   // messageId -> chosen rating. Local only: the vote is fire-and-forget, so a
   // failed request just clears the highlight rather than blocking the chat.
   const [ratings, setRatings] = useState<Record<string, FeedbackRating>>({});
+  /** The reply the report sheet is open on, or null. */
+  const [reported, setReported] = useState<ChatMessage | null>(null);
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -203,8 +225,8 @@ export default function ChatScreen() {
       (m) => m.role === 'child' && m.timestamp >= start,
     ).length;
   }, [messages]);
-  const remaining = Math.max(0, DAILY_LIMIT - todayCount);
-  const limitReached = todayCount >= DAILY_LIMIT;
+  const remaining = Math.max(0, dailyLimit - todayCount);
+  const limitReached = todayCount >= dailyLimit;
 
   // Fetch a puzzle every Nth turn. Silent on failure and on an exhausted
   // catalogue (the endpoint returns null) — a missing puzzle is a non-event.
@@ -322,6 +344,19 @@ export default function ChatScreen() {
       });
     },
     [child],
+  );
+
+  const handleReport = useCallback((message: ChatMessage) => {
+    setReported(message);
+  }, []);
+
+  /** Rejections are surfaced by the sheet, not swallowed — see the sheet. */
+  const submitReport = useCallback(
+    async (reason: AiReportReason) => {
+      if (!child || !reported) return;
+      await reportMessage(reported.id, child.id, reason);
+    },
+    [child, reported],
   );
 
   const handleNewChat = useCallback(() => {
@@ -498,7 +533,7 @@ export default function ChatScreen() {
                     <Text style={styles.counterText}>
                       {t('chat.remaining', {
                         remaining,
-                        limit: DAILY_LIMIT,
+                        limit: dailyLimit,
                       })}
                     </Text>
                   </View>
@@ -510,6 +545,7 @@ export default function ChatScreen() {
                   onQuickReply={handleQuickReply}
                   rating={ratings[item.message.id]}
                   onRate={handleRate}
+                  onReport={handleReport}
                   sending={item.message.id === pendingChildId}
                 />
               );
@@ -641,6 +677,14 @@ export default function ChatScreen() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {reported && (
+        <ReportMessageSheet
+          quote={reported.content}
+          onSubmit={submitReport}
+          onClose={() => setReported(null)}
+        />
+      )}
     </View>
   );
 }
@@ -738,6 +782,7 @@ interface MessageBubbleProps {
   onQuickReply: (messageId: string, reply: QuickReply) => void;
   rating?: FeedbackRating;
   onRate: (messageId: string, rating: FeedbackRating) => void;
+  onReport: (message: ChatMessage) => void;
   /** This child message is the one whose reply is still in flight. */
   sending?: boolean;
 }
@@ -747,15 +792,16 @@ function MessageBubble({
   onQuickReply,
   rating,
   onRate,
+  onReport,
   sending,
 }: MessageBubbleProps) {
   const t = useT();
   const isChild = message.role === 'child';
   const source = message.source;
   const quickReplies = message.quickReplies;
-  // Only server-persisted DUYO replies can be rated — the seeded greeting
-  // and optimistic `local-` bubbles have no row to attach feedback to.
-  const canRate =
+  // Only server-persisted DUYO replies can be rated or reported — the seeded
+  // greeting and optimistic `local-` bubbles have no row to attach either to.
+  const isPersistedReply =
     !isChild && message.id !== GREETING_ID && !message.id.startsWith('local-');
   return (
     <View style={isChild ? styles.rowEnd : styles.rowStart}>
@@ -770,28 +816,39 @@ function MessageBubble({
               <MascotHead size={26} />
             </View>
           )}
-          <View
-            style={
-              isChild
-                ? [styles.bubble, styles.bubbleChild]
-                : [glass(22, 'sm', 0.62), styles.bubble]
-            }
-          >
-            <BubbleBody text={message.content} isChild={isChild} />
-            <View style={styles.metaRow}>
-              <Text style={[styles.time, isChild && styles.timeChild]}>
-                {clock(message.timestamp)}
-              </Text>
-              {/* One tick while DUYO is still answering, two once it has —
-                  the only delivery signal this chat genuinely has. */}
-              {isChild &&
-                (sending ? (
+          {/* Long-press opens the report sheet, and is a SHORTCUT only: a
+              screen reader cannot find a long-press, so the flag under the
+              bubble is the affordance that actually has to be there. */}
+          {isChild ? (
+            <View style={[styles.bubble, styles.bubbleChild]}>
+              <BubbleBody text={message.content} isChild />
+              <View style={styles.metaRow}>
+                <Text style={[styles.time, styles.timeChild]}>
+                  {clock(message.timestamp)}
+                </Text>
+                {/* One tick while DUYO is still answering, two once it has —
+                    the only delivery signal this chat genuinely has. */}
+                {sending ? (
                   <Check size={14} color="rgba(255,255,255,0.75)" strokeWidth={2.6} />
                 ) : (
                   <CheckCheck size={14} color="rgba(255,255,255,0.85)" strokeWidth={2.6} />
-                ))}
+                )}
+              </View>
             </View>
-          </View>
+          ) : (
+            <Pressable
+              onLongPress={
+                isPersistedReply ? () => onReport(message) : undefined
+              }
+              delayLongPress={REPORT_LONG_PRESS_MS}
+              style={[glass(22, 'sm', 0.62), styles.bubble]}
+            >
+              <BubbleBody text={message.content} isChild={false} />
+              <View style={styles.metaRow}>
+                <Text style={styles.time}>{clock(message.timestamp)}</Text>
+              </View>
+            </Pressable>
+          )}
         </View>
         {source && source.type !== 'none' && (
           <Text style={[styles.sourceText, !isChild && styles.metaIndent]}>
@@ -816,7 +873,7 @@ function MessageBubble({
             ))}
           </View>
         )}
-        {canRate && (
+        {isPersistedReply && (
           <View style={[styles.rateRow, !isChild && styles.metaIndent]}>
             <Pressable
               onPress={() => onRate(message.id, 'up')}
@@ -837,6 +894,20 @@ function MessageBubble({
               style={[styles.rateButton, styles.focusable]}
             >
               <ThumbsDown size={16} color={rating === 'down' ? DANGER : MUTED} />
+            </Pressable>
+            {/* The rule separates a taste question from a safety one. The
+                thumbs ask whether the answer was any good; this asks whether
+                DUYO said something to a child that it should not have. */}
+            <View style={styles.rateDivider} />
+            <Pressable
+              onPress={() => onReport(message)}
+              accessibilityRole="button"
+              accessibilityLabel={t('chat.a11y.report')}
+              accessibilityHint={t('chat.a11y.reportHint')}
+              hitSlop={8}
+              style={[styles.rateButton, styles.focusable]}
+            >
+              <Flag size={16} color={MUTED} />
             </Pressable>
           </View>
         )}
@@ -975,6 +1046,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
     marginLeft: 2,
+  },
+  rateDivider: {
+    width: 1,
+    height: 14,
+    marginHorizontal: 6,
+    backgroundColor: 'rgba(47,111,228,0.16)',
   },
   rateButton: {
     width: 32,

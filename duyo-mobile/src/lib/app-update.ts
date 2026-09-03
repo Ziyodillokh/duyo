@@ -19,7 +19,17 @@ import { IS_PLAY_BUILD } from '@/lib/distribution';
  * asked twice.
  */
 
-const VERSION_URL = 'https://admin.duyo.uz/apk/version.json';
+/**
+ * Injected by the APK job, absent everywhere else — and absent is the point.
+ *
+ * `IS_PLAY_BUILD` gates this code at RUNTIME, which stops it executing but
+ * leaves it in the bundle: a diff of the two builds came back byte-identical
+ * apart from the bundler's temp path, so a reviewer running strings over the
+ * AAB still found a URL to an APK manifest. EXPO_PUBLIC_* is inlined at bundle
+ * time, so an unset variable is the literal `undefined` in the shipped JS —
+ * which is what actually keeps the address out of the store artifact.
+ */
+const VERSION_URL = process.env.EXPO_PUBLIC_UPDATE_MANIFEST_URL;
 /** Snooze key: the versionCode the user said "later" to. Asking again on
  * every launch for the same build would train them to dismiss updates. */
 const DISMISSED_KEY = 'duyo-update-dismissed-vc';
@@ -75,7 +85,8 @@ function parseManifest(data: unknown): AvailableUpdate | null {
 export async function checkForAppUpdate(): Promise<AvailableUpdate | null> {
   // Play updates its own installs; an app that offers itself an APK there is
   // a policy violation, not a feature (see lib/distribution.ts).
-  if (IS_PLAY_BUILD || __DEV__) return null;
+  // No manifest URL means no sideload channel to check — the store build.
+  if (IS_PLAY_BUILD || __DEV__ || !VERSION_URL) return null;
   const installed = installedVersionCode();
   if (installed === null) return null;
 

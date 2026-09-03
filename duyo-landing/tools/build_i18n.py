@@ -92,8 +92,8 @@ T = [
      "A companion suited to your child: it reads their mood, answers their questions and stays warm every time."),
     ("ertaklar kutubxonasi", "Библиотека стихов и сказок", "A library of poems and folk tales"),
     ("mashhur she",
-     "Узбекские народные сказки, известные стихи и аудиоверсии. Каждое произведение подбирается по возрасту ребёнка.",
-     "Uzbek folk tales, well-known poems and audio versions. Every piece is chosen for the child’s age."),
+     "Узбекские народные сказки, известные стихи и аудиоверсии. Каждое произведение подбирается по возрасту подростка.",
+     "Uzbek folk tales, well-known poems and audio versions. Every piece is chosen for the teenager’s age."),
     ("Dars yordami va til", "Помощь с уроками и языковые игры", "Homework help and language games"),
     ("Uy vazifalarini",
      "Помощь с домашними заданиями и увлекательные игры для изучения английского и русского.",
@@ -197,7 +197,6 @@ T = [
     ("Ovozli suhbat", "Голосовое общение", "Voice chat"),
     ("2 ta bola uchun", "Отдельные профили для двух детей", "Separate profiles for two children"),
     ("Premium kontent", "Премиум-контент и аксессуары", "Premium content and accessories"),
-    ("Qulay to", "Удобные способы оплаты", "Convenient payment methods"),
 
     # ---- FAQ ----
     ("so'raladigan savollar", "Часто задаваемые вопросы", "Frequently asked questions"),
@@ -234,8 +233,8 @@ T = [
     # ---- final CTA ----
     ("Bugun DUYO bilan", "Познакомьтесь с DUYO сегодня", "Meet DUYO today"),
     ("intellekt muhitini",
-     "Попробуйте бесплатно безопасную AI-среду для ребёнка и следите за результатами первые 10 дней.",
-     "Try a safe AI environment for your child free and follow the results over the first 10 days."),
+     "Попробуйте бесплатно безопасную AI-среду для вашего подростка.",
+     "Try a safe AI environment for your teenager, free."),
     ("QR kodni telefon",
      "Отсканируйте QR-код камерой телефона и скачайте приложение DUYO",
      "Scan the QR code with your phone camera to download the DUYO app"),
@@ -288,8 +287,8 @@ T = [
     ("suhbat ekrani va bosh sahifa",
      "Приложение DUYO на Android: экран общения и главный экран",
      "The DUYO app on Android: the chat screen and the home screen"),
-    ("Qabul qilinadigan to", "Принимаемые способы оплаты", "Accepted payment methods"),
     
+    ("ilovasini App Store", "Скачать приложение DUYO в App Store", "Get the DUYO app on the App Store"),
     ("ilovasini Google Play", "Скачать приложение DUYO в Google Play", "Get the DUYO app on Google Play"),
     ("bosh sahifaga qaytish", "DUYO — вернуться на главную", "DUYO — back to the home page"),
     ("Telegram kanali", "Телеграм-канал DUYO", "DUYO on Telegram"),

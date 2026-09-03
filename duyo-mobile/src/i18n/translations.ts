@@ -128,7 +128,6 @@ const UZ = {
   'settings.memoryValue': 'Shu qurilmada',
   'settings.privacy': 'Maxfiylik',
   'settings.plan': 'Obuna rejasi',
-  'settings.planValue': "Do'st",
   'settings.help': 'Yordam',
   'settings.logout': 'Chiqish',
   'settings.logoutConfirm': 'Hisobdan chiqishni xohlaysizmi?',
@@ -155,7 +154,6 @@ const UZ = {
     "DUYO sizning ma'lumotlaringizni qanday saqlaydi va himoya qilishi haqida ma'lumot.",
   'settings.privacyScreen.readFull': "To'liq matnni o'qish",
   'settings.privacyScreen.readFullA11y': 'Toliq matn',
-  'settings.privacyScreen.policySoon': "Maxfiylik siyosati matni Faza 1'da qo'shiladi",
   'settings.privacyScreen.dataSection': "Ma'lumotlar boshqaruvi",
   'settings.privacyScreen.closeAccountLabel': 'Hisobni yopish',
   'settings.privacyScreen.closeAccountDesc': "Hisob va barcha ma'lumotlarni o'chirish",
@@ -167,7 +165,7 @@ const UZ = {
     "DUYO — bu O'zbek tilida bola bilan suhbatlashadigan, o'rgatadigan va qo'llab-quvvatlaydigan AI hamroh. U mehribon kosmik kashshof sifatida ishlaydi.",
   'settings.helpScreen.q2': 'Suhbat xavfsizmi?',
   'settings.helpScreen.a2':
-    "Ha. Suhbatlar shifrlangan, faqat sizning hisobingizdan ko'rish mumkin. Ota-ona ulanmasa, faqat siz va DUYO ko'radi.",
+    "Suhbatlaring shifrlangan aloqa orqali yuboriladi va serverimizda saqlanadi — ularni faqat sening hisobingdan ochish mumkin. Javoblarni Google Gemini yaratadi, ya'ni xabaring unga ham boradi.",
   'settings.helpScreen.q3': 'Kunlik limit qancha?',
   'settings.helpScreen.a3':
     'Bepul rejada kuniga 30 ta suhbat. Premium bilan cheksiz.',
@@ -353,7 +351,6 @@ const UZ = {
   'composer.recVideo': 'Video yozilmoqda',
   'composer.sendRecording': 'Yozuvni yuborish',
   'crisis.a11y.callChild': "Bolalar telefoniga qo'ng'iroq",
-  'crisis.a11y.callPsych': "Psixologik yordamga qo'ng'iroq",
   'crisis.action.breathing': 'Nafas olish mashqlari',
   'crisis.action.call': "{n} ga qo'ng'iroq — {line}",
   'crisis.action.keepTalking': 'DUYO bilan gaplashishda davom etish',
@@ -365,7 +362,6 @@ const UZ = {
   'crisis.hotlines': 'Favqulodda raqamlar:',
   'crisis.orange.body': 'Men senga yordam berishga tayyorman. Keling, ishonchli katta odam bilan gaplashaylik.',
   'crisis.orange.title': "Sen yolg'iz emassan",
-  'crisis.psychLine': 'Psixologik yordam',
   'crisis.red.body': "Men sening xavfsizligingni o'ylayman. Keling, hozir senga yordam beradigan odamni topamiz.",
   'crisis.red.title': 'Sen muhimsan',
   'crisis.yellow.body': "Ba'zan qiyin paytlar bo'ladi. Men seni tinglashga tayyorman.",
@@ -571,7 +567,7 @@ const UZ = {
   'memory.consent.acceptShort': 'Eslab qol',
   'memory.consent.decline': "Yo'q, eslab qolma",
   'memory.consent.declineShort': "Yo'q",
-  'memory.consent.promise': 'Faqat shu telefonda, shifrlangan',
+  'memory.consent.promise': "Telefoningda shifrlangan holda; suhbatda DUYO'ga beriladi",
   'memory.consent.title': 'Buni eslab qolaymi?',
   'memory.delete.body': '"{content}" o\'chirilsinmi? Bu amalni ortga qaytarib bo\'lmaydi.',
   'memory.delete.title': "Xotirani o'chirish",
@@ -602,7 +598,7 @@ const UZ = {
   'memory.keyLost.body': '{count} ta yozuv qulflanib qoldi. Ularni ochadigan kalit shu qurilmadan yo‘qolgan — bu ilova qayta o‘rnatilganda, tizim yangilanganda yoki ekran qulfi o‘zgarganda bo‘ladi. Yozuvlar o‘zi joyida, lekin ularni hech qanday usul bilan ochib bo‘lmaydi.',
   'memory.keyLost.clear': 'Tozalab, boshidan boshlash',
   'memory.keyLost.clearing': 'Tozalanmoqda…',
-  'memory.privacyNote': "Bu ma'lumotlar faqat shu qurilmada, shifrlangan holda saqlanadi. Ular hech qachon serverga doimiy saqlash uchun yuborilmaydi.",
+  'memory.privacyNote': "Bu yozuvlar shu telefonda, shifrlangan holda saqlanadi. Sen yozganingda DUYO seni eslashi uchun ular xabaring bilan birga yuboriladi va javobni yozadigan Google Gemini'ga yetib boradi — lekin serverimizda saqlanib qolmaydi.",
   'memory.undecryptable': '{count} ta yozuvni ochib bo\'lmadi. Ular shu qurilmada boshqa kalit bilan shifrlangan bo\'lishi mumkin (masalan ilova qayta o\'rnatilgandan keyin). Ularni tiklab bo\'lmaydi — "Barcha xotiralarni o\'chirish" orqali tozalash mumkin.',
   'nav.home': 'Bosh sahifa',
   'nav.profile': 'Profil',
@@ -766,7 +762,6 @@ const UZ = {
   'groups.safety.reasonBody': "Tanlaganingni kattalar o'qib chiqadi. Shu bilan bu odam senga ko'rinmay qoladi.",
   'groups.safety.reasonTitle': "Nima bo'ldi?",
   'groups.safety.reported': "Rahmat, xabaring yetib bordi. Kattalar o'qib chiqadi, bu odam esa endi senga ko'rinmaydi.",
-  'settings.privacyScreen.closeAccountManual': "Hisobni o'chirishni hozircha ilova ichida qilib bo'lmaydi. support@duyo.uz ga yozing — hisobingiz va barcha ma'lumotlaringiz o'chiriladi.",
   'voice.mic.accept': 'Tushundim, boshlaymiz',
   'voice.mic.blockedBody': 'Telefon sozlamalarida DUYO uchun mikrofonni yoq — keyin shu yerga qaytib, suhbatni davom ettiramiz.',
   'voice.mic.blockedTitle': 'Mikrofon sozlamalarda yopilgan',
@@ -782,6 +777,30 @@ const UZ = {
   'voice.mic.title': "Ovozing bilan nima bo'ladi",
   'voice.mic.toGemini': 'Ovozing telefondan chiqib, Google Gemini xizmatiga boradi — u seni tushunib, javob berishi uchun.',
   'voice.mic.whileOpen': "DUYO faqat shu ekran ochiq va sen gapirayotgan paytda yozib oladi. Boshqa payt mikrofon o'chiq.",
+
+  // ── extracted from screens ──────────────────────────────────
+  'settings.privacyScreen.closeAccountBody': "Hisobingni yopsak, DUYO'dagi hamma narsang o'chadi: suhbatlaring, xotiralaring, qaydlaring va maqsadlaring. Buni ortga qaytarib bo'lmaydi.",
+  'settings.privacyScreen.closeAccountConfirm': "Ha, o'chirilsin",
+  'settings.privacyScreen.closeAccountConfirmBody': "Bu oxirgi savol. Bosishing bilan hisobing va barcha ma'lumotlaring darhol o'chiriladi.",
+  'settings.privacyScreen.closeAccountConfirmTitle': "Rostdan ham o'chirilsinmi?",
+
+  // ── extracted from screens ──────────────────────────────────
+  'settings.planLoading': 'Tekshirilmoqda…',
+
+  // ── extracted from screens ──────────────────────────────────
+  'chat.a11y.report': 'Bu javob ustidan shikoyat qilish',
+  'chat.a11y.reportHint': "Sabab tanlaysan, javobni odam o'qib chiqadi",
+  'chat.report.body': "Nimasi noto'g'ri edi? Buni odam o'qib chiqadi.",
+  'chat.report.failed': "Yuborilmadi. Internetni tekshirib, yana urinib ko'r.",
+  'chat.report.harmful': 'Xavfli yoki zararli maslahat',
+  'chat.report.hateful': 'Haqorat yoki kamsitish',
+  'chat.report.other': 'Boshqa sabab',
+  'chat.report.scary': "Qo'rqinchli yoki bezovta qiladi",
+  'chat.report.sentBody': "Buni odam o'qib chiqadi. DUYO xato qilsa, bilishimiz kerak.",
+  'chat.report.sentTitle': 'Rahmat, yubordik',
+  'chat.report.sexual': 'Nomaqbul, jinsiy mazmun',
+  'chat.report.title': 'Bu javob ustidan shikoyat',
+  'crisis.noOneTold': "Men o'zim hech kimga xabar bermayman — buni sen hal qilasan. Xohlasang, birga o'ylaymiz: kimga aytish senga osonroq bo'ladi?",
 } as const;
 
 export type TranslationKey = keyof typeof UZ;
@@ -905,7 +924,6 @@ const RU: Record<TranslationKey, string> = {
   'settings.memoryValue': 'На этом устройстве',
   'settings.privacy': 'Приватность',
   'settings.plan': 'Тарифный план',
-  'settings.planValue': 'Друг',
   'settings.help': 'Помощь',
   'settings.logout': 'Выйти',
   'settings.logoutConfirm': 'Выйти из аккаунта?',
@@ -932,8 +950,6 @@ const RU: Record<TranslationKey, string> = {
     'О том, как DUYO хранит и защищает ваши данные.',
   'settings.privacyScreen.readFull': 'Читать полностью',
   'settings.privacyScreen.readFullA11y': 'Полный текст',
-  'settings.privacyScreen.policySoon':
-    'Текст политики конфиденциальности появится в Фазе 1',
   'settings.privacyScreen.dataSection': 'Управление данными',
   'settings.privacyScreen.closeAccountLabel': 'Закрыть аккаунт',
   'settings.privacyScreen.closeAccountDesc': 'Удалить аккаунт и все данные',
@@ -945,7 +961,7 @@ const RU: Record<TranslationKey, string> = {
     'DUYO — это AI-компаньон, который общается с ребёнком, учит и поддерживает его на узбекском, русском и английском языках. Он ведёт себя как добрый космический исследователь.',
   'settings.helpScreen.q2': 'Безопасны ли разговоры?',
   'settings.helpScreen.a2':
-    'Да. Разговоры зашифрованы и доступны только с вашего аккаунта. Пока родитель не подключён, их видите только вы и DUYO.',
+    'Разговоры передаются по зашифрованному соединению и хранятся на нашем сервере — открыть их можно только с твоего аккаунта. Ответы генерирует Google Gemini, значит твоё сообщение уходит и к нему.',
   'settings.helpScreen.q3': 'Какой дневной лимит?',
   'settings.helpScreen.a3':
     'На бесплатном тарифе — 30 разговоров в день. На Premium — без ограничений.',
@@ -1131,7 +1147,6 @@ const RU: Record<TranslationKey, string> = {
   'composer.recVideo': 'Записываем видео',
   'composer.sendRecording': 'Отправить запись',
   'crisis.a11y.callChild': 'Позвонить на детский телефон доверия',
-  'crisis.a11y.callPsych': 'Позвонить на линию психологической помощи',
   'crisis.action.breathing': 'Дыхательные упражнения',
   'crisis.action.call': 'Позвонить {n} — {line}',
   'crisis.action.keepTalking': 'Продолжить разговор с DUYO',
@@ -1143,7 +1158,6 @@ const RU: Record<TranslationKey, string> = {
   'crisis.hotlines': 'Экстренные номера:',
   'crisis.orange.body': 'Я готов тебе помочь. Давай поговорим со взрослым, которому ты доверяешь.',
   'crisis.orange.title': 'Ты не один',
-  'crisis.psychLine': 'Психологическая помощь',
   'crisis.red.body': 'Мне важно, чтобы ты был в безопасности. Давай прямо сейчас найдём того, кто поможет.',
   'crisis.red.title': 'Ты важен',
   'crisis.yellow.body': 'Бывают трудные моменты. Я готов тебя выслушать.',
@@ -1349,7 +1363,7 @@ const RU: Record<TranslationKey, string> = {
   'memory.consent.acceptShort': 'Запомни',
   'memory.consent.decline': 'Нет, не запоминай',
   'memory.consent.declineShort': 'Нет',
-  'memory.consent.promise': 'Только на этом телефоне, зашифровано',
+  'memory.consent.promise': 'На твоём телефоне, зашифровано; в разговоре передаётся DUYO',
   'memory.consent.title': 'Запомнить это?',
   'memory.delete.body': 'Удалить «{content}»? Это не отменить.',
   'memory.delete.title': 'Удалить воспоминание',
@@ -1380,7 +1394,7 @@ const RU: Record<TranslationKey, string> = {
   'memory.keyLost.body': 'Заблокированных записей: {count}. Ключ, который их открывает, пропал с этого устройства — так бывает после переустановки приложения, обновления системы или смены блокировки экрана. Записи на месте, но открыть их уже нельзя.',
   'memory.keyLost.clear': 'Очистить и начать заново',
   'memory.keyLost.clearing': 'Очищаем…',
-  'memory.privacyNote': 'Всё хранится только на этом телефоне и в зашифрованном виде. На сервер это навсегда не уходит.',
+  'memory.privacyNote': 'Записи хранятся на этом телефоне в зашифрованном виде. Когда ты пишешь, они уходят вместе с сообщением — чтобы DUYO тебя помнил — и попадают в Google Gemini, который пишет ответ. На нашем сервере они не остаются.',
   'memory.undecryptable': 'Не открылось записей: {count}. Скорее всего, они зашифрованы другим ключом (например, после переустановки). Восстановить их нельзя — можно очистить через «Удалить всю память».',
   'nav.home': 'Главная',
   'nav.profile': 'Профиль',
@@ -1544,7 +1558,6 @@ const RU: Record<TranslationKey, string> = {
   'groups.safety.reasonBody': 'Твой выбор прочитают взрослые. И этот человек перестанет тебе показываться.',
   'groups.safety.reasonTitle': 'Что случилось?',
   'groups.safety.reported': 'Спасибо, мы получили. Взрослые прочитают, а этот человек больше тебе не покажется.',
-  'settings.privacyScreen.closeAccountManual': 'Пока удалить аккаунт прямо в приложении нельзя. Напиши на support@duyo.uz — мы удалим аккаунт и все твои данные.',
   'voice.mic.accept': 'Понятно, начнём',
   'voice.mic.blockedBody': 'Включи микрофон для DUYO в настройках телефона, вернись сюда — и продолжим.',
   'voice.mic.blockedTitle': 'Микрофон закрыт в настройках',
@@ -1560,6 +1573,30 @@ const RU: Record<TranslationKey, string> = {
   'voice.mic.title': 'Что происходит с твоим голосом',
   'voice.mic.toGemini': 'Твой голос уходит с телефона в сервис Google Gemini — чтобы он понял тебя и ответил.',
   'voice.mic.whileOpen': 'DUYO записывает только пока этот экран открыт и ты говоришь. В остальное время микрофон выключен.',
+
+  // ── extracted from screens ──────────────────────────────────
+  'settings.privacyScreen.closeAccountBody': 'Если закроем аккаунт, из DUYO исчезнет всё: разговоры, воспоминания, заметки и цели. Вернуть это будет нельзя.',
+  'settings.privacyScreen.closeAccountConfirm': 'Да, удалить',
+  'settings.privacyScreen.closeAccountConfirmBody': 'Это последний вопрос. Как только нажмёшь, аккаунт и все данные удалятся сразу.',
+  'settings.privacyScreen.closeAccountConfirmTitle': 'Точно удалить?',
+
+  // ── extracted from screens ──────────────────────────────────
+  'settings.planLoading': 'Проверяем…',
+
+  // ── extracted from screens ──────────────────────────────────
+  'chat.a11y.report': 'Пожаловаться на этот ответ',
+  'chat.a11y.reportHint': 'Выберешь причину — ответ прочитает человек',
+  'chat.report.body': 'Что было не так? Это прочитает человек.',
+  'chat.report.failed': 'Не отправилось. Проверь интернет и попробуй ещё раз.',
+  'chat.report.harmful': 'Опасный или вредный совет',
+  'chat.report.hateful': 'Оскорбление или унижение',
+  'chat.report.other': 'Другая причина',
+  'chat.report.scary': 'Пугающее или тревожное',
+  'chat.report.sentBody': 'Это прочитает человек. Если DUYO ошибается, нам нужно об этом знать.',
+  'chat.report.sentTitle': 'Спасибо, отправили',
+  'chat.report.sexual': 'Неприличное содержание',
+  'chat.report.title': 'Пожаловаться на ответ',
+  'crisis.noOneTold': 'Я сам никому об этом не сообщаю — решаешь ты. Если хочешь, подумаем вместе: кому тебе будет проще рассказать?',
 };
 
 const EN: Record<TranslationKey, string> = {
@@ -1681,7 +1718,6 @@ const EN: Record<TranslationKey, string> = {
   'settings.memoryValue': 'On this device',
   'settings.privacy': 'Privacy',
   'settings.plan': 'Subscription plan',
-  'settings.planValue': 'Friend',
   'settings.help': 'Help',
   'settings.logout': 'Log out',
   'settings.logoutConfirm': 'Log out of your account?',
@@ -1708,7 +1744,6 @@ const EN: Record<TranslationKey, string> = {
     'How DUYO stores and protects your data.',
   'settings.privacyScreen.readFull': 'Read the full text',
   'settings.privacyScreen.readFullA11y': 'Full text',
-  'settings.privacyScreen.policySoon': 'The privacy policy text arrives in Phase 1',
   'settings.privacyScreen.dataSection': 'Data controls',
   'settings.privacyScreen.closeAccountLabel': 'Close account',
   'settings.privacyScreen.closeAccountDesc': 'Delete the account and all data',
@@ -1720,7 +1755,7 @@ const EN: Record<TranslationKey, string> = {
     'DUYO is an AI companion that talks with your child, teaches and supports them in Uzbek, Russian and English. It behaves like a kind cosmic explorer.',
   'settings.helpScreen.q2': 'Are conversations safe?',
   'settings.helpScreen.a2':
-    'Yes. Conversations are encrypted and only visible from your account. Until a parent is connected, only you and DUYO can see them.',
+    'Your chats travel over an encrypted connection and are stored on our server — only your account can open them. The replies are written by Google Gemini, so your message goes there too.',
   'settings.helpScreen.q3': 'What is the daily limit?',
   'settings.helpScreen.a3':
     'The free plan gives you 30 conversations a day. Premium is unlimited.',
@@ -1905,7 +1940,6 @@ const EN: Record<TranslationKey, string> = {
   'composer.recVideo': 'Recording video',
   'composer.sendRecording': 'Send the recording',
   'crisis.a11y.callChild': 'Call Childline',
-  'crisis.a11y.callPsych': 'Call the counselling line',
   'crisis.action.breathing': 'Breathing exercises',
   'crisis.action.call': 'Call {n} — {line}',
   'crisis.action.keepTalking': 'Keep talking to DUYO',
@@ -1917,7 +1951,6 @@ const EN: Record<TranslationKey, string> = {
   'crisis.hotlines': 'Emergency numbers:',
   'crisis.orange.body': "I want to help. Let's talk to an adult you trust.",
   'crisis.orange.title': "You're not alone",
-  'crisis.psychLine': 'Counselling line',
   'crisis.red.body': "Your safety matters to me. Let's find someone who can help you right now.",
   'crisis.red.title': 'You matter',
   'crisis.yellow.body': "Hard moments happen. I'm here to listen.",
@@ -2123,7 +2156,7 @@ const EN: Record<TranslationKey, string> = {
   'memory.consent.acceptShort': 'Remember',
   'memory.consent.decline': "No, don't remember it",
   'memory.consent.declineShort': 'No',
-  'memory.consent.promise': 'On this phone only, encrypted',
+  'memory.consent.promise': 'Encrypted on your phone; shared with DUYO when you chat',
   'memory.consent.title': 'Should I remember this?',
   'memory.delete.body': 'Delete "{content}"? This can\'t be undone.',
   'memory.delete.title': 'Delete this memory',
@@ -2154,7 +2187,7 @@ const EN: Record<TranslationKey, string> = {
   'memory.keyLost.body': '{count} entries are locked. The key that opens them is gone from this device — that happens after a reinstall, a system update, or a changed screen lock. The entries are still there, but nothing can open them now.',
   'memory.keyLost.clear': 'Clear it and start fresh',
   'memory.keyLost.clearing': 'Clearing…',
-  'memory.privacyNote': "This is kept only on this phone, encrypted. It's never sent to a server to be stored.",
+  'memory.privacyNote': "These notes live on this phone, encrypted. When you write, they travel with your message so DUYO remembers you — which means they reach Google Gemini, who writes the reply. They are not kept on our server.",
   'memory.undecryptable': '{count} entries wouldn\'t open. They were probably encrypted with a different key (after a reinstall, say). They can\'t be recovered — clear them with "Delete all memories".',
   'nav.home': 'Home',
   'nav.profile': 'Profile',
@@ -2318,7 +2351,6 @@ const EN: Record<TranslationKey, string> = {
   'groups.safety.reasonBody': 'An adult will read this. That person also stops showing up for you.',
   'groups.safety.reasonTitle': 'What happened?',
   'groups.safety.reported': "Thanks — we got it. An adult will read it, and that person won't show up for you any more.",
-  'settings.privacyScreen.closeAccountManual': "You can't delete your account inside the app yet. Write to support@duyo.uz and we'll delete your account and all your data.",
   'voice.mic.accept': "Got it, let's start",
   'voice.mic.blockedBody': "Turn the microphone on for DUYO in your phone's settings, come back here, and we'll carry on.",
   'voice.mic.blockedTitle': 'The microphone is switched off in Settings',
@@ -2334,6 +2366,30 @@ const EN: Record<TranslationKey, string> = {
   'voice.mic.title': 'What happens to your voice',
   'voice.mic.toGemini': 'Your voice leaves the phone and goes to Google Gemini, so it can understand you and answer.',
   'voice.mic.whileOpen': "DUYO records only while this screen is open and you're speaking. The rest of the time the microphone is off.",
+
+  // ── extracted from screens ──────────────────────────────────
+  'settings.privacyScreen.closeAccountBody': "If we close your account, everything in DUYO goes: your chats, your memories, your notes and your goals. There's no undoing it.",
+  'settings.privacyScreen.closeAccountConfirm': 'Yes, delete it',
+  'settings.privacyScreen.closeAccountConfirmBody': 'This is the last question. The moment you tap, your account and everything in it is gone.',
+  'settings.privacyScreen.closeAccountConfirmTitle': 'Really delete it?',
+
+  // ── extracted from screens ──────────────────────────────────
+  'settings.planLoading': 'Checking…',
+
+  // ── extracted from screens ──────────────────────────────────
+  'chat.a11y.report': 'Report this answer',
+  'chat.a11y.reportHint': 'Pick a reason, a person will read it',
+  'chat.report.body': 'What was wrong with it? A person reads this.',
+  'chat.report.failed': "Couldn't send. Check your connection and try again.",
+  'chat.report.harmful': 'Dangerous or harmful advice',
+  'chat.report.hateful': 'Insulting or demeaning',
+  'chat.report.other': 'Something else',
+  'chat.report.scary': 'Frightening or upsetting',
+  'chat.report.sentBody': 'A person will read this. If DUYO gets it wrong, we need to know.',
+  'chat.report.sentTitle': 'Thanks, sent',
+  'chat.report.sexual': 'Sexual or inappropriate',
+  'chat.report.title': 'Report this answer',
+  'crisis.noOneTold': "I don't tell anyone on my own — that's yours to decide. If you want, we can work out together who'd be easiest for you to tell.",
 };
 
 export const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {

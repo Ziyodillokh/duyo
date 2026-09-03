@@ -80,6 +80,25 @@ export interface PeerContextMessage {
   created_at: string;
 }
 
+/**
+ * A child reporting one of DUYO's OWN replies.
+ *
+ * Carries the reply text where PeerReportRow deliberately does not: these are
+ * the app's words, not a second child's, so reading them is reviewing our own
+ * output rather than opening a private conversation.
+ */
+export interface AiReportRow {
+  id: string;
+  message_id: string | null;
+  child_id: string;
+  reason: string;
+  model_output: string;
+  model_name: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+}
+
 export interface DashboardSummary {
   children: number;
   parents: number;
@@ -335,6 +354,10 @@ export const adminApi = {
     api.get<PeerContextMessage[]>(`/admin/safety/peer-reports/${id}/context`),
   peerReportReview: (id: string) =>
     api.post<PeerReportRow>(`/admin/safety/peer-reports/${id}/review`, {}),
+  aiReports: (unreviewedOnly = true) =>
+    api.get<AiReportRow[]>(`/admin/ai-reports?unreviewed_only=${unreviewedOnly}`),
+  aiReportReview: (id: string) =>
+    api.post<AiReportRow>(`/admin/ai-reports/${id}/review`, {}),
   payments: (limit = 100) => api.get<PaymentRow[]>(`/admin/monetization/payments?limit=${limit}`),
   paymentsSummary: () =>
     api.get<{ by_state: Record<string, number>; by_provider: Record<string, number>; revenue: number }>(

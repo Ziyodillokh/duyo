@@ -121,3 +121,37 @@ export async function rateMessage(
     rating,
   });
 }
+
+/**
+ * The five things a child can say is wrong with a DUYO reply. Mirrors
+ * `AiReportReason` in duyo-backend/src/duyo/models/ai_report.py — the server
+ * rejects anything else, so the two lists must not drift.
+ */
+export type AiReportReason =
+  | 'harmful'
+  | 'sexual'
+  | 'hateful'
+  | 'scary'
+  | 'other';
+
+/**
+ * Report a DUYO reply as harmful.
+ *
+ * NOT the same call as `rateMessage`, and the two are deliberately not merged.
+ * A 👎 says the answer was poor; this says the app told a child something it
+ * should not have, and lands in a safety queue a human reads. Google Play
+ * requires the second from anything that declares an AI feature.
+ *
+ * Unlike a rating, this one is allowed to fail loudly — a child who reports
+ * something and is told nothing has been given a placebo.
+ */
+export async function reportMessage(
+  messageId: string,
+  childId: string,
+  reason: AiReportReason,
+): Promise<void> {
+  await apiClient.post(`/chat/messages/${messageId}/report`, {
+    child_id: childId,
+    reason,
+  });
+}

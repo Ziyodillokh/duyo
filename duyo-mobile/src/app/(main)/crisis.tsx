@@ -61,8 +61,16 @@ const COPY: Record<CrisisLevel, LevelCopy> = {
   },
 };
 
-const HOTLINE_PSYCH = '1050';
-const HOTLINE_CHILD = '1054';
+/**
+ * The national child helpline, and the only number this app may print.
+ *
+ * This screen used to offer 1050 and 1054 while every other surface — the
+ * assistant's own crisis reply, the SMS template Eskiz approved, privacy.html
+ * and terms.html — said 1142. A child in distress reading two different
+ * answers from the same app is the worst place to be inconsistent, and the
+ * published pages are the ones we are held to.
+ */
+const HOTLINE_CHILD = '1142';
 
 function normalizeLevel(raw: string | undefined): CrisisLevel {
   if (raw === 'yellow' || raw === 'orange' || raw === 'red') return raw;
@@ -130,16 +138,6 @@ export default function CrisisScreen() {
                 <Text style={styles.hotlinesHeading}>
                   {t('crisis.hotlines')}
                 </Text>
-                <Pressable
-                  onPress={() => callHotline(HOTLINE_PSYCH)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('crisis.a11y.callPsych')}
-                  style={[styles.hotline, styles.focusable]}
-                >
-                  <Text style={styles.hotlineText}>
-                    {HOTLINE_PSYCH} — {t('crisis.psychLine')}
-                  </Text>
-                </Pressable>
                 <Pressable
                   onPress={() => callHotline(HOTLINE_CHILD)}
                   accessibilityRole="button"
@@ -216,14 +214,6 @@ function RedActions() {
   const t = useT();
   return (
     <>
-      <ActionButton
-        label={t('crisis.action.call', {
-          n: HOTLINE_PSYCH,
-          line: t('crisis.psychLine'),
-        })}
-        destructive
-        onPress={() => callHotline(HOTLINE_PSYCH)}
-      />
       <ActionButton
         label={t('crisis.action.call', {
           n: HOTLINE_CHILD,

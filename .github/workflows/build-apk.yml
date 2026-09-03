@@ -43,6 +43,11 @@ jobs:
       # EXPO_PUBLIC_* qiymatlar build paytida JS ichiga muhrlanadi
       EXPO_PUBLIC_API_BASE_URL: https://api.duyo.uz/v1
       EXPO_PUBLIC_WS_BASE_URL: wss://api.duyo.uz/v1/chat/voice
+      # Faqat SHU job'da. AAB'da yo'qligi — yangilash manzili Play
+      # artefaktiga umuman tushmasligini ta'minlaydigan yagona narsa:
+      # ish vaqtidagi darvoza kodni bajarmaydi, lekin bundle'dan olib
+      # tashlamaydi (ikkala bundle bayt-bayt bir xil chiqqan edi).
+      EXPO_PUBLIC_UPDATE_MANIFEST_URL: https://admin.duyo.uz/apk/version.json
       CI: "true"
     steps:
       - uses: actions/checkout@v6

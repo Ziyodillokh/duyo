@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from duyo.api.v1 import chat as chat_module
 from duyo.billing.limits import LimitStatus
+from duyo.models.child import Language
 from duyo.schemas.chat import ChatRequest
 
 
@@ -34,6 +35,7 @@ def _child(parent_id):
     c = type("C", (), {})()
     c.id = uuid4()
     c.parent_id = parent_id
+    c.language = Language.UZ
     return c
 
 
@@ -58,7 +60,10 @@ def test_chat_blocked_when_over_limit(monkeypatch):
             detector=object(),
         ))
     assert exc.value.status_code == 429
-    assert "chegarasi" in exc.value.detail
+    # It states the count, and it does not steer a blocked child at a purchase
+    # the app has no way to sell — see services/limit_notice.py.
+    assert "20/20" in exc.value.detail
+    assert "obuna" not in exc.value.detail.lower()
     # The child scalar was consumed; nothing else was queried (no LLM path).
     assert db.scalar_queue == []
 

@@ -21,6 +21,7 @@ from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_role
 from duyo.core.admin_security import create_admin_token, hash_password, verify_password
 from duyo.core.config import get_settings
 from duyo.models.admin import AdminRole, AdminUser, AuditLog
+from duyo.models.ai_report import AiMessageReport
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message
@@ -228,6 +229,30 @@ class PeerReportRow(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AiReportRow(BaseModel):
+    """A child's complaint about one of DUYO's own replies.
+
+    Carries `model_output` where PeerReportRow deliberately carries no text.
+    The words here are the app's, not a second child's, so reading them is
+    reviewing our own output rather than opening someone's private message —
+    and without them the report says only "a child was upset once".
+    """
+
+    id: UUID
+    # Null once the reported conversation was deleted; `model_output` is the
+    # snapshot that outlives it, which is why it is what the queue shows.
+    message_id: UUID | None
+    child_id: UUID
+    reason: str
+    model_output: str
+    model_name: str | None
+    reviewed_at: datetime | None
+    reviewed_by: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class PeerContextMessage(BaseModel):
     sender_child_id: UUID | None
     body: str
@@ -378,6 +403,60 @@ async def review_peer_report(
     return PeerReportRow.model_validate(report)
 
 
+# ---- AI reply reports (safety officer) ----
+@router.get("/ai-reports", response_model=list[AiReportRow])
+async def list_ai_reports(
+    request: Request,
+    unreviewed_only: bool = True,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> list[AiReportRow]:
+    """Replies children reported as harmful, newest first.
+
+    Play asks for a reporting mechanism AND for the developer to act on what it
+    collects; this is the second half. Same default as the peer queue —
+    untriaged only, so a new report is never lost among handled ones.
+    """
+    stmt = (
+        select(AiMessageReport)
+        .order_by(AiMessageReport.created_at.desc())
+        .limit(min(limit, 200))
+    )
+    if unreviewed_only:
+        stmt = stmt.where(AiMessageReport.reviewed_at.is_(None))
+    rows = (await db.scalars(stmt)).all()
+    await record_audit(
+        db, admin, action="view", module="safety",
+        target=f"ai_reports(unreviewed={unreviewed_only})",
+        meta={"count": len(rows)}, request=request,
+    )
+    return [AiReportRow.model_validate(r) for r in rows]
+
+
+@router.post("/ai-reports/{report_id}/review", response_model=AiReportRow)
+async def review_ai_report(
+    report_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> AiReportRow:
+    """Mark one reported reply as triaged by the current safety admin."""
+    report = await db.scalar(
+        select(AiMessageReport).where(AiMessageReport.id == report_id)
+    )
+    if report is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Shikoyat topilmadi")
+    report.reviewed_at = datetime.now(report.created_at.tzinfo)
+    report.reviewed_by = admin.email
+    await db.flush()
+    await record_audit(
+        db, admin, action="review", module="safety",
+        target=f"ai_report:{report_id}", request=request,
+    )
+    return AiReportRow.model_validate(report)
+
+
 # ---- Stats (any admin) ----
 @router.get("/safety/summary")
 async def safety_summary(
@@ -404,6 +483,13 @@ async def safety_summary(
         select(func.count())
         .select_from(PeerReport)
         .where(PeerReport.reviewed_at.is_(None))
+    ) or 0
+    # Beside them because it is the same promise to the same child: something
+    # said to you was wrong, and a person will look at it.
+    counts["ai_reports_unreviewed"] = await db.scalar(
+        select(func.count())
+        .select_from(AiMessageReport)
+        .where(AiMessageReport.reviewed_at.is_(None))
     ) or 0
     return counts
 

@@ -85,6 +85,24 @@
         color: var(--blue);
       }
 
+      /* Qadamlar raqamlanadi. `.legal li::before` hamma bandga tire qo'yadi;
+         bosqichlar ro'yxatida tartib raqamning o'zi ma'no tashiydi. */
+      .legal ol {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+        counter-reset: step;
+      }
+
+      .legal ol > li {
+        counter-increment: step;
+      }
+
+      .legal ol > li::before {
+        content: counter(step) ".";
+      }
+
       .legal a {
         color: var(--blue);
         text-decoration: underline;
@@ -247,14 +265,23 @@
             o'qish uchun ilovani o'rnatish shart emas.
           </p>
 
-          <!-- Bu bo'lim faqat ilovadagi joyni ko'rsatadi, natijani va'da
-               qilmaydi: "Hisobni yopish" tugmasi ortidagi oqim o'zgarishi
-               mumkin, quyidagi xat yo'li esa doim ishlaydi. -->
+          <!-- Bu qadamlar ilovadagi oqimning aynan o'zi (Sozlamalar →
+               Maxfiylik → Hisobni yopish, ikki tasdiq). Sahifani o'qigan odam
+               tugmalarni oldindan tanishi kerak — "ekrandagi ko'rsatmaga amal
+               qiling" degan jumla nima bo'lishini aytmaydi. -->
           <h2>1. Ilova orqali</h2>
           <p>
-            Ilovani oching va <strong>Sozlamalar → Maxfiylik → Hisobni
-            yopish</strong> bo'limiga o'ting, so'ng ekrandagi ko'rsatmaga amal
-            qiling.
+            Bu eng tez yo'l: hisob so'nggi tasdiqdan keyin darhol o'chiriladi.
+          </p>
+          <ol>
+            <li>Ilovani oching va <strong>Sozlamalar → Maxfiylik</strong> bo'limiga o'ting.</li>
+            <li><strong>Hisobni yopish</strong> qatorini bosing. Birinchi oyna nima yo'qolishini aytadi — suhbatlaringiz, xotiralaringiz, qaydlaringiz va maqsadlaringiz. <strong>Davom etish</strong>ni bosing.</li>
+            <li>Ikkinchi oyna — oxirgi savol. <strong>Ha, o'chirilsin</strong>ni bosishingiz bilan hisob va unga bog'liq hamma narsa o'chiriladi va siz ilovadan chiqarilasiz.</li>
+          </ol>
+          <p>
+            Kutish muddati ham, bekor qilish oynasi ham yo'q. Telefoningizning
+            o'zida qoladigan shifrlangan "xotiralar" haqida 5-bo'limni
+            o'qing.
           </p>
 
           <h2>2. Ilovasiz — xat orqali</h2>
@@ -330,9 +357,18 @@
 
           <h2>1. Через приложение</h2>
           <p>
-            Откройте приложение, перейдите в
-            <strong>Настройки → Конфиденциальность → Закрыть аккаунт</strong>
-            и следуйте указаниям на экране.
+            Это самый быстрый путь: аккаунт удаляется сразу после последнего
+            подтверждения.
+          </p>
+          <ol>
+            <li>Откройте приложение и перейдите в <strong>Настройки → Приватность</strong>.</li>
+            <li>Нажмите <strong>Закрыть аккаунт</strong>. Первое окно перечисляет, что исчезнет: разговоры, воспоминания, заметки и цели. Нажмите <strong>Продолжить</strong>.</li>
+            <li>Второе окно — последний вопрос. Как только вы нажмёте <strong>Да, удалить</strong>, аккаунт и всё, что с ним связано, удаляются, и вы выходите из приложения.</li>
+          </ol>
+          <p>
+            Ни периода ожидания, ни окна отмены нет. О зашифрованных
+            «воспоминаниях», которые остаются на самом телефоне, читайте в
+            разделе 5.
           </p>
 
           <h2>2. Без приложения — письмом</h2>
@@ -405,9 +441,17 @@
 
           <h2>1. In the app</h2>
           <p>
-            Open the app, go to
-            <strong>Settings → Privacy → Close account</strong> and follow the
-            instructions on the screen.
+            This is the fastest route: the account is deleted the moment you
+            give the second confirmation.
+          </p>
+          <ol>
+            <li>Open the app and go to <strong>Settings → Privacy</strong>.</li>
+            <li>Tap <strong>Close account</strong>. The first dialog names what goes: your chats, your memories, your notes and your goals. Tap <strong>Continue</strong>.</li>
+            <li>The second dialog is the last question. The moment you tap <strong>Yes, delete it</strong>, the account and everything attached to it is deleted and you are signed out.</li>
+          </ol>
+          <p>
+            There is no waiting period and no undo dialog. For the encrypted
+            "memories" that stay on the phone itself, see section 5.
           </p>
 
           <h2>2. Without the app — by email</h2>

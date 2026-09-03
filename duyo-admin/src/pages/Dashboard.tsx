@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Mic,
   ShieldAlert,
+  Bot,
   FileCheck2,
   CreditCard,
   Database,
@@ -31,6 +32,12 @@ export function Dashboard() {
     queryKey: ["dashboard-summary"],
     queryFn: () => adminApi.dashboardSummary(),
   });
+  // The two moderation queues. A report nobody has a number for is a report
+  // nobody opens, and both of these are promises made to a child.
+  const safety = useQuery({
+    queryKey: ["dashboard-safety-summary"],
+    queryFn: () => adminApi.safetySummary(),
+  });
 
   const val = (n: number | undefined) => (isLoading || n === undefined ? "…" : nf.format(n));
   const crisis = data?.crisis ?? {};
@@ -48,7 +55,18 @@ export function Dashboard() {
     { label: "AI xabarlar (jami)", value: val(data?.messages_total), icon: MessageSquare, real: true },
     { label: "RAG chunklar", value: val(data?.textbook_chunks), icon: Database, real: true },
     { label: "Voice so'rovlar (bugun)", value: "3,021", icon: Mic, real: false },
-    { label: "Kutilayotgan safety review", value: "—", icon: ShieldAlert, real: false },
+    {
+      label: "Ko'rilmagan tengdosh shikoyatlari",
+      value: safety.isLoading ? "…" : nf.format(safety.data?.peer_reports_unreviewed ?? 0),
+      icon: ShieldAlert,
+      real: true,
+    },
+    {
+      label: "Ko'rilmagan AI shikoyatlari",
+      value: safety.isLoading ? "…" : nf.format(safety.data?.ai_reports_unreviewed ?? 0),
+      icon: Bot,
+      real: true,
+    },
     { label: "To'lov xatolari", value: "—", icon: CreditCard, real: false },
     { label: "Kutilayotgan kontent", value: "—", icon: FileCheck2, real: false },
   ];

@@ -37,6 +37,9 @@
       },
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_DISTRIBUTION": "play"
       }
     },
     "production": {
@@ -47,6 +50,9 @@
       },
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_DISTRIBUTION": "play"
       }
     }
   },

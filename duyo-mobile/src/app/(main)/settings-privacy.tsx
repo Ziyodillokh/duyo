@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native';
 import {
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,9 +18,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { deleteMe } from '@/api/endpoints/me';
 import { Text } from '@/components/text';
 import { useT } from '@/i18n';
 import { glass } from '@/lib/glass';
+import { useAuthStore } from '@/store/auth';
+
+/** Play wants the policy reachable from inside the app, not only from the
+ *  listing — this is the page the store entry points at. */
+const PRIVACY_URL = 'https://duyo.uz/privacy.html';
 
 // ── The glass sky, the inner screens' cooler morning ─────────────────────────
 // Same family as settings and notifications: frosted panes on pale blue.
@@ -42,14 +49,52 @@ interface PrivacyAction {
 
 export default function PrivacySettingsScreen() {
   const t = useT();
-  // Nothing here can delete anything yet: the screen has no API client, and
-  // DELETE /v1/me does not exist. Until it does, the only thing this row may
-  // say is where a real person answers — a dialog that claims the account is
-  // being closed would be a lie told to a 13-year-old.
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  /**
+   * Two taps, and the second one says what is actually about to happen.
+   *
+   * A single confirm on a destructive row this far down a settings screen is
+   * how an account gets closed by accident. The first dialog explains, the
+   * second is the point of no return — and the copy names what goes, because
+   * "are you sure?" does not tell a thirteen-year-old that their chats,
+   * memories and notes go with it.
+   */
   const handleCloseAccount = () => {
     Alert.alert(
       t('settings.privacyScreen.closeAccountLabel'),
-      t('settings.privacyScreen.closeAccountManual'),
+      t('settings.privacyScreen.closeAccountBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.continue'),
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert(
+              t('settings.privacyScreen.closeAccountConfirmTitle'),
+              t('settings.privacyScreen.closeAccountConfirmBody'),
+              [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                  text: t('settings.privacyScreen.closeAccountConfirm'),
+                  style: 'destructive',
+                  onPress: () => {
+                    void deleteMe()
+                      // Signing out locally is what the child sees as "it
+                      // happened"; the server has already cascaded by now.
+                      .then(() => clearAuth())
+                      .catch(() =>
+                        Alert.alert(
+                          t('settings.privacyScreen.closeAccountLabel'),
+                          t('common.checkInternetRetry'),
+                        ),
+                      );
+                  },
+                },
+              ],
+            ),
+        },
+      ],
     );
   };
 
@@ -105,12 +150,14 @@ export default function PrivacySettingsScreen() {
               {t('settings.privacyScreen.policyBody')}
             </Text>
             <Pressable
-              onPress={() =>
-                Alert.alert(
-                  t('common.comingSoon'),
-                  t('settings.privacyScreen.policySoon'),
-                )
-              }
+              onPress={() => {
+                void Linking.openURL(PRIVACY_URL).catch(() =>
+                  Alert.alert(
+                    t('settings.privacyScreen.policyTitle'),
+                    PRIVACY_URL,
+                  ),
+                );
+              }}
               accessibilityRole="link"
               accessibilityLabel={t('settings.privacyScreen.readFullA11y')}
               style={({ pressed }) => [
