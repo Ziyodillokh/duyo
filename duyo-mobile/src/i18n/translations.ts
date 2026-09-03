@@ -801,6 +801,26 @@ const UZ = {
   'chat.report.sexual': 'Nomaqbul, jinsiy mazmun',
   'chat.report.title': 'Bu javob ustidan shikoyat',
   'crisis.noOneTold': "Men o'zim hech kimga xabar bermayman — buni sen hal qilasan. Xohlasang, birga o'ylaymiz: kimga aytish senga osonroq bo'ladi?",
+
+  // ── extracted from screens ──────────────────────────────────
+  'subscription.activated': 'Tayyor! Endi sen {plan} rejadasan.',
+  'subscription.checkAgain': 'Yana tekshirish',
+  'subscription.checking': "To'lovingni tekshiryapmiz…",
+  'subscription.checkingHint': "Bir necha soniya oladi — bu oynani yopmasang ham bo'ladi.",
+  'subscription.checkoutFailed': "To'lovni boshlab bo'lmadi. Birozdan keyin yana urinib ko'r.",
+  'subscription.checkoutOffline': "Internet yo'qdek ko'rinadi. Ulanishni tekshirib, qayta urin.",
+  'subscription.choose': 'Tanlash',
+  'subscription.monthly': 'Oylik',
+  'subscription.notConfirmed': "To'lovni hali ko'rmayapmiz",
+  'subscription.notConfirmedHint': "Agar to'lagan bo'lsang, u bir-ikki daqiqada keladi va reja o'zi ochiladi. Bekor qilgan bo'lsang, hisobingdan hech narsa yechilmadi.",
+  'subscription.opening': 'Ochilyapti…',
+  'subscription.payWith': "Qanday to'laysan?",
+  'subscription.payWithHint': "To'lov sahifasi brauzerda ochiladi.",
+  'subscription.priceMonthly': "{amount} so'm / oy",
+  'subscription.priceYearly': "{amount} so'm / yil",
+  'subscription.providerUnavailable': "To'lov tizimi hozircha ulanmagan.",
+  'subscription.yearly': 'Yillik',
+  'subscription.yearlySave': '{percent}% tejaysan',
 } as const;
 
 export type TranslationKey = keyof typeof UZ;
@@ -1597,6 +1617,26 @@ const RU: Record<TranslationKey, string> = {
   'chat.report.sexual': 'Неприличное содержание',
   'chat.report.title': 'Пожаловаться на ответ',
   'crisis.noOneTold': 'Я сам никому об этом не сообщаю — решаешь ты. Если хочешь, подумаем вместе: кому тебе будет проще рассказать?',
+
+  // ── extracted from screens ──────────────────────────────────
+  'subscription.activated': 'Готово! Теперь у тебя тариф {plan}.',
+  'subscription.checkAgain': 'Проверить ещё раз',
+  'subscription.checking': 'Проверяем твой платёж…',
+  'subscription.checkingHint': 'Это займёт несколько секунд — можешь не закрывать экран.',
+  'subscription.checkoutFailed': 'Не получилось начать оплату. Попробуй чуть позже.',
+  'subscription.checkoutOffline': 'Похоже, нет интернета. Проверь соединение и попробуй снова.',
+  'subscription.choose': 'Выбрать',
+  'subscription.monthly': 'Ежемесячно',
+  'subscription.notConfirmed': 'Платёж пока не виден',
+  'subscription.notConfirmedHint': 'Если ты заплатил, платёж дойдёт за пару минут и тариф включится сам. Если отменил — с тебя ничего не списали.',
+  'subscription.opening': 'Открываем…',
+  'subscription.payWith': 'Как оплатишь?',
+  'subscription.payWithHint': 'Страница оплаты откроется в браузере.',
+  'subscription.priceMonthly': '{amount} сум / мес',
+  'subscription.priceYearly': '{amount} сум / год',
+  'subscription.providerUnavailable': 'Платёжная система пока не подключена.',
+  'subscription.yearly': 'На год',
+  'subscription.yearlySave': 'Выгода {percent}%',
 };
 
 const EN: Record<TranslationKey, string> = {
@@ -2390,6 +2430,26 @@ const EN: Record<TranslationKey, string> = {
   'chat.report.sexual': 'Sexual or inappropriate',
   'chat.report.title': 'Report this answer',
   'crisis.noOneTold': "I don't tell anyone on my own — that's yours to decide. If you want, we can work out together who'd be easiest for you to tell.",
+
+  // ── extracted from screens ──────────────────────────────────
+  'subscription.activated': "Done! You're on {plan} now.",
+  'subscription.checkAgain': 'Check again',
+  'subscription.checking': 'Checking your payment…',
+  'subscription.checkingHint': 'It takes a few seconds — you can stay on this screen.',
+  'subscription.checkoutFailed': "We couldn't start the payment. Try again in a moment.",
+  'subscription.checkoutOffline': "Looks like there's no internet. Check your connection and try again.",
+  'subscription.choose': 'Choose',
+  'subscription.monthly': 'Monthly',
+  'subscription.notConfirmed': "We can't see the payment yet",
+  'subscription.notConfirmedHint': 'If you paid, it usually lands within a couple of minutes and your plan switches on by itself. If you cancelled, nothing was charged.',
+  'subscription.opening': 'Opening…',
+  'subscription.payWith': 'How will you pay?',
+  'subscription.payWithHint': 'The payment page opens in your browser.',
+  'subscription.priceMonthly': "{amount} so'm / month",
+  'subscription.priceYearly': "{amount} so'm / year",
+  'subscription.providerUnavailable': "Payments aren't switched on yet.",
+  'subscription.yearly': 'Yearly',
+  'subscription.yearlySave': 'Save {percent}%',
 };
 
 export const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
