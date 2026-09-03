@@ -1,112 +1,70 @@
-import * as Application from 'expo-application';
 import { useEffect, useState } from 'react';
-import {
-  Linking,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/text';
 import { Card } from '@/components/v2/card';
 import { PrimaryButton } from '@/components/v2/primary-button';
 import { useT } from '@/i18n';
+import {
+  checkForAppUpdate,
+  snoozeAppUpdate,
+  type AvailableUpdate,
+} from '@/lib/app-update';
 import { glass } from '@/lib/glass';
 
 const INK = '#22406F';
 const MUTED = '#8CA3CB';
 
-// Statik fayl — build-apk.yml har APK chiqarganda yangilab turadi.
-const VERSION_URL = 'https://admin.duyo.uz/apk/version.json';
-const FETCH_TIMEOUT_MS = 8000;
-
-interface AndroidVersionInfo {
-  versionCode: number;
-  version: string;
-  url: string;
-  notes?: string;
-}
-
-function parseVersionInfo(data: unknown): AndroidVersionInfo | null {
-  if (typeof data !== 'object' || data === null) return null;
-  const android = (data as { android?: unknown }).android;
-  if (typeof android !== 'object' || android === null) return null;
-  const info = android as Partial<AndroidVersionInfo>;
-  if (
-    typeof info.versionCode !== 'number' ||
-    typeof info.version !== 'string' ||
-    typeof info.url !== 'string' ||
-    !info.url.startsWith('https://')
-  ) {
-    return null;
-  }
-  return info as AndroidVersionInfo;
-}
-
 /**
  * Ilova ochilganda serverdagi oxirgi APK versiyasini tekshiradi; o'rnatilgan
  * versiyadan yangi bo'lsa, yangilash oynasini ko'rsatadi. Internet bo'lmasa
  * yoki server javob bermasa — jim o'tib ketadi (ilova ishlashiga ta'sir yo'q).
+ *
+ * The check itself lives in lib/app-update.ts, which returns null for the
+ * Play build, for iOS and for dev — so this modal simply never opens there.
+ * This is the only update offer in the app; the root layout mounts it once.
  */
 export function UpdatePrompt() {
   const t = useT();
-  const [info, setInfo] = useState<AndroidVersionInfo | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [update, setUpdate] = useState<AvailableUpdate | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const installed = Number(Application.nativeBuildVersion);
-    if (!Number.isFinite(installed)) return;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-    fetch(VERSION_URL, {
-      signal: controller.signal,
-      headers: { 'Cache-Control': 'no-cache' },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const latest = parseVersionInfo(data);
-        if (latest && latest.versionCode > installed) setInfo(latest);
-      })
-      .catch(() => {
-        // Offlayn yoki server vaqtincha ishlamayapti — indamay o'tamiz.
-      })
-      .finally(() => clearTimeout(timer));
-
+    let cancelled = false;
+    void checkForAppUpdate().then((found) => {
+      if (!cancelled) setUpdate(found);
+    });
     return () => {
-      clearTimeout(timer);
-      controller.abort();
+      cancelled = true;
     };
   }, []);
 
-  if (!info || dismissed) return null;
+  if (update === null) return null;
+
+  // "Keyinroq" is remembered: the same build must not ask again on every
+  // launch, or the child learns to dismiss the dialog without reading it.
+  const later = () => {
+    void snoozeAppUpdate(update.versionCode);
+    setUpdate(null);
+  };
 
   return (
-    <Modal
-      transparent
-      animationType="fade"
-      onRequestClose={() => setDismissed(true)}
-    >
+    <Modal transparent animationType="fade" onRequestClose={later}>
       <View style={styles.scrim}>
         <View style={styles.holder}>
           <Card style={styles.sheet}>
             <View style={styles.heading}>
               <Text style={styles.title}>{t('update.promptTitle')}</Text>
               <Text style={styles.body}>
-                {t('update.promptBody', { version: info.version })}
+                {t('update.promptBody', { version: update.version })}
               </Text>
-              {info.notes ? (
-                <Text style={styles.notes}>{info.notes}</Text>
+              {update.notes ? (
+                <Text style={styles.notes}>{update.notes}</Text>
               ) : null}
             </View>
 
             <View style={styles.cta}>
               <PrimaryButton
-                onPress={() => Linking.openURL(info.url)}
+                onPress={() => void Linking.openURL(update.url)}
                 accessibilityLabel={t('update.now')}
               >
                 {t('update.now')}
@@ -114,7 +72,7 @@ export function UpdatePrompt() {
             </View>
 
             <Pressable
-              onPress={() => setDismissed(true)}
+              onPress={later}
               accessibilityRole="button"
               accessibilityLabel={t('update.later')}
               style={styles.later}

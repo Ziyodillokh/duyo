@@ -119,11 +119,14 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'duyo-chat',
       storage: createJSONStorage(() => asyncStorage),
+      // Pointers only. AsyncStorage is plaintext on a rooted phone, and the
+      // messages are a child's conversation — the server already holds them
+      // and loadConversation fetches them back, so persisting them here buys
+      // an offline cache at a price no child agreed to.
       partialize: (state) => ({
         childId: state.childId,
         conversationId: state.conversationId,
         projectId: state.projectId,
-        messages: state.messages,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);

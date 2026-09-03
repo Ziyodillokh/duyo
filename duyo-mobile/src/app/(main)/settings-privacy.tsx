@@ -3,10 +3,8 @@ import { router } from 'expo-router';
 import {
   ArrowLeft,
   ChevronRight,
-  Download,
   ExternalLink,
   FileText,
-  Trash2,
   UserX,
 } from 'lucide-react-native';
 import {
@@ -35,7 +33,7 @@ const BG_BOTTOM = '#EDF2FD';
 
 interface PrivacyAction {
   key: string;
-  Icon: typeof Download;
+  Icon: typeof UserX;
   label: string;
   description: string;
   destructive?: boolean;
@@ -44,71 +42,18 @@ interface PrivacyAction {
 
 export default function PrivacySettingsScreen() {
   const t = useT();
-  const handleExport = () => {
-    Alert.alert(
-      t('settings.privacyScreen.exportLabel'),
-      t('settings.privacyScreen.exportBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('settings.privacyScreen.exportConfirm'),
-          onPress: () => Alert.alert(t('settings.privacyScreen.exportSent')),
-        },
-      ],
-    );
-  };
-
-  const handleDelete = () => {
-    Alert.alert(
-      t('settings.privacyScreen.deleteChatsTitle'),
-      t('settings.privacyScreen.deleteChatsBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: () =>
-            Alert.alert(t('settings.privacyScreen.deleteChatsDone')),
-        },
-      ],
-    );
-  };
-
+  // Nothing here can delete anything yet: the screen has no API client, and
+  // DELETE /v1/me does not exist. Until it does, the only thing this row may
+  // say is where a real person answers — a dialog that claims the account is
+  // being closed would be a lie told to a 13-year-old.
   const handleCloseAccount = () => {
     Alert.alert(
       t('settings.privacyScreen.closeAccountLabel'),
-      t('settings.privacyScreen.closeAccountBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.close'),
-          style: 'destructive',
-          onPress: () =>
-            Alert.alert(
-              t('common.comingSoon'),
-              t('settings.privacyScreen.closeAccountSoon'),
-            ),
-        },
-      ],
+      t('settings.privacyScreen.closeAccountManual'),
     );
   };
 
   const ACTIONS: readonly PrivacyAction[] = [
-    {
-      key: 'export',
-      Icon: Download,
-      label: t('settings.privacyScreen.exportLabel'),
-      description: t('settings.privacyScreen.exportDesc'),
-      onPress: handleExport,
-    },
-    {
-      key: 'delete-chats',
-      Icon: Trash2,
-      label: t('settings.privacyScreen.deleteChatsLabel'),
-      description: t('settings.privacyScreen.deleteChatsDesc'),
-      destructive: true,
-      onPress: handleDelete,
-    },
     {
       key: 'close',
       Icon: UserX,

@@ -1,7 +1,7 @@
 import { Text } from '@/components/text';
 import { usePlans, useCurrentSubscription } from '@/hooks/use-subscription';
 import { useT, type TranslationKey } from '@/i18n';
-import { glass, lift } from '@/lib/glass';
+import { glass } from '@/lib/glass';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, Check } from 'lucide-react-native';
@@ -20,7 +20,6 @@ const PRIMARY = '#2F6FE4';
 const TITLE = '#2A63DC';
 const INK = '#22406F';
 const MUTED = '#8CA3CB';
-const GREEN = '#22B573';
 const DANGER = '#E0455E';
 const BG_TOP = '#E3EFFF';
 const BG_MID = '#EAF3FF';
@@ -31,13 +30,9 @@ const GOLD = '#FDC700';
 // Keys, not sentences: a module constant is frozen at import and would keep
 // speaking Uzbek after the child switches language.
 const ALL_PLAN_BENEFITS = [
-  'subscription.benefit.trial',
   'subscription.benefit.cancel',
-  'subscription.benefit.securePay',
   'subscription.benefit.support',
 ] as const satisfies readonly TranslationKey[];
-
-const PAYMENT_METHODS = ['Click', 'Payme', 'Uzcard', 'Humo', 'Visa/Mastercard'];
 
 // The premium tier gets the gold "Premium" treatment.
 const PREMIUM_KEY = 'premium';
@@ -157,7 +152,6 @@ export default function SubscriptionScreen() {
                     </View>
                   ))}
                 </View>
-
               </View>
             );
           })}
@@ -170,20 +164,6 @@ export default function SubscriptionScreen() {
                 <View key={key} style={styles.featureRow}>
                   <Check size={15} color={PRIMARY} strokeWidth={2.4} />
                   <Text style={styles.featureText}>{t(key)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Payment methods */}
-          <View style={styles.payMethods}>
-            <Text style={styles.payMethodsTitle}>
-              {t('subscription.payMethods')}
-            </Text>
-            <View style={styles.payMethodsRow}>
-              {PAYMENT_METHODS.map((m) => (
-                <View key={m} style={[glass(14, 'sm', 0.5), styles.payChip]}>
-                  <Text style={styles.payChipText}>{m}</Text>
                 </View>
               ))}
             </View>
@@ -230,46 +210,6 @@ const styles = StyleSheet.create({
   },
   headingBlurb: { fontSize: 14, color: MUTED },
 
-  trial: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderColor: 'rgba(34,181,115,0.35)',
-    backgroundColor: 'rgba(34,181,115,0.12)',
-  },
-  trialStar: { fontSize: 16 },
-  trialText: { flexGrow: 1, flexShrink: 1, fontSize: 14, fontWeight: '600', color: GREEN },
-
-  // The track is a well cut into the page, so it carries no shadow of its
-  // own — only the selected segment lifts off it.
-  toggle: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: 18,
-    backgroundColor: 'rgba(47,111,228,0.10)',
-  },
-  segment: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 9,
-    borderRadius: 15,
-  },
-  segmentOn: { backgroundColor: PRIMARY, boxShadow: lift('sm') },
-  segmentText: { fontSize: 14, fontWeight: '600', color: MUTED },
-  segmentTextOn: { color: '#FFFFFF' },
-  saveBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    backgroundColor: GREEN,
-  },
-  saveBadgeText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
-
   loading: { alignItems: 'center', padding: 32 },
 
   errorCard: {
@@ -296,8 +236,6 @@ const styles = StyleSheet.create({
 
   planHead: { alignItems: 'center', marginBottom: 16 },
   planName: { fontSize: 19, fontWeight: '700', color: INK },
-  planPrice: { marginTop: 4, fontSize: 30, fontWeight: '800', color: TITLE },
-  planUnit: { fontSize: 13, color: MUTED },
 
   currentNote: { alignItems: 'center', marginBottom: 12 },
   currentNoteText: { fontSize: 12, color: MUTED },
@@ -306,17 +244,6 @@ const styles = StyleSheet.create({
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   featureText: { flexGrow: 1, flexShrink: 1, fontSize: 14, lineHeight: 20, color: INK },
 
-  select: {
-    marginTop: 20,
-    height: 46,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PRIMARY,
-    boxShadow: lift('md'),
-  },
-  selectText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-
   includeTitle: {
     marginBottom: 16,
     fontSize: 16,
@@ -324,20 +251,4 @@ const styles = StyleSheet.create({
     color: INK,
   },
   includeList: { gap: 12 },
-
-  payMethods: { gap: 12 },
-  payMethodsTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: MUTED,
-    textAlign: 'center',
-  },
-  payMethodsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  payChip: { paddingHorizontal: 14, paddingVertical: 7 },
-  payChipText: { fontSize: 12, fontWeight: '600', color: INK },
 });
