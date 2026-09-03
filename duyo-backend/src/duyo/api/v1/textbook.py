@@ -6,6 +6,12 @@ Endpoints:
   PATCH /v1/textbook/chunks/{id}/approve   approve + optional field override
   PATCH /v1/textbook/chunks/{id}/reject    delete chunk from DB
   GET  /v1/textbook/stats                  ingestion statistics (admin)
+
+The four "(admin)" routes said admin and took `get_current_user` — an ordinary
+family token. /review handed any logged-in child the chunk ids and
+/chunks/{id}/reject deleted them one at a time, permanently, from the corpus
+every homework answer is grounded in. They now take the same admin dependency
+admin.py uses.
 """
 
 from __future__ import annotations
@@ -18,6 +24,8 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
+from duyo.api.v1.admin_deps import require_roles
+from duyo.models.admin import AdminRole, AdminUser
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
 from duyo.schemas.textbook import (
@@ -32,6 +40,10 @@ from duyo.textbook.retriever import search_chunks
 
 router = APIRouter(prefix="/textbook", tags=["textbook"])
 log = logging.getLogger(__name__)
+
+# Module-level singleton (B008: no factory calls in argument defaults),
+# matching api/v1/admin.py.
+_require_content = require_roles(AdminRole.CONTENT_MANAGER)
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +89,11 @@ async def search_textbook(
         for chunk, score in results
     ]
 
-    log.info("textbook_search", query=q[:60], results=len(chunk_results))
+    # %-args, not kwargs. `log` is a stdlib logger, which rejects arbitrary
+    # keywords — GET /search answered 500 on every call. The query itself is
+    # gone with them: it is a child's homework question, and it was being
+    # written to the container log at INFO with no retention policy.
+    log.info("textbook_search results=%d", len(chunk_results))
     return SearchResponse(query=q, results=chunk_results, total=len(chunk_results))
 
 
@@ -91,7 +107,7 @@ async def list_review_queue(
     page_size: int = Query(default=20, ge=1, le=100),
     subject: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: AdminUser = Depends(_require_content),
 ) -> ReviewListResponse:
     """List chunks flagged needs_review=true, ordered by ingestion time.
 
@@ -124,7 +140,7 @@ async def approve_chunk(
     chunk_id: UUID,
     payload: ApprovePayload,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: AdminUser = Depends(_require_content),
 ) -> dict[str, str]:
     """Approve a chunk: clear needs_review flag, optionally override fields.
 
@@ -148,7 +164,7 @@ async def approve_chunk(
     if result.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Chunk not found")
 
-    log.info("chunk_approved", chunk_id=str(chunk_id))
+    log.info("chunk_approved chunk=%s", chunk_id)
     return {"status": "approved", "id": str(chunk_id)}
 
 
@@ -156,7 +172,7 @@ async def approve_chunk(
 async def reject_chunk(
     chunk_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: AdminUser = Depends(_require_content),
 ) -> dict[str, str]:
     """Reject and delete a chunk from the knowledge base.
 
@@ -169,7 +185,7 @@ async def reject_chunk(
     if result.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Chunk not found")
 
-    log.info("chunk_rejected", chunk_id=str(chunk_id))
+    log.info("chunk_rejected chunk=%s", chunk_id)
     return {"status": "rejected", "id": str(chunk_id)}
 
 
@@ -180,7 +196,7 @@ async def reject_chunk(
 @router.get("/stats", response_model=StatsResponse)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: AdminUser = Depends(_require_content),
 ) -> StatsResponse:
     """Ingestion statistics: totals, embedding coverage, review queue size."""
     total = (await db.scalar(select(func.count(TextbookChunk.id)))) or 0

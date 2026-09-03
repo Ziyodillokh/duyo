@@ -209,6 +209,29 @@ async def _get_edge(
     return edge
 
 
+async def _blocked_peer_ids(db: AsyncSession, child_id: UUID) -> set[UUID]:
+    """Everyone this child has blocked, and everyone who has blocked them.
+
+    `friendships` is the app's only block list, and the pair is canonically
+    ordered, so one BLOCKED row means neither side reaches the other. Reading
+    it in both directions is what keeps that bilateral in a room: the child who
+    blocked stops seeing, and the child who was blocked stops being able to
+    speak to them — without either learning which of the two happened.
+    """
+    rows = (
+        await db.execute(
+            select(Friendship.child_low_id, Friendship.child_high_id).where(
+                Friendship.status == FriendshipStatus.BLOCKED,
+                or_(
+                    Friendship.child_low_id == child_id,
+                    Friendship.child_high_id == child_id,
+                ),
+            )
+        )
+    ).all()
+    return {high if low == child_id else low for low, high in rows}
+
+
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
@@ -734,18 +757,36 @@ def _note_media_url(m: GroupMessage, viewer_id: UUID) -> str:
     return f"{base}/v1/social/{viewer_id}/groups/{m.group_key}/notes/{m.id}/media"
 
 
-def _group_message_read(m: GroupMessage, viewer_id: UUID) -> GroupMessageRead:
+class GroupMessageRoomRead(GroupMessageRead):
+    """A room message, plus who sent it.
+
+    `sender_name` is frozen at send time so history does not rewrite itself
+    when a child renames — which also means it is NOT an identifier: after a
+    handle regeneration the pseudonym on an old message matches nobody in the
+    roster. Reporting and blocking need to name a child, so the id travels with
+    the row rather than being guessed back from the name.
+
+    Exposing it costs nothing that `PeerCard` does not already: the roster hands
+    the same ids to the same client, and the id is opaque — the real name and
+    age never leave the server.
+    """
+
+    sender_child_id: UUID | None = None
+
+
+def _group_message_read(m: GroupMessage, viewer_id: UUID) -> GroupMessageRoomRead:
     """One row → one wire object.
 
     The media KEY is stored and the URL is built here, so the bucket can move
     without rewriting rows, and only this one place knows how a key becomes a
     URL.
     """
-    return GroupMessageRead(
+    return GroupMessageRoomRead(
         id=m.id,
         seq=m.seq,
         body=m.body,
         sender_name=m.sender_name,
+        sender_child_id=m.sender_child_id,
         mine=m.sender_child_id == viewer_id,
         created_at=m.created_at,
         media_url=_note_media_url(m, viewer_id) if m.media_key else None,
@@ -754,38 +795,56 @@ def _group_message_read(m: GroupMessage, viewer_id: UUID) -> GroupMessageRead:
     )
 
 
-@router.get("/{child_id}/groups/{key}/messages", response_model=list[GroupMessageRead])
+@router.get(
+    "/{child_id}/groups/{key}/messages", response_model=list[GroupMessageRoomRead]
+)
 async def list_group_messages(
     child_id: UUID,
     key: str,
     after_seq: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[GroupMessageRead]:
-    """Newest page first, then reversed — see list_messages for why."""
+) -> list[GroupMessageRoomRead]:
+    """Newest page first, then reversed — see list_messages for why.
+
+    A blocked peer's messages are dropped here rather than hidden by the app.
+    Blocking is the one control a child has over a room they cannot leave
+    without giving up the goal that put them in it, so it has to hold even for
+    a client that ignores it.
+    """
     child = await _get_owned_child(child_id, current_user, db)
     if await group_svc.is_member(db, child, key) is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
 
-    rows = (
-        await db.execute(
-            select(GroupMessage)
-            .where(
-                GroupMessage.group_key == key,
-                GroupMessage.seq > after_seq,
-                GroupMessage.moderation_state == PeerModerationState.DELIVERED,
-            )
-            .order_by(GroupMessage.seq.desc())
-            .limit(100)
+    blocked = await _blocked_peer_ids(db, child.id)
+    stmt = (
+        select(GroupMessage)
+        .where(
+            GroupMessage.group_key == key,
+            GroupMessage.seq > after_seq,
+            GroupMessage.moderation_state == PeerModerationState.DELIVERED,
         )
-    ).scalars().all()
+        .order_by(GroupMessage.seq.desc())
+        .limit(100)
+    )
+    if blocked:
+        # A NULL sender is a deleted profile, and `NOT IN` is NULL for it —
+        # which would drop those rows too. The room keeps them: they are what
+        # the other children actually saw.
+        stmt = stmt.where(
+            or_(
+                GroupMessage.sender_child_id.is_(None),
+                GroupMessage.sender_child_id.not_in(blocked),
+            )
+        )
+    rows = (await db.execute(stmt)).scalars().all()
 
     return [_group_message_read(m, child.id) for m in reversed(rows)]
 
 
 @router.post(
     "/{child_id}/groups/{key}/messages",
-    response_model=GroupMessageRead,
+    response_model=GroupMessageRoomRead,
     status_code=status.HTTP_201_CREATED,
 )
 async def send_group_message(
@@ -795,7 +854,7 @@ async def send_group_message(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     detector: KeywordCrisisDetector = Depends(get_detector),
-) -> GroupMessageRead:
+) -> GroupMessageRoomRead:
     """Screened before delivery by the SAME pipeline as a one-to-one message.
 
     A room is a bigger audience than a friendship, never a lighter one, so
@@ -866,6 +925,15 @@ async def get_group_note_media(
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Yozuv topilmadi")
 
+    # The list already drops a blocked peer's rows, but the media URL is a
+    # plain GET a child could still hold from before the block. A block that
+    # silences the text and leaves the voice playable is not a block.
+    if (
+        message.sender_child_id is not None
+        and message.sender_child_id in await _blocked_peer_ids(db, child.id)
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Yozuv topilmadi")
+
     try:
         stream, content_type, size = storage.get_object(message.media_key)
     except storage.S3Error as exc:
@@ -895,7 +963,7 @@ _MAX_NOTE_BYTES = {"audio": 4 * 1024 * 1024, "video": 12 * 1024 * 1024}
 
 @router.post(
     "/{child_id}/groups/{key}/notes",
-    response_model=GroupMessageRead,
+    response_model=GroupMessageRoomRead,
     status_code=status.HTTP_201_CREATED,
 )
 async def send_group_note(
@@ -907,7 +975,7 @@ async def send_group_note(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     detector: KeywordCrisisDetector = Depends(get_detector),
-) -> GroupMessageRead:
+) -> GroupMessageRoomRead:
     """A voice or video note — TRANSCRIBED FIRST, then screened as text.
 
     The screen that protects this room reads words. A spoken sentence is not
@@ -1046,3 +1114,141 @@ async def send_group_note(
         )
 
     return _group_message_read(message, child.id)
+
+
+# ---------------------------------------------------------------------------
+# Room safety
+#
+# Screening every message before delivery is not the same thing as giving a
+# child a way to say "that one, that person, help". The first is a filter and
+# it runs on words; the second is the only control the child themselves holds,
+# and it has to exist for the things a filter cannot judge — a face in a video
+# note, a place, a private joke that is not funny.
+#
+# Both routes work on any message in a room the child is in, including one from
+# a peer who has since left it. Neither requires an explanation to use.
+# ---------------------------------------------------------------------------
+
+
+async def _block_pair(db: AsyncSession, child: ChildProfile, peer_id: UUID) -> None:
+    """Put this pair in BLOCKED, creating the row if they were never connected.
+
+    Two children in a room usually have no friendship at all, so blocking has
+    to be able to invent the edge. It is the same table either way, which is
+    what makes `find_goal_mates` stop suggesting them and `_blocked_peer_ids`
+    stop delivering them without either learning about this table's existence.
+    """
+    edge = await find_friendship(db, child.id, peer_id)
+    if edge is None:
+        low, high = canonical_pair(child.id, peer_id)
+        nested = await db.begin_nested()
+        db.add(
+            Friendship(
+                child_low_id=low,
+                child_high_id=high,
+                requested_by_id=child.id,
+                status=FriendshipStatus.BLOCKED,
+                blocked_by_id=child.id,
+            )
+        )
+        try:
+            await db.flush()
+        except IntegrityError:
+            # Both children blocked each other in the same instant, or a friend
+            # request landed between the lookup and the insert. Same canonical
+            # pair, so one INSERT wins; adopt the winner and block it.
+            #
+            # A SAVEPOINT, not a plain rollback: a report writes its row before
+            # asking for the block, and a session-wide rollback here would
+            # throw that row away — losing the report to save the block, which
+            # is the wrong half.
+            await nested.rollback()
+            edge = await find_friendship(db, child.id, peer_id)
+            if edge is None:
+                raise
+        else:
+            await nested.commit()
+            return
+
+    edge.status = FriendshipStatus.BLOCKED
+    edge.blocked_by_id = child.id
+    await db.flush()
+
+
+@router.post(
+    "/{child_id}/groups/{key}/members/{peer_child_id}/block",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def block_group_member(
+    child_id: UUID,
+    key: str,
+    peer_child_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Stop seeing one child in every room and thread at once.
+
+    Silent and bilateral, exactly as blocking a friend is: the other side is
+    never told, and blocking is not scoped to `key` even though a room is where
+    it was asked for. A child who blocks someone means it, and having to repeat
+    it once per room would be the app arguing with them.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    if await group_svc.is_member(db, child, key) is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
+    if peer_child_id == child.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "O'zingizni bloklab bo'lmaydi")
+    if await db.get(ChildProfile, peer_child_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Peer not found")
+
+    await _block_pair(db, child, peer_child_id)
+
+
+@router.post(
+    "/{child_id}/groups/{key}/messages/{message_id}/report",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def report_group_message(
+    child_id: UUID,
+    key: str,
+    message_id: UUID,
+    payload: PeerReportCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """File a report about one message, and stop seeing its sender.
+
+    The report names the MESSAGE, not just the child: a reviewer opening the
+    peer-report queue needs to know what was said, and a report that says only
+    "A dislikes B" cannot be acted on. It reaches the same queue a one-to-one
+    report does — one queue, because the reviewer's question is the same one.
+
+    Blocking comes with it, the way it does for a friend report. A child who
+    has just reported something should not have to watch for it again while an
+    adult gets around to reading the queue, and undoing a block is a smaller
+    harm than making them wait.
+    """
+    child = await _get_owned_child(child_id, current_user, db)
+    if await group_svc.is_member(db, child, key) is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu guruh a'zosi emassiz")
+
+    message = await db.get(GroupMessage, message_id)
+    if message is None or message.group_key != key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Xabar topilmadi")
+    if message.sender_child_id is None or message.sender_child_id == child.id:
+        # Nobody to report: either the profile is gone, or it is the child's
+        # own message. 404 rather than 400 — see the module docstring.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Xabar topilmadi")
+
+    reported_id = message.sender_child_id
+    db.add(
+        PeerReport(
+            reporter_child_id=child.id,
+            reported_child_id=reported_id,
+            group_message_id=message.id,
+            reason=payload.reason,
+        )
+    )
+    await db.flush()
+    await _block_pair(db, child, reported_id)
+    return {"status": "received"}

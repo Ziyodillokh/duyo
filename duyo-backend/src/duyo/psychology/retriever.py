@@ -145,20 +145,23 @@ async def retrieve_for_chat(
     """High-level helper used by the chat endpoint's non-academic fallback."""
     query = await _gate_query(child_message)
     if not query:
-        log.info("psych_skip_non_topical", message=child_message[:60])
+        # No `message=`. The first 60 characters of what a child typed on
+        # the emotional-topic path is the most sensitive text the product
+        # holds, and it was going to the container log at INFO.
+        log.info("psych_skip_non_topical")
         return None
 
     results = await search_topics(
         session, query, age_segment=age_segment, limit=_DEFAULT_LIMIT, min_similarity=_CHAT_MIN_SIMILARITY,
     )
     if not results:
-        log.info("psych_no_match", query=query[:60])
+        log.info("psych_no_match")
         return None
 
     context = build_chat_context(results)
     if context is None:
         return None
-    log.info("psych_context_built", chunks=len(results), top_score=results[0][1], query=query[:60])
+    log.info("psych_context_built", chunks=len(results), top_score=results[0][1])
     return PsychRetrieval(context=context, topic_titles=[c.title for c, _ in results])
 
 

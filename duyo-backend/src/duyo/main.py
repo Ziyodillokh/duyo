@@ -12,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from duyo import __version__
 from duyo.api.v1 import api_v1
 from duyo.core.config import get_settings
-from duyo.crisis.router import router as crisis_router
 from duyo.crisis.semantic import warm_anchors
 
 log = logging.getLogger(__name__)
@@ -67,12 +66,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     settings = get_settings()
 
+    # Swagger, ReDoc and the schema itself are off in production. They were
+    # live on api.duyo.uz, publishing all 132 routes including every admin
+    # path — which turns "find the unguarded endpoint" from a guess into a
+    # one-minute read. Nothing in the product consumes them at runtime.
+    is_production = settings.app_env == "production"
+
     app = FastAPI(
         title="DUYO Backend",
         description="AI Companion for Children — backend services",
         version=__version__,
         debug=settings.app_debug,
         lifespan=lifespan,
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
+        openapi_url=None if is_production else "/openapi.json",
     )
 
     app.add_middleware(
@@ -89,7 +97,15 @@ def create_app() -> FastAPI:
         return {"status": "ok", "version": __version__, "env": settings.app_env}
 
     app.include_router(api_v1)
-    app.include_router(crisis_router, prefix="/v1/internal")  # internal-only
+
+    # crisis.router is NOT mounted. It was, under /v1/internal, with no auth
+    # dependency and behind an nginx that proxies everything — so POST
+    # /v1/internal/crisis/check answered anyone, returning the matched keyword
+    # and its category. That is the safety filter's own oracle: enough queries
+    # and you have the RED/ORANGE dictionary, and with it a message that
+    # passes Layer 1 on the voice stream and on every note write. Nothing
+    # calls it over HTTP — chat.py, note.py and social.py all take the same
+    # detector in-process via Depends(get_detector).
 
     return app
 

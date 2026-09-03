@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, Integer, String, text
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,14 @@ class User(Base, UUIDPK, TimestampMixin):
     # guessing one would be worse than an honest blank.
     role: Mapped[AccountRole | None] = mapped_column(_account_role_enum, nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    # Which generation of tokens this account currently honours. Every token
+    # carries the value it was minted under (core/security.py::is_current);
+    # bumping this is what "log out of every device" means, and it is the only
+    # thing that can end a refresh token's life before its own expiry.
+    token_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0"),
+    )
 
     children: Mapped[list["ChildProfile"]] = relationship(  # noqa: F821
         back_populates="parent",

@@ -1,12 +1,20 @@
-"""Health endpoints — used by k8s/docker healthchecks and Nginx upstream probe."""
+"""Health endpoints — used by k8s/docker healthchecks and Nginx upstream probe.
+
+Unauthenticated and publicly proxied, so the failure body says only that the
+component is unavailable. It used to interpolate the exception, and asyncpg
+and redis-py connection errors carry the DSN host, port and username.
+"""
+
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_db
-from duyo.services.otp import get_redis
+from duyo.core.redis import get_redis
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/health", tags=["health"])
 
 
@@ -23,9 +31,10 @@ async def db_health(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
         await db.execute(text("SELECT 1"))
         return {"status": "ok", "component": "postgres"}
     except Exception as exc:
+        log.exception("health: postgres unreachable")
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"db unreachable: {exc}",
+            detail="db unavailable",
         ) from exc
 
 
@@ -39,7 +48,8 @@ async def redis_health() -> dict[str, str]:
             raise RuntimeError("ping returned falsy")
         return {"status": "ok", "component": "redis"}
     except Exception as exc:
+        log.exception("health: redis unreachable")
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"redis unreachable: {exc}",
+            detail="redis unavailable",
         ) from exc

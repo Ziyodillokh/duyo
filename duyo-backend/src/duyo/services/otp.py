@@ -6,12 +6,13 @@ max 10 sends/phone/hour.
 
 from __future__ import annotations
 
+import logging
 import secrets
-from functools import lru_cache
-
-import redis.asyncio as aioredis
 
 from duyo.core.config import get_settings
+from duyo.core.redis import get_redis
+
+log = logging.getLogger(__name__)
 
 
 def _otp_key(phone: str) -> str:
@@ -24,11 +25,6 @@ def _attempts_key(phone: str) -> str:
 
 def _rate_key(phone: str) -> str:
     return f"otp:rate:{phone}"
-
-
-@lru_cache
-def get_redis() -> aioredis.Redis:
-    return aioredis.from_url(get_settings().redis_url, decode_responses=True)
 
 
 def generate_code(length: int) -> str:
@@ -128,3 +124,22 @@ async def verify(phone: str, code: str) -> bool:
     # Success — clean up so the code can't be reused
     await redis.delete(_otp_key(phone), _attempts_key(phone))
     return True
+
+
+async def purge(phone: str) -> None:
+    """Forget everything Redis still holds about `phone`.
+
+    Account deletion has to reach past Postgres: a live code, the attempt
+    counter and the hourly send counter all key on the phone number, so
+    without this a deleted account leaves its own phone number sitting in
+    Redis — and the next person to hold that number inherits its send budget.
+
+    Errors are swallowed on purpose. These keys expire within the hour by
+    themselves; a Redis blip must not be what stops a person's account from
+    being erased.
+    """
+    try:
+        redis = get_redis()
+        await redis.delete(_otp_key(phone), _attempts_key(phone), _rate_key(phone))
+    except Exception:  # see docstring — never block an erasure
+        log.warning("otp purge failed for a deleted account")

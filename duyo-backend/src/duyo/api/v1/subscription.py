@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
 from duyo.billing import service, tiers
+from duyo.core.config import get_settings
 from duyo.models.subscription import Subscription
 from duyo.models.user import User
 from duyo.schemas.subscription import (
@@ -48,9 +49,16 @@ async def subscribe(
 ) -> Subscription:
     """Activate a paid tier. MVP: payment is MOCKED — no real charge.
 
-    For a real charge the client uses POST /payments/checkout (Click/Payme);
-    this mock path stays for development and only honours provider='mock'.
+    Development only. For a real charge the client uses POST
+    /payments/checkout (Click/Payme).
     """
+    # Not in production, at any price. This route grants a paid tier with no
+    # charge and rejects every provider EXCEPT the mock one, so on a live
+    # server it is a free premium button for anyone who can send an
+    # authenticated request. 404, not 403: a route that does not exist here
+    # should not advertise that it exists somewhere.
+    if get_settings().app_env == "production":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
     if payload.provider != "mock":
         raise HTTPException(
             status.HTTP_501_NOT_IMPLEMENTED,

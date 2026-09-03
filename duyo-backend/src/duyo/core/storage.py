@@ -125,6 +125,18 @@ def media_url(key: str) -> str:
     return f"{base}/v1/content/media/{key}"
 
 
+def remove(key: str) -> None:
+    """Delete one object. A key that is already gone is not an error.
+
+    Only account deletion calls this. Everywhere else a replaced upload
+    deliberately leaves the old object behind (see chat.py's photo upload):
+    dropping the previous file before the new one lands is how a child ends
+    up with no photo at all. Erasure is the one case where the file has to go.
+    """
+    client = _client()
+    client.remove_object(get_settings().minio_bucket, key)
+
+
 def get_object(key: str):
     """Return (stream, content_type, size) for serving. Raises S3Error if missing."""
     client = _client()
@@ -142,5 +154,6 @@ __all__ = [
     "get_object",
     "media_url",
     "normalise_type",
+    "remove",
     "upload",
 ]

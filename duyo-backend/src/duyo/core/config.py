@@ -31,7 +31,12 @@ class Settings(BaseSettings):
 
     # JWT
     jwt_access_token_expire_minutes: int = 15
-    jwt_refresh_token_expire_days: int = 30
+    # 14, not 30. A refresh token is the whole session — a leaked one reads a
+    # child's conversations, voice turns and notes for its full life, and
+    # renews itself before expiry. Revocation now exists (User.token_version),
+    # but the window a family never notices should still be short. Two weeks
+    # is long enough that normal use never sees a re-login.
+    jwt_refresh_token_expire_days: int = 14
     jwt_algorithm: str = "HS256"
 
     # AI — Gemini primary (D-010 revised 2026-05-27)
@@ -81,6 +86,9 @@ class Settings(BaseSettings):
     otp_ttl_seconds: int = 300  # 5 minutes
     otp_max_attempts: int = 5
     otp_rate_limit_per_phone_per_hour: int = 10
+    # The per-phone cap bounds how often ONE number is messaged; it does not
+    # bound how many different numbers one caller may walk. This does.
+    otp_rate_limit_per_ip_per_hour: int = 20
     # Test phones that bypass SMS — comma-separated "phone:code" pairs. These
     # numbers always accept their fixed code (no SMS needed) for QA/testing.
     # Empty by default: a hard-coded fake number in the shipped defaults means
@@ -109,6 +117,12 @@ class Settings(BaseSettings):
     # Dev stub — when no real Eskiz creds, OTP is logged instead of sent.
     # In production this is False and missing creds will fail loudly.
     sms_stub_enabled: bool = True
+
+    # Admin login throttle, checked BEFORE the 240,000-round PBKDF2 verify —
+    # otherwise the login route is both an unlimited credential-stuffing
+    # target and a cheap way to saturate both uvicorn workers on a small VPS.
+    admin_login_max_attempts: int = 5
+    admin_login_window_seconds: int = 900  # 15 minutes
 
     # Crisis detection thresholds (Layer 3 ML classifier — not used yet)
     crisis_threshold_yellow: float = 0.70

@@ -253,8 +253,17 @@ def _owned_by(user_id: UUID) -> ColumnElement[bool]:
     return (ChildProfile.parent_id == user_id) | (ChildProfile.child_user_id == user_id)
 
 
-async def _dispatch_parent_alert(parent_phone: str, child_name: str, level: CrisisLevel) -> None:
-    """Send SMS to the parent. Fire-and-forget — failures are logged."""
+async def _dispatch_parent_alert(
+    parent_phone: str, child_name: str, level: CrisisLevel, child_id: UUID
+) -> None:
+    """Send SMS to the parent. Fire-and-forget — failures are logged.
+
+    child_id rides along only so the log lines can name the family without
+    naming the phone number. The container log is a second store of personal
+    data with no retention policy and no access control past shell access; a
+    parent's phone and a child's name do not belong in it, least of all on the
+    crisis path, which is the most sensitive event the product has.
+    """
     body = crisis_message(child_name, red=level == CrisisLevel.RED)
     try:
         sms = get_sms_provider()
@@ -264,13 +273,13 @@ async def _dispatch_parent_alert(parent_phone: str, child_name: str, level: Cris
             # body is the usual cause. Logging this as success is how a
             # crisis alert goes missing with nothing to show for it.
             log.error(
-                "Parent SMS REJECTED by provider: phone=%s level=%s child=%s body=%r",
-                parent_phone, level.value, child_name, body,
+                "Parent SMS REJECTED by provider: level=%s child=%s",
+                level.value, child_id,
             )
             return
-        log.info("Parent SMS dispatched: phone=%s level=%s child=%s", parent_phone, level.value, child_name)
+        log.info("Parent SMS dispatched: level=%s child=%s", level.value, child_id)
     except Exception:
-        log.exception("Parent SMS dispatch failed: phone=%s level=%s", parent_phone, level.value)
+        log.exception("Parent SMS dispatch failed: level=%s child=%s", level.value, child_id)
 
 
 @router.post("/children", response_model=ChildRead, status_code=status.HTTP_201_CREATED)
@@ -772,10 +781,11 @@ async def chat_turn(
                 parent_phone,
                 child.name,
                 final_level,
+                child.id,
             )
         log.warning(
-            "CRISIS dispatched level=%s child=%s msg=%s phone=%s",
-            final_level.value, child.id, child_msg.id, parent_phone,
+            "CRISIS dispatched level=%s child=%s msg=%s notified=%s",
+            final_level.value, child.id, child_msg.id, bool(parent_phone),
         )
     elif final_level in (CrisisLevel.ORANGE, CrisisLevel.RED):
         # ORANGE + abuse-only: skip parent, log for 3rd-party safety provider routing later

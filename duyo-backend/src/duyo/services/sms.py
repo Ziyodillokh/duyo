@@ -92,7 +92,11 @@ class StubSMSProvider:
     """Logs OTP/message instead of sending. Dev only."""
 
     async def send(self, phone: str, message: str) -> bool:
-        log.warning("[SMS-STUB] phone=%s message=%r", phone, message)
+        # Neither the number nor the body. The body of an OTP message IS the
+        # login code, so this line wrote a working credential in cleartext to
+        # the container log every time the stub was active. The last four
+        # digits are enough to tell which of two test phones was used.
+        log.warning("[SMS-STUB] send to ...%s (%d chars)", phone[-4:], len(message))
         return True
 
 

@@ -51,7 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_db
 from duyo.core.config import get_settings
-from duyo.core.security import decode_token
+from duyo.core.security import decode_token, is_current
 from duyo.crisis.detector import CrisisCategory as L1Category
 from duyo.crisis.stream import StreamCrisisDetector
 from duyo.models.child import ChildProfile
@@ -99,10 +99,21 @@ async def _authenticate(token: str, db: AsyncSession) -> User | None:
         user_id = UUID(claims["sub"])
     except (ValueError, KeyError):
         return None
-    return await db.scalar(select(User).where(User.id == user_id))
+    user = await db.scalar(select(User).where(User.id == user_id))
+    # The same revocation check api/deps.py does. This route decodes the token
+    # itself rather than going through get_current_user (a WebSocket carries it
+    # in the query string), so a session ended everywhere else would otherwise
+    # still open a live microphone here.
+    if user is None or not is_current(claims, user.token_version):
+        return None
+    return user
 
 
-async def _send_parent_sms(parent_phone: str, child_name: str, level: CrisisLevel) -> None:
+async def _send_parent_sms(
+    parent_phone: str, child_name: str, level: CrisisLevel, child_id: UUID
+) -> None:
+    """See chat.py::_dispatch_parent_alert — the log names the child, never
+    the phone number or the name."""
     body = sms_module.crisis_message(child_name, red=level == CrisisLevel.RED)
     try:
         sms = sms_module.get_sms_provider()
@@ -111,13 +122,13 @@ async def _send_parent_sms(parent_phone: str, child_name: str, level: CrisisLeve
             # See chat.py: a 200 with a non-"waiting" status means the
             # provider took it and dropped it. Never log that as sent.
             log.error(
-                "Voice parent SMS REJECTED by provider: phone=%s level=%s body=%r",
-                parent_phone, level.value, body,
+                "Voice parent SMS REJECTED by provider: level=%s child=%s",
+                level.value, child_id,
             )
             return
-        log.info("Voice parent SMS dispatched phone=%s level=%s", parent_phone, level.value)
+        log.info("Voice parent SMS dispatched level=%s child=%s", level.value, child_id)
     except Exception:
-        log.exception("Voice parent SMS dispatch failed phone=%s", parent_phone)
+        log.exception("Voice parent SMS dispatch failed child=%s", child_id)
 
 
 @router.websocket("/voice")
@@ -434,7 +445,10 @@ async def voice_ws(
         # by the voice turn itself.
         if parent_phone:
             await _send_parent_sms(
-                parent_phone=parent_phone, child_name=child.name, level=final_level
+                parent_phone=parent_phone,
+                child_name=child.name,
+                level=final_level,
+                child_id=child.id,
             )
 
     # If Layer 2 escalated beyond what was streamed to the client, surface it now.

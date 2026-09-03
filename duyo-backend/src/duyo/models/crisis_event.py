@@ -1,4 +1,8 @@
-"""CrisisEvent — audit trail for safety detection (legal retention: 7 years)."""
+"""CrisisEvent — audit trail for safety detection (legal retention: 7 years).
+
+The retention outlives the account: deleting a family de-identifies these rows
+rather than removing them. See `CrisisEvent.child_id`.
+"""
 
 from datetime import datetime
 from enum import Enum
@@ -63,9 +67,17 @@ class CrisisEvent(Base, UUIDPK, TimestampMixin):
         nullable=True,
         index=True,
     )
-    child_id: Mapped[UUID] = mapped_column(
-        ForeignKey("child_profiles.id", ondelete="CASCADE"),
-        nullable=False,
+    # SET NULL, not CASCADE, and nullable. The safety audit trail is kept for
+    # seven years, and account deletion must not be a way to erase it — but
+    # what stays is the DETECTION, not the person: level, layer, the matched
+    # keywords and the timestamps, with every link to the family removed
+    # (message_id was already SET NULL and the message itself is gone).
+    #
+    # A null child_id therefore means exactly one thing: this family deleted
+    # their account. See services/account_deletion.py.
+    child_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("child_profiles.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
 

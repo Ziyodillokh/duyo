@@ -71,6 +71,16 @@ def _demo_code_on(monkeypatch):
     monkeypatch.setattr(get_settings(), "otp_demo_code", "00000")
 
 
+@pytest.fixture(autouse=True)
+def _no_redis(monkeypatch):
+    """The per-IP send limiter is exercised in test_rate_limit.py; here it
+    would only be a connection attempt to a Redis nobody started."""
+    async def _allow(*_a, **_kw):
+        return None
+
+    monkeypatch.setattr(auth_module.rate_limit, "hit", _allow)
+
+
 def _existing_user(phone="+998901234567") -> User:
     user = User(phone=phone)
     user.id = uuid4()
@@ -143,7 +153,7 @@ def _pending_invite(parent_id=None, child_name="Aziza") -> FamilyInvite:
 
 
 def test_send_hands_back_the_demo_code_instead_of_promising_an_sms():
-    body = _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233")))
+    body = _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233"), request=None))
     assert body["status"] == "demo"
     assert body["demo_code"] == "00000"
 
@@ -162,7 +172,7 @@ def test_send_uses_sms_when_the_bypass_is_off(monkeypatch):
     # be seen by the endpoint.
     monkeypatch.setattr(auth_module, "issue", _async_returning("54321"))
 
-    body = _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233")))
+    body = _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233"), request=None))
     assert body["status"] == "sent"
     assert "demo_code" not in body
     assert sent and "54321" in sent[0][1]
@@ -184,7 +194,7 @@ def test_send_says_check_the_number_when_eskiz_refuses_the_destination(monkeypat
     monkeypatch.setattr(auth_module, "issue", _async_returning("54321"))
 
     with pytest.raises(HTTPException) as exc:
-        _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233")))
+        _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233"), request=None))
     assert exc.value.status_code == 422
     assert "raqam" in str(exc.value.detail).lower()
 
@@ -203,7 +213,7 @@ def test_send_502s_when_the_provider_itself_errors(monkeypatch):
     monkeypatch.setattr(auth_module, "issue", _async_returning("54321"))
 
     with pytest.raises(HTTPException) as exc:
-        _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233")))
+        _run(auth_module.send_otp(payload=OTPRequest(phone="+998911112233"), request=None))
     assert exc.value.status_code == 502
 
 

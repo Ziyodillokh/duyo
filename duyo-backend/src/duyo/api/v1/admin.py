@@ -19,6 +19,7 @@ from sqlalchemy.sql import func
 from duyo.api.deps import get_db
 from duyo.api.v1.admin_deps import get_current_admin, record_audit, require_roles
 from duyo.core.admin_security import create_admin_token, hash_password, verify_password
+from duyo.core.config import get_settings
 from duyo.models.admin import AdminRole, AdminUser, AuditLog
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
@@ -27,6 +28,7 @@ from duyo.models.social import PeerMessage, PeerModerationState, PeerReport
 from duyo.models.subscription import Subscription
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
+from duyo.services import rate_limit
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -57,7 +59,10 @@ class LoginResponse(BaseModel):
 
 class CrisisEventRow(BaseModel):
     id: UUID
-    child_id: UUID
+    # Null once the family deleted their account: the safety record is kept
+    # for its retention period with the link to the person removed. See
+    # services/account_deletion.py.
+    child_id: UUID | None
     level: CrisisLevel
     layer: int
     matches: list[dict] | None
@@ -72,7 +77,31 @@ class CrisisEventRow(BaseModel):
 
 # ---- Auth ----
 @router.post("/auth/login", response_model=LoginResponse)
-async def admin_login(payload: AdminLogin, db: AsyncSession = Depends(get_db)) -> LoginResponse:
+async def admin_login(
+    payload: AdminLogin,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> LoginResponse:
+    # Throttle FIRST. verify_password is 240,000 PBKDF2 rounds, so checking
+    # the password before the limit makes this route both an unlimited
+    # credential-stuffing target and a cheap unauthenticated way to pin both
+    # uvicorn workers. Keyed on email AND source so one attacker cannot spend
+    # a real admin's allowance and lock them out.
+    settings = get_settings()
+    identity = f"{payload.email.lower()}|{rate_limit.client_ip(request)}"
+    try:
+        await rate_limit.hit(
+            "admin_login",
+            identity,
+            limit=settings.admin_login_max_attempts,
+            window_seconds=settings.admin_login_window_seconds,
+        )
+    except rate_limit.RateLimited as exc:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Juda ko'p urinish. Biroz kutib, qayta urinib ko'ring.",
+        ) from exc
+
     admin = await db.scalar(select(AdminUser).where(AdminUser.email == payload.email.lower()))
     if admin is None or not admin.is_active or not verify_password(payload.password, admin.password_hash):
         # Generic message — don't reveal whether the email exists.

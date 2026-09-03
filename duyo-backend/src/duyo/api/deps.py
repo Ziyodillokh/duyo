@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.core.database import get_db
-from duyo.core.security import decode_token
+from duyo.core.security import decode_token, is_current
 from duyo.models.user import User
 
 
@@ -32,6 +32,11 @@ async def get_current_user(
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User no longer exists")
+    if not is_current(claims, user.token_version):
+        # Signed out elsewhere, or the token was reused after a refresh. Same
+        # 401 as a bad token so a revoked one tells the holder nothing about
+        # why it stopped working.
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Session ended")
     return user
 
 

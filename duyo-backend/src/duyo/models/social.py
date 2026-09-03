@@ -243,7 +243,14 @@ class GroupMessage(Base, UUIDPK, TimestampMixin):
 
 
 class PeerReport(Base, UUIDPK, TimestampMixin):
-    """A child reporting another. Never requires an explanation to file."""
+    """A child reporting another. Never requires an explanation to file.
+
+    One queue for both channels. A report from a goal room carries
+    `group_message_id` and no friendship; a report from a one-to-one thread
+    carries `friendship_id` and no message. Exactly one of them points a
+    reviewer at the evidence, and a report with neither is unactionable — which
+    is what a group report was before the column existed.
+    """
 
     __tablename__ = "peer_reports"
 
@@ -255,6 +262,12 @@ class PeerReport(Base, UUIDPK, TimestampMixin):
     )
     friendship_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("friendships.id", ondelete="SET NULL"), nullable=True,
+    )
+    #: The room message this is about. SET NULL rather than CASCADE, for the
+    #: same reason `sender_child_id` is: a purge upstream must not silently
+    #: empty the safety queue.
+    group_message_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("group_messages.id", ondelete="SET NULL"), nullable=True,
     )
     reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(

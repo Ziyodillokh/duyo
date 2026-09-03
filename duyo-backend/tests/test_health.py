@@ -39,3 +39,23 @@ def test_all_v1_routers_are_mounted():
         assert any(path.startswith(prefix) for path in paths), (
             f"No route mounted under {prefix}"
         )
+
+
+def test_a_broken_dependency_does_not_describe_itself_to_the_internet():
+    """Both sub-routes are unauthenticated and publicly proxied, and asyncpg
+    and redis-py connection errors carry the DSN host, port and username."""
+    import asyncio
+
+    import pytest
+    from fastapi import HTTPException
+
+    from duyo.api.v1 import health as health_module
+
+    class _Dead:
+        async def execute(self, *_a, **_kw):
+            raise RuntimeError("connection to server at 10.0.0.5 port 5432 user duyo failed")
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(health_module.db_health(db=_Dead()))
+    assert exc.value.status_code == 503
+    assert "10.0.0.5" not in str(exc.value.detail)

@@ -209,14 +209,17 @@ async def retrieve_for_chat(
     # Topic gate: greetings, commands, meta-instructions and gibberish are not
     # textbook queries — skip RAG so we don't inject keyword-overlap junk.
     if not normalized or normalized.strip().upper().startswith("NONE"):
-        log.info("rag_skip_non_topical", query=child_message[:60])
+        # No `query=` on any of these three: it is the child's homework
+        # question, or a normalisation of it, and neither belongs in a log
+        # with no retention policy. See psychology/retriever.py.
+        log.info("rag_skip_non_topical")
         return None
     results = await search_chunks(
         session, normalized, grade=grade, subject=subject,
         limit=_DEFAULT_LIMIT, min_similarity=_CHAT_MIN_SIMILARITY,
     )
     if not results:
-        log.info("rag_no_match", query=normalized[:60])
+        log.info("rag_no_match")
         return None
 
     # Keep only the dominant subject (the top hit's): drop cross-subject
@@ -235,5 +238,5 @@ async def retrieve_for_chat(
             continue
         seen.add(key)
         refs.append((chunk.subject, chunk.grade, chunk.topic))
-    log.info("rag_context_built", chunks=len(results), top_score=results[0][1], query=normalized[:60])
+    log.info("rag_context_built", chunks=len(results), top_score=results[0][1])
     return RagRetrieval(context=context, refs=refs)
