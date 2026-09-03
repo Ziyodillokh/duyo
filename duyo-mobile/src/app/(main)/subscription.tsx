@@ -10,6 +10,7 @@ import { ActionSheet } from '@/components/action-sheet';
 import { Text } from '@/components/text';
 import {
   useCheckout,
+  useCancelSubscription,
   useCurrentSubscription,
   usePaymentSettlement,
   usePlans,
@@ -23,6 +24,7 @@ import { ArrowLeft, Check } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   Linking,
   Platform,
@@ -121,6 +123,7 @@ export default function SubscriptionScreen() {
   const t = useT();
   const plansQuery = usePlans();
   const currentQuery = useCurrentSubscription();
+  const cancel = useCancelSubscription();
   const checkout = useCheckout();
   const refresh = useRefreshSubscription();
   const settlement = usePaymentSettlement(currentQuery.data);
@@ -196,6 +199,43 @@ export default function SubscriptionScreen() {
             <Text style={styles.headingTitle}>{t('subscription.title')}</Text>
             <Text style={styles.headingBlurb}>{t('subscription.subtitle')}</Text>
           </View>
+
+          {/* The plans have always promised "cancel any time"; until now the
+              only way to do it was an email address. Paid users only — there
+              is nothing to cancel on free, and offering it there reads as a
+              way to lose something. */}
+          {CAN_BUY_IN_APP && currentTier !== 'free' && (
+            <Pressable
+              onPress={() =>
+                Alert.alert(
+                  t('subscription.cancelTitle'),
+                  t('subscription.cancelBody', { plan: currentName }),
+                  [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                      text: t('subscription.cancelConfirm'),
+                      style: 'destructive',
+                      onPress: () => cancel.mutate(),
+                    },
+                  ],
+                )
+              }
+              disabled={cancel.isPending}
+              accessibilityRole="button"
+              accessibilityLabel={t('subscription.cancelTitle')}
+              style={({ pressed }) => [
+                styles.cancelRow,
+                styles.focusable,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={styles.cancelText}>
+                {cancel.isPending
+                  ? t('common.sending')
+                  : t('subscription.cancelTitle')}
+              </Text>
+            </Pressable>
+          )}
 
           {/* ── The window between paying and owning ─────────────────── */}
           {settlement.isChecking && (
@@ -487,6 +527,8 @@ const styles = StyleSheet.create({
 
   loading: { alignItems: 'center', padding: 32 },
 
+  cancelRow: { paddingVertical: 14, alignItems: 'center' },
+  cancelText: { fontSize: 14, fontWeight: '500', color: MUTED },
   noticeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   noticeOk: {
     borderColor: 'rgba(30,158,106,0.35)',

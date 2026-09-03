@@ -6,7 +6,6 @@ import {
   ChevronUp,
   ExternalLink,
   Mail,
-  MessageSquare,
 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -173,34 +172,6 @@ export default function HelpSettingsScreen() {
               </View>
             </Pressable>
 
-            <Pressable
-              onPress={() =>
-                Alert.alert(
-                  'Telegram',
-                  t('settings.helpScreen.telegramBody'),
-                )
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Telegram"
-              style={({ pressed }) => [
-                glass(20, 'md'),
-                styles.card,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={styles.contactRow}>
-                <View style={styles.iconWell}>
-                  <MessageSquare size={18} color={PRIMARY} strokeWidth={2} />
-                </View>
-                <View style={styles.contactBody}>
-                  <Text style={styles.contactLabel}>
-                    {t('settings.helpScreen.telegram')}
-                  </Text>
-                  <Text style={styles.contactValue}>@duyo_support</Text>
-                </View>
-                <ExternalLink size={18} color={MUTED} strokeWidth={2.2} />
-              </View>
-            </Pressable>
           </View>
 
           <View style={styles.footer}>

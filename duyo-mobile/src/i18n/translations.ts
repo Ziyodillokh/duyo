@@ -165,22 +165,19 @@ const UZ = {
     "DUYO — bu O'zbek tilida bola bilan suhbatlashadigan, o'rgatadigan va qo'llab-quvvatlaydigan AI hamroh. U mehribon kosmik kashshof sifatida ishlaydi.",
   'settings.helpScreen.q2': 'Suhbat xavfsizmi?',
   'settings.helpScreen.a2':
-    "Suhbatlaring shifrlangan aloqa orqali yuboriladi va serverimizda saqlanadi — ularni faqat sening hisobingdan ochish mumkin. Javoblarni Google Gemini yaratadi, ya'ni xabaring unga ham boradi.",
+    "Suhbatlaring shifrlangan aloqa orqali yuboriladi va serverimizda saqlanadi; ularni sening hisobingdan ochish mumkin. Javoblarni Google Gemini yaratadi, ya'ni xabaring unga ham boradi. Agar kimdir biror javob yoki xabar ustidan shikoyat qilsa, o'sha xabarni xavfsizlik xodimimiz o'qiydi.",
   'settings.helpScreen.q3': 'Kunlik limit qancha?',
   'settings.helpScreen.a3':
-    'Bepul rejada kuniga 30 ta suhbat. Premium bilan cheksiz.',
+    "Bepul rejada kuniga 20 ta suhbat. Premium'da ancha ko'p — aniq chegara reja sahifasida yozilgan.",
   'settings.helpScreen.q4': 'Ovozli suhbat ishlaydimi?',
   'settings.helpScreen.a4':
     'Ha — Suhbat sahifasidagi mikrofon tugmasi ovozli rejimni ochadi. DUYO real vaqtda ovoz bilan javob beradi.',
   'settings.helpScreen.q5': "Ma'lumotlarimni qanday o'chirishim mumkin?",
   'settings.helpScreen.a5':
-    "duyosupport@gmail.com ga yozing — hisobingiz va barcha ma'lumotlaringiz o'chiriladi.",
+    "Sozlamalar → Maxfiylik → Hisobni yopish. Ikki marta tasdiqlaysan va hisobing bilan birga hamma narsang o'chadi.",
   'settings.helpScreen.contact': "Bog'lanish",
   'settings.helpScreen.email': 'Email yuborish',
   'settings.helpScreen.emailBody': 'duyosupport@gmail.com manziliga email yozing',
-  'settings.helpScreen.telegram': "Telegram qo'llab-quvvatlash",
-  'settings.helpScreen.telegramBody':
-    "Tez orada Telegram bot qo'llab-quvvatlash qo'shiladi",
 
   // ── extracted from screens ──────────────────────────────────
   'achievements.badgeHint': 'Maqsaddoshlar ro‘yxatida ismingiz oldida shu belgi turadi',
@@ -652,7 +649,7 @@ const UZ = {
   'subject.physics': 'Fizika',
   'subscription.allPlans': 'Barcha rejalarda:',
   'subscription.benefit.cancel': 'Istalgan vaqt bekor qilish',
-  'subscription.benefit.support': '24/7 yordam',
+  'subscription.benefit.support': "Savolingga javob beramiz",
   'subscription.current': 'Joriy reja',
   'subscription.loadFailed': "Rejalarni yuklab bo'lmadi",
   'subscription.subtitle': "DUYO bilan ko'proq o'rganing va o'sing",
@@ -821,6 +818,11 @@ const UZ = {
   'subscription.providerUnavailable': "To'lov tizimi hozircha ulanmagan.",
   'subscription.yearly': 'Yillik',
   'subscription.yearlySave': '{percent}% tejaysan',
+
+  // ── extracted from screens ──────────────────────────────────
+  'subscription.cancelBody': "{plan} rejasi bekor qilinsinmi? To'langan muddat oxirigacha ishlaydi, keyin bepul rejaga qaytasan.",
+  'subscription.cancelConfirm': 'Ha, bekor qilinsin',
+  'subscription.cancelTitle': 'Obunani bekor qilish',
 } as const;
 
 export type TranslationKey = keyof typeof UZ;
@@ -981,22 +983,19 @@ const RU: Record<TranslationKey, string> = {
     'DUYO — это AI-компаньон, который общается с ребёнком, учит и поддерживает его на узбекском, русском и английском языках. Он ведёт себя как добрый космический исследователь.',
   'settings.helpScreen.q2': 'Безопасны ли разговоры?',
   'settings.helpScreen.a2':
-    'Разговоры передаются по зашифрованному соединению и хранятся на нашем сервере — открыть их можно только с твоего аккаунта. Ответы генерирует Google Gemini, значит твоё сообщение уходит и к нему.',
+    'Разговоры передаются по зашифрованному соединению и хранятся на нашем сервере; открыть их можно с твоего аккаунта. Ответы генерирует Google Gemini, значит твоё сообщение уходит и к нему. Если на какой-то ответ или сообщение пожалуются, его прочитает наш сотрудник по безопасности.',
   'settings.helpScreen.q3': 'Какой дневной лимит?',
   'settings.helpScreen.a3':
-    'На бесплатном тарифе — 30 разговоров в день. На Premium — без ограничений.',
+    'На бесплатном тарифе — 20 разговоров в день. На Premium заметно больше — точный лимит указан на странице тарифа.',
   'settings.helpScreen.q4': 'Работает ли голосовой разговор?',
   'settings.helpScreen.a4':
     'Да — кнопка микрофона на странице разговора открывает голосовой режим. DUYO отвечает голосом в реальном времени.',
   'settings.helpScreen.q5': 'Как удалить мои данные?',
   'settings.helpScreen.a5':
-    'Напиши на duyosupport@gmail.com — мы удалим аккаунт и все твои данные.',
+    'Настройки → Приватность → Закрыть аккаунт. Подтвердишь дважды — и вместе с аккаунтом удалится всё.',
   'settings.helpScreen.contact': 'Связаться с нами',
   'settings.helpScreen.email': 'Написать на email',
   'settings.helpScreen.emailBody': 'Напишите на адрес duyosupport@gmail.com',
-  'settings.helpScreen.telegram': 'Поддержка в Telegram',
-  'settings.helpScreen.telegramBody':
-    'Поддержка через Telegram-бота появится совсем скоро',
 
   // ── extracted from screens ──────────────────────────────────
   'achievements.badgeHint': 'В списке единомышленников этот значок стоит перед твоим именем',
@@ -1468,7 +1467,7 @@ const RU: Record<TranslationKey, string> = {
   'subject.physics': 'Физика',
   'subscription.allPlans': 'Во всех тарифах:',
   'subscription.benefit.cancel': 'Отмена в любой момент',
-  'subscription.benefit.support': 'Поддержка 24/7',
+  'subscription.benefit.support': 'Ответим на твои вопросы',
   'subscription.current': 'Твой тариф',
   'subscription.loadFailed': 'Не удалось загрузить тарифы',
   'subscription.subtitle': 'Учись и расти вместе с DUYO',
@@ -1637,6 +1636,11 @@ const RU: Record<TranslationKey, string> = {
   'subscription.providerUnavailable': 'Платёжная система пока не подключена.',
   'subscription.yearly': 'На год',
   'subscription.yearlySave': 'Выгода {percent}%',
+
+  // ── extracted from screens ──────────────────────────────────
+  'subscription.cancelBody': 'Отменить тариф {plan}? Он будет работать до конца оплаченного периода, потом вернёшься на бесплатный.',
+  'subscription.cancelConfirm': 'Да, отменить',
+  'subscription.cancelTitle': 'Отменить подписку',
 };
 
 const EN: Record<TranslationKey, string> = {
@@ -1795,21 +1799,19 @@ const EN: Record<TranslationKey, string> = {
     'DUYO is an AI companion that talks with your child, teaches and supports them in Uzbek, Russian and English. It behaves like a kind cosmic explorer.',
   'settings.helpScreen.q2': 'Are conversations safe?',
   'settings.helpScreen.a2':
-    'Your chats travel over an encrypted connection and are stored on our server — only your account can open them. The replies are written by Google Gemini, so your message goes there too.',
+    'Your chats travel over an encrypted connection and are stored on our server; your account can open them. The replies are written by Google Gemini, so your message goes there too. If anyone reports a message or an answer, our safety team reads that one.',
   'settings.helpScreen.q3': 'What is the daily limit?',
   'settings.helpScreen.a3':
-    'The free plan gives you 30 conversations a day. Premium is unlimited.',
+    'The free plan gives you 20 conversations a day. Premium gives you a lot more — the exact number is on the plan page.',
   'settings.helpScreen.q4': 'Does voice chat work?',
   'settings.helpScreen.a4':
     'Yes — the microphone button on the chat screen opens voice mode. DUYO answers out loud in real time.',
   'settings.helpScreen.q5': 'How do I delete my data?',
   'settings.helpScreen.a5':
-    "Write to duyosupport@gmail.com and we'll delete your account and all your data.",
+    'Settings → Privacy → Close account. Confirm twice and everything goes with the account.',
   'settings.helpScreen.contact': 'Contact us',
   'settings.helpScreen.email': 'Send an email',
   'settings.helpScreen.emailBody': 'Write to duyosupport@gmail.com',
-  'settings.helpScreen.telegram': 'Telegram support',
-  'settings.helpScreen.telegramBody': 'Telegram bot support arrives soon',
 
   // ── extracted from screens ──────────────────────────────────
   'achievements.badgeHint': 'This badge sits in front of your name in the goal-mates list',
@@ -2281,7 +2283,7 @@ const EN: Record<TranslationKey, string> = {
   'subject.physics': 'Physics',
   'subscription.allPlans': 'In every plan:',
   'subscription.benefit.cancel': 'Cancel any time',
-  'subscription.benefit.support': '24/7 support',
+  'subscription.benefit.support': 'We answer your questions',
   'subscription.current': 'Your plan',
   'subscription.loadFailed': "Couldn't load the plans",
   'subscription.subtitle': 'Learn more and grow with DUYO',
@@ -2450,6 +2452,11 @@ const EN: Record<TranslationKey, string> = {
   'subscription.providerUnavailable': "Payments aren't switched on yet.",
   'subscription.yearly': 'Yearly',
   'subscription.yearlySave': 'Save {percent}%',
+
+  // ── extracted from screens ──────────────────────────────────
+  'subscription.cancelBody': 'Cancel {plan}? It keeps working until the end of the period you paid for, then you go back to free.',
+  'subscription.cancelConfirm': 'Yes, cancel it',
+  'subscription.cancelTitle': 'Cancel subscription',
 };
 
 export const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {

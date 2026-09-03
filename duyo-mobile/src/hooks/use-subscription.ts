@@ -7,6 +7,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  cancelSubscription,
   type BillingPeriod,
   type PaidTier,
   type PaymentProvider,
@@ -49,6 +50,25 @@ export function useSubscribe() {
  * and writing one into ['subscription'] would tell the child they own
  * something they have not paid for yet.
  */
+/**
+ * Cancel, from inside the app.
+ *
+ * The plan list has always promised "cancel any time" while the only way to do
+ * it was an email address — and the endpoint has existed the whole time with
+ * nothing calling it. A subscription a child can start in two taps and cannot
+ * stop is the shape of a complaint, whatever the policy says.
+ */
+export function useCancelSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: (sub) => {
+      qc.setQueryData(['subscription'], sub);
+      void qc.invalidateQueries({ queryKey: ['plans'] });
+    },
+  });
+}
+
 export function useCheckout() {
   return useMutation({
     mutationFn: ({ tier, period, provider }: CheckoutArgs) =>
