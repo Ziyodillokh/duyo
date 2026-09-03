@@ -3,8 +3,10 @@
 .env.*.local
 .expo/
 node_modules/
-ios/build/
-android/build/
-android/app/build/
+# A local android/ or ios/ left over from `expo prebuild` would be uploaded and
+# used verbatim, so an EAS build would silently ship one developer's stale
+# native project instead of regenerating it from app.json.
+/android
+/ios
 *.log
 .DS_Store

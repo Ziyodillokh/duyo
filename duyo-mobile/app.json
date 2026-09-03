@@ -16,6 +16,8 @@
     },
     "android": {
       "package": "uz.duyo.mobile",
+      "versionCode": 1000,
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/duyo-icon-adaptive.png",
@@ -26,6 +28,14 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.INTERNET"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
       ]
     },
     "web": {
@@ -63,9 +73,10 @@
         "expo-image-picker",
         {
           "photosPermission": "DUYO profil rasmini tanlash uchun galereyaga ruxsat so'raydi.",
-          "cameraPermission": "DUYO profil rasmini olish uchun kameraga ruxsat so'raydi."
+          "cameraPermission": false
         }
-      ]
+      ],
+      "./plugins/with-release-signing"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -10,6 +10,10 @@ on:
     paths:
       - "duyo-mobile/**"
       - ".github/workflows/ci.yml"
+      # build-apk.yml faqat CI muvaffaqiyatli tugagach ishga tushadi, shuning
+      # uchun uni tahrirlash ham CI'ni chaqirishi kerak — aks holda o'sha
+      # o'zgarish hech qachon build'ga yetib bormaydi.
+      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
 concurrency:

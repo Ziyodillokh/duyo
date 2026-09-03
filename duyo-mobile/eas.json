@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 11.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -32,7 +32,6 @@
     "beta": {
       "distribution": "store",
       "channel": "beta",
-      "autoIncrement": true,
       "ios": {
         "resourceClass": "m-medium"
       },
@@ -43,7 +42,6 @@
     "production": {
       "distribution": "store",
       "channel": "production",
-      "autoIncrement": true,
       "ios": {
         "resourceClass": "m-medium"
       },
