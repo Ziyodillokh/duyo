@@ -56,6 +56,10 @@ jobs:
           # CI tekshirgan aynan o'sha commit kerak. Qo'lda ishga tushirilganda
           # bu qiymat bo'sh bo'ladi — checkout o'z odatiy tanloviga qaytadi.
           ref: ${{ github.event.workflow_run.head_sha }}
+          # versionCode `git rev-list --count` dan olinadi — sayoz checkout
+          # butun tarix o'rniga bitta commit beradi va raqam 10001 bo'lib
+          # qotib qolardi.
+          fetch-depth: 0
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -88,6 +92,25 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # versionCode commit sonidan olinadi, app.json'dagi qiymatdan emas.
+      #
+      # U qo'lda oshiriladigan bitta raqam edi va aynan shu tishladi: ikkita
+      # reliz bir xil 1000 bilan chiqdi, ya'ni admin.duyo.uz'dan o'rnatganlar
+      # uchun ilova ichidagi tekshiruv `latest <= installed` deb hisobladi va
+      # yangilanish borligini hech qachon aytmadi. Play uchun bitta manba
+      # to'g'ri edi, yon kanal uchun emas.
+      #
+      # `git rev-list --count` monoton o'sadi va commit'siz o'zgarmaydi;
+      # 10000 ofset esa allaqachon chiqarilgan 1000 dan yuqorida turadi.
+      # app.json'dagi qiymat lokal build noldan boshlanmasligi uchun qoladi.
+      - name: Stamp versionCode from commit count
+        run: |
+          COUNT=$(git rev-list --count HEAD)
+          VC=$((10000 + COUNT))
+          jq --argjson vc "$VC" '.expo.android.versionCode = $vc' app.json > app.json.tmp
+          mv app.json.tmp app.json
+          echo "versionCode: $VC"
 
       - name: Generate native Android project (expo prebuild)
         run: npx expo prebuild --platform android --no-install
@@ -221,6 +244,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          # versionCode `git rev-list --count` dan olinadi — sayoz checkout
+          # butun tarix o'rniga bitta commit beradi va raqam 10001 bo'lib
+          # qotib qolardi.
+          fetch-depth: 0
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -247,6 +274,25 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # versionCode commit sonidan olinadi, app.json'dagi qiymatdan emas.
+      #
+      # U qo'lda oshiriladigan bitta raqam edi va aynan shu tishladi: ikkita
+      # reliz bir xil 1000 bilan chiqdi, ya'ni admin.duyo.uz'dan o'rnatganlar
+      # uchun ilova ichidagi tekshiruv `latest <= installed` deb hisobladi va
+      # yangilanish borligini hech qachon aytmadi. Play uchun bitta manba
+      # to'g'ri edi, yon kanal uchun emas.
+      #
+      # `git rev-list --count` monoton o'sadi va commit'siz o'zgarmaydi;
+      # 10000 ofset esa allaqachon chiqarilgan 1000 dan yuqorida turadi.
+      # app.json'dagi qiymat lokal build noldan boshlanmasligi uchun qoladi.
+      - name: Stamp versionCode from commit count
+        run: |
+          COUNT=$(git rev-list --count HEAD)
+          VC=$((10000 + COUNT))
+          jq --argjson vc "$VC" '.expo.android.versionCode = $vc' app.json > app.json.tmp
+          mv app.json.tmp app.json
+          echo "versionCode: $VC"
 
       - name: Generate native Android project (expo prebuild)
         run: npx expo prebuild --platform android --no-install

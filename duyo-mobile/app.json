@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "uz.duyo.mobile",
-      "versionCode": 1000,
+      "versionCode": 10378,
       "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
