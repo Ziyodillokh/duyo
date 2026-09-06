@@ -45,19 +45,29 @@ def test_free_over_limit_blocked():
     assert st.allowed is False
 
 
-def test_paid_tier_unlimited_skips_count():
-    # Only ONE scalar (tier); no usage count is queried for unlimited tiers.
-    db = _FakeSession(scalar_queue=[tiers.STANDART])
+def test_retired_tier_gets_the_current_plans_limit():
+    """A subscriber still stored as "standart" is counted against the plan
+    that replaced it, not dropped to free."""
+    db = _FakeSession(scalar_queue=[tiers.STANDART, 7])
     st = _run(limits.check_daily_message_limit(db, uuid4(), now=_NOW))
     assert st.allowed is True
-    assert st.limit is None and st.tier == "standart"
+    assert st.limit == 100 and st.tier == "standart"
 
 
-def test_premium_unlimited():
-    db = _FakeSession(scalar_queue=[tiers.PREMIUM])
+def test_paid_tier_is_bounded_not_unlimited():
+    """Paid was daily_message_limit=None, so usage was never counted. The
+    single tier has a real ceiling, which is what makes one account's cost
+    knowable."""
+    db = _FakeSession(scalar_queue=[tiers.PREMIUM, 42])
     st = _run(limits.check_daily_message_limit(db, uuid4(), now=_NOW))
     assert st.allowed is True
-    assert st.limit is None
+    assert st.limit == 100 and st.used == 42
+
+
+def test_paid_tier_refuses_past_its_ceiling():
+    db = _FakeSession(scalar_queue=[tiers.PREMIUM, 100])
+    st = _run(limits.check_daily_message_limit(db, uuid4(), now=_NOW))
+    assert st.allowed is False
 
 
 def test_missing_subscription_defaults_to_free():

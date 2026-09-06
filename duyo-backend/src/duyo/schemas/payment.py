@@ -5,6 +5,9 @@ from typing import Literal
 from pydantic import BaseModel
 
 BillingPeriod = Literal["monthly", "yearly"]
+#: "standart" is retired but still accepted: a client built before the merge
+#: may still send it, and rejecting it with a 422 would break checkout for
+#: someone mid-upgrade. billing.tiers.get_tier maps it to the current plan.
 PaidTier = Literal["standart", "premium"]
 
 

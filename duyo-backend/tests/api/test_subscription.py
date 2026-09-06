@@ -41,10 +41,12 @@ class _User:
 
 # ── Plans (public) ───────────────────────────────────────────────────────────
 
-def test_list_plans_returns_three_tiers():
+def test_list_plans_returns_free_and_the_one_paid_tier():
     plans = _run(sub_api.list_plans())
-    assert [p.key for p in plans] == ["free", "standart", "premium"]
-    assert plans[2].voice is True
+    assert [p.key for p in plans] == ["free", "premium"]
+    # Voice used to cost 59 000; it is in the only plan there is now.
+    assert plans[1].voice is True
+    assert plans[1].price_monthly == 30_000
 
 
 # ── Current (get-or-create) ──────────────────────────────────────────────────

@@ -4,8 +4,17 @@ Tiers and their limits live in code, not the DB — they are product config,
 versioned with the app. The DB only stores which tier a user is on.
 
     free      Tanish    0 so'm        scripted only, 20 msg/day, 1 language
-    standart  Do'st     29 000 /oy    AI 30 turn/day, all content, 3 languages
-    premium   Hamroh    59 000 /oy    AI fair-use, voice, 2 children, priority
+    premium   Hamroh    30 000 /oy    AI, voice, all content, 100 msg/day
+
+There is ONE paid tier. There were two — Do'st at 29 000 without voice and
+Hamroh at 59 000 with it — and the split asked a thirteen-year-old to price
+their own use of a feature they had not tried. Voice is the thing that makes
+this product what it is, so it belongs in the only plan there is.
+
+The daily limit is the one that is actually ENFORCED. `ai_turns_per_day` sat in
+this table and read convincingly, but nothing anywhere checked it — only
+`daily_message_limit` reaches `billing/limits.py`. A hundred messages a day is
+not a wall a real child meets; it is a bound on what one account can cost.
 """
 
 from __future__ import annotations
@@ -13,11 +22,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 FREE = "free"
-STANDART = "standart"
 PREMIUM = "premium"
 
-# Paid tiers that the mock subscribe flow accepts.
-PAID_TIERS = (STANDART, PREMIUM)
+#: Retired, and kept as a name only so an existing subscriber's stored tier
+#: string still resolves. `get_tier("standart")` answers with the current paid
+#: plan rather than None, which would read as "no subscription" to every caller
+#: and silently downgrade someone who has paid.
+STANDART = "standart"
+
+PAID_TIERS = (PREMIUM,)
 
 
 @dataclass(frozen=True)
@@ -41,29 +54,43 @@ _TIERS: dict[str, Tier] = {
         voice=False, max_children=1,
         features=["20 xabar/kun", "1 til", "Scripted javoblar", "20 she'r"],
     ),
-    STANDART: Tier(
-        key=STANDART, name="Do'st", price_monthly=29_000, price_yearly=290_000,
-        daily_message_limit=None, ai_turns_per_day=30, languages=3,
-        voice=False, max_children=1,
-        features=["AI 30 turn/kun", "3 til", "Barcha kontent", "To'liq gamifikatsiya"],
-    ),
     PREMIUM: Tier(
-        key=PREMIUM, name="Hamroh", price_monthly=59_000, price_yearly=590_000,
-        daily_message_limit=None, ai_turns_per_day=100, languages=3,
-        voice=True, max_children=2,
-        features=["AI fair-use", "Ovozli suhbat", "2 bola", "Premium kontent", "Tungi rejim"],
+        key=PREMIUM, name="Hamroh", price_monthly=30_000, price_yearly=300_000,
+        daily_message_limit=100, ai_turns_per_day=100, languages=3,
+        voice=True, max_children=1,
+        features=[
+            "Kuniga 100 xabar",
+            "Ovozli suhbat",
+            "3 til",
+            "Barcha kontent",
+            "To'liq gamifikatsiya",
+        ],
     ),
 }
 
 
 def all_tiers() -> list[Tier]:
-    """Catalogue order: free → standart → premium."""
-    return [_TIERS[FREE], _TIERS[STANDART], _TIERS[PREMIUM]]
+    """Catalogue order: free → premium."""
+    return [_TIERS[FREE], _TIERS[PREMIUM]]
 
 
 def get_tier(key: str) -> Tier | None:
+    """A retired tier key resolves to the plan that replaced it.
+
+    Someone is on "standart" right now. Answering None would read as "not
+    subscribed" everywhere it is checked and take away what they paid for.
+    """
+    if key == STANDART:
+        return _TIERS[PREMIUM]
     return _TIERS.get(key)
 
 
 def is_paid(key: str) -> bool:
-    return key in PAID_TIERS
+    """True for the current paid plan AND for the retired key someone holds.
+
+    `PAID_TIERS` is what a NEW checkout may ask for; this is what an EXISTING
+    subscription counts as. Answering False for "standart" would revoke voice
+    and the raised message limit from anyone who paid before the merge — the
+    same reason get_tier maps it forward.
+    """
+    return key in PAID_TIERS or key == STANDART
