@@ -2319,8 +2319,11 @@
    Grid
    -------------------------------------------------------------------------- */
 .sec-price__grid {
+  grid-template-columns: minmax(0, 0.84fr) minmax(0, 1fr);
   align-items: stretch;
   gap: 24px;
+  max-width: 900px;
+  margin-inline: auto;
 }
 
 .sec-price__col {
@@ -2353,12 +2356,11 @@
 .sec-price__card--hot {
   border: 2px solid var(--blue);
   box-shadow: var(--sh-lg);
-  transform: scale(1.04);
 }
 
 .sec-price__card--hot:hover {
   border-color: var(--blue);
-  transform: scale(1.04) translateY(-4px);
+  transform: translateY(-4px);
   box-shadow: 0 26px 54px rgba(37, 99, 235, 0.18);
 }
 
@@ -2491,35 +2493,12 @@
    Responsiv
    -------------------------------------------------------------------------- */
 
-/* 2 ustun — o'rtadagi kartochkaning kattalashuvi bekor qilinadi */
-@media (max-width: 1060px) {
-  .sec-price__card--hot {
-    transform: none;
-  }
-
-  .sec-price__card--hot:hover {
-    transform: translateY(-4px);
-  }
-}
-
-/* 2 ustunli holatda uchinchi kartochka markazda tursin */
-@media (min-width: 761px) and (max-width: 1060px) {
-  .sec-price__col:nth-child(3) {
-    grid-column: 1 / -1;
-    justify-self: center;
-    width: min(100%, calc((100% - 24px) / 2));
-  }
-}
-
-
-/* 1 ustun — tabiiy tartib saqlanadi */
+/* 1 ustun — bepul reja tepada, tabiiy tartib saqlanadi */
 @media (max-width: 760px) {
   .sec-price__grid {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 480px;
     gap: 20px;
-  }
-
-  .sec-price__col {
-    order: 0;
   }
 
   .sec-price__badge {

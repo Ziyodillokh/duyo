@@ -59,14 +59,8 @@
           },
           {
             "@type": "Offer",
-            "name": "Do'st",
-            "price": "29000",
-            "priceCurrency": "UZS"
-          },
-          {
-            "@type": "Offer",
             "name": "Hamroh",
-            "price": "59000",
+            "price": "30000",
             "priceCurrency": "UZS"
           }
         ]
@@ -753,12 +747,15 @@
     <div class="section-head reveal">
       <h2 class="h2" id="price-title">Narxlar va obuna shartlari</h2>
       <p class="lead">
-        O'zingizga qulay rejani tanlang — istalgan vaqtda o'zgartirish yoki
-        bekor qilish mumkin
+        Ikkita reja: bepul sinab ko'rish va bitta to'liq obuna —
+        istalgan vaqtda bekor qilasiz
       </p>
     </div>
 
-    <div class="grid grid--3 sec-price__grid">
+    <!-- Ikkita reja: bepul va bitta pullik. Uchinchi kartochka 2026-09-06 da
+         olib tashlandi — backend'da bitta pullik tarif qoldi (billing/tiers.py),
+         va saytda ikkitasini ko'rsatish ilova bilan ziddiyat bo'lardi. -->
+    <div class="grid sec-price__grid">
       <!-- 1. Tanish — Bepul -->
       <div class="sec-price__col reveal">
         <article class="card sec-price__card">
@@ -784,6 +781,14 @@
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </span>
+              <span>Kuniga 20 xabar</span>
+            </li>
+            <li class="sec-price__item">
+              <span class="sec-price__tick">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </span>
               <span>1 til (o'zbek)</span>
             </li>
             <li class="sec-price__item">
@@ -792,7 +797,7 @@
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </span>
-              <span>Kuniga 20 daqiqa muloqot</span>
+              <span>Tayyor javoblar — AI suhbat yo'q</span>
             </li>
             <li class="sec-price__item">
               <span class="sec-price__tick">
@@ -808,24 +813,24 @@
         </article>
       </div>
 
-      <!-- 2. Do'st — ommabop -->
+      <!-- 2. Hamroh — yagona pullik reja -->
       <div class="sec-price__col sec-price__col--hot reveal" style="--reveal-delay:90ms">
         <article class="card sec-price__card sec-price__card--hot">
-          <span class="sec-price__badge">Ommabop</span>
+          <span class="sec-price__badge">Yagona obuna</span>
 
-          <h3 class="h3 sec-price__name">Do'st</h3>
+          <h3 class="h3 sec-price__name">Hamroh</h3>
           <p class="small muted sec-price__desc">
-            Kundalik ta'lim uchun eng maqbul reja
+            Ovoz, uchta til va butun kutubxona — hammasi bitta rejada
           </p>
 
           <div class="sec-price__price">
             <p class="sec-price__figure">
-              <span class="sec-price__amount">29 000</span>
+              <span class="sec-price__amount">30 000</span>
               <span class="sec-price__cur">so'm</span>
               <span class="sec-price__per">/oy</span>
             </p>
             <p class="caption sec-price__note">
-              yoki 290 000 so'm/yil — 2 oy sovg'a
+              yoki 300 000 so'm/yil — 2 oy sovg'a
             </p>
           </div>
 
@@ -838,65 +843,7 @@
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </span>
-              <span>3 til (o'zbek, rus, ingliz)</span>
-            </li>
-            <li class="sec-price__item">
-              <span class="sec-price__tick">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              </span>
-              <span>Kuniga 30 ta AI suhbat</span>
-            </li>
-            <li class="sec-price__item">
-              <span class="sec-price__tick">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              </span>
-              <span>To'liq kutubxona va dars yordami</span>
-            </li>
-            <li class="sec-price__item">
-              <span class="sec-price__tick">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              </span>
-              <span>Gamifikatsiya va yutuqlar</span>
-            </li>
-          </ul>
-
-          <a class="btn btn--primary btn--block sec-price__cta" href="#yuklab-olish">Obuna bo'lish</a>
-        </article>
-      </div>
-
-      <!-- 3. Hamroh -->
-      <div class="sec-price__col reveal" style="--reveal-delay:180ms">
-        <article class="card sec-price__card">
-          <h3 class="h3 sec-price__name">Hamroh</h3>
-          <p class="small muted sec-price__desc">
-            Butun oila uchun to'liq imkoniyatlar
-          </p>
-
-          <div class="sec-price__price">
-            <p class="sec-price__figure">
-              <span class="sec-price__amount">59 000</span>
-              <span class="sec-price__cur">so'm</span>
-              <span class="sec-price__per">/oy</span>
-            </p>
-            <p class="caption sec-price__note">yoki 590 000 so'm/yil</p>
-          </div>
-
-          <div class="sec-price__rule"></div>
-
-          <ul class="sec-price__list">
-            <li class="sec-price__item">
-              <span class="sec-price__tick">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-              </span>
-              <span>Kuniga 200 ta AI suhbat</span>
+              <span>Kuniga 100 xabar</span>
             </li>
             <li class="sec-price__item">
               <span class="sec-price__tick">
@@ -912,7 +859,7 @@
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </span>
-              <span>2 ta bola uchun alohida profil</span>
+              <span>3 til (o'zbek, rus, ingliz)</span>
             </li>
             <li class="sec-price__item">
               <span class="sec-price__tick">
@@ -920,11 +867,19 @@
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </span>
-              <span>Premium kontent va aksessuarlar</span>
+              <span>To'liq kutubxona</span>
+            </li>
+            <li class="sec-price__item">
+              <span class="sec-price__tick">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </span>
+              <span>Gamifikatsiya va yutuqlar</span>
             </li>
           </ul>
 
-          <a class="btn btn--dark btn--block sec-price__cta" href="#yuklab-olish">Obuna bo'lish</a>
+          <a class="btn btn--primary btn--block sec-price__cta" href="#yuklab-olish">Obuna bo'lish</a>
         </article>
       </div>
     </div>
@@ -974,10 +929,10 @@
         >
           <div class="sec-faq__panel-inner">
             <p>
-              Ha, DUYO'ning asosiy funksiyalari bepul. Bepul rejada kuniga 20
-              daqiqa davomida suhbatlashish va kutubxonaning bir qismidan
-              foydalanish mumkin. Cheksizroq muloqot, qo'shimcha tillar va dars
-              yordami uchun "Do'st" yoki "Hamroh" obunasini tanlashingiz mumkin.
+              Ha, DUYO'ni bepul boshlash mumkin. Bepul rejada kuniga 20 ta
+              xabar, bitta til va kutubxonaning bir qismi bor. Kuniga 100 ta
+              xabar, ovozli suhbat, uchta til va butun kutubxona uchun bitta
+              obuna bor — "Hamroh", oyiga 30 000 so'm.
             </p>
           </div>
         </div>
@@ -1269,7 +1224,7 @@
           </div>
 
           <p class="sec-cta__note">
-            Foydalanish to'liq bepul, ro'yxatdan o'tish oddiy
+            Boshlash bepul, ro'yxatdan o'tish oddiy
           </p>
         </div>
 

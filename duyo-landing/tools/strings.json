@@ -349,7 +349,7 @@
  },
  {
   "where": "div/p",
-  "text": "O'zingizga qulay rejani tanlang — istalgan vaqtda o'zgartirish yoki bekor qilish mumkin"
+  "text": "Ikkita reja: bepul sinab ko'rish va bitta to'liq obuna — istalgan vaqtda bekor qilasiz"
  },
  {
   "where": "article/h3",
@@ -369,11 +369,15 @@
  },
  {
   "where": "li/span",
+  "text": "Kuniga 20 xabar"
+ },
+ {
+  "where": "li/span",
   "text": "1 til (o'zbek)"
  },
  {
   "where": "li/span",
-  "text": "Kuniga 20 daqiqa muloqot"
+  "text": "Tayyor javoblar — AI suhbat yo'q"
  },
  {
   "where": "li/span",
@@ -385,15 +389,15 @@
  },
  {
   "where": "article/span",
-  "text": "Ommabop"
+  "text": "Yagona obuna"
  },
  {
   "where": "article/h3",
-  "text": "Do'st"
+  "text": "Hamroh"
  },
  {
   "where": "article/p",
-  "text": "Kundalik ta'lim uchun eng maqbul reja"
+  "text": "Ovoz, uchta til va butun kutubxona — hammasi bitta rejada"
  },
  {
   "where": "p/span",
@@ -401,7 +405,15 @@
  },
  {
   "where": "div/p",
-  "text": "yoki 290 000 so'm/yil — 2 oy sovg'a"
+  "text": "yoki 300 000 so'm/yil — 2 oy sovg'a"
+ },
+ {
+  "where": "li/span",
+  "text": "Kuniga 100 xabar"
+ },
+ {
+  "where": "li/span",
+  "text": "Ovozli suhbat"
  },
  {
   "where": "li/span",
@@ -409,11 +421,7 @@
  },
  {
   "where": "li/span",
-  "text": "Kuniga 30 ta AI suhbat"
- },
- {
-  "where": "li/span",
-  "text": "To'liq kutubxona va dars yordami"
+  "text": "To'liq kutubxona"
  },
  {
   "where": "li/span",
@@ -422,34 +430,6 @@
  {
   "where": "article/a",
   "text": "Obuna bo'lish"
- },
- {
-  "where": "article/h3",
-  "text": "Hamroh"
- },
- {
-  "where": "article/p",
-  "text": "Butun oila uchun to'liq imkoniyatlar"
- },
- {
-  "where": "div/p",
-  "text": "yoki 590 000 so'm/yil"
- },
- {
-  "where": "li/span",
-  "text": "Kuniga 200 ta AI suhbat"
- },
- {
-  "where": "li/span",
-  "text": "Ovozli suhbat"
- },
- {
-  "where": "li/span",
-  "text": "2 ta bola uchun alohida profil"
- },
- {
-  "where": "li/span",
-  "text": "Premium kontent va aksessuarlar"
  },
  {
   "where": "div/h2",
@@ -465,7 +445,7 @@
  },
  {
   "where": "div/p",
-  "text": "Ha, DUYO'ning asosiy funksiyalari bepul. Bepul rejada kuniga 20 daqiqa davomida suhbatlashish va kutubxonaning bir qismidan foydalanish mumkin. Cheksizroq muloqot, qo'shimcha tillar va dars yordami uchun \"Do'st\" yoki \"Hamroh\" obunasini tanlashingiz mumkin."
+  "text": "Ha, DUYO'ni bepul boshlash mumkin. Bepul rejada kuniga 20 ta xabar, bitta til va kutubxonaning bir qismi bor. Kuniga 100 ta xabar, ovozli suhbat, uchta til va butun kutubxona uchun bitta obuna bor — \"Hamroh\", oyiga 30 000 so'm."
  },
  {
   "where": "button/span",
@@ -529,7 +509,7 @@
  },
  {
   "where": "div/p",
-  "text": "Foydalanish to'liq bepul, ro'yxatdan o'tish oddiy"
+  "text": "Boshlash bepul, ro'yxatdan o'tish oddiy"
  },
  {
   "where": "div/h2",
