@@ -82,9 +82,11 @@ async def extract_memory_candidate(message: str) -> MemoryCandidate | None:
                 system_instruction=MEMORY_CANDIDATE_EXTRACT_PROMPT,
                 max_output_tokens=250,
                 temperature=0.0,  # extraction, not creativity
-                thinking_config=types.ThinkingConfig(
-                    thinking_budget=settings.gemini_thinking_budget_flash
-                ),
+                # Pinned at 0 rather than inheriting the app default: this is a
+                # 250-token extraction that runs on EVERY turn, and reasoning
+                # about whether a sentence is worth remembering costs latency
+                # the child feels while adding nothing to a yes/no.
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
                 response_mime_type="application/json",
             ),
         )

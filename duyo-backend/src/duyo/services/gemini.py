@@ -197,9 +197,11 @@ async def chat_with_web_search(
         f"{base_prompt}\n\n"
         "MUHIM: bu savolga javob berish uchun Google Search bilan internetdan "
         "qidir. Savolga ANIQ va to'g'ridan-to'g'ri javob ber — savol aynan "
-        "nimani so'rasa, o'shanga qisqa va tushunarli javob qaytar; topilgan "
-        "sahifalarni umumlashtirma yoki qayta hikoya qilma, balki ulardan "
-        "savolga kerakli aniq ma'lumotni olib o'z so'zing bilan javob ber. "
+        "nimani so'rasa, o'shanga javob qaytar; topilgan sahifalarni "
+        "qayta hikoya qilma, balki ulardan savolga kerakli aniq ma'lumotni "
+        "olib o'z so'zing bilan javob ber. Agar savol tushuntirish so'rasa — "
+        "sabab, misol yoki qadamlar kerak bo'lsa — to'liq tushuntir; "
+        "qisqartirish faqat savol qisqa javob so'raganda o'rinli. "
         "Agar savol yil yoki sana so'rasa (masalan tarixiy voqea), ANIQ "
         "yil/sanani ayt — mavhum yoki taxminiy javob berma. "
         "Bu javob darslikdan EMAS — 'darsligiga ko'ra' kabi iboralarni "
@@ -376,7 +378,13 @@ async def solve_on_board(*, question: str, age_segment: AgeSegment) -> dict:
             contents=f"Bola aytdi: {question}",
             config=types.GenerateContentConfig(
                 system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{BOARD_PROMPT}",
-                max_output_tokens=800,
+                # 1600, not 800. BOARD_PROMPT asks for a curve of "15-40 nuqta";
+                # a 40-point figure alone serialises to ~480 output tokens and
+                # the whole board to ~745 — past the old cap. Over it, the JSON
+                # is cut mid-object, json.loads raises, and the blanket except
+                # returns _NO_BOARD. So the board silently failed to appear on
+                # exactly the graph problems it was most wanted for.
+                max_output_tokens=1600,
                 temperature=0.2,  # deterministic — arithmetic must not wander
                 thinking_config=types.ThinkingConfig(
                     thinking_budget=settings.gemini_thinking_budget_flash

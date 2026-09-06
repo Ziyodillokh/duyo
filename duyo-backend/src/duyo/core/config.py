@@ -59,7 +59,11 @@ class Settings(BaseSettings):
     gemini_live_input_sample_rate: int = 16_000
     gemini_live_output_sample_rate: int = 24_000
     gemini_temperature: float = 0.7
-    gemini_max_output_tokens: int = 2000
+    #: 4000, not 2000, because reasoning tokens are counted in this budget
+    #: since thinking was turned back on. A narrated Uzbek worked explanation
+    #: measures ~470 tokens; the rest is headroom for the thinking that
+    #: produces it.
+    gemini_max_output_tokens: int = 4000
     #: Hard ceiling on ONE Gemini HTTP request, in milliseconds.
     #:
     #: The SDK has no default, so an unanswered request waits forever and the
@@ -68,7 +72,19 @@ class Settings(BaseSettings):
     #: mobile client's own 60s ceiling so the SERVER decides to fall back,
     #: rather than the child watching a spinner until the app gives up.
     gemini_request_timeout_ms: int = 30_000
-    gemini_thinking_budget_flash: int = 0  # Flash thinking off, Pro always-on
+    #: Flash reasoning budget. -1 is the model's own default: think as much as
+    #: the question needs.
+    #:
+    #: This was 0, which is not "cheaper Flash" — it is Flash with reasoning
+    #: switched off, a single forward pass. Every call in the app inherited it,
+    #: including the ones that work through a maths problem for a child, and
+    #: the result was exactly what it sounds like: fluent, plausible, and
+    #: shallow. The comment beside it claimed "Pro always-on", which was also
+    #: untrue — nothing in the repository ever passes use_pro.
+    #:
+    #: Thinking tokens bill as output AND count inside max_output_tokens on
+    #: 2.5, so the cap moves with it or the cap becomes the new gag.
+    gemini_thinking_budget_flash: int = -1
 
     # Personal-memory candidate extraction (local-first memory — see
     # services/memory_candidates.py). The extractor never writes to Postgres;

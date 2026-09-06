@@ -60,9 +60,12 @@ async def classify(child_message: str, layer1_level: CrisisLevel) -> Layer2Resul
                 system_instruction=CRISIS_LAYER2_PROMPT,
                 max_output_tokens=400,
                 temperature=0.2,  # deterministic for safety classifier
-                thinking_config=types.ThinkingConfig(
-                    thinking_budget=settings.gemini_thinking_budget_flash
-                ),
+                # Pinned at 0. This classifier runs inside _CRISIS_BUDGET_S = 12s
+                # on the turn's critical path, and the whole design is that it
+                # fails SAFE on timeout — spending 1-3s of reasoning here buys
+                # marginal accuracy at the cost of the deadline that guarantees
+                # an answer at all.
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
                 response_mime_type="application/json",
             ),
         )
