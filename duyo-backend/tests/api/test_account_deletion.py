@@ -265,3 +265,142 @@ def test_the_route_answers_nothing_and_erases(session):
 
     assert _run(me_module.delete_me(current_user=user, db=session)) is None
     assert _run(session.scalar(select(User))) is None
+
+
+# ── The 13+ age floor ────────────────────────────────────────────────────────
+#
+# `delete_children` erases named profiles and leaves the account standing.
+# scripts/purge_under_13.py needs the case `delete_account` cannot cover: one
+# family holding a child who is old enough alongside one who is not.
+#
+# The profiles it targets in production are below 13, which nothing here can
+# build — `ck_child_age_range` is on the model, so create_all puts it on the
+# test database too, and that is the floor doing its job. Those rows predate
+# it. The deletion never looks at age anyway: it erases the ids it is handed,
+# and the age question is answered by the script's survey.
+
+
+def _second_child(session, user, *, name="Kichkina") -> ChildProfile:
+    """Another profile on the same account — the one that gets purged."""
+    child = ChildProfile(
+        id=uuid4(),
+        parent_id=user.id,
+        name=name,
+        age=13,
+        age_segment=AgeSegment.from_age(13),
+        language=Language.UZ,
+        interests=[],
+    )
+    session.add(child)
+    _run(session.flush())
+    return child
+
+
+def test_only_the_named_child_goes_and_the_family_stays(session):
+    """The whole reason this is not `delete_account` on the parent."""
+    user, kept = _family(session)
+    purged = _second_child(session, user)
+    for child in (kept, purged):
+        conv = Conversation(id=uuid4(), child_id=child.id)
+        session.add(conv)
+        session.add(
+            Message(
+                id=uuid4(),
+                conversation_id=conv.id,
+                role=MessageRole.CHILD,
+                content=child.name,
+            )
+        )
+    _run(session.commit())
+
+    receipt = _run(account_deletion.delete_children(session, [purged.id]))
+
+    assert receipt.children == 1
+    assert _run(session.scalar(select(User).where(User.id == user.id))) is not None
+    assert [c.id for c in _run(session.scalars(select(ChildProfile))).all()] == [kept.id]
+    # The cascade reached the purged child's conversation and stopped there.
+    assert [m.content for m in _run(session.scalars(select(Message))).all()] == [kept.name]
+
+
+def test_the_purged_childs_safety_record_is_de_identified_not_deleted(session):
+    """Same seven-year carve-out as a family-requested erasure."""
+    user, _kept = _family(session)
+    purged = _second_child(session, user)
+    session.add(
+        CrisisEvent(
+            id=uuid4(),
+            child_id=purged.id,
+            level=CrisisLevel.RED,
+            layer=1,
+            matches=[{"keyword": "x", "category": "self_harm", "language": "uz"}],
+        )
+    )
+    _run(session.commit())
+
+    receipt = _run(account_deletion.delete_children(session, [purged.id]))
+
+    assert receipt.crisis_events_retained == 1
+    row = _run(session.scalar(select(CrisisEvent)))
+    assert row is not None
+    assert row.child_id is None
+    assert row.level is CrisisLevel.RED
+
+
+def test_the_purged_childs_own_login_goes_but_the_account_does_not(session):
+    """A child with their own phone loses it; the parent keeps theirs.
+
+    `keep_user_ids` is what separates the two — without it the account holder
+    would be swept up by the same query that finds the child's login.
+    """
+    user, _kept = _family(session)
+    login = User(id=uuid4(), phone="+998907654321")
+    session.add(login)
+    _run(session.flush())
+    purged = _second_child(session, user)
+    purged.child_user_id = login.id
+    _run(session.commit())
+
+    _run(account_deletion.delete_children(session, [purged.id]))
+
+    assert {u.id for u in _run(session.scalars(select(User))).all()} == {user.id}
+
+
+def test_the_purged_childs_recording_leaves_the_bucket(session, _no_side_effects):
+    """The transcript is the moderation record; the voice is not."""
+    user, _kept = _family(session)
+    purged = _second_child(session, user)
+    purged.photo_key = "kichkina.jpg"
+    session.add(
+        GroupMessage(
+            id=uuid4(),
+            group_key="kitoblar:explorer",
+            sender_child_id=purged.id,
+            sender_name="Bek-12",
+            body="salom",
+            media_key="kichkina.webm",
+            media_kind="audio",
+            media_duration_ms=900,
+        )
+    )
+    _run(session.commit())
+
+    receipt = _run(account_deletion.delete_children(session, [purged.id]))
+
+    assert receipt.media_objects == 2
+    assert sorted(_no_side_effects) == ["kichkina.jpg", "kichkina.webm"]
+    note = _run(session.scalar(select(GroupMessage)))
+    assert note is not None
+    assert note.body == "salom"
+    assert note.media_key is None
+
+
+def test_nothing_named_is_nothing_done(session):
+    """The script calls this with whatever the survey found, empty included."""
+    user, kept = _family(session)
+    _run(session.commit())
+
+    receipt = _run(account_deletion.delete_children(session, []))
+
+    assert receipt.children == 0
+    assert _run(session.scalar(select(ChildProfile))).id == kept.id
+    assert _run(session.scalar(select(User))).id == user.id

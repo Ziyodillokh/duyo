@@ -141,6 +141,11 @@ extend-immutable-calls = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Bind the suite to THIS checkout. Without it an editable install of
+# duyo-backend somewhere else on the machine shadows src/ and the tests
+# quietly exercise that tree instead — a green run proving nothing about
+# the code you are standing in.
+pythonpath = ["src"]
 # 79, not 80. The MVP cleanup deleted the parent-side modules (the family
 # invite router, the 10-day report generator and its guidance pass) and the
 # ~450 statements they contributed were among the best-tested in the repo,
