@@ -50,6 +50,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_db
+from duyo.billing import limits, tiers
 from duyo.core.config import get_settings
 from duyo.core.security import decode_token, is_current
 from duyo.crisis.detector import CrisisCategory as L1Category
@@ -158,6 +159,20 @@ async def voice_ws(
     )
     if child is None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="child not found")
+        return
+
+    # Voice is the one thing the paid plan is actually sold on, and until now
+    # nothing checked it: `Tier.voice` was declared False for free, True for
+    # paid, and read nowhere. Free accounts had the whole Gemini Live session —
+    # the most expensive call the app makes — while the paywall advertised it
+    # as the reason to pay. The tier table said one thing and the server did
+    # another; this is the table being true.
+    tier_key = await limits.active_tier_key_for_user(db, user.id)
+    tier = tiers.get_tier(tier_key) or tiers.get_tier(tiers.FREE)
+    if not tier.voice:
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="subscription required"
+        )
         return
 
     conv: Conversation | None = None

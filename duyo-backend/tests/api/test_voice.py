@@ -12,6 +12,7 @@ import json
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -20,6 +21,7 @@ from fastapi.testclient import TestClient
 
 from duyo.api.deps import get_db
 from duyo.api.v1.voice import get_voice_session_factory
+from duyo.billing import tiers
 from duyo.core.security import create_token
 from duyo.main import app
 from duyo.models.child import AgeSegment, ChildProfile, Language
@@ -61,10 +63,24 @@ class FakeAsyncSession:
     committed: bool = False
     rolled_back: bool = False
 
+    #: (tier, expires_at) for the subscription lookup the voice gate makes.
+    #: Defaults to a live paid plan: these tests are about the voice TURN, and
+    #: every one of them would otherwise stop at the paywall.
+    subscription: Any = None
+
     async def scalar(self, _stmt: Any) -> Any:
         if not self.scalar_queue:
             raise AssertionError("FakeAsyncSession.scalar called with no queued response")
         return self.scalar_queue.pop(0)
+
+    async def execute(self, _stmt: Any) -> Any:
+        row = self.subscription if self.subscription is not None else (tiers.PREMIUM, None)
+
+        class _R:
+            def first(_self):
+                return row
+
+        return _R()
 
     def add(self, obj: Any) -> None:
         if hasattr(obj, "id") and getattr(obj, "id", None) is None:
@@ -216,6 +232,42 @@ def test_voice_rejects_when_child_not_found(
     client = TestClient(configured_app)
     with pytest.raises(Exception), client.websocket_connect(
         f"/v1/chat/voice?token={access_token}&child_id={uuid.uuid4()}"
+    ) as ws:
+        ws.receive_json()
+
+
+def test_voice_rejects_a_free_account(
+    configured_app, db_session, access_token, user, child
+):
+    """`Tier.voice` was declared False for free and read nowhere.
+
+    Free accounts had the whole Gemini Live session — the most expensive call
+    the app makes — while the paywall sold it as the reason to pay.
+    """
+    db_session.scalar_queue = [user, child]
+    db_session.subscription = (tiers.FREE, None)
+    factory = make_voice_session_factory([LiveEvent(kind="turn_complete")])
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+
+    client = TestClient(configured_app)
+    with pytest.raises(Exception), client.websocket_connect(
+        f"/v1/chat/voice?token={access_token}&child_id={child.id}"
+    ) as ws:
+        ws.receive_json()
+
+
+def test_voice_rejects_a_lapsed_paid_account(
+    configured_app, db_session, access_token, user, child
+):
+    """Expiry is the same gate — a plan that ran out is worth the free tier."""
+    db_session.scalar_queue = [user, child]
+    db_session.subscription = (tiers.PREMIUM, datetime(2020, 1, 1, tzinfo=UTC))
+    factory = make_voice_session_factory([LiveEvent(kind="turn_complete")])
+    app.dependency_overrides[get_voice_session_factory] = lambda: factory
+
+    client = TestClient(configured_app)
+    with pytest.raises(Exception), client.websocket_connect(
+        f"/v1/chat/voice?token={access_token}&child_id={child.id}"
     ) as ws:
         ws.receive_json()
 

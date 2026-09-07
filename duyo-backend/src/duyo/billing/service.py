@@ -55,6 +55,47 @@ async def activate_subscription(
     return sub
 
 
+def active_tier_key(tier: str | None, expires_at: datetime | None, *, now: datetime | None = None) -> str:
+    """The tier a subscription actually confers right now.
+
+    `expires_at` was written by every activation and read by nothing, so a paid
+    plan never lapsed: one month's payment bought the tier permanently. It also
+    made "cancel, and keep it until the period ends" impossible to offer, since
+    leaving the tier in place would have left it in place forever.
+
+    A row past its expiry is worth the free tier. The row itself is not
+    rewritten — expiry is a fact about the clock, and a background job that
+    edits subscriptions is a background job that can get it wrong while nobody
+    is looking.
+    """
+    if not tier or tier == tiers.FREE:
+        return tiers.FREE
+    if expires_at is None:
+        # A paid tier with no expiry is a grant, not a purchase — the mock
+        # activation path and anything set by hand. Left alone deliberately.
+        return tier
+    if expires_at <= (now or datetime.now(UTC)):
+        return tiers.FREE
+    return tier
+
+async def stop_renewal(db: AsyncSession, user_id: UUID) -> Subscription:
+    """Cancel, keeping what was paid for until the period it covers ends.
+
+    The confirmation dialog has always said "to'langan muddat oxirigacha
+    ishlaydi" and the published terms say the same, while the server dropped
+    the tier the moment the button was pressed. This is the promise, kept: the
+    tier and `expires_at` stay, the status says it will not renew, and
+    `active_tier_key` returns free once the date passes.
+    """
+    sub = await get_or_create_subscription(db, user_id)
+    if sub.tier != tiers.FREE and sub.expires_at is not None:
+        sub.status = "cancelled"
+        await db.flush()
+        return sub
+    # No paid period to run out — nothing to keep, so revert outright.
+    return await revert_to_free(db, user_id)
+
+
 async def revert_to_free(
     db: AsyncSession, user_id: UUID, *, only_if_tier: str | None = None,
 ) -> Subscription:

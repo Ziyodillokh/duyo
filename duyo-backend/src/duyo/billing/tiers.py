@@ -47,12 +47,27 @@ class Tier:
     features: list[str] = field(default_factory=list)
 
 
+# These two lists are what the paywall in the app and the pricing section on
+# the site both render, so every line has to be something the server actually
+# does. Four of them were not: free was sold as "scripted javoblar" while it
+# received the full Gemini model, and paid was sold on "3 til", "barcha
+# kontent" and "to'liq gamifikatsiya", none of which any endpoint checks.
+# `languages` and `ai_turns_per_day` are still on the dataclass and still
+# unenforced — they are not advertised any more, which is the part that
+# mattered.
+#
+# What genuinely separates the plans: the daily message ceiling, and voice.
 _TIERS: dict[str, Tier] = {
     FREE: Tier(
         key=FREE, name="Tanish", price_monthly=0, price_yearly=0,
         daily_message_limit=20, ai_turns_per_day=0, languages=1,
         voice=False, max_children=1,
-        features=["20 xabar/kun", "1 til", "Scripted javoblar", "20 she'r"],
+        features=[
+            "Kuniga 20 xabar",
+            "Matnli suhbat",
+            "Kutubxona, she'rlar va ertaklar",
+            "Maqsadlar va tengdoshlar bilan suhbat",
+        ],
     ),
     PREMIUM: Tier(
         key=PREMIUM, name="Hamroh", price_monthly=30_000, price_yearly=300_000,
@@ -61,9 +76,7 @@ _TIERS: dict[str, Tier] = {
         features=[
             "Kuniga 100 xabar",
             "Ovozli suhbat",
-            "3 til",
-            "Barcha kontent",
-            "To'liq gamifikatsiya",
+            "Bepul rejadagi hamma narsa",
         ],
     ),
 }

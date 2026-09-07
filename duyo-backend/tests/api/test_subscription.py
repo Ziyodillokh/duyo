@@ -117,16 +117,35 @@ def test_subscribe_rejects_free_tier_at_schema():
 
 # ── Cancel ───────────────────────────────────────────────────────────────────
 
-def test_cancel_reverts_to_free():
+def test_cancel_keeps_what_was_paid_for_until_the_period_ends():
+    """The dialog and terms.html §8 both promise this.
+
+    The server used to drop the tier on the tap, so a child who cancelled on
+    day two of a month they had paid for lost it on day two.
+    """
     user = _User(uuid4())
-    from datetime import datetime
+    from datetime import datetime, timedelta
+    ends = datetime.now(UTC) + timedelta(days=20)
     existing = Subscription(
-        user_id=user.id, tier="premium", status="active", provider="mock",
-        started_at=datetime.now(UTC), expires_at=datetime.now(UTC),
+        user_id=user.id, tier="premium", status="active", provider="click",
+        started_at=datetime.now(UTC), expires_at=ends,
     )
     db = _FakeSession(scalars_queue=[existing])
     sub = _run(sub_api.cancel(current_user=user, db=db))
+    assert sub.tier == "premium"      # still theirs
+    assert sub.expires_at == ends     # until the day they paid through
+    assert sub.status == "cancelled"  # and it will not renew
+    assert db.flushed
+
+
+def test_cancelling_something_with_no_paid_period_reverts_outright():
+    """A hand-granted tier has no date to run out, so there is nothing to keep."""
+    user = _User(uuid4())
+    existing = Subscription(
+        user_id=user.id, tier="premium", status="active", provider="mock",
+        started_at=None, expires_at=None,
+    )
+    db = _FakeSession(scalars_queue=[existing, existing])
+    sub = _run(sub_api.cancel(current_user=user, db=db))
     assert sub.tier == tiers.FREE
     assert sub.provider is None
-    assert sub.expires_at is None
-    assert db.flushed

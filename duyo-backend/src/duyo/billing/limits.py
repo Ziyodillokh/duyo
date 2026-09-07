@@ -17,7 +17,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from duyo.billing import tiers
+from duyo.billing import service, tiers
 from duyo.models.child import ChildProfile
 from duyo.models.conversation import Conversation
 from duyo.models.message import Message, MessageRole
@@ -32,12 +32,23 @@ class LimitStatus:
     tier: str
 
 
-async def _user_tier_key(session: AsyncSession, user_id: UUID) -> str:
-    """Resolve the user's tier; missing subscription → free (implicit default)."""
-    tier_key = await session.scalar(
-        select(Subscription.tier).where(Subscription.user_id == user_id)
-    )
-    return tier_key or tiers.FREE
+async def _user_tier_key(session: AsyncSession, user_id: UUID, now: datetime) -> str:
+    """Resolve the user's tier; missing subscription → free (implicit default).
+
+    Goes through `active_tier_key` so an EXPIRED paid plan counts as free.
+    Reading `Subscription.tier` alone is what made a one-month purchase last
+    forever.
+    """
+    row = (
+        await session.execute(
+            select(Subscription.tier, Subscription.expires_at).where(
+                Subscription.user_id == user_id
+            )
+        )
+    ).first()
+    if row is None:
+        return tiers.FREE
+    return service.active_tier_key(row[0], row[1], now=now)
 
 
 async def _messages_today(session: AsyncSession, user_id: UUID, now: datetime) -> int:
@@ -58,6 +69,14 @@ async def _messages_today(session: AsyncSession, user_id: UUID, now: datetime) -
     return int(count or 0)
 
 
+async def active_tier_key_for_user(session: AsyncSession, user_id: UUID, *, now: datetime | None = None) -> str:
+    """The tier this user's plan confers right now — expiry included.
+
+    Public because the voice gate needs the same answer the daily limit uses,
+    and two ways of asking would be two answers waiting to disagree.
+    """
+    return await _user_tier_key(session, user_id, now or datetime.now(UTC))
+
 async def check_daily_message_limit(
     session: AsyncSession, user_id: UUID, *, now: datetime | None = None
 ) -> LimitStatus:
@@ -67,7 +86,7 @@ async def check_daily_message_limit(
     limit. The endpoint decides what to do (e.g. 429) from this status.
     """
     now = now or datetime.now(UTC)
-    tier_key = await _user_tier_key(session, user_id)
+    tier_key = await _user_tier_key(session, user_id, now)
     tier = tiers.get_tier(tier_key) or tiers.get_tier(tiers.FREE)
     limit = tier.daily_message_limit
 

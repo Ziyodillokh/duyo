@@ -37,8 +37,22 @@ async def list_plans() -> list[TierInfo]:
 async def current_subscription(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> Subscription:
-    return await service.get_or_create_subscription(db, current_user.id)
+) -> SubscriptionRead:
+    """The plan as it stands TODAY.
+
+    Reports what `billing/limits.py` will actually enforce. Returning the
+    stored row unchanged would show a lapsed plan as still paid, so the screen
+    would say premium while every message was counted against the free
+    allowance — and the child would have no way to tell which was true.
+    """
+    sub = await service.get_or_create_subscription(db, current_user.id)
+    return SubscriptionRead(
+        tier=service.active_tier_key(sub.tier, sub.expires_at),
+        status=sub.status,
+        provider=sub.provider,
+        started_at=sub.started_at,
+        expires_at=sub.expires_at,
+    )
 
 
 @router.post("/subscribe", response_model=SubscriptionRead)
@@ -77,8 +91,10 @@ async def cancel(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Subscription:
-    """Cancel the paid plan → revert to free immediately (MVP).
+    """Stop the plan renewing, keeping it until the paid period ends.
 
-    (A grace period until expires_at is a future refinement.)
+    Not an immediate revert: the confirmation dialog and terms.html §8 both
+    say access lasts to the end of what was paid for, and the server used to
+    take it away on the tap.
     """
-    return await service.revert_to_free(db, current_user.id)
+    return await service.stop_renewal(db, current_user.id)
