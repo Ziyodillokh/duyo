@@ -784,6 +784,8 @@ const UZ = {
   'settings.privacyScreen.closeAccountBody': "Hisobingni yopsak, DUYO'dagi hamma narsang o'chadi: suhbatlaring, xotiralaring, qaydlaring va maqsadlaring. Buni ortga qaytarib bo'lmaydi.",
   'settings.privacyScreen.closeAccountConfirm': "Ha, o'chirilsin",
   'settings.privacyScreen.closeAccountConfirmBody': "Bu oxirgi savol. Bosishing bilan hisobing va barcha ma'lumotlaring darhol o'chiriladi.",
+  'settings.privacyScreen.closeAccountTypeWord': "Tasdiqlash uchun pastga {word} deb yozing. Bu qaytarilmaydi.",
+  'settings.privacyScreen.closeAccountWord': 'DUYO',
   'settings.privacyScreen.closeAccountConfirmTitle': "Rostdan ham o'chirilsinmi?",
 
   // ── extracted from screens ──────────────────────────────────
@@ -1607,6 +1609,8 @@ const RU: Record<TranslationKey, string> = {
   'settings.privacyScreen.closeAccountBody': 'Если закроем аккаунт, из DUYO исчезнет всё: разговоры, воспоминания, заметки и цели. Вернуть это будет нельзя.',
   'settings.privacyScreen.closeAccountConfirm': 'Да, удалить',
   'settings.privacyScreen.closeAccountConfirmBody': 'Это последний вопрос. Как только нажмёшь, аккаунт и все данные удалятся сразу.',
+  'settings.privacyScreen.closeAccountTypeWord': 'Для подтверждения напишите ниже {word}. Это необратимо.',
+  'settings.privacyScreen.closeAccountWord': 'DUYO',
   'settings.privacyScreen.closeAccountConfirmTitle': 'Точно удалить?',
 
   // ── extracted from screens ──────────────────────────────────
@@ -2428,6 +2432,8 @@ const EN: Record<TranslationKey, string> = {
   'settings.privacyScreen.closeAccountBody': "If we close your account, everything in DUYO goes: your chats, your memories, your notes and your goals. There's no undoing it.",
   'settings.privacyScreen.closeAccountConfirm': 'Yes, delete it',
   'settings.privacyScreen.closeAccountConfirmBody': 'This is the last question. The moment you tap, your account and everything in it is gone.',
+  'settings.privacyScreen.closeAccountTypeWord': 'Type {word} below to confirm. This cannot be undone.',
+  'settings.privacyScreen.closeAccountWord': 'DUYO',
   'settings.privacyScreen.closeAccountConfirmTitle': 'Really delete it?',
 
   // ── extracted from screens ──────────────────────────────────

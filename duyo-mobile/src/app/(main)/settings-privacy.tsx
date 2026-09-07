@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import {
   ArrowLeft,
@@ -13,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -64,6 +66,28 @@ export default function PrivacySettingsScreen() {
    * "are you sure?" does not tell a thirteen-year-old that their chats,
    * memories and notes go with it.
    */
+  /** Non-null while the typed confirmation is open; the text typed so far. */
+  const [confirmText, setConfirmText] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+
+  const confirmWord = t('settings.privacyScreen.closeAccountWord');
+  const canClose = confirmText?.trim().toUpperCase() === confirmWord.toUpperCase();
+
+  const reallyClose = () => {
+    setClosing(true);
+    void deleteMe()
+      // Signing out locally is what the child sees as "it happened"; the
+      // server has already cascaded by now.
+      .then(() => clearAuth())
+      .catch(() => {
+        setClosing(false);
+        Alert.alert(
+          t('settings.privacyScreen.closeAccountLabel'),
+          t('common.checkInternetRetry'),
+        );
+      });
+  };
+
   const handleCloseAccount = () => {
     Alert.alert(
       t('settings.privacyScreen.closeAccountLabel'),
@@ -73,30 +97,12 @@ export default function PrivacySettingsScreen() {
         {
           text: t('common.continue'),
           style: 'destructive',
-          onPress: () =>
-            Alert.alert(
-              t('settings.privacyScreen.closeAccountConfirmTitle'),
-              t('settings.privacyScreen.closeAccountConfirmBody'),
-              [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                  text: t('settings.privacyScreen.closeAccountConfirm'),
-                  style: 'destructive',
-                  onPress: () => {
-                    void deleteMe()
-                      // Signing out locally is what the child sees as "it
-                      // happened"; the server has already cascaded by now.
-                      .then(() => clearAuth())
-                      .catch(() =>
-                        Alert.alert(
-                          t('settings.privacyScreen.closeAccountLabel'),
-                          t('common.checkInternetRetry'),
-                        ),
-                      );
-                  },
-                },
-              ],
-            ),
+          // Not a second dialog. Play's pre-launch report drives a Robo
+          // crawler that taps every button it finds, dialog buttons included —
+          // so two confirmations are two taps, and the account it would close
+          // is the reviewer's own. Typing a word is something a crawler does
+          // not do, and it is the standard shape for an irreversible action.
+          onPress: () => setConfirmText(''),
         },
       ],
     );
@@ -242,6 +248,60 @@ export default function PrivacySettingsScreen() {
                 </View>
               </Pressable>
             ))}
+
+            {confirmText !== null && (
+              <View style={[glass(20, 'md'), styles.confirmCard]}>
+                <Text style={styles.confirmTitle}>
+                  {t('settings.privacyScreen.closeAccountConfirmTitle')}
+                </Text>
+                <Text style={styles.confirmBody}>
+                  {t('settings.privacyScreen.closeAccountTypeWord', {
+                    word: confirmWord,
+                  })}
+                </Text>
+                <TextInput
+                  value={confirmText}
+                  onChangeText={setConfirmText}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  editable={!closing}
+                  placeholder={confirmWord}
+                  placeholderTextColor={MUTED}
+                  style={styles.confirmInput}
+                  accessibilityLabel={t('settings.privacyScreen.closeAccountTypeWord', {
+                    word: confirmWord,
+                  })}
+                />
+                <View style={styles.confirmRow}>
+                  <Pressable
+                    onPress={() => setConfirmText(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.cancel')}
+                    style={[styles.confirmBtn, styles.focusable]}
+                  >
+                    <Text style={styles.confirmBtnText}>{t('common.cancel')}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={reallyClose}
+                    disabled={!canClose || closing}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('settings.privacyScreen.closeAccountConfirm')}
+                    style={[
+                      styles.confirmBtn,
+                      styles.confirmBtnDanger,
+                      (!canClose || closing) && styles.confirmBtnOff,
+                      styles.focusable,
+                    ]}
+                  >
+                    <Text style={styles.confirmBtnDangerText}>
+                      {closing
+                        ? t('common.sending')
+                        : t('settings.privacyScreen.closeAccountConfirm')}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -250,6 +310,32 @@ export default function PrivacySettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  confirmCard: { gap: 10, marginTop: 12, padding: 16 },
+  confirmTitle: { color: DANGER, fontSize: 15, fontWeight: '700' },
+  confirmBody: { color: INK, fontSize: 13.5, lineHeight: 19 },
+  confirmInput: {
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderColor: 'rgba(34,64,111,0.18)',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: INK,
+    fontSize: 15,
+    letterSpacing: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  confirmRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
+  confirmBtn: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 12,
+    flex: 1,
+    paddingVertical: 12,
+  },
+  confirmBtnDanger: { backgroundColor: DANGER },
+  confirmBtnDangerText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  confirmBtnOff: { opacity: 0.45 },
+  confirmBtnText: { color: INK, fontSize: 14, fontWeight: '600' },
   header: {
     height: 68,
     flexDirection: 'row',

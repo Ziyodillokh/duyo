@@ -21,7 +21,14 @@ from duyo.schemas.auth import (
     TokenResponse,
 )
 from duyo.services import rate_limit, token_revocation
-from duyo.services.otp import OTPInvalid, OTPRateLimited, demo_code, issue, verify
+from duyo.services.otp import (
+    OTPInvalid,
+    OTPRateLimited,
+    demo_code,
+    is_test_number,
+    issue,
+    verify,
+)
 from duyo.services.sms import SMSNumberRejected, get_sms_provider, otp_message
 
 log = logging.getLogger(__name__)
@@ -67,6 +74,14 @@ async def send_otp(payload: OTPRequest, request: Request) -> dict[str, str]:
     # this the screen tells the tester to check for an SMS that never arrives.
     if demo_code():
         return {"status": "demo", "phone": payload.phone, "demo_code": demo_code()}
+
+    # A configured test number has a fixed code and no SIM behind it. `issue()`
+    # already skipped Redis and SMS for it; sending anyway asks Eskiz to text a
+    # number that does not exist, which comes back as SMSNumberRejected and a
+    # 422 below. That is the login a Play reviewer is handed, so the bypass has
+    # to reach all the way out of the route.
+    if is_test_number(payload.phone):
+        return {"status": "test", "phone": payload.phone}
 
     # Body comes from services/sms.py, which holds the Eskiz-approved wording
     # for every message the app sends. Eskiz rejects anything off-template, so

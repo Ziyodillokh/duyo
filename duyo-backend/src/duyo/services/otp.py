@@ -59,6 +59,17 @@ def demo_code() -> str:
     return get_settings().otp_demo_code
 
 
+def is_test_number(phone: str) -> bool:
+    """Is this one of the fixed-code numbers OTP_TEST_NUMBERS configures?
+
+    Public because the send route has to know. `issue()` already skips Redis
+    and SMS for these, but the route then sent the SMS anyway — and for a
+    number with no SIM behind it, Eskiz rejects it and the caller gets a 422.
+    That dead-ends the one account a Play reviewer is given, which is the exact
+    thing the setting exists to prevent.
+    """
+    return phone in _test_numbers()
+
 async def issue(phone: str) -> str:
     """Generate, store, and return a new OTP for `phone`.
 
