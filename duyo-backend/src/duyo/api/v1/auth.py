@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_current_user, get_db
+from duyo.billing import service, tiers
 from duyo.core.config import get_settings
 from duyo.core.security import create_token, decode_token, is_current
 from duyo.models.user import User
@@ -141,6 +142,22 @@ async def verify_otp(
             status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create account"
         )
     user.last_login_at = datetime.now(UTC)
+
+    # A review account sees the whole app. Play states plainly that its
+    # reviewers will not buy a subscription or take a free trial, and that an
+    # app they cannot fully reach may be rejected — and voice, the one feature
+    # the paid tier is sold on, is now gated. So the numbers configured in
+    # OTP_TEST_NUMBERS are granted the paid tier on login.
+    #
+    # No new exposure: a phone in that setting already bypasses SMS entirely
+    # and accepts a fixed code, so anyone who could reach this could already
+    # reach the account. Re-granted on every login rather than once, because
+    # a review can come months after the row was made and the grant would
+    # otherwise have lapsed.
+    if is_test_number(payload.phone):
+        await service.activate_subscription(
+            db, user.id, tiers.PREMIUM, "yearly", provider="review",
+        )
 
     # Someone may have invited this phone into their family. Surface that as
     # an OFFER only — accepting it is a separate, deliberate act by this
