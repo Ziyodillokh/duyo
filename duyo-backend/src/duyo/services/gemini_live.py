@@ -32,6 +32,7 @@ from google import genai
 from google.genai import types
 
 from duyo.core.config import get_settings
+from duyo.services.gemini import SAFETY_SETTINGS
 
 LiveEventKind = Literal[
     "audio",          # PCM chunk (24000Hz mono 16-bit) to forward to client
@@ -151,6 +152,11 @@ class GeminiVoiceSession:
     async def __aenter__(self) -> GeminiVoiceSession:
         client = _get_live_client()
         config = types.LiveConnectConfig(
+            # The same explicit thresholds the text paths use. A live session
+            # is the surface where a child is most likely to push, because
+            # speaking is faster and less deliberate than typing, and the
+            # 2.5 models block nothing by default.
+            safety_settings=SAFETY_SETTINGS,
             response_modalities=[types.Modality.AUDIO],
             system_instruction=types.Content(parts=[types.Part(text=self._system_prompt)]),
             output_audio_transcription=types.AudioTranscriptionConfig(),

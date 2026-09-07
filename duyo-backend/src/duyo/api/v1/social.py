@@ -998,6 +998,23 @@ async def send_group_note(
     if kind not in ("audio", "video"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Noma'lum yozuv turi")
 
+    if kind == "video":
+        # Nothing in this codebase can LOOK at a video. The only screen a note
+        # gets is a transcript of its audio track (services/media_notes.py), so
+        # a clip whose content is in the picture — a face, a place, a body —
+        # would reach a room of 13-16 year olds having been judged on its
+        # soundtrack alone. Google's child-safety standards ask directly how
+        # imagery is moderated, and "we transcribe the sound" is not an answer.
+        #
+        # Refused rather than screened, because the shipped Android app cannot
+        # produce one in any case: CAMERA is stripped from the merged manifest
+        # (app.json blockedPermissions) and no camera module is installed. The
+        # path stays closed until there is a visual pass to open it with.
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Video xabar hozircha qo'llab-quvvatlanmaydi",
+        )
+
     content_type = storage.normalise_type(file.content_type or "")
     allowed = storage.AUDIO_TYPES if kind == "audio" else storage.VIDEO_TYPES
     if content_type not in allowed:
@@ -1068,10 +1085,12 @@ async def send_group_note(
         # `screen_peer_message` would do, since it treats an empty string as an
         # empty message and blocks it.
         #
-        # The honest limit of this: a clip whose speech the model fails to pick
-        # up also arrives as silence, and passes. Words are the only thing this
-        # path can screen, so a clip carrying risk in some other form — a face,
-        # a place — is not caught here by anything.
+        # This is now a narrow case. A clip Gemini REFUSED to transcribe used
+        # to arrive here too, indistinguishable from silence, and passed —
+        # media_notes.transcribe now returns ok=False for anything that did
+        # not finish cleanly, so those take the 503 above instead. Video is
+        # refused outright further up. What reaches this branch is an audio
+        # clip the model listened to and heard no words in.
         verdict = MessageVerdict(True, None)
 
     settings = await get_or_create_settings(db, child.id)

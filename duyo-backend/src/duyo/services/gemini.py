@@ -48,6 +48,69 @@ class GeminiReply:
     tokens_out: int | None
     sources: tuple[WebSource, ...] = field(default_factory=tuple)
 
+#: Gemini's adjustable harm categories block nothing by default on the 2.5
+#: models, so before this the only thing between a 13-year-old and sexual or
+#: violent model output was the persona prompt. Play's Generative AI policy
+#: asks what PREVENTS restricted content, and a tone-of-voice instruction is
+#: not a control.
+#:
+#: DANGEROUS_CONTENT is deliberately the loose one. That category covers
+#: self-harm, and a child telling DUYO they want to die is the single most
+#: important message the app will ever receive. A filter that refuses it would
+#: answer a suicidal teenager with silence — worse than anything it prevents.
+#: Crisis is handled by the detection layers (services/crisis*.py), which route
+#: that material to help rather than to a refusal, so the filter is set to stop
+#: only content that is severely dangerous — instructions, encouragement — and
+#: to let a disclosure through.
+#:
+#: The other three are BLOCK_MEDIUM_AND_ABOVE. Nothing a child needs from this
+#: app requires sexually explicit, hateful or harassing output.
+SAFETY_SETTINGS = [
+    types.SafetySetting(
+        category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+    ),
+    *(
+        types.SafetySetting(
+            category=category,
+            threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        )
+        for category in (
+            types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+            types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        )
+    ),
+]
+
+#: What a child sees when the filter did stop something. Blank text would read
+#: as the app being broken, and a scolding would read as an accusation.
+BLOCKED_REPLY = (
+    "Kechirasan, bu mavzuda gapira olmayman. "
+    "Boshqa narsa haqida so'rasang, bajonidil yordam beraman."
+)
+
+
+def reply_text(resp) -> str:
+    """The model's words, or a refusal when the filter stopped them.
+
+    `resp.text` is empty both when the model had nothing to say and when the
+    safety layer removed what it did say; those must not look the same to the
+    child.
+    """
+    text = (resp.text or "").strip()
+    if text:
+        return text
+    blocked = getattr(getattr(resp, "prompt_feedback", None), "block_reason", None)
+    candidates = getattr(resp, "candidates", None) or []
+    finish = getattr(candidates[0], "finish_reason", None) if candidates else None
+    finish_name = getattr(finish, "name", None) or (str(finish) if finish else "")
+    if blocked or finish_name == "SAFETY":
+        log.info("Gemini reply blocked by safety filter (%s)", blocked or finish_name)
+        return BLOCKED_REPLY
+    return ""
+
+
 
 @lru_cache
 def get_client() -> genai.Client:
@@ -148,6 +211,7 @@ async def chat(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(
+            safety_settings=SAFETY_SETTINGS,
             system_instruction=system_instruction,
             max_output_tokens=settings.gemini_max_output_tokens,
             temperature=settings.gemini_temperature,
@@ -158,7 +222,7 @@ async def chat(
 
     usage = resp.usage_metadata
     return GeminiReply(
-        text=resp.text or "",
+        text=reply_text(resp),
         model=model,
         latency_ms=latency_ms,
         tokens_in=usage.prompt_token_count if usage else None,
@@ -213,6 +277,7 @@ async def chat_with_web_search(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(
+            safety_settings=SAFETY_SETTINGS,
             system_instruction=web_instruction,
             max_output_tokens=settings.gemini_max_output_tokens,
             temperature=settings.gemini_temperature,
@@ -223,7 +288,7 @@ async def chat_with_web_search(
     latency_ms = int((time.perf_counter() - start) * 1000)
     usage = resp.usage_metadata
     return GeminiReply(
-        text=resp.text or "",
+        text=reply_text(resp),
         model=model,
         latency_ms=latency_ms,
         tokens_in=usage.prompt_token_count if usage else None,
@@ -377,6 +442,7 @@ async def solve_on_board(*, question: str, age_segment: AgeSegment) -> dict:
             model=settings.gemini_model_primary,
             contents=f"Bola aytdi: {question}",
             config=types.GenerateContentConfig(
+            safety_settings=SAFETY_SETTINGS,
                 system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{BOARD_PROMPT}",
                 # 1600, not 800. BOARD_PROMPT asks for a curve of "15-40 nuqta";
                 # a 40-point figure alone serialises to ~480 output tokens and
@@ -461,6 +527,7 @@ async def solve_lesson(
             model=model,
             contents=payload,
             config=types.GenerateContentConfig(
+            safety_settings=SAFETY_SETTINGS,
                 system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{LESSON_HELP_PROMPT}",
                 max_output_tokens=900,
                 temperature=0.3,
@@ -523,6 +590,7 @@ async def decompose_goal(
             model=settings.gemini_model_primary,
             contents=f"Bolaning maqsadi: {goal_title}",
             config=types.GenerateContentConfig(
+            safety_settings=SAFETY_SETTINGS,
                 system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{GOAL_DECOMPOSE_PROMPT}",
                 max_output_tokens=700,
                 temperature=0.4,  # a little room to phrase steps naturally

@@ -42,6 +42,35 @@ _PROMPT = (
 )
 
 
+#: Finish reasons that mean "the model reached the end of what it had to say".
+#: Anything else on an EMPTY response means it stopped for a reason of its own,
+#: which for this prompt is a refusal.
+_CLEAN_FINISH = {"STOP", "MAX_TOKENS"}
+
+
+def _finish_reason(resp) -> str:
+    candidates = getattr(resp, "candidates", None) or []
+    if not candidates:
+        return "no_candidate"
+    reason = getattr(candidates[0], "finish_reason", None)
+    if reason is None:
+        return "STOP"  # some SDK paths omit it on an ordinary completion
+    return getattr(reason, "name", None) or str(reason)
+
+
+def _finished_cleanly(resp) -> bool:
+    if getattr(getattr(resp, "prompt_feedback", None), "block_reason", None):
+        return False
+    return _finish_reason(resp) in _CLEAN_FINISH
+
+
+def _refusal_reason(resp) -> str:
+    blocked = getattr(getattr(resp, "prompt_feedback", None), "block_reason", None)
+    if blocked is not None:
+        return f"blocked:{getattr(blocked, 'name', None) or blocked}"
+    return f"finish:{_finish_reason(resp)}"
+
+
 @dataclass(frozen=True)
 class Transcription:
     text: str
@@ -87,8 +116,30 @@ async def transcribe(data: bytes, content_type: str) -> Transcription:
             latency_ms=int((time.perf_counter() - start) * 1000),
         )
 
+    text = (resp.text or "").strip()
+    if not text and not _finished_cleanly(resp):
+        # An empty transcript is ambiguous, and the two things it can mean sit
+        # at opposite ends of the risk scale: a clip with no speech in it, or a
+        # clip Gemini's own safety layer REFUSED to transcribe. A refusal comes
+        # back exactly like silence — no text parts — and the caller reads
+        # "no words" as "nothing to screen" and delivers the file to a room of
+        # children. The model declining because the content is abusive would
+        # become the reason it shipped.
+        #
+        # So anything that did not finish cleanly is a failure, and the caller
+        # refuses the note. Genuine silence still finishes with STOP and still
+        # passes.
+        reason = _refusal_reason(resp)
+        log.warning("Note transcription returned no text (%s)", reason)
+        return Transcription(
+            text="",
+            ok=False,
+            error=reason,
+            latency_ms=int((time.perf_counter() - start) * 1000),
+        )
+
     return Transcription(
-        text=(resp.text or "").strip(),
+        text=text,
         ok=True,
         error=None,
         latency_ms=int((time.perf_counter() - start) * 1000),

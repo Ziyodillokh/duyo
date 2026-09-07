@@ -7,7 +7,7 @@ endpoints layer on top of get_current_admin / require_roles / record_audit.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -25,7 +25,13 @@ from duyo.models.ai_report import AiMessageReport
 from duyo.models.child import ChildProfile
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
 from duyo.models.message import Message
-from duyo.models.social import PeerMessage, PeerModerationState, PeerReport
+from duyo.models.social import (
+    ChildSocialSettings,
+    GroupMessage,
+    PeerMessage,
+    PeerModerationState,
+    PeerReport,
+)
 from duyo.models.subscription import Subscription
 from duyo.models.textbook_chunk import TextbookChunk
 from duyo.models.user import User
@@ -380,6 +386,107 @@ async def peer_report_context(
     # Fetched newest-first so the LIMIT takes the most recent messages, then
     # reversed so the reviewer reads the exchange in the order it happened.
     return [PeerContextMessage.model_validate(r) for r in reversed(rows)]
+
+
+# --- enforcement ------------------------------------------------------------
+#
+# Marking a report "reviewed" is a note to the reviewer, not an action on the
+# child who was reported. Both mechanisms below already existed and neither
+# could be reached: `ChildSocialSettings.suspended_at` is honoured by every
+# social read path and was written nowhere, and `PeerModerationState.REDACTED`
+# is filtered out of every message list and was assigned nowhere. The terms
+# published at duyo.uz/terms.html §4 and §5 promise exactly these two powers,
+# so until now the promise was untrue.
+
+
+class SuspendBody(BaseModel):
+    """Why, in the reviewer's words. Stored on the audit row, not shown to the child."""
+
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.post("/safety/children/{child_id}/suspend", status_code=status.HTTP_204_NO_CONTENT)
+async def suspend_child_social(
+    child_id: UUID,
+    body: SuspendBody,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> None:
+    """Cut a child out of every social surface, immediately.
+
+    Only the social side: their chat with DUYO, their notes and their goals are
+    untouched. A child who bullied someone still gets the assistant, and losing
+    it would remove the one support they have at the moment they are in
+    trouble.
+    """
+    settings_row = await db.scalar(
+        select(ChildSocialSettings).where(ChildSocialSettings.child_id == child_id)
+    )
+    if settings_row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bola topilmadi")
+    if settings_row.suspended_at is None:
+        settings_row.suspended_at = datetime.now(UTC)
+    await db.flush()
+    await record_audit(
+        db, admin, action="suspend", module="safety",
+        target=f"child:{child_id}", meta={"reason": body.reason}, request=request,
+    )
+    await db.commit()
+
+
+@router.post("/safety/children/{child_id}/unsuspend", status_code=status.HTTP_204_NO_CONTENT)
+async def unsuspend_child_social(
+    child_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> None:
+    """Undo a suspension. Reversible on purpose — reviewers get things wrong."""
+    settings_row = await db.scalar(
+        select(ChildSocialSettings).where(ChildSocialSettings.child_id == child_id)
+    )
+    if settings_row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bola topilmadi")
+    settings_row.suspended_at = None
+    await db.flush()
+    await record_audit(
+        db, admin, action="unsuspend", module="safety",
+        target=f"child:{child_id}", meta={}, request=request,
+    )
+    await db.commit()
+
+
+@router.post("/safety/messages/{message_id}/redact", status_code=status.HTTP_204_NO_CONTENT)
+async def redact_message(
+    message_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(_require_safety),
+) -> None:
+    """Pull a delivered message out of the room, and its media with it.
+
+    The row stays: it is the safety record of what was said, and deleting it
+    would erase the evidence for the report that led here. What changes is that
+    every list endpoint filters on DELIVERED, and `get_group_note_media`
+    refuses to serve a clip whose message is not DELIVERED — so the redaction
+    takes effect on the next read for everyone.
+
+    Takes a peer message or a group message; the id space is UUID either way.
+    """
+    for model in (GroupMessage, PeerMessage):
+        row = await db.scalar(select(model).where(model.id == message_id))
+        if row is None:
+            continue
+        row.moderation_state = PeerModerationState.REDACTED
+        await db.flush()
+        await record_audit(
+            db, admin, action="redact", module="safety",
+            target=f"{model.__tablename__}:{message_id}", meta={}, request=request,
+        )
+        await db.commit()
+        return
+    raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Xabar topilmadi")
 
 
 @router.post("/safety/peer-reports/{report_id}/review", response_model=PeerReportRow)

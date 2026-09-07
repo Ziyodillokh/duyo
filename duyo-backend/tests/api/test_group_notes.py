@@ -240,9 +240,28 @@ def test_a_wordless_clip_still_gets_a_caption(session, monkeypatch):
 
     async def scenario():
         user, child, key = await _member(session)
-        out = await _send(session, user, child, key, kind="video", ctype="video/webm")
+        out = await _send(session, user, child, key, kind="audio", ctype="audio/webm")
         # An empty body would render as an empty bubble.
-        assert out.body == "Video xabar"
+        assert out.body == "Ovozli xabar"
+
+    _run(scenario())
+
+
+def test_a_video_note_is_refused_because_nothing_can_look_at_it(session, monkeypatch):
+    """The only screen a note gets reads its SOUND.
+
+    A clip carrying its content in the picture would reach a room of 13-16
+    year olds judged on its soundtrack alone. The shipped Android app cannot
+    record one either — CAMERA is stripped from the manifest — so the path is
+    closed until there is a visual pass to open it with.
+    """
+    _patch(monkeypatch, transcript="salom", uploaded=[])
+
+    async def scenario():
+        user, child, key = await _member(session)
+        with pytest.raises(HTTPException) as caught:
+            await _send(session, user, child, key, kind="video", ctype="video/webm")
+        assert caught.value.status_code == 400
 
     _run(scenario())
 
