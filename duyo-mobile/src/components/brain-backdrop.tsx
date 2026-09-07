@@ -14,14 +14,6 @@ import { BRAIN_BACKDROP } from '@/config/brain-backdrop';
  *  backdrop. Making the author also remember to flip a `kind` field is a
  *  second thing to get wrong, and getting it wrong shows a blank screen.
  */
-const VIDEO_EXT = /\.(mp4|m3u8|mpd|mov|webm|mkv)(\?|#|$)/i;
-
-function isVideo(uri: string | number): boolean {
-  // A bundled require() is a number; those are only ever used for video here,
-  // because a bundled still image would be simpler to set as a plain Image.
-  if (typeof uri === 'number') return true;
-  return VIDEO_EXT.test(uri);
-}
 
 /**
  * The video OR image behind the Miya sky.
@@ -47,7 +39,7 @@ function isVideo(uri: string | number): boolean {
  * backdrop underneath carries the screen exactly as it did before.
  */
 export function BrainBackdrop() {
-  const { uri, opacity, tint } = BRAIN_BACKDROP;
+  const { source, kind, opacity, tint } = BRAIN_BACKDROP;
   const [failed, setFailed] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -71,12 +63,12 @@ export function BrainBackdrop() {
   // `useVideoPlayer` is a hook, so it cannot be skipped when there is no
   // source — passing null is the supported way to hold a player with nothing
   // loaded, and keeps the hook order stable across config changes.
-  const video = uri !== null && isVideo(uri);
+  const video = source !== null && kind === 'video';
 
   // Passing null keeps the hook order stable when the source is a still
   // image — hooks cannot be skipped, and a player with nothing loaded costs
   // nothing.
-  const player = useVideoPlayer(video ? uri : null, (p) => {
+  const player = useVideoPlayer(video ? source : null, (p) => {
     p.loop = true;
     p.muted = true;      // a background that makes noise is a bug, not a feature
     p.play();
@@ -101,13 +93,13 @@ export function BrainBackdrop() {
     return () => sub.remove();
   }, [player]);
 
-  if (!uri || failed) return null;
+  if (!source || failed) return null;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {!video ? (
         <Image
-          source={uri}
+          source={source}
           style={[StyleSheet.absoluteFill, { opacity }]}
           contentFit="cover"
           // A still costs nothing to decode, which is the whole reason to

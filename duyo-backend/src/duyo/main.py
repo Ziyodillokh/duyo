@@ -13,6 +13,7 @@ from duyo import __version__
 from duyo.api.v1 import api_v1
 from duyo.core.config import get_settings
 from duyo.crisis.semantic import warm_anchors
+from duyo.services import retention
 
 log = logging.getLogger(__name__)
 
@@ -54,12 +55,20 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # screen every message meanwhile.
     warm_task = asyncio.create_task(warm_anchors())
 
+    # The retention period published in privacy.html, actually applied. Run
+    # from here rather than from cron: a crontab is a thing someone has to
+    # remember to reinstall when the server is rebuilt, and when it goes
+    # missing the published promise quietly becomes untrue again with nothing
+    # to show it. See services/retention.py.
+    retention_task = asyncio.create_task(retention.run_forever())
+
     yield
 
-    if not warm_task.done():
-        warm_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await warm_task
+    for task in (warm_task, retention_task):
+        if not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
     log.info("DUYO backend shutting down")
 
 

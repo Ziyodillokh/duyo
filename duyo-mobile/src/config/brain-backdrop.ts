@@ -1,71 +1,71 @@
 /**
- * Miya ekranining orqa fonidagi video — BU YERDAGI `uri` NI O'ZGARTIRING.
+ * Miya ekranining orqa foni — BU YERDAGI `source` NI O'ZGARTIRING.
  *
  * Fonni almashtirish uchun boshqa hech qayerga tegish shart emas: shu bitta
- * qatorga yangi havolani qo'ying va ilovani qayta yuklang.
+ * qatorga yangi faylni qo'ying va ilovani qayta yuklang.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * MUHIM — Pinterest / YouTube / TikTok havolasi ISHLAMAYDI
+ * NEGA FON ILOVA ICHIDA, INTERNETDAN EMAS
  * ─────────────────────────────────────────────────────────────────────────
- * Ular `<iframe>` (veb-sahifa) qaytaradi, video fayl emas. React Native'da
- * iframe degan narsa yo'q — DOM yo'q, shuning uchun uni fon qilib bo'lmaydi.
+ * Ilgari bu yerda Pinterest CDN havolasi turardi. Ikkita muammosi bor edi.
  *
- * Bu yerga TO'G'RIDAN-TO'G'RI VIDEO FAYL manzili kerak — `.mp4` yoki `.m3u8`
- * bilan tugaydigan. Masalan:
+ * Birinchisi — maxfiylik: Miya ekranini ochgan HAR BIR bolaning telefoni
+ * Pinterest serveriga so'rov yuborardi, ya'ni IP manzili va vaqti begona
+ * kompaniyaga borardi. Maxfiylik siyosatimiz esa ma'lumot faqat ikkita
+ * xizmatga (Google va Eskiz) borishini aytadi, ya'ni bu yozilganiga zid edi.
  *
- *     https://example.com/kosmos.mp4          ✅ ishlaydi
- *     https://pinterest.com/pin/8784834...    ❌ ishlamaydi (sahifa)
- *     https://youtube.com/watch?v=...         ❌ ishlamaydi (sahifa)
+ * Ikkinchisi — mualliflik huquqi: u boshqa odamning pini edi, litsenziyasiz.
  *
- * Pinterest'dagi videoni olish uchun: brauzerda pinni oching → sichqonchaning
- * o'ng tugmasi → "Save video as" yoki F12 → Network → `.mp4` faylni toping.
- * Keyin uni biror joyga (masalan o'z serveringizga) qo'yib, havolasini shu
- * yerga yozing.
- *
- * ESLATMA: boshqa birovning videosini ilovada ishlatish — huquqiy masala.
- * Sinov uchun bo'ladi, chiqarishdan oldin litsenziyasi tozasini qo'ying.
+ * Endi fon ilova ichida va o'zimiz yasaganmiz. Internetga so'rov yo'q,
+ * litsenziya masalasi yo'q, va internetsiz ham ishlaydi.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * TELEFONDAGI FAYL (chiqarish uchun eng yaxshisi)
+ * ALMASHTIRMOQCHI BO'LSANGIZ
  * ─────────────────────────────────────────────────────────────────────────
- * Internetsiz ham ishlashi va tez ochilishi uchun videoni ilova ichiga
- * qo'ying: faylni `assets/` ga tashlang va shunday yozing:
+ * Faylni `assets/images/` ga tashlang va shunday yozing:
  *
- *     uri: require('../../assets/miya-fon.mp4'),
+ *     source: require('../../assets/images/yangi-fon.jpg'),
+ *     kind: 'image',
  *
- * O'chirish uchun `uri` ni `null` qiling — ekran hozirgi ko'rinishiga qaytadi.
+ * Video ham bo'ladi (`.mp4`), faqat `kind` ni `'video'` qiling. Tashqi havola
+ * ham ishlaydi — lekin qo'ymang: har bir bola o'sha serverga ko'rinib qoladi
+ * va uni maxfiylik siyosatiga yozish kerak bo'ladi.
+ *
+ * O'chirish uchun `source` ni `null` qiling — ekran tekis `#070B1A` foniga
+ * qaytadi.
  */
 
 export interface BrainBackdropConfig {
-  /** `.mp4` / `.m3u8` havolasi, `require(...)` bilan lokal fayl, yoki `null`. */
-  uri: string | number | null;
+  /** `require(...)` bilan lokal fayl, tashqi havola, yoki `null`. */
+  source: string | number | null;
   /**
-   * Video qanchalik ko'rinsin. 0 = ko'rinmaydi, 1 = to'liq.
+   * Fayl rasmmi yoki videomi.
+   *
+   * Ataylab aniq yozilgan. Ilgari komponent buni o'zi taxmin qilardi —
+   * `require()` son qaytaradi, va har qanday son video deb hisoblanardi —
+   * ya'ni lokal RASM qo'yish mumkin emas edi.
+   */
+  kind: 'image' | 'video';
+  /**
+   * Fon qanchalik ko'rinsin. 0 = ko'rinmaydi, 1 = to'liq.
    *
    * Nega 1 emas: ustidagi yulduzlar, sayyoralar va oq matn o'qilishi kerak.
-   * Juda yorqin video ularni yutib yuboradi. 0.45–0.6 oralig'i eng qulay.
    */
   opacity: number;
   /**
-   * Videoning ustiga DUYO'ning binafsha-navy gradienti tushsinmi.
+   * Fonning ustiga DUYO'ning binafsha-navy gradienti tushsinmi.
    *
-   * Yoqilgan holda istalgan video DUYO ranglariga bo'yaladi — ya'ni fonni
+   * Yoqilgan holda istalgan fon DUYO ranglariga bo'yaladi — ya'ni fonni
    * almashtirsangiz ham ilova o'z qiyofasini yo'qotmaydi.
    */
   tint: boolean;
 }
 
 export const BRAIN_BACKDROP: BrainBackdropConfig = {
-  // Pinterest pin 1141944049318205566 (https://pin.it/4ndt6WxCo).
-  //
-  // Bu pin VIDEO EMAS — rasm (sahifada "videos":null). Komponent turini
-  // kengaytmadan o'zi aniqlaydi, shuning uchun rasm ham, video ham shu bitta
-  // qatorga qo'yilaveradi.
-  //
-  // Rasm bu yerda video'dan yaxshiroq: dekodlash xarajati nol, ya'ni arzon
-  // Android telefonda osmon simulyatsiyasi bilan resurs talashmaydi. Nisbati
-  // (1200x2140) ham telefon ekraniga tayyor.
-  uri: 'https://i.pinimg.com/1200x/70/de/13/70de13c61a79162e976c131461ac7507.jpg',
+  // O'zimiz yasagan yulduzli osmon — 1200x2140, 68 KB, `#070B1A` asosida,
+  // ya'ni ostidagi tekis fon bilan bir xil rangda boshlanadi.
+  source: require('../../assets/images/brain-backdrop.jpg'),
+  kind: 'image',
   // 0.32, not the 0.55 this started at. The sayyoralar are shaded spheres
   // a few pixels across; a photographic nebula at over half strength behind
   // them has more contrast than they do, and the eye stops reading them as
@@ -73,10 +73,4 @@ export const BRAIN_BACKDROP: BrainBackdropConfig = {
   // you prefer the picture — bu bitta qator.
   opacity: 0.32,
   tint: true,
-
-  // Boshqa variantlar, kerak bo'lsa:
-  // Pinterest video (H.264 720p, 4.9 MB):
-  // uri: 'https://v1-e.pinimg.com/videos/iht/720p/38/46/e0/3846e005edc5c1f778ba89746800384d.mp4',
-  // NASA, Orion tumanligi, ochiq mulk (5 MB):
-  // uri: 'https://images-assets.nasa.gov/video/JPL-20221122-SOLSYSf-0001-Orion%20Dust%20and%20Death/JPL-20221122-SOLSYSf-0001-Orion%20Dust%20and%20Death~mobile.mp4',
 };
