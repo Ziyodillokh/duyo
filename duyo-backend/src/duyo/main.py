@@ -38,6 +38,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if sms_problem:
         log.error("SMS MISCONFIGURED — %s", sms_problem)
 
+    # The reviewer's login, checked before anyone needs it. A wrong-length
+    # code here fails only at the moment Google tries to sign in, and by then
+    # the answer is a rejection rather than a log line.
+    otp_problem = settings.otp_test_numbers_misconfigured()
+    if otp_problem:
+        log.error("%s", otp_problem)
+
     if settings.otp_demo_code:
         # Loud on every start: this is the one setting that, left on, hands
         # any stranger any family's account.

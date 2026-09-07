@@ -191,6 +191,43 @@ class Settings(BaseSettings):
             )
         return self
 
+    def otp_test_numbers_misconfigured(self) -> str | None:
+        """Why a configured reviewer login would not work, or None.
+
+        `OTP_TEST_NUMBERS` is the one credential a Play reviewer is given, and
+        a wrong-length code fails in a way nothing surfaces: the app's OTP
+        field accepts exactly `otp_length` digits and silently drops the rest,
+        so a six-digit code typed into a five-digit field is sent as five, the
+        server compares it against six, and the answer is 401 Wrong code. The
+        reviewer sees a code that "does not work" and the app is rejected
+        without being opened.
+
+        Nothing else catches it. `verify` is a plain string comparison, and the
+        number never reaches SMS, so there is no delivery failure to notice
+        either. Checked at startup instead, next to the demo-code warning.
+        """
+        problems: list[str] = []
+        for pair in (self.otp_test_numbers or "").split(","):
+            pair = pair.strip()
+            if not pair:
+                continue
+            if ":" not in pair:
+                problems.append(f"{pair!r} is not phone:code")
+                continue
+            phone, code = (part.strip() for part in pair.split(":", 1))
+            if not phone or not code:
+                problems.append(f"{pair!r} is missing a phone or a code")
+            elif not code.isdigit():
+                problems.append(f"code for {phone} is not digits")
+            elif len(code) != self.otp_length:
+                problems.append(
+                    f"code for {phone} is {len(code)} digits; the app's field "
+                    f"takes {self.otp_length} and drops the rest"
+                )
+        if not problems:
+            return None
+        return "OTP_TEST_NUMBERS: " + "; ".join(problems)
+
     def sms_misconfigured_for_production(self) -> str | None:
         """Why real SMS would not be delivered in production, or None.
 
