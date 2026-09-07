@@ -80,9 +80,19 @@ def test_a_test_number_never_reaches_the_sms_provider(monkeypatch, _configured):
 
 
 def test_an_ordinary_number_still_goes_to_sms(monkeypatch, _configured):
-    """The bypass is narrow: everyone else is unaffected."""
+    """The bypass is narrow: everyone else is unaffected.
+
+    `issue` is stubbed because for a real number it reaches Redis, and this
+    test is about which branch the ROUTE takes, not about code storage. CI has
+    no Redis and caught the difference.
+    """
     sms = _ExplodingSMS()
     monkeypatch.setattr(auth_module, "get_sms_provider", lambda: sms)
+
+    async def _issued(_phone):
+        return "654321"
+
+    monkeypatch.setattr(auth_module, "issue", _issued)
 
     with pytest.raises(HTTPException) as caught:
         _run(auth_module.send_otp(OTPRequest(phone="+998907654321"), _Request()))
