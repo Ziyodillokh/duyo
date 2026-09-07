@@ -1,0 +1,101 @@
+name: Purge under-13 profiles
+
+# Migration 0042 refuses to run while profiles below the 13+ floor exist, so
+# the deploy stops there until they are resolved. Resolving them is a decision
+# about children's data, not something a schema change should make on its own —
+# this is the button that carries the decision out once it has been made.
+#
+# It runs the same code either way; `mode` only decides whether it writes.
+# The default is report, and applying requires typing the row count you saw in
+# the report, so a mis-click cannot delete anybody.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "report = show what would be deleted (safe). apply = delete."
+        required: true
+        default: report
+        type: choice
+        options: [report, apply]
+      confirm_count:
+        description: "For apply ONLY: the number of profiles the report listed. Leave blank to report."
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: purge-under-13
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    name: ${{ inputs.mode == 'apply' && 'ERASE under-13 profiles' || 'Report under-13 profiles' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse an apply with no confirmation
+        if: inputs.mode == 'apply'
+        run: |
+          if ! [[ "${{ inputs.confirm_count }}" =~ ^[0-9]+$ ]]; then
+            echo "::error::mode=apply needs confirm_count set to the number of profiles the report listed."
+            echo "Run this workflow with mode=report first, read the count, then run it again with that number."
+            exit 1
+          fi
+          echo "Confirmation given: ${{ inputs.confirm_count }} profile(s)."
+
+      - name: SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # Inside the RUNNING container, not a one-off `docker run`: the deploy's
+      # env-file carries the database URL but not the Redis and MinIO settings,
+      # and without those the rows would go while the OTP state and the child's
+      # photo and voice notes silently stayed behind.
+      - name: Run the purge
+        env:
+          MODE: ${{ inputs.mode }}
+          EXPECTED: ${{ inputs.confirm_count }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "MODE='$MODE' EXPECTED='$EXPECTED' bash -se" <<'REMOTE'
+              set -euo pipefail
+
+              if ! docker inspect duyo-api >/dev/null 2>&1; then
+                echo "::error::duyo-api container is not running — deploy first."
+                exit 1
+              fi
+
+              echo "--- what is there now ---"
+              docker exec duyo-api python -m duyo.maintenance.purge_under_13 | tee /tmp/purge-report.txt
+
+              if [ "$MODE" != "apply" ]; then
+                echo
+                echo "Report only — nothing was deleted."
+                exit 0
+              fi
+
+              # The count in the report has to match what was confirmed. If
+              # somebody signed up in between, the operator is confirming a
+              # number that is no longer the number, and this stops rather
+              # than erasing a profile nobody looked at.
+              FOUND=$(grep -oE '^[0-9]+' /tmp/purge-report.txt | head -1 || echo 0)
+              if [ "$FOUND" != "$EXPECTED" ]; then
+                echo "::error::Report shows $FOUND profile(s), confirmation said $EXPECTED. Re-run mode=report and confirm the current number."
+                exit 1
+              fi
+
+              echo
+              echo "--- erasing $FOUND profile(s) ---"
+              docker exec duyo-api python -m duyo.maintenance.purge_under_13 --apply
+          REMOTE
+
+      - name: What to do next
+        if: success() && inputs.mode == 'apply'
+        run: |
+          echo "The rows are gone. Re-run \"Deploy backend\" — migration 0042 will pass now."

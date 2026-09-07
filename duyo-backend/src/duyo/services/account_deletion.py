@@ -153,7 +153,7 @@ async def _detach(
     """Everything an erasure does to a set of children, short of the delete.
 
     Split out of `delete_account` because the 13+ age floor needs the same
-    work on children whose ACCOUNT survives (scripts/purge_under_13.py). A
+    work on children whose ACCOUNT survives (duyo.maintenance.purge_under_13). A
     second copy of this would be a copy that stops matching the day one of
     the two is edited, and the half that drifts is the one that leaves a
     deleted child's voice in the bucket.

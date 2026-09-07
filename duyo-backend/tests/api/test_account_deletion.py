@@ -270,8 +270,8 @@ def test_the_route_answers_nothing_and_erases(session):
 # ── The 13+ age floor ────────────────────────────────────────────────────────
 #
 # `delete_children` erases named profiles and leaves the account standing.
-# scripts/purge_under_13.py needs the case `delete_account` cannot cover: one
-# family holding a child who is old enough alongside one who is not.
+# duyo.maintenance.purge_under_13 needs the case `delete_account` cannot cover:
+# one family holding a child who is old enough alongside one who is not.
 #
 # The profiles it targets in production are below 13, which nothing here can
 # build — `ck_child_age_range` is on the model, so create_all puts it on the

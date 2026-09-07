@@ -26,16 +26,22 @@ It is not a DELETE statement, and the difference matters:
 
 Usage — reports and changes nothing:
 
-    docker exec duyo-api python scripts/purge_under_13.py
+    docker exec duyo-api python -m duyo.maintenance.purge_under_13
 
 Then, to carry it out:
 
-    docker exec duyo-api python scripts/purge_under_13.py --apply
+    docker exec duyo-api python -m duyo.maintenance.purge_under_13 --apply
 
-Run it inside the RUNNING api container, not a one-off `docker run`: the
+Or use the "Purge under-13 profiles" workflow in GitHub Actions, which runs
+exactly this over the deploy's own SSH key.
+
+It must run inside the RUNNING api container, not a one-off `docker run`: the
 deploy's env-file carries the database URL but not the Redis and MinIO
 settings, and a run without those would erase the rows and silently skip both
-the OTP purge and the bucket.
+the OTP purge and the bucket. It lives in the package rather than in
+duyo-backend/scripts/ because that directory is neither rsynced to the server
+nor copied into the image — a maintenance task kept there is one that cannot
+be run where the data is.
 """
 
 from __future__ import annotations
