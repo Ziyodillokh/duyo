@@ -14,14 +14,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View, type TextStyle, type ViewStyle } from 'react-native';
 import { Badge, BADGE_FOR } from '@/components/badges/badge';
 import { Text, TextInput } from '@/components/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +40,8 @@ import {
 import { useT, type TranslationKey } from '@/i18n';
 import { categoryOf } from '@/lib/goal-categories';
 import { useChildStore } from '@/store/child';
+
+const TERMS_URL = 'https://duyo.uz/terms.html';
 
 // ── The glass sky, a shade bluer than home — the mock's cooler morning ───────
 const PRIMARY = '#2F6FE4';
@@ -828,6 +823,19 @@ export default function GoalMatesScreen() {
                   {t('mates.consent.body')}
                   {hasConnections ? ` ${t('mates.consent.keepsFriends')}` : ''}
                 </Text>
+                {/* The content standards, before any content exists. They are
+                    published in full at duyo.uz/terms.html §3-§4 and the app
+                    never pointed anyone at them — so the one moment a child
+                    agrees to anything about what they may send was a sentence
+                    about nicknames. */}
+                <Text style={styles.consentRules}>{t('mates.consent.rules')}</Text>
+                <Pressable
+                  onPress={() => void Linking.openURL(TERMS_URL)}
+                  accessibilityRole="link"
+                  accessibilityLabel={t('mates.consent.readRules')}
+                >
+                  <Text style={styles.consentLink}>{t('mates.consent.readRules')}</Text>
+                </Pressable>
                 <Pressable
                   onPress={() =>
                     !updateSettings.isPending &&
@@ -841,7 +849,7 @@ export default function GoalMatesScreen() {
                   style={styles.consentButton}
                 >
                   <Text style={styles.consentButtonText}>
-                    {t('mates.consent.enable')}
+                    {t('mates.consent.agreeAndEnable')}
                   </Text>
                 </Pressable>
               </View>
@@ -1073,6 +1081,19 @@ const styles = StyleSheet.create({
   consentCard: { marginTop: 12, marginHorizontal: 20, padding: 20, borderRadius: 22 },
   consentTitle: { fontSize: 17, fontWeight: '700', color: INK },
   consentBody: { marginTop: 8, fontSize: 14, lineHeight: 21, color: MUTED },
+  consentRules: {
+    color: '#3A4A66',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 10,
+  },
+  consentLink: {
+    color: '#3A7AE8',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
+    textDecorationLine: 'underline',
+  },
   consentButton: {
     marginTop: 16,
     backgroundColor: PRIMARY,

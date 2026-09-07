@@ -66,6 +66,15 @@ function clock(ms: number): string {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
+// The recorder is a browser API — `use-media-note.ts` refuses on native, and
+// the Android build could not record video in any case: CAMERA is stripped
+// from the merged manifest and no camera module is installed. The server
+// refuses video notes outright now as well. Shipping the two buttons anyway
+// put a microphone and a camera at rest in the composer, both of which failed
+// on tap: two of the three primary actions in a room's message box, broken in
+// the artifact under review.
+const CAN_RECORD = Platform.OS === 'web';
+
 export function ChatComposer({
   draft,
   onChangeDraft,
@@ -224,7 +233,7 @@ export function ChatComposer({
           >
             <Send size={18} color="#FFFFFF" strokeWidth={2.2} />
           </Pressable>
-        ) : (
+        ) : CAN_RECORD ? (
           <>
             <Pressable
               onPress={() => begin('video')}
@@ -243,6 +252,13 @@ export function ChatComposer({
               <Mic size={18} color="#FFFFFF" strokeWidth={2} />
             </Pressable>
           </>
+        ) : (
+          // Nothing to offer until there is text to send. The alternative —
+          // showing the buttons anyway — is what shipped, and on Android both
+          // of them answered with a red "coming soon in the mobile app".
+          <View style={[styles.round, styles.roundIdle]}>
+            <Send size={18} color="#FFFFFF" strokeWidth={2.2} />
+          </View>
         )}
       </View>
     </View>

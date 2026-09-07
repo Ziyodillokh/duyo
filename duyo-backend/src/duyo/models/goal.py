@@ -97,7 +97,9 @@ class GoalCatalog(Base, UUIDPK, TimestampMixin):
     target_ref: Mapped[dict | None] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"), nullable=True
     )
-    age_min: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
+    # 13, not 7. The group screen renders this range to the user, so a stale
+    # floor labelled a room in a 13+ app "7-16 yosh". See migration 0044.
+    age_min: Mapped[int] = mapped_column(Integer, nullable=False, default=13)
     age_max: Mapped[int] = mapped_column(Integer, nullable=False, default=16)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # Publish gate for the social surface — mirrors content_items' review gate.

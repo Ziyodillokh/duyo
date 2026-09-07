@@ -193,9 +193,22 @@ function OrangeActions() {
   const t = useT();
   return (
     <>
+      {/* ORANGE is the self-harm level. The childline used to appear only at
+          RED, so the screen a child saw when they had said they were hurting
+          themselves offered "tell an adult" and a breathing exercise, and no
+          number to call — and "tell an adult" is exactly the step a child in
+          that state is least able to take. Not destructive-styled here: at
+          this level it is an option being offered, not an alarm. */}
+      <ActionButton
+        label={t('crisis.action.call', {
+          n: HOTLINE_CHILD,
+          line: t('crisis.childLine'),
+        })}
+        primary
+        onPress={() => callHotline(HOTLINE_CHILD)}
+      />
       <ActionButton
         label={t('crisis.action.tellAdult')}
-        primary
         onPress={() => router.back()}
       />
       <ActionButton

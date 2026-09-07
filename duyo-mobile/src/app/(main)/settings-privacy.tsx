@@ -27,6 +27,10 @@ import { useAuthStore } from '@/store/auth';
 /** Play wants the policy reachable from inside the app, not only from the
  *  listing — this is the page the store entry points at. */
 const PRIVACY_URL = 'https://duyo.uz/privacy.html';
+/** The terms carry the community rules for child-to-child messaging, which
+ *  Play's UGC policy requires a user to be able to read. The app published
+ *  them and then linked them nowhere. */
+const TERMS_URL = 'https://duyo.uz/terms.html';
 
 // ── The glass sky, the inner screens' cooler morning ─────────────────────────
 // Same family as settings and notifications: frosted panes on pale blue.
@@ -169,6 +173,26 @@ export default function PrivacySettingsScreen() {
             >
               <Text style={styles.readFullText}>
                 {t('settings.privacyScreen.readFull')}
+              </Text>
+              <ExternalLink size={14} color={PRIMARY} strokeWidth={2.2} />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                void Linking.openURL(TERMS_URL).catch(() =>
+                  Alert.alert(t('settings.privacyScreen.termsTitle'), TERMS_URL),
+                );
+              }}
+              accessibilityRole="link"
+              accessibilityLabel={t('settings.privacyScreen.termsA11y')}
+              style={({ pressed }) => [
+                glass(15, 'sm', 0.7),
+                styles.readFull,
+                styles.focusable,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.readFullText}>
+                {t('settings.privacyScreen.termsTitle')}
               </Text>
               <ExternalLink size={14} color={PRIMARY} strokeWidth={2.2} />
             </Pressable>
