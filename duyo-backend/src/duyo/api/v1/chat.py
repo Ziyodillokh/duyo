@@ -18,7 +18,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
@@ -1189,6 +1189,27 @@ class AiReportRequest(BaseModel):
     reason: AiReportReason
 
 
+class AiOutputReportRequest(BaseModel):
+    """A report about generated text that was never stored as a message.
+
+    `/lesson-help` and `/board` are stateless by design — they answer and keep
+    nothing — so there is no `Message` row for the existing route to hang a
+    report on, and the two surfaces that show a child a worked solution were
+    the two it could not be used from. Play asks for a way to report offensive
+    generated content, not a way to report SOME of it.
+
+    The text travels in the request because the server did not keep it. That is
+    the same snapshot `models/ai_report.py` already stores for chat reports,
+    where it exists so the record survives the child deleting the conversation.
+    """
+
+    child_id: UUID
+    reason: AiReportReason
+    #: What the child was shown. Capped: a report is evidence, not an upload.
+    model_output: str = Field(min_length=1, max_length=8000)
+    #: Which surface produced it — "lesson_help" or "board".
+    surface: str = Field(min_length=2, max_length=32)
+
 @router.post(
     "/messages/{message_id}/report",
     status_code=status.HTTP_202_ACCEPTED,
@@ -1247,6 +1268,37 @@ async def report_message(
         # A re-report re-opens the item, the way a changed rating does.
         existing.reviewed_at = None
         existing.reviewed_by = None
+    await db.flush()
+
+    return {"status": "received"}
+
+
+@router.post("/ai-output/report", status_code=status.HTTP_202_ACCEPTED)
+async def report_ai_output(
+    payload: AiOutputReportRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Report generated text that has no message row behind it.
+
+    Writes the same `AiMessageReport` the chat path writes, with `message_id`
+    left null — the column is already nullable, because a chat report has to
+    outlive the conversation it came from.
+
+    No de-duplication key exists here the way `message_id` provides one, so a
+    child who reports the same solution twice files two rows. Preferred to
+    inventing a hash of the text: two genuinely different complaints about two
+    similar answers are two reports, and collapsing them would lose one.
+    """
+    child = await _get_owned_child(payload.child_id, current_user, db)
+
+    db.add(AiMessageReport(
+        message_id=None,
+        child_id=child.id,
+        reason=payload.reason.value,
+        model_output=payload.model_output,
+        model_name=payload.surface,
+    ))
     await db.flush()
 
     return {"status": "received"}

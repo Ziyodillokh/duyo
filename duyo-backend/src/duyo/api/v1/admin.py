@@ -223,10 +223,22 @@ class PeerFlagRow(BaseModel):
 
 
 class PeerReportRow(BaseModel):
+    """One child's report about another.
+
+    Deliberately carries no message TEXT — that is a second child's private
+    message, and the 1:1 context endpoint exists for when a reviewer needs it.
+
+    It does carry `group_message_id`. A report filed in a goal room arrives
+    with no friendship, so without this the queue said "somebody reported
+    somebody" and named nothing a reviewer could act on — and the redact route
+    takes exactly this id.
+    """
+
     id: UUID
     reporter_child_id: UUID
     reported_child_id: UUID
     friendship_id: UUID | None
+    group_message_id: UUID | None
     reason: str | None
     reviewed_at: datetime | None
     reviewed_by: str | None

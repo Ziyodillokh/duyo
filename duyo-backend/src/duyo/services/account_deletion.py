@@ -113,6 +113,40 @@ def _remove_media(keys: list[str]) -> None:
             log.warning("account deletion could not remove a media object")
 
 
+#: Keys inside `CrisisEvent.matches` that hold prose about the child's message
+#: rather than a structured fact about the detection.
+_FREE_TEXT_MATCH_KEYS = ("reasoning", "quote", "excerpt")
+
+
+async def _scrub_crisis_reasoning(db: AsyncSession, child_ids: list[UUID]) -> None:
+    """Strip the model's prose from the retained detections.
+
+    Done in Python rather than in SQL: `matches` is a JSONB LIST of objects
+    whose shape differs by layer, and a query that edits inside it would have
+    to know both shapes and would silently stop covering a third.
+    """
+    rows = (
+        await db.scalars(
+            select(CrisisEvent).where(
+                CrisisEvent.child_id.in_(child_ids), CrisisEvent.matches.is_not(None)
+            )
+        )
+    ).all()
+    for row in rows:
+        entries = row.matches or []
+        if not isinstance(entries, list):
+            continue
+        cleaned = [
+            {k: v for k, v in entry.items() if k not in _FREE_TEXT_MATCH_KEYS}
+            if isinstance(entry, dict)
+            else entry
+            for entry in entries
+        ]
+        if cleaned != entries:
+            # Reassigned, not mutated in place: SQLAlchemy does not see a
+            # change inside a JSON column that was edited element by element.
+            row.matches = cleaned
+
 async def _detach(
     db: AsyncSession, child_ids: list[UUID], keep_user_ids: frozenset[UUID]
 ) -> tuple[list[str], int]:
@@ -135,6 +169,16 @@ async def _detach(
         return [], 0
 
     media_keys = await _media_keys(db, child_ids)
+
+    # `matches` carries Layer 1's keywords — which are ours — but Layer 2 puts
+    # the MODEL'S free-text `reasoning` there, and that prose is written about
+    # what the child said and can restate it. The deletion page promises the
+    # message text is gone and only the detection remains, so the prose goes
+    # with the message. Level, layer, confidence and the matched keywords stay:
+    # those are the record.
+    #
+    # BEFORE the detach below, which is what still ties these rows to a child.
+    await _scrub_crisis_reasoning(db, child_ids)
 
     # Detach the audit trail before the cascade reaches it. See the module
     # docstring: the record is kept, the person is not.

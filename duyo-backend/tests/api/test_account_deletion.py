@@ -404,3 +404,39 @@ def test_nothing_named_is_nothing_done(session):
     assert receipt.children == 0
     assert _run(session.scalar(select(ChildProfile))).id == kept.id
     assert _run(session.scalar(select(User))).id == user.id
+
+
+def test_the_model_s_prose_about_the_child_does_not_survive_seven_years(session):
+    """Layer 2 writes free text ABOUT what the child said.
+
+    The deletion page promises the message is gone and only the detection
+    remains. `matches` carries Layer 1's keywords, which are ours — and Layer
+    2's `reasoning`, which is the model restating the child's words. That has
+    to leave with the message it describes.
+    """
+    user, child = _family(session)
+    session.add(
+        CrisisEvent(
+            id=uuid4(),
+            child_id=child.id,
+            level=CrisisLevel.RED,
+            layer=2,
+            matches=[
+                {"confidence": 0.9, "reasoning": "Bola o'zini o'ldirmoqchiligini aytdi"},
+                {"keyword": "x", "category": "self_harm", "language": "uz"},
+            ],
+        )
+    )
+    _run(session.commit())
+
+    _run(account_deletion.delete_account(session, user))
+
+    row = _run(session.scalar(select(CrisisEvent)))
+    assert row is not None
+    assert row.child_id is None
+    # The detection survives...
+    assert row.level is CrisisLevel.RED
+    assert row.matches[0]["confidence"] == 0.9
+    assert row.matches[1]["keyword"] == "x"
+    # ...the prose does not.
+    assert "reasoning" not in row.matches[0]

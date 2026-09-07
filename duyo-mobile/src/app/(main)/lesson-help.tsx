@@ -5,10 +5,14 @@ import {
   Camera,
   CheckCircle2,
   CloudOff,
+  Flag,
   PenLine,
   Sparkles,
 } from 'lucide-react-native';
 import { useState } from 'react';
+
+import { reportAiOutput } from '@/api/endpoints/chat';
+import { ReportMessageSheet } from '@/components/chat/report-message-sheet';
 import {
   ActivityIndicator,
   Alert,
@@ -56,6 +60,7 @@ export default function LessonHelpScreen() {
   const child = useChildStore((s) => s.child);
   const [subject, setSubject] = useState<Subject>('math');
   const [question, setQuestion] = useState('');
+  const [reporting, setReporting] = useState(false);
   const solve = useLessonHelp(child?.id);
 
   const stage: Stage = solve.isPending
@@ -358,16 +363,61 @@ export default function LessonHelpScreen() {
                   <Text style={styles.buttonText}>{t('lessonHelp.newTask')}</Text>
                 </Pressable>
               </View>
+
+              {/* Play asks for a way to report offensive generated content —
+                  all of it, not the part that happens to be stored. This
+                  screen is stateless, so there is no message id and the
+                  chat-side route 404s; the text goes with the report instead. */}
+              {solve.data.available && (
+                <Pressable
+                  onPress={() => setReporting(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.report.title')}
+                  style={[styles.reportLink, styles.focusable]}
+                >
+                  <Flag size={13} color={MUTED} strokeWidth={2} />
+                  <Text style={styles.reportLinkText}>{t('chat.report.title')}</Text>
+                </Pressable>
+              )}
             </ScrollView>
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {reporting && solve.data && (
+        <ReportMessageSheet
+          quote={solutionText(solve.data)}
+          onSubmit={async (reason) => {
+            if (child) {
+              await reportAiOutput(child.id, reason, solutionText(solve.data!), 'lesson_help');
+            }
+          }}
+          onClose={() => setReporting(false)}
+        />
+      )}
     </View>
   );
 }
 
+/** The whole answer as the child saw it — steps and final line together. */
+function solutionText(data: { steps: { title?: string; detail: string }[]; answer?: string | null }): string {
+  const body = data.steps
+    .map((s) => (s.title ? `${s.title}: ${s.detail}` : s.detail))
+    .join('\n');
+  return data.answer ? `${body}\n${data.answer}` : body;
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  reportLink: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 18,
+    paddingVertical: 8,
+  },
+  reportLinkText: { color: MUTED, fontSize: 12.5 },
   // The browser's default focus ring is a square drawn around a rounded
   // control. RN's ViewStyle has no outline, so this is a web-only escape;
   // native ignores unknown keys.

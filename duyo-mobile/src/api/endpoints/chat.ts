@@ -155,3 +155,25 @@ export async function reportMessage(
     reason,
   });
 }
+
+/**
+ * Report generated text that was never stored as a message.
+ *
+ * `/lesson-help` and `/board` are stateless by design, so there is no message
+ * id to report against — and those are exactly the two surfaces that show a
+ * child a worked solution. The text goes with the report because the server
+ * did not keep it.
+ */
+export async function reportAiOutput(
+  childId: string,
+  reason: AiReportReason,
+  modelOutput: string,
+  surface: 'lesson_help' | 'board',
+): Promise<void> {
+  await apiClient.post('/chat/ai-output/report', {
+    child_id: childId,
+    reason,
+    model_output: modelOutput,
+    surface,
+  });
+}

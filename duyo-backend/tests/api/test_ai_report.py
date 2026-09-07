@@ -178,3 +178,64 @@ def test_every_offered_reason_is_accepted():
         assert chat_module.AiReportRequest(
             child_id=uuid4(), reason=reason.value
         ).reason is reason
+
+
+# ── generated text with no message behind it ─────────────────────────────────
+#
+# /lesson-help and /board are stateless by design: they answer and keep
+# nothing. The message-scoped route 404s without a Message row, so the two
+# surfaces that show a child a worked solution were the two it could not be
+# used from — and Play asks for a way to report offensive generated content,
+# not a way to report some of it.
+
+
+def _output_payload(child_id, reason="harmful", surface="lesson_help", text="2+2=5"):
+    return chat_module.AiOutputReportRequest(
+        child_id=child_id, reason=reason, model_output=text, surface=surface
+    )
+
+
+def test_stateless_output_is_reportable_without_a_message_row():
+    user = _FakeUser(id=uuid4())
+    child = _child(user.id)
+    db = _FakeSession(child_result=_FakeResult([child]), scalar_queue=[])
+
+    resp = _run(
+        chat_module.report_ai_output(
+            _output_payload(child.id, "scary", "board", "qo'rqinchli javob"), user, db
+        )
+    )
+
+    assert resp == {"status": "received"}
+    row = db.added[0]
+    assert isinstance(row, AiMessageReport)
+    assert row.message_id is None          # nothing to point at, by design
+    assert row.model_output == "qo'rqinchli javob"   # so the text travels
+    assert row.model_name == "board"       # and the surface is recorded
+    assert row.reason == AiReportReason.SCARY.value
+    assert db.flushed is True
+
+
+def test_a_report_about_another_familys_child_is_refused():
+    """Same ownership gate as every other child-scoped route."""
+    user = _FakeUser(id=uuid4())
+    db = _FakeSession(child_result=_FakeResult([]), scalar_queue=[])
+
+    with pytest.raises(HTTPException) as exc:
+        _run(chat_module.report_ai_output(_output_payload(uuid4()), user, db))
+    assert exc.value.status_code == 404
+
+
+def test_empty_output_is_rejected_at_the_boundary():
+    with pytest.raises(ValidationError):
+        chat_module.AiOutputReportRequest(
+            child_id=uuid4(), reason="harmful", model_output="", surface="board"
+        )
+
+
+def test_an_invented_reason_is_rejected_here_too():
+    with pytest.raises(ValidationError):
+        chat_module.AiOutputReportRequest(
+            child_id=uuid4(), reason="i_just_did_not_like_it",
+            model_output="x", surface="board",
+        )
