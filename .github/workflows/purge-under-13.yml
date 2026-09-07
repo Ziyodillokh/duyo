@@ -43,6 +43,15 @@ jobs:
     name: ${{ inputs.mode == 'apply' && 'ERASE under-13 profiles' || 'Report under-13 profiles' }}
     runs-on: ubuntu-latest
     steps:
+      # The count is filled in and the dropdown is still on report: the run
+      # will report again and delete nothing, and the only way to notice is
+      # that the job is named "Report" rather than "ERASE". Say so up front.
+      - name: You filled in the count but left mode on report
+        if: inputs.mode != 'apply' && inputs.confirm_count != ''
+        run: |
+          echo "::warning::confirm_count is set to '${{ inputs.confirm_count }}' but mode is 'report', so NOTHING WILL BE DELETED."
+          echo "To erase, run the workflow again and change the 'mode' dropdown to 'apply'."
+
       - name: Refuse an apply with no confirmation
         if: inputs.mode == 'apply'
         run: |
