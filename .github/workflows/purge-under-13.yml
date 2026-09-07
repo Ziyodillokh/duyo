@@ -5,9 +5,19 @@ name: Purge under-13 profiles
 # about children's data, not something a schema change should make on its own —
 # this is the button that carries the decision out once it has been made.
 #
-# It runs the same code either way; `mode` only decides whether it writes.
-# The default is report, and applying requires typing the row count you saw in
-# the report, so a mis-click cannot delete anybody.
+# It cannot `docker exec` the running container: that container holds whatever
+# code was last deployed, and the deploy is blocked by the very rows this
+# removes, so `duyo.maintenance` may not exist there. It ships the source,
+# builds an image and runs a ONE-OFF container instead. The running api is
+# never touched, and no rollback is needed if this fails.
+#
+# The env comes from the RUNNING container plus api-extra.env — the same pair
+# the deploy uses. /opt/duyo/.env alone carries the database URL and not the
+# Redis and MinIO settings, and without those the rows would go while the OTP
+# state and the child's photo and voice notes silently stayed behind.
+#
+# mode=report changes nothing. Applying requires typing the count the report
+# showed, and the server re-checks that it still matches before writing.
 
 on:
   workflow_dispatch:
@@ -19,7 +29,7 @@ on:
         type: choice
         options: [report, apply]
       confirm_count:
-        description: "For apply ONLY: the number of profiles the report listed. Leave blank to report."
+        description: "For apply ONLY: the number of profiles the report listed."
         required: false
         default: ""
         type: string
@@ -43,6 +53,8 @@ jobs:
           fi
           echo "Confirmation given: ${{ inputs.confirm_count }} profile(s)."
 
+      - uses: actions/checkout@v6
+
       - name: SSH key
         run: |
           mkdir -p ~/.ssh
@@ -52,10 +64,21 @@ jobs:
           echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      # Inside the RUNNING container, not a one-off `docker run`: the deploy's
-      # env-file carries the database URL but not the Redis and MinIO settings,
-      # and without those the rows would go while the OTP state and the child's
-      # photo and voice notes silently stayed behind.
+      # Same file list and destination as the deploy, so this cannot leave the
+      # server holding a source tree the deploy did not put there.
+      - name: Rsync api source → server
+        working-directory: duyo-backend
+        run: |
+          rsync -avz --delete --no-perms \
+            --exclude='.venv' --exclude='__pycache__' --exclude='*.pyc' \
+            --exclude='.pytest_cache' --exclude='.mypy_cache' --exclude='.ruff_cache' \
+            --exclude='tts_samples/' --exclude='*_validation.json' \
+            --exclude='.env' --exclude='.env.local' \
+            --exclude='*.egg-info' --exclude='dist' --exclude='build' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            src migrations pyproject.toml README.md alembic.ini Dockerfile .dockerignore \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/api/
+
       - name: Run the purge
         env:
           MODE: ${{ inputs.mode }}
@@ -63,16 +86,42 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "MODE='$MODE' EXPECTED='$EXPECTED' bash -se" <<'REMOTE'
+            "MODE='$MODE' EXPECTED='$EXPECTED' GIT_SHA='${{ github.sha }}' bash -se" <<'REMOTE'
               set -euo pipefail
+              SHA="${GIT_SHA:0:12}"
+              cd /opt/duyo/api
 
-              if ! docker inspect duyo-api >/dev/null 2>&1; then
-                echo "::error::duyo-api container is not running — deploy first."
+              echo "--- build duyo-purge:$SHA ---"
+              docker build -t "duyo-purge:$SHA" .
+
+              # Env from the RUNNING api, exactly as the deploy takes it.
+              if docker inspect duyo-api >/dev/null 2>&1; then
+                docker inspect duyo-api --format '{{range .Config.Env}}{{println .}}{{end}}' \
+                  | grep -vE '^(PATH|LANG|GPG_KEY|PYTHON_VERSION|PYTHON_SHA256|PYTHONDONTWRITEBYTECODE|PYTHONUNBUFFERED|PIP_)=' \
+                  > /tmp/duyo-purge.env
+              else
+                echo "::error::duyo-api is not running, so its env cannot be read. Deploy first."
                 exit 1
               fi
 
+              run_purge() {
+                docker run --rm --network duyo_internal \
+                  --env-file /tmp/duyo-purge.env \
+                  --env-file /opt/duyo/api-extra.env \
+                  "duyo-purge:$SHA" python -m duyo.maintenance.purge_under_13 "$@"
+              }
+
+              # The image is built for this one run and nothing else refers
+              # to it; left behind it just fills the disk the deploy already
+              # has to watch.
+              cleanup() {
+                rm -f /tmp/duyo-purge.env /tmp/purge-report.txt
+                docker image rm "duyo-purge:$SHA" >/dev/null 2>&1 || true
+              }
+              trap cleanup EXIT
+
               echo "--- what is there now ---"
-              docker exec duyo-api python -m duyo.maintenance.purge_under_13 | tee /tmp/purge-report.txt
+              run_purge | tee /tmp/purge-report.txt
 
               if [ "$MODE" != "apply" ]; then
                 echo
@@ -80,10 +129,10 @@ jobs:
                 exit 0
               fi
 
-              # The count in the report has to match what was confirmed. If
-              # somebody signed up in between, the operator is confirming a
-              # number that is no longer the number, and this stops rather
-              # than erasing a profile nobody looked at.
+              # The count has to still match what was confirmed. If somebody
+              # signed up in between, the operator is confirming a number that
+              # is no longer the number, and this stops rather than erasing a
+              # profile nobody looked at.
               FOUND=$(grep -oE '^[0-9]+' /tmp/purge-report.txt | head -1 || echo 0)
               if [ "$FOUND" != "$EXPECTED" ]; then
                 echo "::error::Report shows $FOUND profile(s), confirmation said $EXPECTED. Re-run mode=report and confirm the current number."
@@ -92,7 +141,7 @@ jobs:
 
               echo
               echo "--- erasing $FOUND profile(s) ---"
-              docker exec duyo-api python -m duyo.maintenance.purge_under_13 --apply
+              run_purge --apply
           REMOTE
 
       - name: What to do next
