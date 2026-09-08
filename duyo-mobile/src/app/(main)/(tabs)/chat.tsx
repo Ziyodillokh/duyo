@@ -15,7 +15,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -46,6 +46,9 @@ import { useKeyboardState } from 'react-native-keyboard-controller';
 
 import { KeyboardAvoidingView } from '@/components/keyboard-avoiding-view';
 import { PuzzleChalkboard } from '@/components/puzzle-chalkboard';
+import { type BoardSolution, solveOnBoard } from '@/api/endpoints/board';
+import { Chalkboard } from '@/components/chalkboard';
+import { worthAsking } from '@/lib/board-trigger';
 import { SuggestedReplies } from '@/components/suggested-replies';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { ChatDrawer } from '@/components/chat/chat-drawer';
@@ -115,6 +118,7 @@ type DisplayItem =
   | { kind: 'typing' }
   | { kind: 'counter' }
   | { kind: 'puzzle'; puzzle: Puzzle }
+  | { kind: 'board'; solution: BoardSolution }
   | { kind: 'suggested-replies' };
 
 function startOfTodayMs(): number {
@@ -241,6 +245,12 @@ export default function ChatScreen() {
       .catch(() => {});
   }, [child]);
 
+  /** The worked solution under the newest turn, or null. */
+  const [board, setBoard] = useState<BoardSolution | null>(null);
+  /** Bumped on every send. A board that arrives after the child has moved on
+   *  belongs to a question that is no longer on screen, so it is dropped. */
+  const turnSeq = useRef(0);
+
   const send = useMutation({
     mutationFn: (vars: { text: string; action?: 'web_search'; actionQuery?: string }) => {
       if (!child) {
@@ -276,7 +286,7 @@ export default function ChatScreen() {
         memory_context: memoryContext,
       });
     },
-    onSuccess: (response) => {
+    onSuccess: (response, vars) => {
       setConversationId(response.conversation_id);
       appendMessage({
         id: response.message_id,
@@ -294,6 +304,18 @@ export default function ChatScreen() {
         });
         return; // never interrupt a crisis moment with a game
       }
+      // The board is asked for AFTER the reply, not instead of it: the child
+      // reads the answer while this is still in flight, and a failure here
+      // costs them nothing. The server decides whether the question is
+      // actually solvable — `worthAsking` only keeps us from spending a model
+      // call on "salom".
+      if (child && worthAsking(vars.text)) {
+        const seq = turnSeq.current;
+        void solveOnBoard(child.id, vars.text).then((solution) => {
+          if (solution && turnSeq.current === seq) setBoard(solution);
+        });
+      }
+
       maybeOfferPuzzle();
       offerMemoryConsent(response.memory_candidate);
     },
@@ -315,6 +337,11 @@ export default function ChatScreen() {
       timestamp: Date.now(),
     });
     setInput('');
+    // The previous solution answered the previous question. Clearing it here
+    // rather than when the new one arrives means the child never sees a board
+    // that belongs to something they have already moved past.
+    turnSeq.current += 1;
+    setBoard(null);
     send.mutate({ text });
   };
 
@@ -381,6 +408,7 @@ export default function ChatScreen() {
       // The list is inverted, so index 0 sits at the bottom — the puzzle
       // lands directly above the composer, where the newest turn belongs.
       ...(puzzle ? [{ kind: 'puzzle' as const, puzzle }] : []),
+      ...(board ? [{ kind: 'board' as const, solution: board }] : []),
       ...(showSuggestions
         ? [{ kind: 'suggested-replies' as const }]
         : []),
@@ -389,7 +417,7 @@ export default function ChatScreen() {
         .map((message): DisplayItem => ({ kind: 'message', message })),
       { kind: 'counter' as const },
     ],
-    [send.isPending, showSuggestions, messages, puzzle],
+    [send.isPending, showSuggestions, messages, puzzle, board],
   );
 
   // The newest child message, while its reply is still in flight. Delivery
@@ -498,6 +526,7 @@ export default function ChatScreen() {
             keyExtractor={(item, i) => {
               if (item.kind === 'typing') return 'typing-indicator';
               if (item.kind === 'puzzle') return `puzzle-${item.puzzle.puzzle_id}`;
+              if (item.kind === 'board') return 'board-solution';
               if (item.kind === 'suggested-replies') return 'suggested-replies';
               if (item.kind === 'counter') return 'daily-counter';
               return `${item.message.id}-${i}`;
@@ -519,6 +548,15 @@ export default function ChatScreen() {
                     onDone={() => setPuzzle(null)}
                   />
                 ) : null;
+              }
+              if (item.kind === 'board') {
+                return (
+                  <Chalkboard
+                    solution={item.solution}
+                    onClose={() => setBoard(null)}
+                    compact
+                  />
+                );
               }
               if (item.kind === 'suggested-replies') {
                 return <SuggestedReplies onSelect={setInput} />;

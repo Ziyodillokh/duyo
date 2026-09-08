@@ -86,6 +86,18 @@ class Settings(BaseSettings):
     #: 2.5, so the cap moves with it or the cap becomes the new gag.
     gemini_thinking_budget_flash: int = -1
 
+    #: Thinking on a STRUCTURED-output call shares `max_output_tokens` with the
+    #: JSON it is supposed to produce — the two come out of one budget.
+    #:
+    #: The conversational paths run unbounded (-1) and that is right for them.
+    #: Here it is not: an unbounded think spends the whole ceiling, the JSON
+    #: arrives truncated, `json.loads` raises, and every caller reads that
+    #: failure as "not a problem". The chalkboard stopped appearing for exactly
+    #: the questions worth drawing — a quadratic equation needs real reasoning,
+    #: a triangle-area formula does not, so the easy ones still worked and the
+    #: breakage looked like the model being fussy.
+    gemini_thinking_budget_structured: int = 768
+
     # Personal-memory candidate extraction (local-first memory — see
     # services/memory_candidates.py). The extractor never writes to Postgres;
     # this is only an ops kill switch for cost/latency, flippable without a

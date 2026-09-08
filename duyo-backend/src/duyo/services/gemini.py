@@ -450,10 +450,10 @@ async def solve_on_board(*, question: str, age_segment: AgeSegment) -> dict:
                 # is cut mid-object, json.loads raises, and the blanket except
                 # returns _NO_BOARD. So the board silently failed to appear on
                 # exactly the graph problems it was most wanted for.
-                max_output_tokens=1600,
+                max_output_tokens=3000,
                 temperature=0.2,  # deterministic — arithmetic must not wander
                 thinking_config=types.ThinkingConfig(
-                    thinking_budget=settings.gemini_thinking_budget_flash
+                    thinking_budget=settings.gemini_thinking_budget_structured
                 ),
                 response_mime_type="application/json",
             ),
@@ -529,10 +529,10 @@ async def solve_lesson(
             config=types.GenerateContentConfig(
             safety_settings=SAFETY_SETTINGS,
                 system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{LESSON_HELP_PROMPT}",
-                max_output_tokens=900,
+                max_output_tokens=2200,
                 temperature=0.3,
                 thinking_config=types.ThinkingConfig(
-                    thinking_budget=settings.gemini_thinking_budget_flash
+                    thinking_budget=settings.gemini_thinking_budget_structured
                 ),
                 response_mime_type="application/json",
             ),
@@ -592,10 +592,10 @@ async def decompose_goal(
             config=types.GenerateContentConfig(
             safety_settings=SAFETY_SETTINGS,
                 system_instruction=f"{SYSTEM_PROMPTS[age_segment]}\n\n{GOAL_DECOMPOSE_PROMPT}",
-                max_output_tokens=700,
+                max_output_tokens=1800,
                 temperature=0.4,  # a little room to phrase steps naturally
                 thinking_config=types.ThinkingConfig(
-                    thinking_budget=settings.gemini_thinking_budget_flash
+                    thinking_budget=settings.gemini_thinking_budget_structured
                 ),
                 response_mime_type="application/json",
             ),

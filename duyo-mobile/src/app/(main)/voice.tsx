@@ -39,6 +39,7 @@ import { VoiceOrb } from '@/components/voice/voice-orb';
 import { useMicRecorder, type MicPermission } from '@/hooks/use-mic-recorder';
 import { usePcmPlayer } from '@/hooks/use-pcm-player';
 import { useVoiceSession } from '@/hooks/use-voice-session';
+import { worthAsking } from '@/lib/board-trigger';
 import { glass, lift } from '@/lib/glass';
 import { useChatStore } from '@/store/chat';
 import { useChildStore } from '@/store/child';
@@ -147,22 +148,6 @@ const PUZZLE_EVERY_N_TURNS = 4;
 // which classifies authoritatively and answers is_problem=false for free.
 // The bias is deliberate: a missed board is a bug the child sees, an extra
 // call costs a fraction of a cent.
-// Speech-to-text emits several apostrophe glyphs for o'/g', so match any.
-const APOS = "['‘’ʻʼ]?";
-const PURE_SMALL_TALK = new RegExp(
-  `^(salom|assalomu?\\s*alaykum|qalaysan|rahmat|xayr|ha|yo${APOS}q|xo${APOS}p|` +
-    `yaxshi|zo${APOS}r|charchadim|zerikdim|uxlayman)[\\s.!?]*$`,
-  'i',
-);
-
-function worthAsking(text: string): boolean {
-  const t = text.trim();
-  // Too short to carry a problem statement.
-  if (t.length < 8) return false;
-  // The whole utterance is a greeting or an acknowledgement.
-  return !PURE_SMALL_TALK.test(t);
-}
-
 function avatarStateFor(
   phase: Phase,
   crisis: 'orange' | 'red' | null,
