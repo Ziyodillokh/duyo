@@ -82,9 +82,11 @@ export default function LessonHelpScreen() {
     if (!canSubmit || solve.isPending) return;
     const meta = SUBJECTS.find((s) => s.key === subject);
     solve.mutate({
-      // The readable Uzbek label, not the key — it goes into the tutor prompt
-      // as "Fan: ..." (see api/endpoints/lesson-help.ts).
-      subject: meta?.label ?? subject,
+      // The readable label, not the key — it goes into the tutor prompt as
+      // "Fan: ..." (see api/endpoints/lesson-help.ts). `label` is a translation
+      // KEY (lib/subjects.ts), so it must be resolved here, or the model is
+      // told the subject is "subject.math".
+      subject: meta ? t(meta.label) : subject,
       question: trimmed,
     });
   };
@@ -136,7 +138,7 @@ export default function LessonHelpScreen() {
                         key={s.key}
                         onPress={() => setSubject(s.key)}
                         accessibilityRole="button"
-                        accessibilityLabel={s.label}
+                        accessibilityLabel={t(s.label)}
                         style={[
                           glass(18, 'sm'),
                           styles.chip,
@@ -146,7 +148,7 @@ export default function LessonHelpScreen() {
                       >
                         <Text style={styles.chipEmoji}>{s.emoji}</Text>
                         <Text style={[styles.chipText, sel && styles.chipTextOn]}>
-                          {s.label}
+                          {t(s.label)}
                         </Text>
                       </Pressable>
                     );
