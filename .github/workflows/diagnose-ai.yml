@@ -1,0 +1,86 @@
+# Diagnose "the AI answers are shallow" against the LIVE server.
+#
+# Read-only. It runs three questions over SSH and prints the answers:
+#   1. Are the textbook chunks in the production database at all?
+#   2. Is the container's env quietly overriding the thinking-budget fix?
+#   3. Over the last day, how often did retrieval actually reach the model?
+#
+# This exists because the answers live only on the server, and the deploy key
+# in this repository's secrets is the one credential that reaches it. It is the
+# same SSH setup purge-under-13.yml uses, minus anything that writes.
+#
+# Nothing here changes state. No file is copied to the server, no container is
+# restarted, no row is touched. The one thing it deliberately does NOT print is
+# any env value that looks like a secret — see the grep below.
+
+name: Diagnose AI quality
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: diagnose-ai
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read-only checks on the live server
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Run the checks
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" bash -s <<'REMOTE'
+            set -u
+            echo "=================== 1. KITOBLAR (textbook_chunks) ==================="
+            docker exec duyo-postgres psql -U duyo -d duyo -tA -c \
+              "SELECT 'jami='||count(*)||'  embedded='||count(embedding)||'  fanlar='||count(DISTINCT subject) FROM textbook_chunks;" \
+              2>&1 || echo "SO'ROV MUVAFFAQIYATSIZ (jadval yo'qmi?)"
+            echo "--- fan / sinf bo'yicha ---"
+            docker exec duyo-postgres psql -U duyo -d duyo -tA -c \
+              "SELECT subject||' '||grade||'-sinf: '||count(*) FROM textbook_chunks GROUP BY subject, grade ORDER BY subject, grade;" 2>&1 | head -40
+            echo "--- ivfflat indeksi ---"
+            docker exec duyo-postgres psql -U duyo -d duyo -tA -c \
+              "SELECT indexname FROM pg_indexes WHERE tablename='textbook_chunks';" 2>&1
+            echo "--- psixologiya chunk'lari ---"
+            docker exec duyo-postgres psql -U duyo -d duyo -tA -c \
+              "SELECT 'psych='||count(*)||' embedded='||count(embedding) FROM psychology_chunks;" 2>&1 || echo "(jadval yo'q)"
+
+            echo
+            echo "=================== 2. KONTEYNER ENV (faqat xavfsiz kalitlar) ==================="
+            # Only the two knobs the fix touched, plus the model name and env.
+            # Anything with KEY/SECRET/PASSWORD/TOKEN/URL in the name is never printed.
+            docker inspect duyo-api --format '{{range .Config.Env}}{{println .}}{{end}}' \
+              | grep -E '^(GEMINI_THINKING_BUDGET_FLASH|GEMINI_MAX_OUTPUT_TOKENS|GEMINI_MODEL_PRIMARY|APP_ENV)=' \
+              || echo "(bu kalitlar env'da YO'Q — demak kod sukutlari amalda: thinking=-1, tokens=4000)"
+            echo "--- GOOGLE_API_KEY o'rnatilganmi (qiymatsiz) ---"
+            docker inspect duyo-api --format '{{range .Config.Env}}{{println .}}{{end}}' \
+              | grep -qE '^GOOGLE_API_KEY=.{10,}' && echo "GOOGLE_API_KEY: bor" || echo "GOOGLE_API_KEY: YO'Q yoki bo'sh"
+
+            echo
+            echo "=================== 3. SO'NGGI 24 SOAT: RAG QANCHA ISHLADI ==================="
+            docker logs duyo-api --since 24h 2>&1 \
+              | grep -oE 'rag_(skip_non_topical|no_match|context_built)|query_normalize_failed|embed_query_failed|chat_llm_failed' \
+              | sort | uniq -c | sort -rn || echo "(loglarda hech narsa yo'q)"
+            echo "--- so'nggi 7 kun ---"
+            docker logs duyo-api --since 168h 2>&1 \
+              | grep -oE 'rag_(skip_non_topical|no_match|context_built)|embed_query_failed' \
+              | sort | uniq -c | sort -rn || echo "(hech narsa yo'q)"
+            echo "--- chat so'rovlari soni (24h) ---"
+            docker logs duyo-api --since 24h 2>&1 | grep -c 'POST /v1/chat ' || true
+
+            echo
+            echo "=================== 4. KONTEYNER HOLATI ==================="
+            docker ps --format '{{.Names}}\t{{.Status}}\t{{.Image}}' | grep -E 'duyo-(api|postgres|redis|minio|nginx)'
+            echo "--- api image qaysi commit ---"
+            docker inspect duyo-api --format '{{.Config.Image}} {{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true
+          REMOTE
