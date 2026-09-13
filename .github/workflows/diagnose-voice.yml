@@ -1,0 +1,88 @@
+# Diagnose the voice WebSocket failing with "Aloqa uzildi" against the LIVE server.
+#
+# Reproduced from outside: the handshake succeeds, the client receives
+# {"type":"ready"}, and the very next frame is {"type":"error",
+# "message":"internal_error"} followed by close 1011. So TLS, nginx, the JWT
+# and the child lookup are all fine — something throws inside the session,
+# after accept(). api/v1/voice.py logs that with log.exception("voice_ws error
+# after accept"), and the traceback exists only in the container's log.
+#
+# Read-only. It prints:
+#   1. The most recent voice_ws traceback, in full.
+#   2. How many times it has happened, and since when.
+#   3. Which live model and google-genai version the RUNNING container has.
+#
+# Nothing is written. No file is copied, no container restarted, no row
+# touched. Env output is filtered so nothing secret-looking is printed — the
+# same rule purge-under-13.yml and diagnose-ai.yml follow.
+
+name: Diagnose voice WebSocket
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: diagnose-voice
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read-only voice checks on the live server
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Run the checks
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" bash -s <<'REMOTE'
+            set -u
+
+            echo "=================== 1. LAST voice_ws TRACEBACK ==================="
+            # -B2 for the log line itself, a generous -A so the whole stack and
+            # the final exception line are inside one window.
+            docker logs duyo-api --since 48h 2>&1 \
+              | grep -n -A 60 "voice_ws error after accept" \
+              | tail -70 \
+              || echo "(no voice_ws traceback in the last 48h)"
+
+            echo
+            echo "=================== 2. HOW OFTEN ==================="
+            N=$(docker logs duyo-api --since 48h 2>&1 | grep -c "voice_ws error after accept" || true)
+            echo "voice_ws failures in the last 48h: ${N:-0}"
+            echo "--- first and last occurrence ---"
+            docker logs duyo-api --since 48h -t 2>&1 \
+              | grep "voice_ws error after accept" \
+              | sed -n '1p;$p' \
+              | cut -c1-120 \
+              || true
+
+            echo
+            echo "=================== 3. WHAT THE CONTAINER IS RUNNING ==================="
+            echo "--- google-genai version ---"
+            docker exec duyo-api python -c \
+              "import google.genai as g; print('google-genai', getattr(g,'__version__','?'))" 2>&1 | tail -2
+            echo "--- live model + whether the code has safety_settings on the live config ---"
+            docker exec duyo-api python -c "
+from duyo.core.config import get_settings
+s = get_settings()
+print('gemini_model_live      =', s.gemini_model_live)
+print('gemini_thinking_budget_flash =', s.gemini_thinking_budget_flash)
+" 2>&1 | tail -5
+            docker exec duyo-api sh -c \
+              "grep -c 'safety_settings=SAFETY_SETTINGS' /app/src/duyo/services/gemini_live.py" 2>&1 | tail -1
+
+            echo
+            echo "--- non-secret GEMINI env actually set in the container ---"
+            docker inspect duyo-api --format '{{range .Config.Env}}{{println .}}{{end}}' \
+              | grep -iE '^GEMINI_' \
+              | grep -viE 'KEY|SECRET|TOKEN|PASSWORD' \
+              || echo "(none)"
+          REMOTE
