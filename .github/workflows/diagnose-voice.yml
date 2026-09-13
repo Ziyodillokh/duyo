@@ -70,12 +70,7 @@ jobs:
             docker exec duyo-api python -c \
               "import google.genai as g; print('google-genai', getattr(g,'__version__','?'))" 2>&1 | tail -2
             echo "--- live model + whether the code has safety_settings on the live config ---"
-            docker exec duyo-api python -c "
-from duyo.core.config import get_settings
-s = get_settings()
-print('gemini_model_live      =', s.gemini_model_live)
-print('gemini_thinking_budget_flash =', s.gemini_thinking_budget_flash)
-" 2>&1 | tail -5
+            docker exec duyo-api python -c "from duyo.core.config import get_settings as g; s = g(); print('gemini_model_live =', s.gemini_model_live); print('thinking_budget_flash =', s.gemini_thinking_budget_flash)" 2>&1 | tail -5
             docker exec duyo-api sh -c \
               "grep -c 'safety_settings=SAFETY_SETTINGS' /app/src/duyo/services/gemini_live.py" 2>&1 | tail -1
 
