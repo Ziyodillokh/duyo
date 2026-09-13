@@ -37,6 +37,49 @@ _TEMPLATES = {
 }
 
 
+#: The spoken-turn ceiling, worded the same way and reset on the same clock.
+#:
+#: Kept separate from the message templates rather than parameterised with a
+#: noun: "xabarlar" and "ovozli savollar" do not decline the same way in any of
+#: the three languages, and a sentence assembled from fragments is how a child
+#: ends up reading something that is not quite a sentence.
+_VOICE_TEMPLATES = {
+    Language.UZ: (
+        "Bugungi ovozli savollar tugadi ({used}/{limit}). Yangi kun Toshkent "
+        "vaqti bilan soat {reset} da boshlanadi — o'shanda yana gaplashamiz. "
+        "Hozircha yozib yuborsang ham bo'ladi."
+    ),
+    Language.RU: (
+        "Голосовые вопросы на сегодня закончились ({used}/{limit}). Новый день "
+        "начинается в {reset} по ташкентскому времени — тогда снова поговорим. "
+        "Пока что можешь написать."
+    ),
+    Language.EN: (
+        "You've used today's voice questions ({used}/{limit}). The new day "
+        "starts at {reset} Tashkent time — we can talk again then. "
+        "You can still type in the meantime."
+    ),
+}
+
+
+def daily_voice_limit_message(
+    language: Language | None, *, used: int, limit: int | None
+) -> str:
+    """The spent-your-voice-turns notice, in the child's own language.
+
+    Sent as the `message` of the error frame the voice socket closes with.
+    The app renders that field verbatim, which is why this is a finished
+    sentence and not a code — including in the build already on the phone,
+    which knows nothing about voice quotas.
+
+    It ends by pointing at text chat, because that is still open: the child is
+    out of one thing, not out of DUYO.
+    """
+    template = _VOICE_TEMPLATES.get(language or Language.UZ, _VOICE_TEMPLATES[Language.UZ])
+    return template.format(used=used, limit=limit if limit is not None else used,
+                           reset=_RESET_LOCAL_HOUR)
+
+
 def daily_limit_message(language: Language | None, *, used: int, limit: int | None) -> str:
     """The over-limit notice in the child's own language.
 

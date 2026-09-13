@@ -1,10 +1,17 @@
-"""Daily message-limit enforcement per subscription tier (Concept §12.1).
+"""Daily ceilings per subscription tier (Concept §12.1).
 
-Free tier = 20 child messages/day; paid tiers = unlimited (daily_message_limit
-is None). The limit is counted across ALL the parent's children for the
-current UTC day, against the parent's subscription tier.
+Two of them, counted the same way — across ALL the parent's children, for the
+current UTC day, against the parent's tier:
 
-Resolves the tier with a get-or-create-free fallback so a user with no
+    messages   free 20/day, paid 100/day
+    voice      free FREE_DAILY_VOICE_TURNS spoken turns/day, paid unlimited
+
+Voice was not a ceiling before; it was a wall. The free plan had `voice=False`
+and the socket was refused, so a child was asked to pay for the one feature
+they had never heard. It is a quota now: enough to find out what it is, not
+enough to live on.
+
+Both resolve the tier with a get-or-create-free fallback, so a user with no
 subscription row is treated as free (the implicit default).
 """
 
@@ -20,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from duyo.billing import service, tiers
 from duyo.models.child import ChildProfile
 from duyo.models.conversation import Conversation
-from duyo.models.message import Message, MessageRole
+from duyo.models.message import MODALITY_VOICE, Message, MessageRole
 from duyo.models.subscription import Subscription
 
 
@@ -94,4 +101,60 @@ async def check_daily_message_limit(
         return LimitStatus(allowed=True, limit=None, used=0, tier=tier_key)
 
     used = await _messages_today(session, user_id, now)
+    return LimitStatus(allowed=used < limit, limit=limit, used=used, tier=tier_key)
+
+
+async def _voice_turns_today(session: AsyncSession, user_id: UUID, now: datetime) -> int:
+    """Count this parent's children's SPOKEN turns since UTC midnight.
+
+    One turn writes one CHILD row and one ASSISTANT row, both stamped
+    MODALITY_VOICE; counting the child side makes one turn cost one.
+    """
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    count = await session.scalar(
+        select(func.count(Message.id))
+        .select_from(Message)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .join(ChildProfile, Conversation.child_id == ChildProfile.id)
+        .where(
+            ChildProfile.parent_id == user_id,
+            Message.role == MessageRole.CHILD,
+            Message.modality == MODALITY_VOICE,
+            Message.created_at >= day_start,
+            Message.created_at < day_start + timedelta(days=1),
+        )
+    )
+    return int(count or 0)
+
+
+async def check_daily_voice_limit(
+    session: AsyncSession, user_id: UUID, *, now: datetime | None = None
+) -> LimitStatus:
+    """Return the spoken-turn status for a parent. Does not raise.
+
+    Voice is available on every tier now; what separates them is how much.
+    Free gets `FREE_DAILY_VOICE_TURNS` a day, paid is unlimited.
+
+    `allowed` is False in two different situations the caller must tell apart,
+    which is why the tier comes back with it:
+
+      tier.voice is False   the plan has no voice at all (no such plan today,
+                            but the flag is still read rather than assumed)
+      used >= limit         the plan has voice and today's is spent
+
+    A child who has run out is not being sold anything they cannot have — they
+    can talk again tomorrow — so the endpoint says which of the two happened.
+    """
+    now = now or datetime.now(UTC)
+    tier_key = await _user_tier_key(session, user_id, now)
+    tier = tiers.get_tier(tier_key) or tiers.get_tier(tiers.FREE)
+
+    if not tier.voice:
+        return LimitStatus(allowed=False, limit=0, used=0, tier=tier_key)
+
+    limit = tier.daily_voice_turns
+    if limit is None:
+        return LimitStatus(allowed=True, limit=None, used=0, tier=tier_key)
+
+    used = await _voice_turns_today(session, user_id, now)
     return LimitStatus(allowed=used < limit, limit=limit, used=used, tier=tier_key)

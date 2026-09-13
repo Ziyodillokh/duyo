@@ -3,7 +3,7 @@
 from enum import Enum
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Integer, Text
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,13 @@ class MessageRole(str, Enum):
     CHILD = "child"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+
+
+#: `Message.modality` for a turn that was spoken. The only non-NULL value
+#: today. Named once here because the voice endpoint writes it and the free
+#: plan's voice ceiling reads it, and a quota keyed on a string literal typed
+#: twice is a quota that stops counting the day one of them is edited.
+MODALITY_VOICE = "voice"
 
 
 # See models/child.py — force .value over .name so PG enum (lowercase) matches.
@@ -36,6 +43,14 @@ class Message(Base, UUIDPK, TimestampMixin):
     )
     role: Mapped[MessageRole] = mapped_column(_message_role_enum, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    #: How the turn arrived. NULL means typed — that is every row written
+    #: before 0045 and every row the text path writes now. The voice endpoint
+    #: stamps VOICE on both sides of a turn, which is what the free plan's
+    #: daily voice ceiling counts (billing/limits.py). Not inferred from
+    #: `model` being NULL: that is two code paths differing by accident, and a
+    #: ceiling resting on an accident breaks quietly.
+    modality: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # LLM metadata (assistant messages only — null for child)
     model: Mapped[str | None] = mapped_column(nullable=True)

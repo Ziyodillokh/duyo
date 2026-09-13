@@ -50,7 +50,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from duyo.api.deps import get_db
-from duyo.billing import limits, tiers
+from duyo.billing import limits
 from duyo.core.config import get_settings
 from duyo.core.security import decode_token, is_current
 from duyo.crisis.detector import CrisisCategory as L1Category
@@ -58,9 +58,10 @@ from duyo.crisis.stream import StreamCrisisDetector
 from duyo.models.child import ChildProfile
 from duyo.models.conversation import Conversation
 from duyo.models.crisis_event import CrisisEvent, CrisisLevel
-from duyo.models.message import Message, MessageRole
+from duyo.models.message import MODALITY_VOICE, Message, MessageRole
 from duyo.models.user import User
 from duyo.prompts import SYSTEM_PROMPTS
+from duyo.services import limit_notice
 from duyo.services import sms as sms_module
 from duyo.services.crisis_l2 import classify
 from duyo.services.gemini_live import GEMINI_LIVE_VOICES, GeminiVoiceSession
@@ -184,20 +185,6 @@ async def voice_ws(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="child not found")
         return
 
-    # Voice is the one thing the paid plan is actually sold on, and until now
-    # nothing checked it: `Tier.voice` was declared False for free, True for
-    # paid, and read nowhere. Free accounts had the whole Gemini Live session —
-    # the most expensive call the app makes — while the paywall advertised it
-    # as the reason to pay. The tier table said one thing and the server did
-    # another; this is the table being true.
-    tier_key = await limits.active_tier_key_for_user(db, user.id)
-    tier = tiers.get_tier(tier_key) or tiers.get_tier(tiers.FREE)
-    if not tier.voice:
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION, reason="subscription required"
-        )
-        return
-
     conv: Conversation | None = None
     if conversation_id is not None:
         conv = await db.scalar(
@@ -305,6 +292,43 @@ async def voice_ws(
     # 3. Accept the socket — from here on the client is connected and we
     #    must answer every frame, even on error.
     await websocket.accept()
+
+    # 3a. The daily voice ceiling, checked AFTER accept on purpose.
+    #
+    # Closing before accept does not send a WebSocket close code at all — it
+    # rejects the HTTP handshake, and the client reports 1006 "abnormal
+    # closure" because no socket ever opened. The app rendered that as
+    # "Aloqa uzildi (1006)", so a child who had simply used today's turns was
+    # shown a network fault, with nothing to do about it and nothing to read.
+    #
+    # Authentication stays before accept, where refusing the handshake is the
+    # right answer. This is a caller we have already identified; they are owed
+    # a reason.
+    voice_limit = await limits.check_daily_voice_limit(db, user.id)
+    if not voice_limit.allowed:
+        await websocket.send_json(
+            {
+                "type": "error",
+                # `message` is the field the shipped app already renders — it
+                # reads the string straight onto the screen and knows nothing
+                # about quotas. A finished sentence here is what turns
+                # "Aloqa uzildi (1008)" into something a child can act on,
+                # without waiting for a new build.
+                "message": limit_notice.daily_voice_limit_message(
+                    child.language, used=voice_limit.used, limit=voice_limit.limit
+                ),
+                # For the app to branch on once it knows how. The two are not
+                # the same story: one renews at midnight, the other does not
+                # renew at all.
+                "code": "voice_quota_exhausted" if voice_limit.limit else "voice_not_in_plan",
+                "limit": voice_limit.limit,
+                "used": voice_limit.used,
+                "tier": voice_limit.tier,
+            }
+        )
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="voice quota")
+        return
+
     await websocket.send_json({"type": "ready", "conversation_id": str(conv.id)})
 
     crisis = StreamCrisisDetector()
@@ -414,6 +438,9 @@ async def voice_ws(
         role=MessageRole.CHILD,
         content=child_text,
         crisis_level=final_level,
+        # What the daily voice ceiling counts. Without it a spoken turn is
+        # indistinguishable from a typed one and the quota counts nothing.
+        modality=MODALITY_VOICE,
     )
     db.add(child_msg)
     await db.flush()
@@ -453,6 +480,7 @@ async def voice_ws(
         role=MessageRole.ASSISTANT,
         content=full_output_text,
         crisis_level=CrisisLevel.GREEN,
+        modality=MODALITY_VOICE,
     )
     db.add(assistant_msg)
     await db.flush()

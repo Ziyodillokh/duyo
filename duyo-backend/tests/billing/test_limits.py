@@ -132,3 +132,73 @@ def test_a_paid_tier_with_no_expiry_is_a_grant_and_keeps_working():
     db = _FakeSession(subscription=(tiers.PREMIUM, None), scalar_queue=[5])
     st = _run(limits.check_daily_message_limit(db, uuid4(), now=_NOW))
     assert st.tier == tiers.PREMIUM
+
+
+# ── Daily VOICE ceiling ──────────────────────────────────────────────────────
+#
+# Free used to have `voice=False` and the socket was refused before the
+# handshake finished, so the app could only report close code 1006 — a network
+# fault, for a child who had simply not paid. Voice is metered now, and these
+# tests are what keep the meter honest.
+
+
+def test_free_gets_voice_and_a_daily_ceiling():
+    db = _FakeSession(subscription=("free", None), scalar_queue=[0])
+    st = _run(limits.check_daily_voice_limit(db, uuid4(), now=_NOW))
+    assert st.allowed is True
+    assert st.limit == tiers.FREE_DAILY_VOICE_TURNS
+    assert st.used == 0
+
+
+def test_free_one_turn_below_the_ceiling_still_speaks():
+    used = tiers.FREE_DAILY_VOICE_TURNS - 1
+    db = _FakeSession(subscription=("free", None), scalar_queue=[used])
+    st = _run(limits.check_daily_voice_limit(db, uuid4(), now=_NOW))
+    assert st.allowed is True
+    assert st.used == used
+
+
+def test_free_at_the_ceiling_is_refused_but_still_on_a_voice_plan():
+    """The boundary: `used == limit` is spent, not one more turn.
+
+    `limit` comes back non-zero, which is how the endpoint knows to say "come
+    back tomorrow" rather than "this plan has no voice".
+    """
+    db = _FakeSession(
+        subscription=("free", None), scalar_queue=[tiers.FREE_DAILY_VOICE_TURNS]
+    )
+    st = _run(limits.check_daily_voice_limit(db, uuid4(), now=_NOW))
+    assert st.allowed is False
+    assert st.limit == tiers.FREE_DAILY_VOICE_TURNS
+
+
+def test_paid_voice_is_unlimited_and_costs_no_query():
+    """None = unlimited, and the count is never run.
+
+    scalar_queue is empty on purpose: reaching for it would raise IndexError,
+    so this fails loudly if an unlimited plan ever starts counting.
+    """
+    db = _FakeSession(subscription=("premium", None), scalar_queue=[])
+    st = _run(limits.check_daily_voice_limit(db, uuid4(), now=_NOW))
+    assert st.allowed is True
+    assert st.limit is None
+
+
+def test_an_expired_paid_plan_falls_back_to_the_free_ceiling():
+    """Expiry is read, not just the tier string.
+
+    Reading `Subscription.tier` alone is what once made a one-month purchase
+    last forever; voice must not reopen that hole.
+    """
+    expired = datetime(2026, 5, 1, tzinfo=UTC)
+    db = _FakeSession(subscription=("premium", expired), scalar_queue=[0])
+    st = _run(limits.check_daily_voice_limit(db, uuid4(), now=_NOW))
+    assert st.tier == "free"
+    assert st.limit == tiers.FREE_DAILY_VOICE_TURNS
+
+
+def test_no_subscription_row_is_treated_as_free():
+    db = _FakeSession(subscription=None, scalar_queue=[0])
+    st = _run(limits.check_daily_voice_limit(db, uuid4(), now=_NOW))
+    assert st.tier == "free"
+    assert st.allowed is True

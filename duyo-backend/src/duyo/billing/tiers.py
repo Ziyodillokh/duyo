@@ -32,6 +32,18 @@ STANDART = "standart"
 
 PAID_TIERS = (PREMIUM,)
 
+#: Spoken turns a free account gets per UTC day.
+#:
+#: Chosen to be a real trial rather than a teaser: ten turns is a genuine
+#: conversation, enough to learn whether talking to DUYO is worth paying for,
+#: and it renews every day. It is deliberately not enough to replace the paid
+#: plan, because a live session is the most expensive call this product makes.
+#:
+#: One number, read by the tier table below and printed in the plan's feature
+#: list from the same constant, so the wall a child meets and the sentence
+#: advertising it cannot drift apart.
+FREE_DAILY_VOICE_TURNS = 10
+
 
 @dataclass(frozen=True)
 class Tier:
@@ -43,6 +55,10 @@ class Tier:
     ai_turns_per_day: int             # 0 = scripted only
     languages: int
     voice: bool
+    #: Spoken turns per UTC day. None = unlimited, and only meaningful when
+    #: `voice` is True. Enforced in billing/limits.py against messages stamped
+    #: MODALITY_VOICE, the same way the message ceiling is counted.
+    daily_voice_turns: int | None
     max_children: int
     features: list[str] = field(default_factory=list)
 
@@ -61,10 +77,15 @@ _TIERS: dict[str, Tier] = {
     FREE: Tier(
         key=FREE, name="Tanish", price_monthly=0, price_yearly=0,
         daily_message_limit=20, ai_turns_per_day=0, languages=1,
-        voice=False, max_children=1,
+        # Voice used to be off here entirely, and a child could not tell what
+        # they were being asked to pay for. A few spoken turns a day is enough
+        # to find that out; it is not enough to live on, which is what the
+        # paid plan is still for.
+        voice=True, daily_voice_turns=FREE_DAILY_VOICE_TURNS, max_children=1,
         features=[
             "Kuniga 20 xabar",
             "Matnli suhbat",
+            f"Kuniga {FREE_DAILY_VOICE_TURNS} ta ovozli savol",
             "Kutubxona, she'rlar va ertaklar",
             "Maqsadlar va tengdoshlar bilan suhbat",
         ],
@@ -72,10 +93,10 @@ _TIERS: dict[str, Tier] = {
     PREMIUM: Tier(
         key=PREMIUM, name="Hamroh", price_monthly=30_000, price_yearly=300_000,
         daily_message_limit=100, ai_turns_per_day=100, languages=3,
-        voice=True, max_children=1,
+        voice=True, daily_voice_turns=None, max_children=1,
         features=[
             "Kuniga 100 xabar",
-            "Ovozli suhbat",
+            "Cheksiz ovozli suhbat",
             "Bepul rejadagi hamma narsa",
         ],
     ),

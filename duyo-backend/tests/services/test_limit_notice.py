@@ -9,7 +9,7 @@ English speakers.
 from __future__ import annotations
 
 from duyo.models.child import Language
-from duyo.services.limit_notice import daily_limit_message
+from duyo.services.limit_notice import daily_limit_message, daily_voice_limit_message
 
 # Anything that reads as "pay us" in any of the three languages.
 _PURCHASE_WORDS = (
@@ -53,3 +53,46 @@ def test_an_unlimited_tier_never_prints_none_at_a_child():
     text = daily_limit_message(Language.UZ, used=41, limit=None)
     assert "None" not in text
     assert "41/41" in text
+
+
+# ── The spoken-turn notice ───────────────────────────────────────────────────
+#
+# Same rules as above, plus one of its own: voice on the free plan is a trial,
+# and a trial that ends with a sales pitch is the thing this module exists to
+# not do. It says what ran out and when it comes back.
+
+
+def test_the_voice_notice_exists_in_every_language():
+    seen = set()
+    for language in (Language.UZ, Language.RU, Language.EN):
+        text = daily_voice_limit_message(language, used=10, limit=10)
+        assert text and text not in seen
+        seen.add(text)
+
+
+def test_the_voice_notice_sells_nothing():
+    """It is a daily ceiling, not a paywall — nothing here asks for money."""
+    for language in (Language.UZ, Language.RU, Language.EN):
+        text = daily_voice_limit_message(language, used=10, limit=10).lower()
+        for word in _PURCHASE_WORDS:
+            assert word not in text, f"{language.value} notice says {word!r}"
+
+
+def test_the_voice_notice_says_what_ran_out_and_when_it_returns():
+    for language in (Language.UZ, Language.RU, Language.EN):
+        text = daily_voice_limit_message(language, used=7, limit=10)
+        assert "7" in text and "10" in text
+        assert "05:00" in text
+
+
+def test_an_unknown_language_still_gets_a_sentence():
+    """None falls back to Uzbek rather than printing a template or crashing."""
+    assert daily_voice_limit_message(None, used=10, limit=10) == \
+        daily_voice_limit_message(Language.UZ, used=10, limit=10)
+
+
+def test_a_missing_limit_never_prints_the_word_none_at_a_child():
+    """`limit` is Optional on LimitStatus; a paid tier has none."""
+    text = daily_voice_limit_message(Language.UZ, used=4, limit=None)
+    assert "None" not in text
+    assert "4" in text
