@@ -75,6 +75,18 @@ jobs:
               "grep -c 'safety_settings=SAFETY_SETTINGS' /app/src/duyo/services/gemini_live.py" 2>&1 | tail -1
 
             echo
+            echo "=================== 4. IS THE VOICE QUOTA COUNTING? ==================="
+            # The free plan's ceiling counts messages stamped modality='voice'.
+            # If the endpoint ever stops stamping, the column stays NULL, the
+            # count stays zero, and free voice is quietly unlimited — which
+            # costs money and shows up nowhere. This is that canary.
+            docker exec duyo-postgres psql -U duyo -d duyo -tA -c \
+              "SELECT modality, role, count(*) FROM messages
+                WHERE created_at >= date_trunc('day', now() at time zone 'utc')
+                GROUP BY modality, role ORDER BY 1 NULLS LAST, 2;" 2>&1 | tail -10
+            echo "(voice rows present = the ceiling can count; all NULL = it cannot)"
+
+            echo
             echo "--- non-secret GEMINI env actually set in the container ---"
             docker inspect duyo-api --format '{{range .Config.Env}}{{println .}}{{end}}' \
               | grep -iE '^GEMINI_' \
