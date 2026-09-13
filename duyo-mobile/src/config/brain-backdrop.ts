@@ -62,15 +62,18 @@ export interface BrainBackdropConfig {
 }
 
 export const BRAIN_BACKDROP: BrainBackdropConfig = {
-  // O'zimiz yasagan yulduzli osmon — 1200x2140, 68 KB, `#070B1A` asosida,
+  // O'zimiz yasagan spiral galaktika — 1200x2140, ~96 KB, `#070B1A` asosida,
   // ya'ni ostidagi tekis fon bilan bir xil rangda boshlanadi.
+  //
+  // Buning oldida tekis yulduzli osmon turardi, va u 0.32 shaffoflikda
+  // amalda ko'rinmasdi — ekran fonsizdek tuyulardi. Endi rasmning o'zida
+  // tuzilish bor: galaktika yuqorida, pastda esa quyuq tuman va yulduzlar.
   source: require('../../assets/images/brain-backdrop.jpg'),
   kind: 'image',
-  // 0.32, not the 0.55 this started at. The sayyoralar are shaded spheres
-  // a few pixels across; a photographic nebula at over half strength behind
-  // them has more contrast than they do, and the eye stops reading them as
-  // lit balls at all. The fon is the room, not the subject. Raise it back if
-  // you prefer the picture — bu bitta qator.
-  opacity: 0.32,
+  // 0.55 ga qaytarildi. 0.32 tekis osmon uchun tanlangan edi; bu rasmda
+  // yorug'lik yuqori uchdan birga jamlangan va vinyetka chetlarini fon
+  // rangiga qaytaradi, ya'ni sayyoralar turadigan pastki qism baribir
+  // quyuq qoladi va ular o'qilaveradi.
+  opacity: 0.55,
   tint: true,
 };

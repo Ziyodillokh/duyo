@@ -111,6 +111,56 @@ def reply_text(resp) -> str:
     return ""
 
 
+def parse_structured(resp, *, where: str) -> dict | None:
+    """Parse a JSON reply, naming the one failure that hides itself.
+
+    On these models the model's THINKING is spent out of `max_output_tokens`,
+    so a structured call's characteristic failure is not a network error and
+    not malformed JSON from a confused model — it is a correct answer cut off
+    mid-object because the think ate the budget. `json.loads` then raises a
+    generic JSONDecodeError, the caller's blanket `except` swallows it, and
+    the feature quietly does nothing at all.
+
+    That has now happened twice, silently, in production: the chalkboard
+    stopped appearing on exactly the problems it was wanted for, and the brain
+    map stopped growing from conversation. Both looked like "the feature does
+    not work", not like an error, because at that point there was no error
+    left to see.
+
+    So MAX_TOKENS is logged as itself, at ERROR, with the fix in the message.
+    The next time a budget drifts, it says so.
+
+    Returns the parsed object, or None with the reason already logged.
+    """
+    candidates = getattr(resp, "candidates", None) or []
+    finish = getattr(candidates[0], "finish_reason", None) if candidates else None
+    finish_name = getattr(finish, "name", None) or (str(finish) if finish else "")
+
+    if finish_name == "MAX_TOKENS":
+        log.error(
+            "%s: reply cut off at max_output_tokens — thinking shares this "
+            "budget, so raise max_output_tokens or lower thinking_budget",
+            where,
+        )
+        return None
+
+    raw = (resp.text or "").strip()
+    if not raw:
+        log.warning("%s: empty reply (finish_reason=%s)", where, finish_name or "?")
+        return None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        log.exception("%s: reply was not valid JSON", where)
+        return None
+
+    if not isinstance(data, dict):
+        log.warning("%s: reply parsed to %s, expected an object", where, type(data).__name__)
+        return None
+    return data
+
+
 
 @lru_cache
 def get_client() -> genai.Client:

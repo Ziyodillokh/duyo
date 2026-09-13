@@ -24,7 +24,6 @@ on its own and is never allowed to raise into this module.
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 from uuid import UUID
@@ -44,7 +43,7 @@ from duyo.models.goal import (
     GoalStatus,
 )
 from duyo.prompts import INSIGHT_EXTRACT_PROMPT
-from duyo.services.gemini import get_client
+from duyo.services.gemini import get_client, parse_structured
 from duyo.services.goal_matching import resolve_match_key
 from duyo.services.goal_paths import decompose_goal_into_notes
 from duyo.services.style_profile import merge_style_signal
@@ -121,19 +120,33 @@ async def _call_model(
             contents=f"{_context_block(history)}Bola aytdi: {message}",
             config=types.GenerateContentConfig(
                 system_instruction=INSIGHT_EXTRACT_PROMPT,
-                max_output_tokens=600,  # goal + style + topic share this budget
+                # Thinking is spent OUT OF max_output_tokens, so these two
+                # numbers are one budget, not two. This call had 600 against
+                # an unbounded think: the model spent the lot reasoning, the
+                # JSON came back cut mid-object, json.loads raised, and the
+                # except below swallowed it. Nothing failed loudly — the
+                # child's brain map simply stopped growing, and topics they
+                # had talked about never became notes.
+                #
+                # 1800 against a bounded 768: enough for the three-part object
+                # (goal + style + topic with up to three facts) with the think
+                # paid for out of the same budget. Same pair as the structured
+                # calls in services/gemini.py, which had this exact bug.
+                max_output_tokens=1800,
                 temperature=0.0,  # extraction, not creativity
                 thinking_config=types.ThinkingConfig(
-                    thinking_budget=settings.gemini_thinking_budget_flash
+                    thinking_budget=settings.gemini_thinking_budget_structured
                 ),
                 response_mime_type="application/json",
             ),
         )
-        data = json.loads((resp.text or "").strip())
     except Exception:
         log.exception("insight_extract_failed")
         return None
-    return data if isinstance(data, dict) else None
+    # Parsing moved OUT of the try: a truncated reply is not an exception to
+    # be swallowed with network errors, it is a budget that needs raising, and
+    # parse_structured says so by name instead of returning a silent None.
+    return parse_structured(resp, where="insight_extract")
 
 
 def _parse_goal(data: dict[str, Any]) -> dict[str, Any] | None:

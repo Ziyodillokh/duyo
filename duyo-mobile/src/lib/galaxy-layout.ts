@@ -72,8 +72,13 @@ const DAMPING = 0.85;
 
 const MIN_R = 7;
 const MAX_R = 17;
-/** The centre body is drawn larger than any planet — it is the anchor. */
+/** The centre body is drawn larger than any planet — it is the anchor.
+ *  Reached only by a note that has earned it; see `dominance` below. */
 const SUN_R = 26;
+
+/** How many incoming links, with no rival, make a note the middle of the map.
+ *  Below this the centre body is drawn somewhere between a planet and a sun. */
+const HUB_LINKS = 3;
 
 /** Room round the cloud for the biggest body and its label. The canvas the sky
  *  is drawn on is this much wider than the sky itself, and the physics is asked
@@ -289,8 +294,34 @@ export function layoutGalaxy(
   const density = densityFor(nodes.length);
   const minBody = MIN_R * density;
   const maxBody = MAX_R * density;
-  // The 0.55 guard this used to carry is dead under a 0.66 floor.
-  const sunBody = SUN_R * density;
+
+  // The centre body is only drawn as a SUN when it actually is one.
+  //
+  // `order` sorts by (-links, title). In a notebook where nothing is linked
+  // yet — which is every new notebook, and every notebook of separate topics
+  // — every note ties at zero links and the tie falls to whichever title
+  // sorts first alphabetically. That note was then drawn at SUN_R, half again
+  // the largest planet. So writing one note by hand could make an ordinary
+  // note swell into the anchor purely because of its first letter, and shrink
+  // again when the next note sorted earlier. That is what a child sees as
+  // "my planet went big for no reason".
+  //
+  // Dominance is how far ahead of the runner-up the top note is, as a
+  // fraction of its own links. No links, or no lead, and the centre is drawn
+  // as the largest planet; a real hub — the note everything points at — grows
+  // the rest of the way to SUN_R. The hierarchy still reads, it just has to
+  // be earned.
+  // The denominator is `max(HUB_LINKS, topLinks)`, not `topLinks`: dividing by
+  // the top count alone makes ONE incoming link with no rival a full-sized
+  // sun (1-0)/1 = 1, which is the same surprise in a smaller form. Three
+  // clear links is what it takes to be the middle of a map.
+  const topLinks = order[0].links;
+  const runnerUpLinks = order.length > 1 ? order[1].links : 0;
+  const dominance =
+    topLinks <= 0
+      ? 0
+      : Math.min(1, (topLinks - runnerUpLinks) / Math.max(HUB_LINKS, topLinks));
+  const sunBody = (MAX_R + (SUN_R - MAX_R) * dominance) * density;
 
   // Leave room for the largest body and the label under it.
   const pad = maxBody + 22;
