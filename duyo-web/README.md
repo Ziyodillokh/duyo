@@ -47,11 +47,12 @@ canvas esa **yorug'** palitrani shader'dan aniqroq boshqaradi.
 
 ### Xavfsizlik choralari
 
-- `prefers-reduced-motion: reduce` — harakat to'xtaydi, rasm qoladi
-- yorliq ko'rinmasa (`visibilitychange`) sikl to'xtaydi, GPU bo'shaydi
-- `failIfMajorPerformanceCaveat` — dasturiy rasterizatorda shader ishga
-  tushmaydi; ostidagi CSS gradient ko'rinadi
+- `prefers-reduced-motion: reduce` — aylanish to'xtaydi, figura qoladi
+- yorliq ko'rinmasa (`visibilitychange`) animatsiya sikli to'xtaydi
+- canvas ochilmasa sahifa ostidagi gradient bilan ishlayveradi
 - `devicePixelRatio` 2 bilan cheklangan
+- bog'lanishlar bir marta hisoblanadi: bulut faqat aylanadi, aylanish esa
+  masofalarni o'zgartirmaydi
 
 ## Nimani qayerdan o'zgartirasiz
 
