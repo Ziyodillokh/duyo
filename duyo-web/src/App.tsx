@@ -1,23 +1,24 @@
 /**
- * DUYO — one hero page, built to the supplied brief.
+ * DUYO — a three-section landing where the robot is built as you scroll.
  *
- * The brief's layout, palette and interactions are followed as written: the
- * paper-grey page, the two #EDEDED pills, the bottom-left stack of badge →
- * headline → subtext → CTA, the exact type sizes, and arrows that nudge right
- * on group hover.
+ * Section 1 is a head: the mind, and what DUYO is.
+ * Section 2 adds the body: what keeps a child safe inside it.
+ * Section 3 adds the limbs: what a child actually does with it, and the CTA.
  *
- * ONE substitution. The brief named a hosted .mp4 on a CloudFront domain
- * belonging to another company's product page. DUYO was rejected from Google
- * Play under the Impersonation policy in September for third-party assets, so
- * that file cannot ship. `Backdrop.tsx` puts a 3D scene there instead — pale,
- * drifting, and built from DUYO's own node-and-link mark, so the page keeps
- * the light, quiet character the brief asked for.
+ * The design language is the brief's and stays the brief's — paper grey,
+ * #EDEDED pills, gray-900 headlines, gray-400 subtext, blue-500 accents, and
+ * arrows that nudge right on hover. Three sections instead of one; nothing
+ * about the look changed.
  *
- * Copy is Uzbek and every claim is one the product backs: the age range is
- * the one the server enforces, and the CTA points at the live APK.
+ * The robot is built from primitives in `three/robot.ts` rather than loaded
+ * as an image. The mascot that shipped before was an AI-generated photoreal
+ * render, and Google Play rejected the listing under the Impersonation policy
+ * for third-party assets. It is also the only way the assembly can work: a
+ * flat image cannot come apart into a head, a body and a pair of arms.
  */
 
 import Backdrop from './Backdrop';
+import RobotStage from './RobotStage';
 
 const APK_URL = 'https://admin.duyo.uz/apk/duyo.apk';
 
@@ -44,70 +45,111 @@ function Logo() {
   );
 }
 
+function Arrow() {
+  return (
+    <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">
+      →
+    </span>
+  );
+}
+
+interface SectionProps {
+  badge: string;
+  heading: string;
+  body: string;
+  children?: React.ReactNode;
+}
+
+/**
+ * One screenful. The copy stays bottom-left as the brief has it, in a narrow
+ * column, so the right half of the viewport belongs to the robot.
+ */
+function Section({ badge, heading, body, children }: SectionProps) {
+  return (
+    <section className="min-h-screen flex items-end pb-10 sm:pb-16 lg:pb-20 px-6 sm:px-12 md:px-20 lg:px-28">
+      <div className="max-w-xs">
+        <p className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-blue-500 mb-3">
+          {badge}
+        </p>
+        <h2 className="text-[1.5rem] sm:text-[1.75rem] leading-[1.15] font-medium text-gray-900 tracking-tight mb-3">
+          {heading}
+        </h2>
+        <p className="text-[13px] text-gray-400 font-normal mb-3">{body}</p>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f0f0ee]">
+    <div className="relative bg-[#f0f0ee]">
       <Backdrop />
+      <RobotStage />
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <nav className="flex items-center justify-center pt-4 sm:pt-6 px-4 sm:px-8 gap-2 sm:gap-3">
+      {/* Fixed, because the page is three screens now and a navbar that
+          scrolls away on the first one is a navbar nobody uses. */}
+      <nav className="fixed top-0 inset-x-0 z-20 flex items-center justify-center pt-4 sm:pt-6 px-4 sm:px-8 gap-2 sm:gap-3">
+        <a
+          href="#"
+          aria-label="DUYO"
+          className="flex items-center justify-center rounded-full w-10 h-10 sm:w-11 sm:h-11 shrink-0"
+          style={{ backgroundColor: '#EDEDED' }}
+        >
+          <Logo />
+        </a>
+
+        <div
+          className="flex items-center gap-4 sm:gap-10 rounded-xl px-4 sm:px-8 py-2.5 sm:py-3"
+          style={{ backgroundColor: '#EDEDED' }}
+        >
+          {NAV_LINKS.map((label) => (
+            <a
+              key={label}
+              href="#"
+              className="text-[12px] sm:text-[14px] font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 whitespace-nowrap"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      </nav>
+
+      <main className="relative z-10">
+        <Section
+          badge="13–17 yosh uchun, o‘zbek tilida"
+          heading="O‘smirlar uchun ishonchli sun’iy intellekt hamroh."
+          body="Savol bering, dars tushunmagan joyini so‘rang, shunchaki gaplashing — o‘z tilingizda."
+        >
           <a
             href="#"
-            aria-label="DUYO"
-            className="flex items-center justify-center rounded-full w-10 h-10 sm:w-11 sm:h-11 shrink-0"
-            style={{ backgroundColor: '#EDEDED' }}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-blue-500 hover:text-blue-600 transition-colors group"
           >
-            <Logo />
+            Pastga aylantiring
+            <Arrow />
           </a>
+        </Section>
 
-          <div
-            className="flex items-center gap-4 sm:gap-10 rounded-xl px-4 sm:px-8 py-2.5 sm:py-3"
-            style={{ backgroundColor: '#EDEDED' }}
+        <Section
+          badge="Xavfsizlik"
+          heading="Har bir suhbat tekshiriladi."
+          body="Xavfli belgilar aniqlansa, DUYO yordam raqamini ko‘rsatadi va ota-onaga xabar boradi. Tengdoshlar yozishmasi ham filtrdan o‘tadi."
+        />
+
+        <Section
+          badge="Harakat"
+          heading="Maqsad qo‘ying, bilim xaritangizni o‘stiring."
+          body="Suhbatlaringizdan bilim xaritasi yig‘iladi, maqsadlaringiz kuzatiladi, bir xil maqsaddagi tengdoshlar topiladi."
+        >
+          <a
+            href={APK_URL}
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-blue-500 border border-blue-400 rounded-full px-5 py-2.5 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all duration-200 group"
           >
-            {NAV_LINKS.map((label) => (
-              <a
-                key={label}
-                href="#"
-                className="text-[12px] sm:text-[14px] font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 whitespace-nowrap"
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-        </nav>
-
-        <main className="flex-1 flex items-end pb-10 sm:pb-16 lg:pb-20 px-6 sm:px-12 md:px-20 lg:px-28">
-          <div className="max-w-xs">
-            <a
-              href="#"
-              className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-blue-500 hover:text-blue-600 transition-colors mb-3 group"
-            >
-              13–17 yosh uchun, o‘zbek tilida
-              <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">
-                →
-              </span>
-            </a>
-
-            <h1 className="text-[1.5rem] sm:text-[1.75rem] leading-[1.15] font-medium text-gray-900 tracking-tight mb-3">
-              O‘smirlar uchun ishonchli sun’iy intellekt hamroh.
-            </h1>
-
-            <p className="text-[13px] text-gray-400 font-normal mb-3">
-              Suhbat, dars yordami va maqsadlar — bir joyda.
-            </p>
-
-            <a
-              href={APK_URL}
-              className="inline-flex items-center gap-2 text-[13px] font-medium text-blue-500 border border-blue-400 rounded-full px-5 py-2.5 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all duration-200 group"
-            >
-              Ilovani yuklab olish
-              <span className="transition-transform duration-200 group-hover:translate-x-0.5">
-                →
-              </span>
-            </a>
-          </div>
-        </main>
-      </div>
+            Ilovani yuklab olish
+            <Arrow />
+          </a>
+        </Section>
+      </main>
     </div>
   );
 }

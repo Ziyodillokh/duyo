@@ -16,12 +16,33 @@ npm run typecheck
 
 | Fayl | Nima |
 |---|---|
-| `src/App.tsx` | butun sahifa — navbar, hero, matnlar |
-| `src/Backdrop.tsx` | 3D fon: DUYO tugunlari to'ri, fazoda aylanadi |
+| `src/App.tsx` | uchta bo'lim — navbar va matnlar |
+| `src/RobotStage.tsx` | robotni scroll va sichqonchaga ulaydi |
+| `src/three/robot.ts` | robotning o'zi — primitivlardan qurilgan |
+| `src/three/stage.ts` | renderer, kamera, yorug'lik |
+| `src/Backdrop.tsx` | tugunlar to'ri, robot ortida |
 | `src/index.css` | Tailwind + sahifa foni |
-| `index.html` | qobiq, `<title>` va meta |
 
-Bog'liqliklar: `react`, `react-dom`, `lucide-react`, `tailwindcss`. Boshqa yo'q.
+Bog'liqliklar: `react`, `react-dom`, `lucide-react`, `tailwindcss`, `three`.
+
+## Uchta bo'lim
+
+Robot scroll bilan **yig'iladi** — bu shunchaki bezak emas, hikoya:
+
+| Bo'lim | Robot | Mavzu |
+|---|---|---|
+| 1 | bosh | DUYO nima: suhbat, dars yordami |
+| 2 | + tana | xavfsizlik: moderatsiya, ota-onaga xabar |
+| 3 | + qo'l-oyoq | harakat: maqsadlar, bilim xaritasi, tengdoshlar |
+
+Robot **rasm emas** — `three/robot.ts` da yumaloq qutilar va kapsulalardan
+quriladi. Ikki sabab:
+
+1. Eski maskot AI generatsiya qilgan va Google Play sentabrda aynan shuning
+   uchun (Impersonation siyosati) do'kon sahifasini rad etgan. Koddan qurilgan
+   personajning mualliflik huquqi git tarixi bilan isbotlanadi.
+2. Tekis rasmni qismlarga ajratib bo'lmaydi. Yig'ilish g'oyasi 3D modelni
+   talab qiladi.
 
 ## Fon nega video emas
 

@@ -241,7 +241,7 @@ export default function Backdrop() {
   }, []);
 
   return (
-    <div aria-hidden="true" className="absolute inset-0">
+    <div aria-hidden="true" className="fixed inset-0 z-0">
       {/* A breath of colour on the paper, so the cloud is not floating on a
           flat grey field. Pale enough that gray-900 type stays black on it. */}
       <div className="absolute inset-0 bg-[radial-gradient(115%_90%_at_72%_32%,#e8eefc_0%,#f0f0ee_58%,#f0f0ee_100%)]" />
