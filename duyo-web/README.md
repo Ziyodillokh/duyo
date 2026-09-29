@@ -17,7 +17,7 @@ npm run typecheck
 | Fayl | Nima |
 |---|---|
 | `src/App.tsx` | butun sahifa — navbar, hero, matnlar |
-| `src/GalaxyCanvas.tsx` | 3D fon: WebGL shader'da chizilgan spiral galaktika |
+| `src/Backdrop.tsx` | 3D fon: DUYO tugunlari to'ri, fazoda aylanadi |
 | `src/index.css` | Tailwind + sahifa foni |
 | `index.html` | qobiq, `<title>` va meta |
 
@@ -31,17 +31,19 @@ shu kunlarda Google Play'dan aynan uchinchi tomon materiali uchun
 (Impersonation siyosati) rad javobi olgan. Uni qo'yish xatoni takrorlash
 bo'lardi.
 
-O'rniga fon qurilmaning o'zida, `GalaxyCanvas.tsx` dagi shader'dan chiziladi:
+O'rniga fon `Backdrop.tsx` da qurilmaning o'zida chiziladi. **Muhimi:
+briefning yorug' estetikasi saqlangan** — qog'oz-kulrang sahifa, och ranglar,
+qora matn. Fon o'zgargan, dizayn emas.
 
-- hech qanday tashqi so'rov yo'q, internetsiz ham ishlaydi
-- litsenziya masalasi yo'q — kod repozitoriyada, git tarixi bilan
+- DUYO'ning o'z belgisi: logotip ichidagi tugun-bog'lanish figurasi, endi 3D
+  bulut sifatida
 - haqiqatan 3D va interaktiv: sichqoncha kamerani aylantiradi, telefonda
   qurilma qiyaligi (`deviceorientation`) shu vazifani bajaradi
-- bu ilovadagi miya xaritasi ortidagi galaktikaning o'zi — sayt va mahsulot
-  bir xil ko'rinadi
+- hech qanday tashqi so'rov yo'q, internetsiz ham ishlaydi
+- litsenziya masalasi yo'q — kod repozitoriyada, git tarixi bilan
 
-Kutubxona ishlatilmagan: to'liq ekranli fragment shader uchun xom WebGL ~60
-qator sozlash, three.js esa bu sahifa ishlatmaydigan geometriya uchun ~150 KB.
+Kutubxonasiz va WebGL'siz: yuzta nuqtani proyeksiya qilish oddiy arifmetika,
+canvas esa **yorug'** palitrani shader'dan aniqroq boshqaradi.
 
 ### Xavfsizlik choralari
 
@@ -58,16 +60,17 @@ qator sozlash, three.js esa bu sahifa ishlatmaydigan geometriya uchun ~150 KB.
 | Menyu bandlari | `App.tsx` → `NAV_LINKS` |
 | Sarlavha, matn, badge | `App.tsx` → `<main>` ichida |
 | Yuklab olish havolasi | `App.tsx` → `APK_URL` |
-| Galaktika rangi | `GalaxyCanvas.tsx` → `BLUE` / `VIOLET` / `WARM` / `DEEP` |
-| Galaktika joylashuvi | `GalaxyCanvas.tsx` → `main()` dagi `uv` markazi |
-| Kamera burchagi | `GalaxyCanvas.tsx` → `yaw` / `pitch` |
+| Fon ranglari | `Backdrop.tsx` → `COLOURS` |
+| Tugunlar soni va zichligi | `Backdrop.tsx` → `NODE_COUNT` / `LINK_DIST` |
+| Fon joylashuvi va o'lchami | `Backdrop.tsx` → `cx` / `cy` / `scale` |
+| Kamera burchagi | `Backdrop.tsx` → `yaw` / `pitch` |
 
 ## Tekshirilgan
 
 - `npm run build` — TypeScript va Vite toza
 - 390px va 1440px: gorizontal toshish yo'q (`scrollWidth === clientWidth`),
   navbarning to'rtala bandi sig'adi
-- shader real brauzerda chiziladi (swiftshader ostida ham)
+- fon real brauzerda chiziladi, sichqonchaga javob beradi
 
 ## Deploy
 
