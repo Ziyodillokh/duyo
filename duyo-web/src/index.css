@@ -1,15 +1,49 @@
 @import 'tailwindcss';
 
-/* The page ground, so an overscroll or a slow first paint never flashes
-   white behind a dark hero. */
+/* Inter, the face the app already uses — one brand, one voice. Loaded with
+   `display=swap` so the copy is readable before the font lands, and with a
+   real fallback stack so a blocked request degrades to a system grotesque
+   rather than to Times. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@theme {
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+html {
+  /* The nav anchors scroll rather than jump. */
+  scroll-behavior: smooth;
+  background-color: #f0f0ee;
+}
+
 html,
 body,
 #root {
-  height: 100%;
-  background-color: #070b1a;
+  min-height: 100%;
 }
 
 body {
   margin: 0;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Tabular-ish rhythm for the UI numerals, and the ligatures Inter ships. */
+  font-feature-settings: 'cv05' 1, 'ss03' 1;
+}
+
+/* A visitor who asked for stillness gets it from the page too, not just the
+   canvas — a smooth-scrolling anchor is motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Keyboard focus has to be visible; the design is quiet, not invisible. */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+  border-radius: 4px;
 }

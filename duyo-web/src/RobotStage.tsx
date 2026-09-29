@@ -12,7 +12,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { createStage } from './three/stage';
-import { buildRobot, ROBOT_FLOOR_Y } from './three/robot';
+import { buildRobot } from './three/robot';
 
 /** Smooth 0→1 ramp between two scroll positions. */
 function ramp(x: number, a: number, b: number): number {
@@ -65,6 +65,43 @@ export default function RobotStage() {
     window.addEventListener('pointermove', onPointer, { passive: true });
     window.addEventListener('deviceorientation', onTilt);
 
+    // A drag anywhere that is not a control turns the robot. Listening on the
+    // window rather than the canvas is what lets the canvas stay
+    // pointer-events:none — links and buttons keep working, and a drag that
+    // starts on one is left alone.
+    const interactive = (el: EventTarget | null) =>
+      el instanceof Element && !!el.closest('a, button, input, textarea, select, [role="button"]');
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 || interactive(e.target)) return;
+      dragging = true;
+      dragLastX = e.clientX;
+      dragLastY = e.clientY;
+      document.body.style.cursor = 'grabbing';
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragYaw += (e.clientX - dragLastX) * 0.005;
+      dragPitch += (e.clientY - dragLastY) * 0.0035;
+      // Clamped to a three-quarter view either way. A landing page's subject
+      // should stay presentable however hard it is grabbed — unclamped, one
+      // flick put the featureless back of the head to camera and the whole
+      // thing read as a blue box.
+      dragYaw = Math.max(-0.75, Math.min(0.75, dragYaw));
+      dragPitch = Math.max(-0.32, Math.min(0.32, dragPitch));
+      dragLastX = e.clientX;
+      dragLastY = e.clientY;
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+    };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+
     // Read on scroll, applied in the frame — layout reads inside rAF are what
     // make a scroll-driven scene stutter.
     let scrollP = 0;
@@ -92,6 +129,14 @@ export default function RobotStage() {
     let nextBlink = 2.5;
     let blinkUntil = 0;
     let blinkT = 0;
+    // Drag-to-turn. `dragYaw` accumulates while the pointer is down and
+    // decays back to zero after release, so a visitor can inspect the model
+    // and the page still returns to its own composition on its own.
+    let dragging = false;
+    let dragLastX = 0;
+    let dragLastY = 0;
+    let dragYaw = 0;
+    let dragPitch = 0;
     let prevHeadYaw = 0;
     let antennaV = 0;
     let antennaA = 0;
@@ -115,7 +160,6 @@ export default function RobotStage() {
       // an opacity fade would need per-part materials and would read as a
       // ghost rather than a machine being finished.
       robot.body.visible = bodyT > 0.004;
-      robot.body.scale.setScalar(bodyT);
       robot.body.position.y = lerp(-0.9, -0.18, bodyT);
 
       robot.arms.visible = limbsT > 0.004;
@@ -150,17 +194,31 @@ export default function RobotStage() {
 
       robot.root.position.set(offX, Math.sin(t * 1.1) * 0.035, 0);
 
-      stage.contact.position.set(offX, ROBOT_FLOOR_Y, 0);
-      stage.contact.scale.setScalar(lerp(0.55, 1, limbsT));
-      (stage.contact.material as THREE.MeshBasicMaterial).opacity = limbsT * 0.95;
+      // The ground follows the robot so the shadow map stays inside its
+      // frustum as the camera dollies out.
+      stage.ground.position.x = offX;
+      (stage.ground.material as THREE.ShadowMaterial).opacity = limbsT * 0.26;
 
       // ── Attention ────────────────────────────────────────────────────
       // The head leads, the body follows a fraction — the lag is what makes
       // the turn read as a living thing and not one rigid object.
+      // Released, the turn eases back to the page's own composition rather
+      // than staying wherever it was left — the robot belongs to the layout,
+      // not to the last person who grabbed it.
+      if (!dragging) {
+        dragYaw *= 0.94;
+        dragPitch *= 0.94;
+      }
+
       robot.head.rotation.y = curX * 0.52;
       robot.head.rotation.x = curY * 0.3 + Math.sin(t * 0.7) * 0.02;
       robot.head.rotation.z = -curX * 0.07;
-      robot.root.rotation.y = curX * 0.22 + Math.sin(t * 0.35) * 0.05;
+      robot.root.rotation.y = dragYaw + curX * 0.22 + Math.sin(t * 0.35) * 0.05;
+      robot.root.rotation.x = dragPitch;
+
+      // Breathing. A body that holds exactly still reads as a paused video.
+      const breath = 1 + Math.sin(t * 1.5) * 0.008;
+      robot.body.scale.set(bodyT, bodyT * breath, bodyT);
 
       // The antenna is a spring driven by how fast the head TURNED, so it
       // overshoots and settles after the head has stopped. This is the whole
@@ -224,6 +282,11 @@ export default function RobotStage() {
       cancelAnimationFrame(raf);
       reduced.removeEventListener('change', onReduced);
       window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      document.body.style.cursor = '';
       window.removeEventListener('deviceorientation', onTilt);
       window.removeEventListener('scroll', readScroll);
       window.removeEventListener('resize', resize);

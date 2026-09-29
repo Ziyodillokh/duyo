@@ -1,152 +1,183 @@
 /**
- * DUYO, built from primitives.
+ * DUYO, built from primitives — every vertex authored here.
  *
- * Every vertex here is authored in this file. That is the point: the mascot
- * that shipped before was an AI-generated photoreal render, and Google Play
- * rejected the store listing under the Impersonation policy in September 2026
- * for third-party assets. A character assembled from rounded boxes and
- * capsules in a file with git history behind it is one whose authorship can be
- * shown rather than argued.
+ * Why not an image: the mascot that shipped before was an AI-generated
+ * photoreal render and Google Play rejected the store listing under the
+ * Impersonation policy for third-party assets. A character built in a file
+ * with git history behind it is one whose authorship can be shown. It is also
+ * the only way the page's scroll works — a flat image cannot come apart into
+ * a head, a body and a pair of limbs.
  *
- * It is also what makes the scroll work. The page builds DUYO a piece at a
- * time — head, then body, then limbs — and a flat image cannot come apart.
- * Each part is its own Group with its own pivot, so a section can fade one in
- * without touching the others.
+ * The first version used MeshStandardMaterial and read as matte toy plastic.
+ * Everything here is MeshPhysicalMaterial with a clearcoat now: a second
+ * specular lobe over the diffuse, which is literally what moulded plastic has
+ * and what the eye reads as "manufactured" rather than "modelled". Paired
+ * with the studio environment in stage.ts, the shell finally reflects
+ * something.
  *
- * Deliberately NOT photoreal. Soft plastic, flat colour, one dark visor and
- * two lit eyes; the charm is in proportion and motion, not in surface detail.
- * A code-built character that reaches for realism lands in the uncanny valley
- * and looks worse than one that never tried.
+ * Detail is where a primitive build gives itself away, so the parts that
+ * would be bare get a seam, a bezel, a joint — the things a real moulding
+ * would need and a box does not have.
  */
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
-/** Brand palette — the same hexes the app and the site already use. */
-const SHELL = 0x2f7bf6; //  helmet / chest plate, DUYO blue
-const SHELL_DEEP = 0x1d4ed8; // the blue in shadow-facing trim
-const WHITE = 0xf6f8fd; //  body plastic, warm enough not to grey out on paper
-const VISOR = 0x0b1326; //  the face screen
-const EYE = 0x9fd0ff; //    lit glass — deep enough to survive its own emission
-const AMBER = 0xffc700; //  brand yellow, used sparingly
-const VIOLET = 0x8b5cf6; // the third node on the chest mark
+const SHELL = 0x2f7bf6; //     helmet, chest plate, cuffs — DUYO blue
+const SHELL_DEEP = 0x1b4fd0; // bezel and joints, the blue in shadow
+const WHITE = 0xf4f7fd; //      body plastic
+const VISOR = 0x090f20; //      the face screen
+const EYE = 0x9fd0ff; //        lit glass
+const AMBER = 0xffc700; //      brand yellow, sparingly
+const VIOLET = 0x8b5cf6; //     the third node on the chest mark
 
 export interface Robot {
   root: THREE.Group;
-  /** Pivots at the neck, so it can look around without moving the body. */
   head: THREE.Group;
   body: THREE.Group;
   arms: THREE.Group;
   legs: THREE.Group;
   /** Pivots at its base on the crown, so it can trail the head's turn. */
   antenna: THREE.Group;
-  /** The two lit discs, kept for blinking and for reacting to the pointer. */
   eyes: THREE.Mesh[];
   dispose: () => void;
 }
 
-/** Soft plastic. Low metalness, mid roughness — reads as a toy, not a phone. */
-function plastic(color: number, opts: Partial<THREE.MeshStandardMaterialParameters> = {}) {
-  return new THREE.MeshStandardMaterial({
+/**
+ * Moulded plastic: a diffuse base under a clear lacquer. The clearcoat is the
+ * whole difference — without it a glossy surface has one specular lobe and
+ * reads as painted metal or as nothing at all.
+ */
+function plastic(color: number, roughness = 0.4) {
+  return new THREE.MeshPhysicalMaterial({
     color,
-    roughness: 0.42,
-    metalness: 0.04,
-    ...opts,
+    roughness,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.14,
   });
 }
 
 export function buildRobot(): Robot {
-  const disposables: { dispose: () => void }[] = [];
-  const track = <T extends { dispose: () => void }>(x: T): T => {
-    disposables.push(x);
-    return x;
-  };
+  const bin: { dispose: () => void }[] = [];
+  const keep = <T extends { dispose: () => void }>(x: T): T => (bin.push(x), x);
 
-  const matShell = track(plastic(SHELL));
-  const matShellDeep = track(plastic(SHELL_DEEP, { roughness: 0.38 }));
-  const matWhite = track(plastic(WHITE, { roughness: 0.46 }));
-  const matAmber = track(plastic(AMBER, { roughness: 0.34 }));
-  const matVisor = track(
-    new THREE.MeshStandardMaterial({
+  const mShell = keep(plastic(SHELL, 0.32));
+  const mDeep = keep(plastic(SHELL_DEEP, 0.3));
+  const mWhite = keep(plastic(WHITE, 0.42));
+  const mAmber = keep(plastic(AMBER, 0.3));
+  const mViolet = keep(plastic(VIOLET, 0.34));
+  const mVisor = keep(
+    new THREE.MeshPhysicalMaterial({
       color: VISOR,
-      roughness: 0.14, // the one glossy surface, so it catches the rim light
-      metalness: 0.1,
+      roughness: 0.04, // the one mirror on the model
+      metalness: 0.25,
+      clearcoat: 1,
+      clearcoatRoughness: 0.02,
     }),
   );
-  const matEye = track(
-    new THREE.MeshStandardMaterial({
+  const mEye = keep(
+    new THREE.MeshPhysicalMaterial({
       color: EYE,
       emissive: new THREE.Color(EYE),
-      // Lit from inside: on a pale page an unlit eye disappears into the visor.
-      emissiveIntensity: 0.5,
-      roughness: 0.3,
+      emissiveIntensity: 0.55,
+      roughness: 0.12,
+      clearcoat: 1,
     }),
   );
-  const matViolet = track(plastic(VIOLET));
+
+  /** Everything casts and receives — self-shadowing is most of the depth. */
+  const mesh = (g: THREE.BufferGeometry, m: THREE.Material) => {
+    const o = new THREE.Mesh(g, m);
+    o.castShadow = true;
+    o.receiveShadow = true;
+    return o;
+  };
 
   const root = new THREE.Group();
 
   // ── Head ───────────────────────────────────────────────────────────────
-  // Wider than tall and deeper than wide: the proportion that reads as a
-  // friendly helmet rather than a monitor on a stick.
   const head = new THREE.Group();
   head.position.y = 1.32;
 
-  const skullGeo = track(new RoundedBoxGeometry(2.04, 1.92, 1.8, 6, 0.5));
-  const skull = new THREE.Mesh(skullGeo, matShell);
+  const skull = mesh(keep(new RoundedBoxGeometry(2.04, 1.92, 1.8, 7, 0.5)), mShell);
   head.add(skull);
 
-  // The visor sits proud of the face and slightly wider than the opening, so
-  // its edge catches light instead of reading as a hole cut in the head.
-  const visorGeo = track(new RoundedBoxGeometry(1.46, 0.98, 0.22, 5, 0.28));
-  const visor = new THREE.Mesh(visorGeo, matVisor);
-  visor.position.set(0, -0.06, 0.86);
+  // Seam around the crown. A moulded shell is two halves; the parting line is
+  // the cheapest detail that says "made" rather than "drawn".
+  const seam = mesh(keep(new THREE.TorusGeometry(0.78, 0.022, 10, 48)), mDeep);
+  seam.position.y = 0.68;
+  seam.rotation.x = Math.PI / 2;
+  seam.scale.set(1.24, 1.0, 1.1);
+  head.add(seam);
+
+  // Bezel behind the glass, so the visor is set INTO the face instead of
+  // stuck onto it.
+  const bezel = mesh(keep(new RoundedBoxGeometry(1.5, 1.02, 0.16, 5, 0.28)), mDeep);
+  bezel.position.set(0, -0.06, 0.8);
+  head.add(bezel);
+
+  const visor = mesh(keep(new RoundedBoxGeometry(1.44, 0.96, 0.2, 6, 0.26)), mVisor);
+  visor.position.set(0, -0.06, 0.88);
   head.add(visor);
 
   const eyes: THREE.Mesh[] = [];
-  const eyeGeo = track(new THREE.SphereGeometry(0.2, 24, 20));
+  const eyeGeo = keep(new THREE.SphereGeometry(0.2, 28, 22));
+  const ringGeo = keep(new THREE.TorusGeometry(0.21, 0.022, 10, 30));
   for (const sx of [-1, 1]) {
-    const eye = new THREE.Mesh(eyeGeo, matEye);
-    eye.position.set(sx * 0.33, -0.02, 0.96);
-    eye.scale.z = 0.55; // flattened onto the visor, not a ball stuck to it
+    const eye = mesh(eyeGeo, mEye);
+    eye.position.set(sx * 0.33, -0.02, 0.97);
+    eye.scale.z = 0.5;
+    eye.castShadow = false; // a lit lens casting a shadow reads as a bug
     eye.userData.baseX = eye.position.x;
     eye.userData.baseY = eye.position.y;
     head.add(eye);
     eyes.push(eye);
+
+    const iris = mesh(ringGeo, mDeep);
+    iris.position.set(sx * 0.33, -0.02, 0.985);
+    iris.castShadow = false;
+    head.add(iris);
   }
 
-  // Ear pods. Two amber rings on the sides — the detail that stops the head
-  // being a plain box from every angle except the front.
-  const podGeo = track(new THREE.CylinderGeometry(0.3, 0.3, 0.22, 24));
-  const ringGeo = track(new THREE.TorusGeometry(0.3, 0.06, 12, 28));
+  // Ear pods — the detail that stops the head being a plain box in profile.
+  const podGeo = keep(new THREE.CylinderGeometry(0.31, 0.31, 0.24, 28));
+  const podRing = keep(new THREE.TorusGeometry(0.31, 0.062, 12, 32));
   for (const sx of [-1, 1]) {
-    const pod = new THREE.Mesh(podGeo, matWhite);
+    const pod = mesh(podGeo, mWhite);
     pod.position.set(sx * 1.02, -0.08, 0);
     pod.rotation.z = Math.PI / 2;
     head.add(pod);
 
-    const ring = new THREE.Mesh(ringGeo, matAmber);
+    const ring = mesh(podRing, mAmber);
     ring.position.set(sx * 1.13, -0.08, 0);
     ring.rotation.y = Math.PI / 2;
     head.add(ring);
   }
 
-  // Antenna with an amber bead — the silhouette's one asymmetric flourish.
+  // Antenna on its own pivot, so a spring can trail it behind the head.
   const antenna = new THREE.Group();
-  antenna.position.set(-0.4, 0.86, 0); // the base, on the crown
+  antenna.position.set(-0.4, 0.86, 0);
   antenna.rotation.z = 0.2;
-
-  const stalkGeo = track(new THREE.CylinderGeometry(0.035, 0.035, 0.62, 10));
-  const stalk = new THREE.Mesh(stalkGeo, matWhite);
-  stalk.position.y = 0.31; // half its length, so the Group pivots at the base
+  const stalk = mesh(keep(new THREE.CylinderGeometry(0.036, 0.046, 0.62, 12)), mWhite);
+  stalk.position.y = 0.31;
   antenna.add(stalk);
-
-  const beadGeo = track(new THREE.SphereGeometry(0.15, 20, 16));
-  const bead = new THREE.Mesh(beadGeo, matAmber);
+  const bead = mesh(keep(new THREE.SphereGeometry(0.15, 24, 18)), mAmber);
   bead.position.y = 0.66;
   antenna.add(bead);
-
   head.add(antenna);
+
+  // Nape vent — what the back of the head is, now that it can be turned to.
+  const ventGeo = keep(new RoundedBoxGeometry(0.86, 0.34, 0.08, 4, 0.08));
+  const vent = mesh(ventGeo, mDeep);
+  vent.position.set(0, -0.1, -0.88);
+  head.add(vent);
+  const ribGeo = keep(new RoundedBoxGeometry(0.72, 0.045, 0.06, 3, 0.02));
+  for (let i = 0; i < 3; i++) {
+    const rib = mesh(ribGeo, mShell);
+    rib.position.set(0, -0.02 - i * 0.08, -0.92);
+    head.add(rib);
+  }
 
   root.add(head);
 
@@ -154,35 +185,40 @@ export function buildRobot(): Robot {
   const body = new THREE.Group();
   body.position.y = -0.18;
 
-  const torsoGeo = track(new RoundedBoxGeometry(1.72, 1.66, 1.3, 6, 0.44));
-  const torso = new THREE.Mesh(torsoGeo, matWhite);
+  const torso = mesh(keep(new RoundedBoxGeometry(1.74, 1.68, 1.32, 7, 0.44)), mWhite);
   body.add(torso);
 
-  // Chest plate in DUYO blue, carrying the logo's node mark.
-  const plateGeo = track(new RoundedBoxGeometry(0.9, 0.76, 0.14, 5, 0.2));
-  const plate = new THREE.Mesh(plateGeo, matShell);
-  plate.position.set(0, 0.08, 0.62);
+  // Neck: a collar ring over a short column, so the head meets the body at a
+  // joint instead of an intersection.
+  const collar = mesh(keep(new THREE.CylinderGeometry(0.42, 0.46, 0.16, 26)), mDeep);
+  collar.position.y = 0.86;
+  body.add(collar);
+  const neck = mesh(keep(new THREE.CylinderGeometry(0.33, 0.33, 0.3, 22)), mShell);
+  neck.position.y = 0.96;
+  body.add(neck);
+
+  // Chest badge carrying the logo's node mark.
+  const plate = mesh(keep(new RoundedBoxGeometry(0.92, 0.78, 0.13, 5, 0.2)), mShell);
+  plate.position.set(0, 0.08, 0.63);
   body.add(plate);
 
-  const nodeGeo = track(new THREE.SphereGeometry(0.07, 16, 14));
-  const hubGeo = track(new THREE.SphereGeometry(0.085, 16, 14));
-  const linkGeo = track(new THREE.CylinderGeometry(0.022, 0.022, 1, 8));
-  const hub = new THREE.Vector3(0, 0.06, 0.71);
+  const nodeGeo = keep(new THREE.SphereGeometry(0.072, 18, 14));
+  const hubGeo = keep(new THREE.SphereGeometry(0.088, 18, 14));
+  const linkGeo = keep(new THREE.CylinderGeometry(0.02, 0.02, 1, 8));
+  const hub = new THREE.Vector3(0, 0.06, 0.715);
   const spokes: [THREE.Vector3, THREE.Material][] = [
-    [new THREE.Vector3(-0.21, 0.25, 0.71), matEye],
-    [new THREE.Vector3(0.23, 0.13, 0.71), matViolet],
-    [new THREE.Vector3(-0.1, -0.19, 0.71), matShellDeep],
+    [new THREE.Vector3(-0.21, 0.25, 0.715), mEye],
+    [new THREE.Vector3(0.23, 0.13, 0.715), mViolet],
+    [new THREE.Vector3(-0.1, -0.19, 0.715), mDeep],
   ];
   for (const [pos, mat] of spokes) {
-    const node = new THREE.Mesh(nodeGeo, mat);
+    const node = mesh(nodeGeo, mat);
     node.position.copy(pos);
     body.add(node);
 
-    // One cylinder per link, scaled and aimed between hub and node — cheaper
-    // and crisper than a line, which would be a single pixel wide at any size.
-    const link = new THREE.Mesh(linkGeo, matWhite);
-    const mid = hub.clone().add(pos).multiplyScalar(0.5);
-    link.position.copy(mid);
+    // A scaled, aimed cylinder — a Line would be one pixel wide at any size.
+    const link = mesh(linkGeo, mWhite);
+    link.position.copy(hub.clone().add(pos).multiplyScalar(0.5));
     link.scale.y = hub.distanceTo(pos);
     link.quaternion.setFromUnitVectors(
       new THREE.Vector3(0, 1, 0),
@@ -190,79 +226,79 @@ export function buildRobot(): Robot {
     );
     body.add(link);
   }
-  const hubMesh = new THREE.Mesh(hubGeo, matAmber);
+  const hubMesh = mesh(hubGeo, mAmber);
   hubMesh.position.copy(hub);
   body.add(hubMesh);
 
-  // Neck — short, so the head reads as sitting ON the body, not floating.
-  const neckGeo = track(new THREE.CylinderGeometry(0.34, 0.4, 0.3, 20));
-  const neck = new THREE.Mesh(neckGeo, matShellDeep);
-  neck.position.y = 0.92;
-  body.add(neck);
+  // Back plate, so the torso is not a blank slab from behind.
+  const backGeo = keep(new RoundedBoxGeometry(1.0, 0.86, 0.1, 5, 0.18));
+  const back = mesh(backGeo, mDeep);
+  back.position.set(0, 0.06, -0.64);
+  body.add(back);
 
   root.add(body);
 
   // ── Arms ───────────────────────────────────────────────────────────────
-  // Each arm pivots at the shoulder, so a wave is a rotation and not a
-  // re-positioning of every piece in it.
   const arms = new THREE.Group();
-  const upperGeo = track(new THREE.CapsuleGeometry(0.2, 0.52, 6, 16));
-  const cuffGeo = track(new THREE.CylinderGeometry(0.22, 0.22, 0.14, 18));
-  const handGeo = track(new THREE.SphereGeometry(0.25, 20, 16));
+  const shoulderGeo = keep(new THREE.SphereGeometry(0.28, 22, 18));
+  const upperGeo = keep(new THREE.CapsuleGeometry(0.2, 0.5, 8, 20));
+  const cuffGeo = keep(new THREE.CylinderGeometry(0.23, 0.23, 0.16, 22));
+  const handGeo = keep(new THREE.SphereGeometry(0.25, 22, 18));
 
   for (const sx of [-1, 1]) {
     const arm = new THREE.Group();
-    arm.position.set(sx * 0.98, 0.42, 0);
-    // Resting slightly away from the body; arms flat against the torso read
-    // as a figure standing to attention.
-    arm.rotation.z = sx * 0.22;
+    arm.position.set(sx * 0.88, 0.46, 0);
+    arm.rotation.z = sx * 0.2;
 
-    const upper = new THREE.Mesh(upperGeo, matWhite);
-    upper.position.y = -0.4;
+    // A ball where the arm meets the torso, so there is a joint and not a gap.
+    const shoulder = mesh(shoulderGeo, mShell);
+    arm.add(shoulder);
+
+    const upper = mesh(upperGeo, mWhite);
+    upper.position.y = -0.42;
     arm.add(upper);
 
-    const cuff = new THREE.Mesh(cuffGeo, matShell);
-    cuff.position.y = -0.78;
+    const cuff = mesh(cuffGeo, mShell);
+    cuff.position.y = -0.79;
     arm.add(cuff);
 
-    const hand = new THREE.Mesh(handGeo, matShell);
-    hand.position.y = -0.98;
+    const hand = mesh(handGeo, mShell);
+    hand.position.y = -1.0;
     hand.scale.set(1, 0.86, 0.92);
     arm.add(hand);
 
-    arm.name = sx < 0 ? 'armLeft' : 'armRight';
     arms.add(arm);
   }
   root.add(arms);
 
   // ── Legs ───────────────────────────────────────────────────────────────
   const legs = new THREE.Group();
-  const shinGeo = track(new THREE.CapsuleGeometry(0.24, 0.34, 6, 16));
-  const footGeo = track(new RoundedBoxGeometry(0.58, 0.26, 0.76, 4, 0.12));
+  const hipGeo = keep(new THREE.SphereGeometry(0.25, 20, 16));
+  const shinGeo = keep(new THREE.CapsuleGeometry(0.24, 0.32, 8, 20));
+  const footGeo = keep(new RoundedBoxGeometry(0.6, 0.27, 0.8, 5, 0.12));
 
   for (const sx of [-1, 1]) {
     const leg = new THREE.Group();
-    leg.position.set(sx * 0.42, -1.04, 0);
+    leg.position.set(sx * 0.42, -1.02, 0);
 
-    const shin = new THREE.Mesh(shinGeo, matWhite);
-    shin.position.y = -0.2;
+    const hip = mesh(hipGeo, mShell);
+    leg.add(hip);
+
+    const shin = mesh(shinGeo, mWhite);
+    shin.position.y = -0.24;
     leg.add(shin);
 
-    const foot = new THREE.Mesh(footGeo, matAmber);
-    foot.position.set(0, -0.58, 0.12);
+    const foot = mesh(footGeo, mAmber);
+    foot.position.set(0, -0.6, 0.13);
     leg.add(foot);
 
-    leg.name = sx < 0 ? 'legLeft' : 'legRight';
     legs.add(leg);
   }
   root.add(legs);
 
   const dispose = () => {
-    for (const d of disposables) d.dispose();
+    for (const d of bin) d.dispose();
   };
 
   return { root, head, body, arms, legs, antenna, eyes, dispose };
 }
-
-/** Where the feet land, so the contact shadow can sit on the floor. */
-export const ROBOT_FLOOR_Y = -1.9;

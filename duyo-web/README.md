@@ -23,7 +23,31 @@ npm run typecheck
 | `src/Backdrop.tsx` | tugunlar to'ri, robot ortida |
 | `src/index.css` | Tailwind + sahifa foni |
 
-Bog'liqliklar: `react`, `react-dom`, `lucide-react`, `tailwindcss`, `three`.
+Bog'liqliklar: `react`, `react-dom`, `tailwindcss`, `three`.
+
+Shrift — **Inter**, ilovada ishlatilgani bilan bir xil.
+
+## Nima ishlaydi
+
+Har bir boshqaruv haqiqiy manzilga ketadi — tekshirilgan (11 havola, o'liksi yo'q):
+
+| Element | Nima qiladi |
+|---|---|
+| Navbar havolalari | uchta bo'limga silliq aylantiradi, faol bo'lim qorayadi |
+| «Yuklab olish» | jonli APK |
+| O'ngdagi rels | bo'limga sakraydi, qayerdaligingizni ko'rsatadi |
+| Yuqoridagi chiziq | o'qish holati |
+| Robotni sudrash | 3D da aylantiradi (±43° bilan cheklangan) |
+| Har bir CTA | jonli APK |
+
+## Sifat
+
+| Nima | Qanday |
+|---|---|
+| Muhit yoritilishi | `RoomEnvironment` + PMREM — jilo nimanidir aks ettiradi |
+| Materiallar | `MeshPhysicalMaterial` + clearcoat — quyma plastik |
+| Soyalar | haqiqiy PCFSoft soya xaritasi, `ShadowMaterial` yerga tushadi |
+| Yuk | boshlang'ich **50 KB** gzip; three.js alohida bo'lak, keyin keladi |
 
 ## Uchta bo'lim
 
