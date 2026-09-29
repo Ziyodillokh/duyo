@@ -24,8 +24,9 @@ export interface Stage {
   dispose: () => void;
 }
 
-/** Above this the cost of a fullscreen 3D pass stops buying visible quality. */
-const MAX_DPR = 2;
+/** Above this a fullscreen 3D pass stops buying visible quality. 1.5, not
+ *  2: the difference is invisible on a phone and costs 1.8x the fragments. */
+const MAX_DPR = 1.5;
 
 export function createStage(canvas: HTMLCanvasElement): Stage | null {
   let renderer: THREE.WebGLRenderer;
@@ -73,11 +74,6 @@ export function createStage(canvas: HTMLCanvasElement): Stage | null {
   rim.position.set(4.0, 2.2, -3.6);
   scene.add(rim);
 
-  // A soft warm bounce from below, standing in for light off the page.
-  const bounce = new THREE.DirectionalLight(0xfff2d8, 0.45);
-  bounce.position.set(1.2, -3.0, 2.0);
-  scene.add(bounce);
-
   const contact = makeContactShadow();
   scene.add(contact);
 
@@ -86,9 +82,10 @@ export function createStage(canvas: HTMLCanvasElement): Stage | null {
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // Portrait phones need the camera further back or the robot's head leaves
-    // the frame; widening the FOV instead would distort it at the edges.
-    camera.position.z = w / h < 0.8 ? 10.6 : 8.2;
+    // The frame loop drives position — it dollies per section — so resize
+    // only widens the lens on a portrait phone, where a fixed 32 degrees
+    // would crop the finished robot's feet.
+    camera.fov = w / h < 0.8 ? 42 : 32;
     camera.updateProjectionMatrix();
   };
 

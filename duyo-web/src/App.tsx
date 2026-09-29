@@ -119,27 +119,27 @@ export default function App() {
         <Section
           badge="13–17 yosh uchun, o‘zbek tilida"
           heading="O‘smirlar uchun ishonchli sun’iy intellekt hamroh."
-          body="Savol bering, dars tushunmagan joyini so‘rang, shunchaki gaplashing — o‘z tilingizda."
+          body="Savolingizni o‘z tilingizda bering. Javob doskada qadamma-qadam yoziladi — u baholamaydi, kulmaydi, charchamaydi."
         >
           <a
-            href="#"
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-blue-500 hover:text-blue-600 transition-colors group"
+            href={APK_URL}
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-blue-500 border border-blue-400 rounded-full px-5 py-2.5 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all duration-200 group"
           >
-            Pastga aylantiring
+            Ilovani yuklab olish
             <Arrow />
           </a>
         </Section>
 
         <Section
           badge="Xavfsizlik"
-          heading="Har bir suhbat tekshiriladi."
-          body="Xavfli belgilar aniqlansa, DUYO yordam raqamini ko‘rsatadi va ota-onaga xabar boradi. Tengdoshlar yozishmasi ham filtrdan o‘tadi."
+          heading="Har bir xabar yetkazilishdan oldin tekshiriladi."
+          body="Xavfli belgilar aniqlansa, DUYO yordam raqamini ko‘rsatadi va ota-onaga SMS boradi. Tengdoshlar bir-birini faqat taxallus bo‘yicha ko‘radi — ism ham, telefon ham o‘tmaydi."
         />
 
         <Section
           badge="Harakat"
-          heading="Maqsad qo‘ying, bilim xaritangizni o‘stiring."
-          body="Suhbatlaringizdan bilim xaritasi yig‘iladi, maqsadlaringiz kuzatiladi, bir xil maqsaddagi tengdoshlar topiladi."
+          heading="Bilish yetarli emas — qilish kerak."
+          body="Maqsadingizni yozasiz, DUYO uni qadamlarga bo‘ladi. Suhbatlaringizdan bilim xaritasi o‘sadi, bir xil maqsaddagi tengdoshlar topiladi."
         >
           <a
             href={APK_URL}

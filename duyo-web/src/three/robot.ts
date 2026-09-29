@@ -27,7 +27,7 @@ const SHELL = 0x2f7bf6; //  helmet / chest plate, DUYO blue
 const SHELL_DEEP = 0x1d4ed8; // the blue in shadow-facing trim
 const WHITE = 0xf6f8fd; //  body plastic, warm enough not to grey out on paper
 const VISOR = 0x0b1326; //  the face screen
-const EYE = 0x53c8ff; //    lit cyan
+const EYE = 0x9fd0ff; //    lit glass — deep enough to survive its own emission
 const AMBER = 0xffc700; //  brand yellow, used sparingly
 const VIOLET = 0x8b5cf6; // the third node on the chest mark
 
@@ -38,6 +38,8 @@ export interface Robot {
   body: THREE.Group;
   arms: THREE.Group;
   legs: THREE.Group;
+  /** Pivots at its base on the crown, so it can trail the head's turn. */
+  antenna: THREE.Group;
   /** The two lit discs, kept for blinking and for reacting to the pointer. */
   eyes: THREE.Mesh[];
   dispose: () => void;
@@ -76,7 +78,7 @@ export function buildRobot(): Robot {
       color: EYE,
       emissive: new THREE.Color(EYE),
       // Lit from inside: on a pale page an unlit eye disappears into the visor.
-      emissiveIntensity: 1.5,
+      emissiveIntensity: 0.5,
       roughness: 0.3,
     }),
   );
@@ -107,6 +109,8 @@ export function buildRobot(): Robot {
     const eye = new THREE.Mesh(eyeGeo, matEye);
     eye.position.set(sx * 0.33, -0.02, 0.96);
     eye.scale.z = 0.55; // flattened onto the visor, not a ball stuck to it
+    eye.userData.baseX = eye.position.x;
+    eye.userData.baseY = eye.position.y;
     head.add(eye);
     eyes.push(eye);
   }
@@ -128,16 +132,21 @@ export function buildRobot(): Robot {
   }
 
   // Antenna with an amber bead — the silhouette's one asymmetric flourish.
+  const antenna = new THREE.Group();
+  antenna.position.set(-0.4, 0.86, 0); // the base, on the crown
+  antenna.rotation.z = 0.2;
+
   const stalkGeo = track(new THREE.CylinderGeometry(0.035, 0.035, 0.62, 10));
   const stalk = new THREE.Mesh(stalkGeo, matWhite);
-  stalk.position.set(-0.44, 1.14, 0);
-  stalk.rotation.z = 0.2;
-  head.add(stalk);
+  stalk.position.y = 0.31; // half its length, so the Group pivots at the base
+  antenna.add(stalk);
 
   const beadGeo = track(new THREE.SphereGeometry(0.15, 20, 16));
   const bead = new THREE.Mesh(beadGeo, matAmber);
-  bead.position.set(-0.56, 1.46, 0);
-  head.add(bead);
+  bead.position.y = 0.66;
+  antenna.add(bead);
+
+  head.add(antenna);
 
   root.add(head);
 
@@ -252,7 +261,7 @@ export function buildRobot(): Robot {
     for (const d of disposables) d.dispose();
   };
 
-  return { root, head, body, arms, legs, eyes, dispose };
+  return { root, head, body, arms, legs, antenna, eyes, dispose };
 }
 
 /** Where the feet land, so the contact shadow can sit on the floor. */

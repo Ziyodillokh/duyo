@@ -29,11 +29,17 @@ Bog'liqliklar: `react`, `react-dom`, `lucide-react`, `tailwindcss`, `three`.
 
 Robot scroll bilan **yig'iladi** — bu shunchaki bezak emas, hikoya:
 
-| Bo'lim | Robot | Mavzu |
-|---|---|---|
-| 1 | bosh | DUYO nima: suhbat, dars yordami |
-| 2 | + tana | xavfsizlik: moderatsiya, ota-onaga xabar |
-| 3 | + qo'l-oyoq | harakat: maqsadlar, bilim xaritasi, tengdoshlar |
+| Bo'lim | Kadr | Robot | Mavzu |
+|---|---|---|---|
+| 1 | bosh | bosh | DUYO nima: suhbat, doskada qadamma-qadam javob |
+| 2 | ko'krakdan pastda tugaydi | + tana | xavfsizlik: har bir xabar filtrdan o'tadi |
+| 3 | to'liq gavda | + qo'l-oyoq | harakat: maqsadlar, bilim xaritasi, tengdoshlar |
+
+**Bitta kadr.** Robot o'lchamini o'zgartirmaydi — **kamera orqaga chekinadi**.
+Shuning uchun 1-bo'limda tana bor-yo'qligi *noma'lum* qoladi, 2-bo'limda esa
+kadr ko'krakdan pastda tugagani uchun hali qo'shilmagan qo'llar **ko'rinmaydi**.
+Yig'ilish va kadrlanish bitta voqea bo'ladi; aks holda qo'lsiz gavda g'alati
+ko'rinardi.
 
 Robot **rasm emas** — `three/robot.ts` da yumaloq qutilar va kapsulalardan
 quriladi. Ikki sabab:
