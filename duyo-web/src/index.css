@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+
+/* The page ground, so an overscroll or a slow first paint never flashes
+   white behind a dark hero. */
+html,
+body,
+#root {
+  height: 100%;
+  background-color: #070b1a;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
