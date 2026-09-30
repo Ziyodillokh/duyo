@@ -115,7 +115,7 @@ const ROOMY = 0.2;
  * round to the phone. BACK is how far behind the first shot the curve's
  * control point sits, as a multiple of that shot's distance; RISE lifts it.
  */
-const FLIGHT_BACK = 0.9;
+const FLIGHT_BACK = 2.2;
 const FLIGHT_RISE = 5;
 /** Across the flight, the part of k over which the camera turns from DUYO to the phone. */
 const LOOK_TURN_FROM = 0.42;
@@ -147,7 +147,7 @@ const KEYS: Key[] = [
   { subject: 'phone', cam: [0.9, 0.7, 9.8], look: [0, 0, 0], shift: -1, phoneYaw: 0.2, phonePitch: 0.03 },
 ];
 
-/** Which app screen each section shows. The hero's is off-camera, waiting. */
+/** Which app screen each section shows. The hero's waits at the phone's station, far off. */
 const SCREENS: ScreenId[] = ['chat', 'chat', 'safety', 'map', 'goals', 'home'];
 /** The section whose brain map becomes the galaxy. */
 const MAP_SECTION = SCREENS.indexOf('map');

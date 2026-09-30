@@ -61,7 +61,9 @@ export const SUPPORT_EMAIL = 'duyosupport@gmail.com';
 
 /**
  * DUYO's own voice, introducing itself in the hero. The recording is the
- * owner's: drop it at public/audio/duyo-salom.mp3 (mp3 or m4a, under ~1 MB).
+ * owner's: drop it at public/audio/duyo-salom.mp3 (an mp3, under ~1 MB).
+ * Fill in `transcript` too: it is the recording's text alternative, shown
+ * as captions while DUYO talks.
  * Until the file is there the listen button stays hidden and DUYO simply
  * does not talk — the page never shows a control that does nothing. If the
  * words are put in `transcript`, they are shown as captions while it plays.

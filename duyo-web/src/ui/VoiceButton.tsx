@@ -34,8 +34,9 @@ export function VoiceButton() {
   return (
     <button
       type="button"
+      // The label itself says what a press does now ("listen" / "stop"), so
+      // it is not also marked as a pressed toggle, which would read twice.
       onClick={duyoVoice.toggle}
-      aria-pressed={playing}
       className={`btn-voice inline-flex h-12 items-center gap-2.5 whitespace-nowrap rounded-full px-5 text-[15px] font-medium ${playing ? 'is-playing' : ''}`}
     >
       <Bars />

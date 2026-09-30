@@ -75,6 +75,7 @@ export function createRobotLife(robot: Robot, home: V3): RobotLife {
   let blinkUntil = 0;
   let blinkT = 0;
   let mouth = 0;
+  let wave = 0;
 
   const update = (f: RobotFrame) => {
     const { t, ease } = f;
@@ -114,9 +115,13 @@ export function createRobotLife(robot: Robot, home: V3): RobotLife {
     }
     robot.antenna.rotation.z = 0.2 + Math.max(-0.5, Math.min(0.5, antennaA));
 
-    // Arms: a slow sway at rest; one hello wave as the recording begins.
+    // Arms: a slow sway at rest; one hello wave as the sound begins — motion,
+    // so not under reduced motion. Eased, so stopping the voice mid-wave
+    // lowers the arm instead of teleporting it.
     const since = f.talking;
-    const wave = since < 0 ? 0 : smooth(since / WAVE_UP) * (1 - smooth((since - WAVE_HOLD) / (WAVE_DOWN - WAVE_HOLD)));
+    const waveTo =
+      f.motion && since >= 0 ? smooth(since / WAVE_UP) * (1 - smooth((since - WAVE_HOLD) / (WAVE_DOWN - WAVE_HOLD))) : 0;
+    wave += (waveTo - wave) * ease(0.2);
     const armR = robot.arms.children[1];
     const armL = robot.arms.children[0];
     if (armR && armL) {

@@ -3,12 +3,12 @@
  *
  * Four strata, back to front:
  *
- *   ground   a fixed full-viewport colour: paper at the top, deep space in the
- *            middle, paper again for the download. Written directly on scroll
- *            (useScrollDriver) from the same darkness curve the 3D reads.
+ *   ground   a fixed full-viewport colour: deep space, on every section.
+ *            Written on scroll (useScrollDriver) from the darkness curve the
+ *            3D reads, so a light section could come back without rewiring.
  *   scene    <Scene3D/>, lazy — three.js is heavier than the rest of the page
  *            together, so the copy paints first and the scene arrives after.
- *   copy     five sections from content.ts; each leaves the opposite side
+ *   copy     six sections from content.ts; each leaves the opposite side
  *            empty for the scene's subject. <main> and every section ignore
  *            the pointer — only the copy blocks and the footer take it — so
  *            hovers and drags anywhere else fall through to the scene.
@@ -68,7 +68,8 @@ export default function App() {
       <div
         ref={groundRef}
         className="fixed inset-0 z-0"
-        style={{ backgroundColor: 'var(--c-paper)' }}
+        // Space from the first paint: the driver only writes after mount.
+        style={{ backgroundColor: 'var(--c-space)' }}
         aria-hidden="true"
       />
 

@@ -11,7 +11,9 @@
  * the status is 'unavailable' and no control is shown.
  *
  * Sound can only start from a gesture, so the AudioContext that measures
- * the loudness is created inside the first toggle, never before.
+ * the loudness is created inside the first toggle, never before. The
+ * element itself is made as soon as the file is known to exist, so the
+ * recording is already loading when the visitor asks for it.
  */
 
 import { DUYO_VOICE } from '../content';
@@ -23,9 +25,10 @@ export interface DuyoVoice {
   subscribe: (listener: () => void) => () => void;
   /** Play from the start, or stop if playing. Call from a user gesture. */
   toggle: () => void;
+  stop: () => void;
   /** Loudness now, 0..1, for the mouth. 0 when not playing. */
   level: () => number;
-  /** performance.now() when the current playback began; 0 when idle. */
+  /** performance.now() when sound actually began; 0 while silent or still loading. */
   startedAt: () => number;
 }
 
@@ -36,9 +39,32 @@ export interface DuyoVoice {
  */
 const LEVEL_KNEE = 6;
 
+/** Safari 16.4+: routed through Web Audio, sound would obey the silent switch. */
+type WithAudioSession = Navigator & { audioSession?: { type: string } };
+
+const isAudio = (r: Response) => r.ok && (r.headers.get('content-type') ?? '').startsWith('audio/');
+
+/** HEAD first; hosts that refuse HEAD (405, 501) or drop it get a one-byte GET. */
+async function exists(src: string): Promise<boolean> {
+  try {
+    const head = await fetch(src, { method: 'HEAD', cache: 'no-cache' });
+    if (isAudio(head)) return true;
+    if (head.status !== 405 && head.status !== 501) return false;
+  } catch {
+    // Fall through to the ranged GET.
+  }
+  try {
+    return isAudio(await fetch(src, { headers: { Range: 'bytes=0-0' }, cache: 'no-cache' }));
+  } catch {
+    return false;
+  }
+}
+
 function createDuyoVoice(src: string): DuyoVoice {
   let status: VoiceStatus = 'checking';
   let started = 0;
+  /** Bumped on every play and stop, so a stale play() rejection cannot undo a newer state. */
+  let attempt = 0;
   const listeners = new Set<() => void>();
   const set = (next: VoiceStatus) => {
     if (next === status) return;
@@ -51,17 +77,48 @@ function createDuyoVoice(src: string): DuyoVoice {
   let samples: Uint8Array<ArrayBuffer> | null = null;
   let probed = false;
 
+  const stop = () => {
+    attempt += 1;
+    started = 0;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    if (status === 'playing') set('ready');
+  };
+
+  const element = () => {
+    if (audio) return audio;
+    const el = new Audio(src);
+    el.preload = 'auto';
+    el.addEventListener('ended', stop);
+    // Sound truly started (not merely asked for): the wave and nod go with it.
+    el.addEventListener('playing', () => {
+      if (status === 'playing') started = performance.now();
+    });
+    el.addEventListener('error', () => {
+      stop();
+      set('unavailable');
+    });
+    audio = el;
+    return el;
+  };
+
   const probe = () => {
     if (probed) return;
     probed = true;
-    fetch(src, { method: 'HEAD', cache: 'no-cache' })
-      .then((r) => set(r.ok && (r.headers.get('content-type') ?? '').startsWith('audio/') ? 'ready' : 'unavailable'))
-      .catch(() => set('unavailable'));
+    void exists(src).then((ok) => {
+      if (ok) element();
+      set(ok ? 'ready' : 'unavailable');
+    });
   };
 
   const connect = (el: HTMLAudioElement) => {
+    if (analyser) return;
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
+    const session = (navigator as WithAudioSession).audioSession;
+    if (session) session.type = 'playback';
     try {
       const ctx = new Ctx();
       const node = ctx.createAnalyser();
@@ -76,33 +133,22 @@ function createDuyoVoice(src: string): DuyoVoice {
     }
   };
 
-  const stop = () => {
-    if (!audio) return;
-    audio.pause();
-    audio.currentTime = 0;
-    started = 0;
-    set('ready');
-  };
-
   const toggle = () => {
     if (status === 'playing') return stop();
     if (status !== 'ready') return;
-    if (!audio) {
-      audio = new Audio(src);
-      audio.preload = 'auto';
-      audio.addEventListener('ended', stop);
-      audio.addEventListener('error', () => {
-        started = 0;
-        set('unavailable');
-      });
-      connect(audio);
-    }
-    const ctx = analyser?.context;
-    if (ctx && ctx.state === 'suspended') void (ctx as AudioContext).resume();
-    audio.currentTime = 0;
-    started = performance.now();
+    const el = element();
+    connect(el);
+    // Suspended before the first gesture, 'interrupted' after a call or a
+    // trip to the background on iOS: either way, silent until resumed.
+    const ctx = analyser?.context as AudioContext | undefined;
+    if (ctx && ctx.state !== 'running') void ctx.resume();
+    attempt += 1;
+    const mine = attempt;
+    started = 0;
+    el.currentTime = 0;
     set('playing');
-    audio.play().catch(() => {
+    el.play().catch(() => {
+      if (mine !== attempt) return;
       started = 0;
       set('ready');
     });
@@ -127,6 +173,7 @@ function createDuyoVoice(src: string): DuyoVoice {
       return () => listeners.delete(listener);
     },
     toggle,
+    stop,
     level,
     startedAt: () => started,
   };

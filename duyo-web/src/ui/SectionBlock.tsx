@@ -4,8 +4,8 @@
  *
  *   left   copy in the left ~40%, subject on the right
  *   right  copy on the right, subject on the left
- *   center copy centred — low, under the galaxy, for 'miya'; dead centre for
- *          the final call to action
+ *   center copy centred, low — unused now: copy scrolls while the scene
+ *          holds still, so centred copy passes across the subject
  *
  * At phone width every layout collapses to the same thing: copy anchored to
  * the bottom over a scrim of the section's own ground colour, so the words
@@ -86,7 +86,7 @@ const rv = (i: number): CSSProperties => ({ '--rv': i }) as CSSProperties;
 function rowPlacement(layout: Section['layout'], isFinal: boolean): string {
   if (layout === 'left') return 'md:items-center md:justify-start';
   if (layout === 'right') return 'md:items-center md:justify-end';
-  // 'miya' sits low so the galaxy's centre stays clear above it.
+  // Centred copy sits low, so the middle of the screen stays the scene's.
   return isFinal ? 'md:items-center md:justify-center' : 'md:items-end md:justify-center md:pb-[11vh]';
 }
 

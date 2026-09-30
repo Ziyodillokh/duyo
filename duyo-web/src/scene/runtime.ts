@@ -53,8 +53,12 @@ const STACKED_MAX_WIDTH = 767;
 /** Longest frame time the eases will integrate over, in seconds. */
 const MAX_DT = 0.1;
 
-/** A press that moves less than this is a click (talk to DUYO), not a drag. */
+/**
+ * A press that moves less than this is a click (talk to DUYO), not a drag.
+ * A fingertip wobbles more than a mouse, so a tap gets more room.
+ */
 const CLICK_SLOP_PX = 6;
+const TAP_SLOP_PX = 10;
 
 /**
  * Scroll smoothing per 60Hz frame. A jump (End, a nav link, a hard flick)
@@ -214,13 +218,19 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   let robotShown = 1;
   let dragOnRobot = true;
   let hovering = false;
+  let talkPending = false;
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
+  // DUYO never leaves its station, so its bounds are measured once, a little
+  // generous for the body's turn: the ray meets this box in microseconds,
+  // and only a ray that does is tested against the 84k-triangle model.
+  const robotBox = new THREE.Box3().setFromObject(robot.root).expandByScalar(0.15);
   /** Is the pointer at (clientX, clientY) on DUYO? Only asked while DUYO is the shot. */
   const onRobot = (x: number, y: number) => {
     if (robotShown < 0.5) return false;
     ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
+    if (!raycaster.ray.intersectsBox(robotBox)) return false;
     return raycaster.intersectObject(robot.root, true).length > 0;
   };
   let dragYaw = 0;
@@ -240,9 +250,13 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     if (dragId === null) return;
     dragId = null;
     document.body.style.cursor = '';
+    // The cursor was just cleared: the next move must be free to set it again.
+    hovering = false;
+    input.moved = true;
     selectable(true);
   };
   const onDown = (e: PointerEvent) => {
+    talkPending = false;
     if (dragId !== null) return endDrag();
     if (e.button !== 0 || pagesOwn(e.target)) return;
     dragId = e.pointerId;
@@ -263,16 +277,25 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   const onUp = (e: PointerEvent) => {
     if (e.pointerId !== dragId) return;
     endDrag();
-    input.dispose();
-    const still = Math.hypot(e.clientX - downX, e.clientY - downY) < CLICK_SLOP_PX;
+    const slop = e.pointerType === 'touch' ? TAP_SLOP_PX : CLICK_SLOP_PX;
+    const still = Math.hypot(e.clientX - downX, e.clientY - downY) < slop;
     if (!still || e.type !== 'pointerup') return;
-    if (onRobot(e.clientX, e.clientY)) duyoVoice.toggle();
+    // The voice starts from the click that follows, not from here: Safari
+    // counts a click as the gesture that may start sound; a pointerup, not
+    // always.
+    if (onRobot(e.clientX, e.clientY)) talkPending = true;
     else cosmos.pulse((e.clientX / window.innerWidth) * 2 - 1, 1 - (e.clientY / window.innerHeight) * 2);
+  };
+  const onClick = () => {
+    if (!talkPending) return;
+    talkPending = false;
+    duyoVoice.toggle();
   };
   window.addEventListener('pointerdown', onDown);
   window.addEventListener('pointermove', onMove, { passive: true });
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
+  window.addEventListener('click', onClick);
 
   // ── Scroll & size ──────────────────────────────────────────────────────
   // Read on the event, applied in the frame: layout reads inside rAF are
@@ -281,6 +304,8 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   let smoothScroll = scroll;
   const onScroll = () => {
     scroll = readScroll();
+    // DUYO may have scrolled out from under a still pointer: ask again.
+    input.moved = true;
   };
   window.addEventListener('scroll', onScroll, { passive: true });
 
@@ -299,6 +324,12 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   window.addEventListener('resize', onResize, { passive: true });
   // Inter is wider than the fallback face; re-measure once it has landed.
   void document.fonts.ready.then(() => alive && onResize());
+  // The listen button appears only once the recording is known to exist,
+  // and it can take the hero's copy onto another row: measure again after
+  // React has put it in (two frames: its render, then its layout).
+  const unsubVoice = duyoVoice.subscribe(() =>
+    requestAnimationFrame(() => requestAnimationFrame(() => alive && onResize())),
+  );
 
   // ── Frame ──────────────────────────────────────────────────────────────
   const origin = new THREE.Vector3();
@@ -340,6 +371,11 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
 
     const d = direct(smoothScroll, view, input.motion === 1);
     robotShown = d.robotShown;
+    // Out of shot, DUYO costs nothing: not drawn, not in the shadow pass
+    // (the key light's shadow camera sits on its station, so it would be).
+    robot.root.visible = robotShown > 0;
+    // Its voice belongs to its shot; with DUYO gone its stop button is too.
+    if (robotShown === 0 && duyoVoice.status() === 'playing') duyoVoice.stop();
 
     // Camera, with a small pointer parallax on top of the director's shot.
     camera.position.set(d.cameraPos[0] + px * 0.28, d.cameraPos[1] - py * 0.18, d.cameraPos[2]);
@@ -428,10 +464,14 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
+    window.removeEventListener('click', onClick);
     window.removeEventListener('scroll', onScroll);
     window.removeEventListener('resize', onResize);
     document.removeEventListener('visibilitychange', onVisibility);
+    unsubVoice();
     endDrag();
+    input.dispose();
+    document.body.style.cursor = '';
     if (window.cancelIdleCallback) window.cancelIdleCallback(idle);
     else window.clearTimeout(idle);
     if (galaxy) {
