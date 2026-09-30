@@ -4,27 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f0f0ee" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
 
     <title>DUYO — o‘smirlar uchun sun’iy intellekt hamroh</title>
     <meta
       name="description"
-      content="13–17 yosh uchun o‘zbek tilidagi AI hamroh: suhbat, dars yordami, maqsadlar va bilim xaritasi. Har bir xabar xavfsizlik uchun tekshiriladi."
+      content="13–16 yosh uchun o‘zbek tilidagi AI hamroh: suhbat, dars yordami, maqsadlar va bilim xaritasi. Har bir xabar xavfsizlik uchun tekshiriladi."
     />
 
     <!-- Preconnect before the stylesheet: the font request is on the critical
          path and the handshake is most of its latency. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- A <link>, not a CSS @import: Tailwind expands before an @import in
+         index.css, and a browser ignores any @import that is not first. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content="DUYO — o‘smirlar uchun sun’iy intellekt hamroh" />
     <meta
       property="og:description"
-      content="Suhbat, dars yordami va maqsadlar — o‘zbek tilida. 13–17 yosh uchun."
+      content="Suhbat, dars yordami va maqsadlar — o‘zbek tilida. 13–16 yosh uchun."
     />
     <meta property="og:locale" content="uz_UZ" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <!-- "summary", not "summary_large_image": there is no share image yet, and
+         a large-image card with no image to show falls back to a bare link.
+         Switch back together with an absolute og:image / twitter:image. -->
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="root"></div>

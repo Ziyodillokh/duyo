@@ -1,10 +1,9 @@
 @import 'tailwindcss';
 
-/* Inter, the face the app already uses — one brand, one voice. Loaded with
-   `display=swap` so the copy is readable before the font lands, and with a
-   real fallback stack so a blocked request degrades to a system grotesque
-   rather than to Times. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Inter, the face the app already uses — one brand, one voice. Loaded by a
+   <link> in index.html with `display=swap`, so the copy is readable before
+   the font lands; the fallback stack degrades to a system grotesque rather
+   than to Times. */
 
 @theme {
   --font-sans:

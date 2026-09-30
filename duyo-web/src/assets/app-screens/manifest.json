@@ -1,0 +1,40 @@
+{
+  "chat": {
+    "states": [
+      "chat-1.webp",
+      "chat-2.webp",
+      "chat-3.webp",
+      "chat-4.webp"
+    ],
+    "notes": "AI Chat tab (src/app/(main)/(tabs)/chat.tsx). 1: empty chat — DUYO AI hero (Onlayn), daily counter 20/20, greeting to Sardor, suggested replies. 2: the question '2x² + 5x + 3 = 0 tenglamani yechib ber' sent (one tick) with DUYO's typing dots — in the app 'sent' and 'thinking' are the same moment. 3: DUYO's reply and the finished chalkboard (components/chalkboard.tsx), the list scrolled back up until the whole question shows; the site hides the lines not yet written and writes them in. 4: the same, the list at its newest end — a = 2, b = 5, c = 3; D = 25 − 24 = 1; x₁ = −1; x₂ = −1,5; answer underlined in yellow."
+  },
+  "safety": {
+    "states": [
+      "safety-1.webp",
+      "safety-2.webp"
+    ],
+    "notes": "Goal room 'Kitoblar' (src/screens/goals/group-screen.tsx) with the permanent safety notice. 1: the conversation between Yulduz-73, Lochin-58, Burgut-42 and the child (Shunqor-17). 2: the child tried to send 'Raqamim: 90 000 00 00'; the server's real contact_info refusal (duyo-backend api/v1/social.py) is shown to the sender only, the draft stays in the composer, nothing reaches the room."
+  },
+  "map": {
+    "states": [
+      "map-1.webp",
+      "map-2.webp"
+    ],
+    "notes": "DUYO MIYA full-screen map (src/screens/brain/brain-screen.tsx, opened from the Miya tab's expand button) over assets/images/brain-backdrop.jpg. 1: 5 notes — Matematika, Kvadrat tenglama, Fizika, Adabiyot, O'tkan kunlar — with their #tags. 2: 16 notes — adds Parabola, Gravitatsiya, Geologiya, Vulqonlar, Yer tuzilishi, Qodiriy and the gold #maqsad goal path DUYO writes when it splits a goal into steps (1-qadam … 4-qadam). The tag chips read 0: the app's own counting bug (brain-screen.tsx compares tags without '#' against graph ids with it)."
+  },
+  "goals": {
+    "states": [
+      "goals-1.webp",
+      "goals-2.webp",
+      "goals-3.webp",
+      "goals-4.webp"
+    ],
+    "notes": "1: DUYO MIYA with the #maqsad chip on and the note list open — the goal and the four steps DUYO split it into (services/goal_paths.py writes them as linked notes). 2–4: Maqsadlarim (src/app/(main)/my-goals.tsx → screens/goals/goals-screen.tsx): the goal 'O'tkan kunlar romanini o'qib tugatish' counted in chapters, '7 ta bola ham shu maqsadda', and Maqsaddoshlar by nickname (Lochin-58, Yulduz-73). 2: 10 / 15 bob (67%). 3: '11' typed into 'Nechanchi bob?', Saqlash lit. 4: saved — 11 / 15 bob (73%), the chapter the child names in the group."
+  },
+  "home": {
+    "states": [
+      "home-1.webp"
+    ],
+    "notes": "Home tab (screens/home/glass-home.tsx): DUYO robot mascot in its halo, 'boshlash uchun bosing', AI KREDIT 1 250, Faollik 83%, Yutuqlar 7 (4 ochilgan), the Bir maqsad · DUYO · Neo Miyya dock."
+  }
+}

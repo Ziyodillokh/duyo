@@ -1,130 +1,105 @@
 # duyo-web
 
-DUYO'ning bitta ekranli hero sahifasi — React + TypeScript + Tailwind, Vite ustida.
+DUYO'ning sayti: bitta scroll-film, beshta bo'lim. Orqada 3D sahna turadi:
+Android telefon, uning ekranida **ilovaning haqiqiy ekranlari**; yonida
+**ilovadagi DUYO mascoti**ning 3D modeli; atrofda galaktika. Sahifa oq
+qog'ozdan koinotga kiradi va yana yorug'likka chiqadi.
 
-`duyo-landing/` ga tegmaydi: u alohida, mavjud sayt. Bu papka mustaqil.
+React 18 + TypeScript + Tailwind v4 + three.js, Vite ustida. `duyo-landing/`
+ga tegmaydi.
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # tsc -b && vite build  ->  dist/
-npm run preview    # yig'ilgan versiyani ko'rish
+npm run preview
 npm run typecheck
 ```
+
+## Bo'limlar
+
+| # | Bo'lim | Fon | Telefonda |
+| --- | --- | --- | --- |
+| 0 | boshlash | yorug' | AI Chat: savol, doskada bosqichma-bosqich yechim |
+| 1 | xavfsizlik | koinot | «Kitoblar» guruhi: raqamli xabar yetkazilmaydi |
+| 2 | miya | koinot | DUYO MIYA; tugunlar ekrandan chiqib galaktikaga aylanadi |
+| 3 | maqsad | koinot | Maqsadlarim: maqsad qadamlarga bo'lingan |
+| 4 | yuklab | yorug' | bosh sahifa; robot qo'l silkitadi |
+
+Bo'limlar orasida telefon bir marta aylanadi, ekran esa telefonning orqasi
+kameraga qaraganda almashadi. Robot har safar matnning qarama-qarshi tomoniga
+o'tadi.
 
 ## Fayllar
 
 | Fayl | Nima |
-|---|---|
-| `src/App.tsx` | uchta bo'lim — navbar va matnlar |
-| `src/RobotStage.tsx` | robotni scroll va sichqonchaga ulaydi |
-| `src/three/robot.ts` | robotning o'zi — primitivlardan qurilgan |
-| `src/three/stage.ts` | renderer, kamera, yorug'lik |
-| `src/Backdrop.tsx` | tugunlar to'ri, robot ortida |
-| `src/index.css` | Tailwind + sahifa foni |
-
-Bog'liqliklar: `react`, `react-dom`, `tailwindcss`, `three`.
-
-Shrift — **Inter**, ilovada ishlatilgani bilan bir xil.
-
-## Nima ishlaydi
-
-Har bir boshqaruv haqiqiy manzilga ketadi — tekshirilgan (11 havola, o'liksi yo'q):
-
-| Element | Nima qiladi |
-|---|---|
-| Navbar havolalari | uchta bo'limga silliq aylantiradi, faol bo'lim qorayadi |
-| «Yuklab olish» | jonli APK |
-| O'ngdagi rels | bo'limga sakraydi, qayerdaligingizni ko'rsatadi |
-| Yuqoridagi chiziq | o'qish holati |
-| Robotni sudrash | 3D da aylantiradi (±43° bilan cheklangan) |
-| Har bir CTA | jonli APK |
-
-## Sifat
-
-| Nima | Qanday |
-|---|---|
-| Muhit yoritilishi | `RoomEnvironment` + PMREM — jilo nimanidir aks ettiradi |
-| Materiallar | `MeshPhysicalMaterial` + clearcoat — quyma plastik |
-| Soyalar | haqiqiy PCFSoft soya xaritasi, `ShadowMaterial` yerga tushadi |
-| Yuk | boshlang'ich **50 KB** gzip; three.js alohida bo'lak, keyin keladi |
-
-## Uchta bo'lim
-
-Robot scroll bilan **yig'iladi** — bu shunchaki bezak emas, hikoya:
-
-| Bo'lim | Kadr | Robot | Mavzu |
-|---|---|---|---|
-| 1 | bosh | bosh | DUYO nima: suhbat, doskada qadamma-qadam javob |
-| 2 | ko'krakdan pastda tugaydi | + tana | xavfsizlik: har bir xabar filtrdan o'tadi |
-| 3 | to'liq gavda | + qo'l-oyoq | harakat: maqsadlar, bilim xaritasi, tengdoshlar |
-
-**Bitta kadr.** Robot o'lchamini o'zgartirmaydi — **kamera orqaga chekinadi**.
-Shuning uchun 1-bo'limda tana bor-yo'qligi *noma'lum* qoladi, 2-bo'limda esa
-kadr ko'krakdan pastda tugagani uchun hali qo'shilmagan qo'llar **ko'rinmaydi**.
-Yig'ilish va kadrlanish bitta voqea bo'ladi; aks holda qo'lsiz gavda g'alati
-ko'rinardi.
-
-Robot **rasm emas** — `three/robot.ts` da yumaloq qutilar va kapsulalardan
-quriladi. Ikki sabab:
-
-1. Eski maskot AI generatsiya qilgan va Google Play sentabrda aynan shuning
-   uchun (Impersonation siyosati) do'kon sahifasini rad etgan. Koddan qurilgan
-   personajning mualliflik huquqi git tarixi bilan isbotlanadi.
-2. Tekis rasmni qismlarga ajratib bo'lmaydi. Yig'ilish g'oyasi 3D modelni
-   talab qiladi.
-
-## Fon nega video emas
-
-Sahifa qurilgan brief `d8j0ntlcm91z4.cloudfront.net/...` dagi `.mp4` ni
-ko'rsatgan edi. U **boshqa kompaniyaning mahsulot sahifasidagi fayl**, va DUYO
-shu kunlarda Google Play'dan aynan uchinchi tomon materiali uchun
-(Impersonation siyosati) rad javobi olgan. Uni qo'yish xatoni takrorlash
-bo'lardi.
-
-O'rniga fon `Backdrop.tsx` da qurilmaning o'zida chiziladi. **Muhimi:
-briefning yorug' estetikasi saqlangan** — qog'oz-kulrang sahifa, och ranglar,
-qora matn. Fon o'zgargan, dizayn emas.
-
-- DUYO'ning o'z belgisi: logotip ichidagi tugun-bog'lanish figurasi, endi 3D
-  bulut sifatida
-- haqiqatan 3D va interaktiv: sichqoncha kamerani aylantiradi, telefonda
-  qurilma qiyaligi (`deviceorientation`) shu vazifani bajaradi
-- hech qanday tashqi so'rov yo'q, internetsiz ham ishlaydi
-- litsenziya masalasi yo'q — kod repozitoriyada, git tarixi bilan
-
-Kutubxonasiz va WebGL'siz: yuzta nuqtani proyeksiya qilish oddiy arifmetika,
-canvas esa **yorug'** palitrani shader'dan aniqroq boshqaradi.
-
-### Xavfsizlik choralari
-
-- `prefers-reduced-motion: reduce` — aylanish to'xtaydi, figura qoladi
-- yorliq ko'rinmasa (`visibilitychange`) animatsiya sikli to'xtaydi
-- canvas ochilmasa sahifa ostidagi gradient bilan ishlayveradi
-- `devicePixelRatio` 2 bilan cheklangan
-- bog'lanishlar bir marta hisoblanadi: bulut faqat aylanadi, aylanish esa
-  masofalarni o'zgartirmaydi
+| --- | --- |
+| `src/content.ts` | sahifadagi har bir so'z va havola |
+| `src/App.tsx`, `src/ui/*` | sahifa: navbar, bo'limlar, fon rangi, footer |
+| `src/scene/director.ts` | scroll → kamera, telefon, robot (sof funksiya) |
+| `src/scene/runtime.ts` | sahnani quradi va har kadrda director'ni qo'llaydi |
+| `src/scene/measure.ts` | matn egallagan joyni o'lchaydi — sahna bo'sh joyga sig'adi |
+| `src/scene/phone.ts` | telefon modeli |
+| `src/scene/phoneScreen*.ts` | telefon ekrani: ilova skrinshotlarini o'ynatadi |
+| `src/assets/app-screens/` | ilovadan olingan ekranlar (`.webp`) va `captures.ts` |
+| `src/three/robot*.ts` | DUYO mascotining 3D modeli |
+| `src/scene/galaxy.ts` | galaktika va miya xaritasi tugunlari |
+| `src/scene/contract.ts` | ranglar, o'lchamlar, modullar orasidagi interfeyslar |
+| `harness/*.html` | har bir modulni alohida ko'rish: `/harness/robot.html` va h.k. |
 
 ## Nimani qayerdan o'zgartirasiz
 
 | Nima | Qayerda |
-|---|---|
-| Menyu bandlari | `App.tsx` → `NAV_LINKS` |
-| Sarlavha, matn, badge | `App.tsx` → `<main>` ichida |
-| Yuklab olish havolasi | `App.tsx` → `APK_URL` |
-| Fon ranglari | `Backdrop.tsx` → `COLOURS` |
-| Tugunlar soni va zichligi | `Backdrop.tsx` → `NODE_COUNT` / `LINK_DIST` |
-| Fon joylashuvi va o'lchami | `Backdrop.tsx` → `cx` / `cy` / `scale` |
-| Kamera burchagi | `Backdrop.tsx` → `yaw` / `pitch` |
+| --- | --- |
+| Matn, sarlavha, tugma, havola | `src/content.ts` |
+| Kamera kadrlari | `src/scene/director.ts` → `KEYS` |
+| Brend ranglari | `src/scene/contract.ts` → `PALETTE` |
+| Robot ranglari va shakli | `src/three/robotSkin.ts`, `robot.ts` |
+| Telefon ekranlari | quyidagi «Ekranlarni yangilash» |
+
+**Matnlar haqiqatga mos bo'lishi shart** — bu bolalar ilovasi. `content.ts`
+boshidagi izohda har bir da'vo kodning qaysi joyi bilan tekshirilgani yozilgan.
+Backend'da limit yoki xavfsizlik o'zgarsa, avval o'sha yerni o'qing.
+
+## Ekranlarni yangilash
+
+Telefondagi ekranlar ilovaning hozirgi kodidan olingan: ilova brauzerda
+(Expo web) **lokal soxta API** bilan ishga tushiriladi, `api.duyo.uz`ga
+birorta ham so'rov ketmaydi (`browser.mjs` boshqa hamma manzilni bloklaydi va
+yozib boradi). Ilova kodi o'zgartirilmaydi.
+
+```bash
+cd scripts/app-capture
+rsync -a --exclude node_modules ../../../duyo-mobile/ app/ && (cd app && npm ci)
+sh start.sh                 # soxta API + ilova, 127.0.0.1:9911 ga bog'langanini tekshiradi
+node capture.mjs            # yoki: node capture.mjs map goals
+python3 finish.py           # webp + src/assets/app-screens/captures.ts
+sh stop.sh
+```
+
+Demo ma'lumotlar `mock-data.mjs` da — faqat taxalluslar, haqiqiy odam yo'q.
+
+## Robot
+
+`src/three/robot.ts` — ilovadagi mascot
+(`duyo-mobile/assets/duyo/v2/mascot-default.png`, `happy.png`) asosida
+primitivlardan qurilgan. Google Play'dagi Impersonation muammosi uchun mascot
+almashtirilsa, bu model ham yangilanishi kerak.
 
 ## Tekshirilgan
 
-- `npm run build` — TypeScript va Vite toza
-- 390px va 1440px: gorizontal toshish yo'q (`scrollWidth === clientWidth`),
-  navbarning to'rtala bandi sig'adi
-- fon real brauzerda chiziladi, sichqonchaga javob beradi
+- `npm run typecheck`, `npm run build` — toza
+- 320–1920px: gorizontal toshish yo'q, har bir qator o'z ustuniga sig'adi,
+  har bir havola jonli, faqat bitta `h1`
+- 3D bo'lak yuklanmasa yoki WebGL yo'q bo'lsa — sahifa to'liq qoladi, faqat
+  sahna chiqmaydi
+- `prefers-reduced-motion` — aylanish, parallaks va animatsiya to'xtaydi
+- ko'rinmay qolgan matn bosilmaydi; klaviatura fokusi uni ko'rinadigan joyga
+  olib keladi
 
 ## Deploy
 
-`npm run build` → `dist/`. `base: './'` qo'yilgani uchun istalgan papkadan
-ishlaydi — qayta yig'ish shart emas.
+`npm run build` → `dist/`. `base: './'` bo'lgani uchun istalgan papkadan
+ishlaydi. Ijtimoiy tarmoq uchun rasm (`og:image`) hali yo'q — deploy manzili
+aniq bo'lgach, mutlaq URL bilan qo'shing va `twitter:card` ni
+`summary_large_image` ga qaytaring.

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Robot harness</title>
+    <link rel="icon" href="data:," />
+    <style>
+      /* The ground is CSS, as on the page: the canvas is transparent. */
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #f0f0ee; }
+      canvas { position: fixed; inset: 0; display: block; width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script type="module" src="./robot.ts"></script>
+  </body>
+</html>

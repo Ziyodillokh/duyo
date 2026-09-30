@@ -1,0 +1,241 @@
+/*
+ * The page layer's look. Every colour is a PALETTE custom property set on the
+ * page root (theme.ts) — except #EDEDED, the established nav-pill grey.
+ *
+ * Two independent switches drive it:
+ *   section[data-theme]   the section's own ground — its copy colours
+ *   html[data-ground]     the ground under the fixed chrome right now,
+ *                         flipped by useScrollDriver at darkness 0.5
+ */
+
+/* ── Section copy, by theme ─────────────────────────────────────────── */
+
+.page-section[data-theme='light'] {
+  --fg: var(--c-navy);
+  --fg-muted: color-mix(in srgb, var(--c-navy) 68%, transparent);
+  --fg-faint: color-mix(in srgb, var(--c-navy) 56%, transparent);
+  --accent: var(--c-blue);
+  --hair: color-mix(in srgb, var(--c-navy) 13%, transparent);
+  --scrim: var(--c-paper);
+}
+
+.page-section[data-theme='dark'] {
+  --fg: var(--c-white);
+  --fg-muted: color-mix(in srgb, var(--c-white) 66%, transparent);
+  --fg-faint: color-mix(in srgb, var(--c-white) 54%, transparent);
+  --accent: var(--c-sky);
+  --hair: color-mix(in srgb, var(--c-white) 14%, transparent);
+  --scrim: var(--c-space);
+}
+
+.page-section .heading { color: var(--fg); }
+.page-section .body { color: var(--fg-muted); }
+.page-section .badge { color: var(--accent); }
+.page-section .proof { border-color: var(--hair); }
+.page-section .proof-value { color: var(--fg); }
+.page-section .proof-label { color: var(--fg-faint); }
+
+/* ── Calls to action ────────────────────────────────────────────────── */
+
+.btn-primary {
+  color: var(--c-white);
+  background: var(--c-blue);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c-white) 18%, transparent),
+    0 1px 2px color-mix(in srgb, var(--c-blue) 30%, transparent),
+    0 8px 24px -10px color-mix(in srgb, var(--c-blue) 55%, transparent);
+  transition: background-color 200ms ease, box-shadow 200ms ease;
+}
+.btn-primary:hover { background: var(--c-blue-bright); }
+.btn-primary:active { background: var(--c-blue); }
+
+.btn-ghost {
+  color: var(--fg);
+  opacity: 0.82;
+  transition: opacity 200ms ease;
+}
+.btn-ghost:hover { opacity: 1; }
+
+.arrow { transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.btn-primary:hover .arrow,
+.btn-ghost:hover .arrow { transform: translateX(3px); }
+
+/* ── Navbar ─────────────────────────────────────────────────────────── */
+
+.nav-glass {
+  background-color: #ededed;
+  color: var(--c-navy);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-navy) 6%, transparent);
+  transition: background-color 350ms ease, color 350ms ease, box-shadow 350ms ease;
+}
+.nav-logo { color: color-mix(in srgb, var(--c-navy) 78%, #ededed); }
+.nav-logo:hover { box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--c-navy) 40%, transparent); }
+
+.nav-item {
+  /* 72% navy on #EDEDED is 6.1:1 — AA for 13.5px text. */
+  color: color-mix(in srgb, var(--c-navy) 72%, transparent);
+  transition: color 200ms ease, background-color 200ms ease;
+}
+.nav-item:hover { color: var(--c-navy); }
+.nav-item[aria-current='true'] {
+  color: var(--c-navy);
+  background-color: color-mix(in srgb, var(--c-white) 85%, transparent);
+}
+.nav-current { color: color-mix(in srgb, var(--c-navy) 72%, transparent); }
+
+html[data-ground='dark'] .nav-glass {
+  background-color: color-mix(in srgb, var(--c-space) 55%, transparent);
+  color: var(--c-white);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-white) 10%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+html[data-ground='dark'] .nav-logo { color: color-mix(in srgb, var(--c-white) 82%, transparent); }
+html[data-ground='dark'] .nav-item { color: color-mix(in srgb, var(--c-white) 60%, transparent); }
+html[data-ground='dark'] .nav-item:hover { color: var(--c-white); }
+html[data-ground='dark'] .nav-item[aria-current='true'] {
+  color: var(--c-white);
+  background-color: color-mix(in srgb, var(--c-white) 11%, transparent);
+}
+html[data-ground='dark'] .nav-current { color: color-mix(in srgb, var(--c-white) 72%, transparent); }
+
+/* ── Progress bar ───────────────────────────────────────────────────── */
+
+.progress {
+  background: var(--c-blue);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  will-change: transform;
+}
+html[data-ground='dark'] .progress { background: var(--c-blue-bright); }
+
+/* ── Section rail ───────────────────────────────────────────────────── */
+
+.rail { --rail-ink: var(--c-navy); }
+html[data-ground='dark'] .rail { --rail-ink: var(--c-white); }
+
+.rail-mark {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rail-ink) 30%, transparent);
+  transition: height 320ms cubic-bezier(0.2, 0.7, 0.2, 1), background-color 250ms ease;
+}
+.rail-item:hover .rail-mark { background: color-mix(in srgb, var(--rail-ink) 65%, transparent); }
+.rail-item[aria-current='true'] .rail-mark { height: 22px; background: var(--rail-ink); }
+
+.rail-label {
+  color: color-mix(in srgb, var(--rail-ink) 75%, transparent);
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.rail-item:hover .rail-label,
+.rail-item:focus-visible .rail-label { opacity: 1; transform: none; }
+
+/* ── Footer ─────────────────────────────────────────────────────────── */
+
+/* 70% navy on paper is 5.8:1 — AA for the 13px footer text. */
+.site-footer { color: color-mix(in srgb, var(--c-navy) 70%, transparent); }
+.site-footer > div { border-color: color-mix(in srgb, var(--c-navy) 11%, transparent); }
+.footer-mark { background: #ededed; color: color-mix(in srgb, var(--c-navy) 78%, #ededed); }
+.footer-link { transition: color 180ms ease; }
+.footer-link:hover { color: var(--c-navy); }
+
+/* ── Focus ──────────────────────────────────────────────────────────── */
+
+.page-root :focus-visible {
+  outline: 2px solid var(--c-blue);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+html[data-ground='dark'] .page-root :focus-visible,
+.page-section[data-theme='dark'] :focus-visible { outline-color: var(--c-sky); }
+.footer-link:focus-visible { border-radius: 3px; }
+
+/* ── Through a light↔dark change ─────────────────────────────────────
+   useScrollDriver sets --gap-fade on each section: the copy is gone for the
+   middle of the change, where neither navy nor white reads on the ground. */
+
+.copy { opacity: var(--gap-fade, 1); }
+
+/* Faded copy is still laid out where it stood, over the phone and the robot,
+   and a tap meant for them would follow a link nobody can see. Below half
+   opacity useScrollDriver sets data-faded and the copy lets the pointer
+   through. Unlayered, so it wins over the pointer-events-auto utility. */
+.page-section[data-faded] .copy { pointer-events: none; }
+
+/* ── Phone width: copy at the bottom, over its own ground ───────────── */
+
+@media (max-width: 767px) {
+  .copy { isolation: isolate; }
+  .copy::before {
+    content: '';
+    position: absolute;
+    /* Below: runs 4rem past the section into the next one's empty top
+       padding and fades out there, so a scrolling section never shows a hard
+       lower edge. Above: only 3rem over the first line — the phone and robot
+       are framed in the band that ends just above the copy
+       (scene/runtime.ts measureBands), and a taller fade would grey the
+       bottom of the phone's screen. */
+    inset: -3rem -1.5rem -6rem;
+    z-index: -1;
+    pointer-events: none;
+    /* The live ground colour (useScrollDriver), so mid-change the scrim is
+       invisible as a shape; the section's own ground before the first frame. */
+    --scrim-live: var(--ground, var(--scrim));
+    background: linear-gradient(to top, transparent 0, var(--scrim-live) 4rem, var(--scrim-live) calc(100% - 3rem), transparent 100%);
+  }
+}
+
+/* ── Tablet up, dark sections: a soft shade under the words ───────────
+   The galaxy's bright core sits between the subject and the copy, right
+   under the first words of each line, and the muted body and the small
+   proof labels drop to 2.5–3.7:1 there. A shade of the page's own space
+   colour behind the copy takes the core down until they pass AA. It is an
+   ellipse, not a box: solid to about the copy's side edges, eased out in
+   steps so it has no edge to see, and gone 7rem out, by the time it reaches
+   the subject beside it. Over plain sky it is invisible; over the core it
+   reads as the glow thinning. Part of .copy, so it fades with the words. */
+
+@media (min-width: 768px) {
+  .page-section[data-theme='dark'] .copy { isolation: isolate; }
+  .page-section[data-theme='dark'] .copy::before {
+    content: '';
+    position: absolute;
+    /* Taller than wide: the proof labels sit in the copy's lower corners,
+       and the subject is beside the copy, not above or below it. */
+    inset: -12rem -7rem;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--c-space) 70%, transparent) 64%,
+      color-mix(in srgb, var(--c-space) 54%, transparent) 74%,
+      color-mix(in srgb, var(--c-space) 30%, transparent) 84%,
+      color-mix(in srgb, var(--c-space) 9%, transparent) 93%,
+      transparent
+    );
+  }
+}
+
+/* ── Entrance ───────────────────────────────────────────────────────── */
+
+.reveal-ready .rv {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--rv, 0) * 70ms);
+}
+.reveal-ready .is-in .rv {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-ready .rv { opacity: 1; transform: none; transition: none; }
+  .arrow, .rail-mark, .rail-label, .nav-glass, .nav-item { transition: none; }
+  .btn-primary:hover .arrow, .btn-ghost:hover .arrow { transform: none; }
+}

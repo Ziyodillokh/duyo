@@ -30,7 +30,18 @@ export interface Stage {
   /** Where the feet stand, so callers can park the ground under them. */
   floorY: number;
   resize: (w: number, h: number) => void;
+  /** (Re)bakes the lighting environment; see StageOptions.deferEnvironment. */
+  bakeEnvironment: () => void;
   dispose: () => void;
+}
+
+export interface StageOptions {
+  /**
+   * Leave the first environment bake to the caller, so start-up can hand the
+   * main thread back before it: rendering and prefiltering the studio is
+   * one of the costliest steps, ~100ms on a mid-range phone.
+   */
+  deferEnvironment?: boolean;
 }
 
 /** Above this a fullscreen 3D pass stops buying visible quality. */
@@ -38,7 +49,21 @@ const MAX_DPR = 1.75;
 
 export const FLOOR_Y = -1.96;
 
-export function createStage(canvas: HTMLCanvasElement): Stage | null {
+/**
+ * RoomEnvironment through PMREM: a small studio of emissive boxes,
+ * prefiltered into the mip chain a rough material samples. The generator
+ * and the room are only needed for the one render, so both go at once.
+ */
+function renderEnvironment(renderer: THREE.WebGLRenderer): THREE.WebGLRenderTarget {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const room = new RoomEnvironment();
+  const target = pmrem.fromScene(room, 0.04);
+  room.dispose();
+  pmrem.dispose();
+  return target;
+}
+
+export function createStage(canvas: HTMLCanvasElement, options: StageOptions = {}): Stage | null {
   let renderer: THREE.WebGLRenderer;
   try {
     renderer = new THREE.WebGLRenderer({
@@ -58,23 +83,40 @@ export function createStage(canvas: HTMLCanvasElement): Stage | null {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // PCF with a blur radius: three r18x removed PCFSoftShadowMap and falls
+  // back to this anyway, with a console warning.
+  renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
 
   // ── Environment ────────────────────────────────────────────────────────
-  // The single biggest quality lever. RoomEnvironment builds a small studio
-  // out of emissive boxes; PMREM prefilters it into the mip chain a rough
-  // material samples. Cost is one render at startup and nothing per frame.
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  pmrem.compileEquirectangularShader();
-  const envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
-  scene.environment = envRT.texture;
+  // The single biggest quality lever. Cost is one render at startup and
+  // nothing per frame.
+  let envRT: THREE.WebGLRenderTarget | null = null;
+  const bakeEnvironment = () => {
+    envRT?.dispose();
+    envRT = renderEnvironment(renderer);
+    scene.environment = envRT.texture;
+  };
+  if (!options.deferEnvironment) bakeEnvironment();
   // 0.55: enough for the gloss to have something to mirror, low enough
   // that the brand blue stays blue instead of washing to grey.
   scene.environmentIntensity = 0.55;
   // Deliberately NOT scene.background — the page's own gradient shows through.
-  pmrem.dispose();
+
+  // A lost-and-restored context (a reclaimed background tab on Android, a
+  // GPU reset, a GPU switch on a Mac) gets its buffers and programs back
+  // from three, whose own listener runs first — but not what was rendered
+  // INTO a render target. The environment would come back black and the
+  // white plastic read as dark metal for the rest of the visit, so bake it
+  // again. The old target is dropped, not disposed: its memory went with
+  // the lost context, and disposing it would delete handles the new one
+  // does not own.
+  const onRestored = () => {
+    envRT = null;
+    bakeEnvironment();
+  };
+  canvas.addEventListener('webglcontextrestored', onRestored);
 
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
   camera.position.set(0, 1.5, 7.2);
@@ -128,11 +170,12 @@ export function createStage(canvas: HTMLCanvasElement): Stage | null {
   };
 
   const dispose = () => {
+    canvas.removeEventListener('webglcontextrestored', onRestored);
     ground.geometry.dispose();
     (ground.material as THREE.Material).dispose();
-    envRT.dispose();
+    envRT?.dispose();
     renderer.dispose();
   };
 
-  return { scene, camera, renderer, ground, floorY: FLOOR_Y, resize, dispose };
+  return { scene, camera, renderer, ground, floorY: FLOOR_Y, resize, bakeEnvironment, dispose };
 }

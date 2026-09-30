@@ -1,0 +1,9 @@
+app/
+raw/
+shots/
+exp/
+*.log
+.mock.pid
+.expo.pid
+.bundle.js
+__pycache__/
