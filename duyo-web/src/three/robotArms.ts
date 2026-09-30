@@ -1,82 +1,148 @@
 /**
- * DUYO's arms, as mascot-default.png holds them: short and chunky — a gold
- * shoulder pad, a white arm, a gold wrist band and a big blue hand. Its own
- * right arm (−x, the viewer's left) hangs down and out in a fist with the
- * thumb showing; its own left (+x) is raised, bent at the wrist, the hand
- * beside its cheek with the fingers up in a little hello.
+ * DUYO's arms: short and chunky — a gold shoulder pad, a white arm, a gold
+ * wrist band and a big blue moulded hand (robotHand.ts). Its own left arm
+ * (+x, the viewer's right) is raised in a friendly "hi": the hand up beside
+ * the shoulder, just under the helmet's cheek, palm to the viewer and
+ * fingers spread. Its own right hangs relaxed beside the belly in a soft
+ * toy fist, the thumb across its front.
  *
  * Split from robot.ts because the rig is the one part of DUYO that moves by
  * more than a few degrees, and it has to stay clear of a head that turns.
  */
 
 import * as THREE from 'three';
+import { handGeometry } from './robotHand';
 import { profile, roundRing } from './robotShapes';
 import type { V3 } from './robotShapes';
 import type { Kit } from './robotSkin';
 
 /**
- * How the page drives an arm: rotation.z = rest + wave·(lift + sin·wiggle).
- * robotLife.ts writes it to the raised arm when DUYO talks, and
- * harness/robot.ts poses with it. The rig decodes that one number into a
- * hello (the raised hand lifts a little and turns its palm to the viewer)
- * and, once the hello is up, the wiggle becomes the hand rocking about the
- * wrist.
+ * How the page drives an arm, through the arm group's own rotation — to
+ * this rig those are numbers, not turns:
+ *   rotation.z = rest + lift·hello, hello 0..1: how far the raised hand has
+ *     come up into its wave;
+ *   rotation.y = the hand's rock about the palm's normal, in radians — the
+ *     windscreen-wiper swing of a wave, + toward the face (taken only in
+ *     part: ROCK_IN); wiggle is its amplitude when waving;
+ *   rotation.x = a real turn, the sway, as before.
+ * robotLife.ts writes them and harness/robot.ts poses with them.
  */
-export const ARM_DRIVE = { rest: 0, lift: 1, wiggle: 0.3 } as const;
+export const ARM_DRIVE = { rest: 0, lift: 1, wiggle: 0.32 } as const;
 
-/** Where the shoulders sit on the torso (robot space; mirrored in x). */
-export const SHOULDER: V3 = [0.86, -0.44, 0.02];
-const L_ARM = 0.58; //           shoulder → wrist band, along the white arm
-const HAND = 0.32; //           wrist → the hand's centre
-
-/** One arm's joint angles: the shoulder's and the wrist's Euler turns. */
-interface Pose {
-  upper: V3;
-  wrist: V3;
-}
-
+/**
+ * Where the shoulders sit on the torso (robot space; mirrored in x): on the
+ * barrel's shoulder line, far enough out that a hanging arm clears the
+ * belly below without splaying away from it.
+ */
+export const SHOULDER: V3 = [0.9, -0.44, 0.02];
 /**
  * Shoulder → wrist band, per arm: the raised arm reads a little longer in
  * the render, held out and toward the lens.
  */
-const REACH = { down: L_ARM, up: 0.7 } as const;
+const REACH = { down: 0.58, up: 0.7 } as const;
+
+/** The hands against the band: the renders' hands are big, a glove on a bracelet. */
+const HAND_SCALE = 1.12;
 
 /**
- * Hanging (own right): out from the body by about 30°, carried a little
- * forward so the fist hangs beside the belly rather than behind it.
- * Raised (own left): the arm out, almost level, and the hand bent up hard
- * at the wrist, fingers to the sky. For both, x is the arm's own side.
+ * An arm's pose, on its own side (+x; mirrored for −x): which way the arm
+ * runs from the shoulder, and which way the fingers point and the palm faces.
  */
-const REST_DOWN: Pose = { upper: [-0.2, 0, 0.66], wrist: [0, 0.4, 0.12] };
-const REST_UP: Pose = { upper: [-0.1, -0.72, 1.29], wrist: [0.1, 0.2, 0.5] };
-/** The hello: the raised arm lifts a little higher and the palm turns out. */
-const HELLO: Pose = { upper: [-0.1, -0.5, 1.28], wrist: [0.1, 0.05, 0.1] };
-/** Wiggle → the hand's rock about the wrist, per unit of drive. */
-const FLICK = 1.3;
-/** The hello is complete before the wiggle's lowest point, so at a full wave only the hand moves. */
-const HELLO_DONE = ((ARM_DRIVE.lift - ARM_DRIVE.wiggle) / ARM_DRIVE.lift) * 0.97;
+interface Pose {
+  arm: V3;
+  fingers: V3;
+  palm: V3;
+}
+
+/**
+ * Hanging: out just enough to clear the barrel of the belly, and forward —
+ * DUYO turns toward its copy, which swings this side away, and an arm
+ * hanging straight down went behind the belly. The hand hangs plumb below
+ * the wrist, so it tucks in rather than carrying on the arm's line, its
+ * palm turned in and forward: the visitor sees the fist's curled fingers
+ * and the thumb across them — the renders' fist, thumb on the front — and
+ * not the blank back of a mitten.
+ */
+const HANG: Pose = { arm: [0.7, -1, 0.36], fingers: [0, -1, 0.12], palm: [-0.75, 0, 0.65] };
+/**
+ * Raised: the arm out and forward, and the hand up at the wrist, palm to
+ * the viewer — turned a little to the arm's own side, which is where the
+ * visitor stands once DUYO has turned toward its copy.
+ */
+const RAISED: Pose = { arm: [1, -0.5, 0.36], fingers: [0.26, 1, 0.1], palm: [0.25, -0.05, 1] };
+/** The hello: the arm comes up nearly level and the hand stands straighter. */
+const HELLO: Pose = { arm: [1, -0.36, 0.52], fingers: [0.42, 1, 0.12], palm: [0.24, -0.05, 1] };
+/**
+ * How much of a rock toward the face the hand takes: a wave swings out
+ * from the face, and swung fully in, the fingertips met the helmet's cheek
+ * once the head had turned toward them (harness/robot.html?check=1).
+ */
+const ROCK_IN = 0.35;
+/** How much of the wrist's bend the band takes: it sits mostly on the arm. */
+const CUFF_SHARE = 0.3;
+/**
+ * Where the arm runs through each hand's own space (robotHand.ts): the
+ * relaxed hand carries straight on, the open one is moulded bent up.
+ */
+const ENTRY = { open: new THREE.Vector3(1, 0, 0), relaxed: new THREE.Vector3(0, 1, 0) } as const;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smooth = (v: number) => v * v * (3 - 2 * v);
-const lerp = THREE.MathUtils.lerp;
+
+const AXIS_DOWN = new THREE.Vector3(0, -1, 0);
+const AXIS_PALM = new THREE.Vector3(0, 0, 1);
+const NO_TURN = new THREE.Quaternion();
+
+/** A pose as turns, on side s: the arm's (from hanging straight down) and the hand's (from hand space). */
+interface Turns {
+  arm: THREE.Quaternion;
+  hand: THREE.Quaternion;
+}
+
+function turnsOf(p: Pose, s: number): Turns {
+  const along = new THREE.Vector3(s * p.arm[0], p.arm[1], p.arm[2]).normalize();
+  const y = new THREE.Vector3(s * p.fingers[0], p.fingers[1], p.fingers[2]).normalize();
+  const z = new THREE.Vector3(s * p.palm[0], p.palm[1], p.palm[2]);
+  z.addScaledVector(y, -z.dot(y)).normalize();
+  const x = new THREE.Vector3().crossVectors(y, z);
+  return {
+    arm: new THREE.Quaternion().setFromUnitVectors(AXIS_DOWN, along),
+    hand: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z)),
+  };
+}
 
 export class Arm extends THREE.Group {
-  /** Undoes the pivot's own z turn: to this rig the drive is a number. */
+  /** Undoes the pivot's own z and y turns: to this rig they are numbers. */
   private readonly cancel = new THREE.Group();
   readonly upper = new THREE.Group();
+  /** At the wrist band, in the arm's frame: the band and the hand hang in it. */
   readonly wrist = new THREE.Group();
-  private readonly rest: Pose;
-  private readonly hello: Pose;
+  readonly hand = new THREE.Group();
+  readonly cuff = new THREE.Group();
+  private readonly rest: Turns;
+  private readonly hello: Turns;
+  private readonly entry: THREE.Vector3;
+  // Scratch for pose(), which runs every frame and must not allocate.
+  private readonly qArm = new THREE.Quaternion();
+  private readonly qHand = new THREE.Quaternion();
+  private readonly qTmp = new THREE.Quaternion();
+  private readonly vTmp = new THREE.Vector3();
 
   constructor(readonly side: number) {
     super();
     this.rotation.z = ARM_DRIVE.rest;
+    // The pivot turns by Rx·Ry·Rz; in this order the cancel is exactly
+    // Rz⁻¹·Ry⁻¹, and only the sway is left.
+    this.cancel.rotation.order = 'ZYX';
     this.add(this.cancel);
     this.cancel.add(this.upper);
     this.upper.add(this.wrist);
+    this.wrist.add(this.cuff, this.hand);
+    this.hand.scale.setScalar(HAND_SCALE);
     this.wrist.position.y = -(side > 0 ? REACH.up : REACH.down);
-    this.rest = side > 0 ? REST_UP : REST_DOWN;
-    this.hello = side > 0 ? HELLO : REST_DOWN;
+    this.rest = turnsOf(side > 0 ? RAISED : HANG, side);
+    this.hello = side > 0 ? turnsOf(HELLO, side) : this.rest;
+    this.entry = side > 0 ? ENTRY.open : ENTRY.relaxed;
   }
 
   /** The group the shoulder pad hangs in: it follows the sway, not the arm. */
@@ -95,38 +161,21 @@ export class Arm extends THREE.Group {
   }
 
   private pose(): void {
-    const s = this.side;
-    const drive = (this.rotation.z - ARM_DRIVE.rest) / ARM_DRIVE.lift;
-    const up = smooth(clamp01(drive / HELLO_DONE));
-    const flick = (drive - 1) * FLICK * smooth(clamp01((drive - 0.6) / (HELLO_DONE - 0.6)));
-    const { rest, hello } = this;
-    this.cancel.rotation.z = -this.rotation.z;
-    this.upper.rotation.set(
-      lerp(rest.upper[0], hello.upper[0], up),
-      s * lerp(rest.upper[1], hello.upper[1], up),
-      s * lerp(rest.upper[2], hello.upper[2], up),
-    );
-    this.wrist.rotation.set(
-      lerp(rest.wrist[0], hello.wrist[0], up),
-      s * lerp(rest.wrist[1], hello.wrist[1], up),
-      s * (lerp(rest.wrist[2], hello.wrist[2], up) + flick),
-    );
+    const { rest, hello, qArm, qHand, qTmp, vTmp } = this;
+    this.cancel.rotation.set(0, -this.rotation.y, -this.rotation.z);
+    const up = smooth(clamp01((this.rotation.z - ARM_DRIVE.rest) / ARM_DRIVE.lift));
+    qArm.slerpQuaternions(rest.arm, hello.arm, up);
+    // The rock turns the hand in its own plane, about the palm's normal;
+    // positive swings the fingers toward the face.
+    const rock = this.rotation.y > 0 ? this.rotation.y * ROCK_IN : this.rotation.y;
+    qHand.slerpQuaternions(rest.hand, hello.hand, up).multiply(qTmp.setFromAxisAngle(AXIS_PALM, this.side * rock));
+    this.upper.quaternion.copy(qArm);
+    // The hand in the arm's frame; the band takes a share of the bend.
+    this.hand.quaternion.copy(qArm).invert().multiply(qHand);
+    vTmp.copy(this.entry).applyQuaternion(this.hand.quaternion);
+    qTmp.setFromUnitVectors(AXIS_DOWN, vTmp);
+    this.cuff.quaternion.slerpQuaternions(NO_TURN, qTmp, CUFF_SHARE);
   }
-}
-
-/**
- * A fist: one long rounded mitten carrying on the arm's line, with the
- * thumb a stubby knob on its front, toward the body — mascot-default.png.
- */
-function buildFist(kit: Kit, arm: Arm, geo: HandGeo): void {
-  const s = arm.side;
-  const palm = kit.part(geo.palm, kit.blue);
-  palm.position.y = -HAND - 0.02;
-  palm.scale.set(1.1, 1.2, 0.98);
-  const thumb = kit.part(geo.knob, kit.blue);
-  thumb.position.set(-s * 0.22, -HAND - 0.12, 0.16);
-  thumb.rotation.set(Math.PI / 2, 0, s * 0.7);
-  arm.wrist.add(palm, thumb);
 }
 
 /**
@@ -143,45 +192,6 @@ function armGeometry(reach: number): THREE.LatheGeometry {
 }
 
 /**
- * The raised hand: a plump palm held out past the wrist band, and three
- * stubby fingers at its end curled up toward the sky, stacked front to
- * back, with a thumb underneath — the friendly half-wave of the render.
- * In the wrist's frame −y runs out along the hand and +x (on this arm's
- * side) points up.
- */
-function buildOpenHand(kit: Kit, arm: Arm, geo: HandGeo): void {
-  const s = arm.side;
-  const palm = kit.part(geo.palm, kit.blue);
-  palm.position.y = -HAND + 0.02;
-  palm.scale.set(1.1, 1.08, 1.0);
-  arm.wrist.add(palm);
-  const fingers: [number, number][] = [[-0.17, 1.05], [0.0, 1.25], [0.17, 1.45]];
-  for (const [z, curl] of fingers) {
-    const pivot = new THREE.Group();
-    pivot.position.set(s * 0.14, -HAND - 0.16, z);
-    pivot.rotation.set(0, 0, s * curl);
-    const finger = kit.part(geo.finger, kit.blue);
-    finger.position.y = -0.08;
-    const tip = kit.part(geo.tip, kit.blue);
-    tip.position.y = -0.18;
-    pivot.add(finger, tip);
-    arm.wrist.add(pivot);
-  }
-  // The thumb tucks under the palm, out of the way of the hello.
-  const thumb = kit.part(geo.finger, kit.blue);
-  thumb.position.set(-s * 0.2, -HAND - 0.12, -0.08);
-  thumb.rotation.set(0.5, 0, -s * 0.7);
-  arm.wrist.add(thumb);
-}
-
-interface HandGeo {
-  palm: THREE.BufferGeometry;
-  knob: THREE.BufferGeometry;
-  finger: THREE.BufferGeometry;
-  tip: THREE.BufferGeometry;
-}
-
-/**
  * Both arms. children[0] is the raised arm at +x (DUYO's own left, the one
  * that waves hello); children[1] hangs at −x.
  */
@@ -189,12 +199,6 @@ export function buildArms(kit: Kit): THREE.Group {
   const arms = new THREE.Group();
   const padGeo = kit.keep(new THREE.SphereGeometry(0.25, 24, 16));
   const cuffGeo = kit.keep(roundRing(0.14, 0.275, 0.19, 40));
-  const hand: HandGeo = {
-    palm: kit.keep(new THREE.SphereGeometry(0.3, 28, 20)),
-    knob: kit.keep(new THREE.CapsuleGeometry(0.075, 0.05, 4, 12)),
-    finger: kit.keep(new THREE.CapsuleGeometry(0.088, 0.1, 6, 12)),
-    tip: kit.keep(new THREE.SphereGeometry(0.1, 16, 12)),
-  };
   for (const side of [1, -1]) {
     const arm = new Arm(side);
     arm.position.set(side * SHOULDER[0], SHOULDER[1], SHOULDER[2]);
@@ -206,13 +210,13 @@ export function buildArms(kit: Kit): THREE.Group {
     pad.rotation.z = side * 0.28;
     arm.shoulder.add(pad);
 
-    const white = kit.part(kit.keep(armGeometry(side > 0 ? REACH.up : REACH.down)), kit.white);
+    arm.upper.add(kit.part(kit.keep(armGeometry(side > 0 ? REACH.up : REACH.down)), kit.white));
     const cuff = kit.part(cuffGeo, kit.yellow);
     cuff.position.y = -0.01;
-    arm.upper.add(white);
-    arm.wrist.add(cuff);
-    if (side > 0) buildOpenHand(kit, arm, hand);
-    else buildFist(kit, arm, hand);
+    arm.cuff.add(cuff);
+    // The raised hand is open in the hello; the hanging one is relaxed, and
+    // a right hand, so its shape is the mirror image.
+    arm.hand.add(kit.part(kit.keep(handGeometry(side > 0, side < 0)), kit.blue));
     arms.add(arm);
   }
   return arms;

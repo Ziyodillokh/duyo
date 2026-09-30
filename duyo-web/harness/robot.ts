@@ -2,7 +2,7 @@
  * Robot harness — DUYO alone, on the site's own stage.
  *
  *   /harness/robot.html?ground=paper|space|none &yaw=<radians> &wave=<0..1>
- *   optional: &wig=<-1..1> (where in the wave's swing) &look=<head yaw>
+ *   optional: &wig=<-1..1> (the hand's rock, in wiggles) &look=<head yaw>
  *             &pitch=<head pitch> &speak=<0..1> &blink=<0..1> &shadow=0|1
  *             &dist=<units> &cx=<camera x> &cy=<camera y> &ty=<aim y>
  *             &fov=<degrees>
@@ -13,6 +13,13 @@
  *   can give it, and the raised arm through its whole hello, and writes the
  *   hands' clearance from the helmet, the ear cups and the torso to
  *   body[data-check] (each > 1 means clear; see clearance()).
+ *
+ *   ?life=1 poses DUYO with the page's own robotLife instead of the
+ *   parameters above, looking at this camera: &t=<seconds> steps it at
+ *   60Hz to that moment and holds it (a deterministic screenshot; without
+ *   t it runs live), &talk=<seconds> starts a synthetic voice then — the
+ *   recording is not always in the build — and &px= &py= (−1..1) place the
+ *   pointer, &motion=0 is reduced motion.
  *
  *   ?match=1 is the comparison shot against the app's mascot-default.png:
  *   a transparent canvas (no CSS ground, no shadow catcher) and a camera
@@ -36,6 +43,8 @@ import { CORE, SHELL } from '../src/three/robotHead';
 import type { Blob } from '../src/three/robotShapes';
 import { TORSO_DEPTH } from '../src/three/robotBody';
 import { PALETTE } from '../src/scene/contract';
+import { createRobotLife } from '../src/scene/robotLife';
+import type { RobotFrame } from '../src/scene/robotLife';
 import * as SKIN from '../src/three/robotSkin';
 
 const GROUNDS: Record<string, string> = { paper: PALETTE.paper, space: PALETTE.space, none: 'transparent' };
@@ -163,7 +172,7 @@ function sweepClearance(robot: Robot): Clearance & { table: Record<string, strin
       for (let yaw = -0.45; yaw <= 0.4501; yaw += 0.05) {
         for (const sway of [-0.05, 0.05]) {
           robot.head.rotation.set(pitch, yaw, -yaw * 0.07);
-          armUp.rotation.set(sway, 0, ARM_DRIVE.rest + wave * (ARM_DRIVE.lift + wig * ARM_DRIVE.wiggle));
+          armUp.rotation.set(sway, wig * ARM_DRIVE.wiggle, ARM_DRIVE.rest + wave * ARM_DRIVE.lift);
           armDown.rotation.set(-sway, 0, ARM_DRIVE.rest);
           const c = clearance(robot, torsoR);
           if (c.helmet < worst.helmet) worst.worst = `helmet@yaw ${yaw.toFixed(2)} pitch ${pitch} wave ${wave} wig ${wig}`;
@@ -177,6 +186,41 @@ function sweepClearance(robot: Robot): Clearance & { table: Record<string, strin
     }
   }
   return { ...worst, table };
+}
+
+/** How long the synthetic voice talks, seconds. */
+const VOICE_LEN = 3;
+
+/**
+ * A stand-in for the recording's loudness: syllables about four a second,
+ * in phrases with short gaps, peaking near 0.9.
+ */
+function syntheticVoice(s: number): number {
+  if (s < 0 || s > VOICE_LEN) return 0;
+  const phrase = Math.sin(s * 2.1 + 0.4) > -0.5 ? 1 : 0;
+  return 0.9 * Math.max(0, Math.sin(s * 25)) * phrase;
+}
+
+/** robotLife driven as the page drives it, at a fixed 60Hz; returns a stepper to time t. */
+function lifeRunner(robot: Robot, camera: THREE.Camera, params: URLSearchParams, num: (k: string, d: number) => number) {
+  const life = createRobotLife(robot, [0, 0, 0]);
+  const talkAt = num('talk', -1);
+  const motion = params.get('motion') === '0' ? 0 : 1;
+  const frame: RobotFrame = {
+    t: 0, dt: 1 / 60, ease: (k) => k, motion, gaze: [0, 0, 0],
+    px: num('px', 0) * motion, py: num('py', 0) * motion, dragYaw: 0, voice: 0, talking: -1,
+  };
+  let now = 0;
+  return (until: number) => {
+    for (; now <= until; now += 1 / 60) {
+      const since = talkAt >= 0 && now >= talkAt && now - talkAt <= VOICE_LEN ? now - talkAt : -1;
+      frame.t = now * motion;
+      frame.gaze = [camera.position.x, camera.position.y, camera.position.z];
+      frame.voice = since >= 0 ? syntheticVoice(since) : 0;
+      frame.talking = since;
+      life.update(frame);
+    }
+  };
 }
 
 function main(): void {
@@ -216,7 +260,7 @@ function main(): void {
 
   robot.root.rotation.y = num('yaw', shot.yaw);
   const [armL, armR] = robot.arms.children;
-  if (armL) armL.rotation.z = ARM_DRIVE.rest + num('wave', 0) * (ARM_DRIVE.lift + num('wig', 0) * ARM_DRIVE.wiggle);
+  if (armL) armL.rotation.set(0, num('wig', 0) * ARM_DRIVE.wiggle, ARM_DRIVE.rest + num('wave', 0) * ARM_DRIVE.lift);
   if (armR) armR.rotation.z = ARM_DRIVE.rest;
   robot.antenna.rotation.z = ANTENNA_REST;
   const look = num('look', shot.look);
@@ -225,6 +269,9 @@ function main(): void {
   for (const eye of robot.eyes) eye.scale.y = Math.max(0.05, 1 - num('blink', 0));
 
   const { camera } = stage;
+  const live = params.get('life') === '1' ? lifeRunner(robot, camera, params, num) : null;
+  const hold = num('t', -1);
+  const began = performance.now();
   const render = () => {
     stage.resize(innerWidth, innerHeight);
     const fov = num('fov', shot.fov);
@@ -234,11 +281,19 @@ function main(): void {
     }
     camera.position.set(num('cx', shot.cx), num('cy', shot.cy), num('dist', shot.dist));
     camera.lookAt(num('cx', shot.cx), num('ty', shot.ty), 0);
+    live?.(hold >= 0 ? hold : (performance.now() - began) / 1000);
     stage.renderer.render(stage.scene, camera);
     document.body.dataset.ready = '1';
   };
   addEventListener('resize', render);
   render();
+  if (live && hold < 0) {
+    const loop = () => {
+      render();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
 
   addEventListener('pagehide', () => {
     robot.dispose();

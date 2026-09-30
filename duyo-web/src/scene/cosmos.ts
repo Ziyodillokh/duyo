@@ -10,15 +10,22 @@
  * the top or bottom edge. Sky contents are in cosmosSky.ts, shaders in
  * cosmosShaders.ts; this file only assembles them and writes uniforms.
  *
+ * web: a few hundred faint stars that light up near the visitor's hand and
+ * join into a small constellation (cosmosWeb.ts). halo: a pool of deep blue
+ * and violet behind DUYO, drawn by the nebula pass.
+ *
  * INTERACTION. Stars near the pointer brighten and spread as under a soft
- * lens; a lagging point draws a short wake behind a moving pointer; a pulse
- * sends a brightening ring through the stars and the gas. All of it is
- * screen space in the vertex shaders, so a frame is a few uniform writes.
+ * lens, and the web gathers round it, trailing a fading wake of links; a
+ * lagging point draws a short wake behind a moving pointer. A pulse sends a
+ * ring of light through the stars and the gas, and a spark down every link.
+ * All but the web's choice of links is screen space in the shaders, so a
+ * frame is a few uniform writes and one small instanced buffer.
  *
  * MOTION. `t` drives twinkle, drift and the rings; `dt` drives the pointer's
  * easing. Under reduced motion (dt 0, t still) the sky holds perfectly still:
  * no twinkle, no drift, no shooting stars, no rings. The pointer still
- * brightens the stars it is over, as a plain hover would, but moves nothing.
+ * brightens the stars it is over and shows its web, as a plain hover would,
+ * but moves nothing.
  *
  * COMPOSITING. Every layer adds light and leaves destination alpha alone, as
  * galaxy.ts does. The group draws first among transparent objects, so the
@@ -32,6 +39,8 @@ import { C, FRONT, bakeNoiseVolume, buildDust, buildFarStars, buildWorldStars, r
 import type { StarLayer } from './cosmosSky';
 import { METEOR_FRAG, METEOR_VERT, NEBULA_FRAG, NEBULA_VERT, PULSES, STAR_FRAG, starVertex } from './cosmosShaders';
 import type { Placement } from './cosmosShaders';
+import { buildWeb } from './cosmosWeb';
+import { ROBOT_POS, ROBOT_SCALE } from './director';
 
 /** Colour adds as light; destination alpha (the CSS ground showing through) is left alone. */
 const ADD_LIGHT = {
@@ -66,11 +75,27 @@ const DUST_AHEAD = 21;
 /** Beyond both subjects at every station, so no mote ever crosses the robot or the phone. */
 const DUST_CLEAR = 12;
 
-/** Linear peak of the gas, and of the faint light the pointer carries. */
-const NEBULA_GAIN = 0.065;
-const GLOW_GAIN = 0.006;
+/**
+ * Linear peak of the gas, and of the soft light the pointer carries. The gas
+ * is judged on the opaque space-colour clear: the top and bottom of the frame
+ * read as deep cloud, while the sky between clouds stays the ground's own
+ * black and the band behind the copy barely moves.
+ */
+const NEBULA_GAIN = 0.08;
+const GLOW_GAIN = 0.02;
+/** Linear peak of the thin ring of light a pulse sends through the gas. */
+const RING_GAIN = 0.05;
 /** Linear light the lens and a ring add to each star they pass, before the star's own variation. */
-const REVEAL = 0.085;
+const REVEAL = 0.15;
+
+/**
+ * The halo: a little behind DUYO and a touch above its middle, so from the
+ * hero's camera (off to the robot's left) it lands behind the robot, not
+ * beside it towards the copy. 1σ in world units, and its linear peak.
+ */
+const HALO_AT = new THREE.Vector3(...ROBOT_POS).add(new THREE.Vector3(0.3, 0.4, -2));
+const HALO_SIZE = 2.4 * ROBOT_SCALE;
+const HALO_GAIN = 0.055;
 
 export interface CosmosOptions {
   /** Seconds of `t` before the first shooting star (the harness uses it to catch one on camera). */
@@ -100,6 +125,7 @@ export function buildCosmos(options: CosmosOptions = {}): Cosmos {
   const nebula = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     uniforms: {
       ...shared, uNoise: u(noise), uFront: u(FRONT.clone()), uGain: u(NEBULA_GAIN), uGlowGain: u(GLOW_GAIN),
+      uRingGain: u(RING_GAIN), uHaloAt: u(HALO_AT), uHaloSize: u(HALO_SIZE), uHaloGain: u(HALO_GAIN),
       uDeep: u(C.blue.clone()), uViolet: u(C.violet.clone()), uSky: u(C.sky.clone()), uAmber: u(C.amber.clone()),
       uGlow: u(C.sky.clone().lerp(C.blueBright, 0.5)),
     },
@@ -126,7 +152,10 @@ export function buildCosmos(options: CosmosOptions = {}): Cosmos {
     side: THREE.DoubleSide, // the quad is wound by the streak's direction on screen, either way round
   }));
 
-  const layers = [nebula, stars('far', buildFarStars()), stars('world', buildWorldStars()), dust, meteor];
+  const web = buildWeb(shared, { coreK: STAR_CORE_K, blend: ADD_LIGHT });
+  const layers = [nebula, stars('far', buildFarStars()), stars('world', buildWorldStars()), dust, meteor, web.nodes, web.links];
+  // Named for the harness's bench, which times them apart, and for anyone reading the scene in devtools.
+  const names = ['nebula', 'far', 'world', 'dust', 'meteor', 'web-nodes', 'web-links'];
 
   // Point sizes and the screen-space lens need the buffer size, the pixel ratio and the GPU's largest point.
   let pointCap = 0;
@@ -140,6 +169,7 @@ export function buildCosmos(options: CosmosOptions = {}): Cosmos {
   // writes depth late can hide the sky; the members' own order is free, since light adds in any order.
   const root = Object.assign(new THREE.Group(), { name: 'cosmos', renderOrder: -10 });
   layers.forEach((o, i) => {
+    o.name = names[i];
     o.frustumCulled = false; // positions are made in the shaders
     o.renderOrder = i;
     o.onBeforeRender = measure;
@@ -170,7 +200,9 @@ export function buildCosmos(options: CosmosOptions = {}): Cosmos {
   let [lastT, moving, wasActive, pulseSlot] = [0, false, false, 0];
   return {
     root,
-    update({ t, dt, camera, pointer }: CosmosInput) {
+    update(input: CosmosInput) {
+      const { t, dt, camera, pointer } = input;
+      web.update(input);
       shared.uTime.value = lastT = t;
       moving = dt > 0;
       const lens = shared.uLens.value;
@@ -202,6 +234,7 @@ export function buildCosmos(options: CosmosOptions = {}): Cosmos {
       const { clamp } = THREE.MathUtils;
       shared.uPulse.value[pulseSlot].set(clamp(x, -1, 1), clamp(y, -1, 1), lastT, 1);
       pulseSlot = (pulseSlot + 1) % PULSES;
+      web.pulse(clamp(x, -1, 1), clamp(y, -1, 1), lastT);
     },
     dispose() {
       layers.forEach((o) => (o.geometry.dispose(), o.material.dispose()));

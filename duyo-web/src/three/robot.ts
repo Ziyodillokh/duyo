@@ -2,11 +2,15 @@
  * DUYO, built from primitives — the same character the app ships.
  *
  * The reference is the app's own mascot, and one picture above all:
- * duyo-mobile/assets/duyo/v2/mascot-default.png. Its silhouette, pose and
+ * duyo-mobile/assets/duyo/v2/mascot-default.png. Its silhouette and
  * colours were matched by overlaying renders on it (harness/robot.html
  * ?match=1); idle.png, happy.png and mascot-head.png fill in only what it
  * hides — the back, and the open smile. Where this code and that picture
- * disagree, the picture is right.
+ * disagree on the character, the picture is right. On the pose it is not:
+ * the picture's head turned off to one side read, on the page, as DUYO
+ * looking away from the visitor, so it stands square to them and looks
+ * them in the eye (scene/robotLife.ts), and its hands are sculpted rather
+ * than lumped (robotHand.ts).
  *
  * Why it is built rather than placed as a picture: a flat image cannot turn,
  * look, blink or wave, and the page needs all four. What makes DUYO DUYO is
@@ -18,8 +22,9 @@
  * The parts live in their own files: robotHead.ts (helmet, visor, forehead
  * lettering, ears, antenna), robotFace.ts (eyes and the talking mouth),
  * robotBody.ts (torso and boots), robotLettering.ts (the belly's moulded
- * "DUYO"), robotArms.ts (the arm rig), robotSkin.ts (palette, materials and
- * painted skins) and robotShapes.ts (geometry).
+ * "DUYO"), robotArms.ts (the arm rig), robotHand.ts (the hands, sculpted as
+ * distance fields and meshed by robotSdf.ts), robotSkin.ts (palette,
+ * materials and painted skins) and robotShapes.ts (geometry).
  *
  * Materials are satin, not lacquer (robotSkin.ts): the render is soft
  * moulded vinyl with broad, low highlights, and the glass shows what is
@@ -50,10 +55,11 @@ export interface Robot {
   head: THREE.Group;
   body: THREE.Group;
   /**
-   * children[0] at +x: DUYO's own left arm, raised with its hand up in the
-   * render's little hello — the one that waves when DUYO talks.
-   * children[1] at −x: its own right, hanging in a fist. Each reads its
-   * rotation.z as a drive (ARM_DRIVE) and poses shoulder and wrist from it.
+   * children[0] at +x: DUYO's own left arm, raised with its open hand up in
+   * a "hi" — the one that waves when DUYO talks. children[1] at −x: its own
+   * right, hanging relaxed in a soft fist. Each reads its rotation.z (how
+   * far into the hello) and rotation.y (the hand's rock) as a drive
+   * (ARM_DRIVE) and poses shoulder, band and hand from them.
    */
   arms: THREE.Group;
   legs: THREE.Group;

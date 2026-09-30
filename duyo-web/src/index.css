@@ -1,5 +1,17 @@
 @import 'tailwindcss';
 
+/* Inter, self-hosted: the rsms release, subset to Latin with every OpenType
+   feature kept. Google's Inter drops the character variants, and without
+   cv08 a capital I is a bare bar — "AI" read "Al" and the download button
+   read "llovani". One variable file covers every weight. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./assets/fonts/inter-latin.woff2') format('woff2');
+}
+
 /* Inter, the face the app already uses — one brand, one voice. Loaded by a
    <link> in index.html with `display=swap`, so the copy is readable before
    the font lands; the fallback stack degrades to a system grotesque rather
@@ -8,6 +20,11 @@
 @theme {
   --font-sans:
     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  /* Headings: Sora, a geometric face with the rounded, engineered feel of
+     DUYO itself; Inter stays for reading, as in the app. */
+  --font-display:
+    'Sora', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     sans-serif;
 }
 
@@ -30,7 +47,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* Tabular-ish rhythm for the UI numerals, and the ligatures Inter ships. */
-  font-feature-settings: 'cv05' 1, 'ss03' 1;
+  /* cv08: a capital I with serifs. Without it "AI" in Inter reads "Al" —
+     and this page says AI in its first sentence. */
+  font-feature-settings: 'cv05' 1, 'cv08' 1, 'ss03' 1;
 }
 
 /* A visitor who asked for stillness gets it from the page too, not just the

@@ -21,7 +21,7 @@
 
 .page-section[data-theme='dark'] {
   --fg: var(--c-white);
-  --fg-muted: color-mix(in srgb, var(--c-white) 66%, transparent);
+  --fg-muted: color-mix(in srgb, var(--c-white) 74%, transparent);
   --fg-faint: color-mix(in srgb, var(--c-white) 54%, transparent);
   --accent: var(--c-sky);
   --hair: color-mix(in srgb, var(--c-white) 14%, transparent);
@@ -95,6 +95,40 @@
 }
 
 .voice-caption { color: var(--fg-muted); font-style: italic; min-height: 1.6em; }
+
+/* Hero: what DUYO does, as three quiet lines with a glowing node each —
+   the knowledge-graph dot from the logo. */
+.hero-points { color: var(--fg-muted); }
+.hero-point-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--c-sky);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-sky) 18%, transparent), 0 0 12px var(--c-sky);
+  flex: none;
+}
+
+/* The foot of the hero: a line that keeps drawing itself downward. */
+.scroll-hint { color: var(--fg-faint); }
+.scroll-hint-line {
+  position: relative;
+  display: block;
+  width: 1px;
+  height: 44px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c-white) 14%, transparent);
+}
+.scroll-hint-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent, var(--c-sky));
+  transform: translateY(-100%);
+  animation: scroll-hint 2.2s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+}
+@keyframes scroll-hint {
+  to { transform: translateY(100%); }
+}
 
 /* ── Navbar ─────────────────────────────────────────────────────────── */
 
@@ -276,4 +310,5 @@ html[data-ground='dark'] .page-root :focus-visible,
   .arrow, .rail-mark, .rail-label, .nav-glass, .nav-item { transition: none; }
   .btn-primary:hover .arrow, .btn-ghost:hover .arrow { transform: none; }
   .is-playing .voice-bars i { animation: none; }
+  .scroll-hint-line::after { animation: none; transform: none; }
 }

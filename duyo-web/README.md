@@ -72,6 +72,8 @@ paytida subtitr bo'lib chiqadi. Fayl bo'lmasa tugma ko'rinmaydi.
 | Brend ranglari | `src/scene/contract.ts` → `PALETTE` |
 | Robot ranglari va shakli | `src/three/robotSkin.ts`, `robot.ts` |
 | Tumanlik yorqinligi | `src/scene/cosmos.ts` → `NEBULA_GAIN` |
+| Sichqoncha ortidagi yulduz turkumi | `src/scene/cosmosWeb.ts` |
+| Shriftlar | sarlavhalar — Sora (Google Fonts); matn — Inter, `src/assets/fonts/` da o'zimizda (Google'dagi Inter'da `cv08` yo'q: «AI» «Al» bo'lib o'qilardi) |
 | DUYO'ning ovozi va subtitri | `public/audio/duyo-salom.mp3`, `content.ts` → `DUYO_VOICE` |
 | Telefon ekranlari | quyidagi «Ekranlarni yangilash» |
 

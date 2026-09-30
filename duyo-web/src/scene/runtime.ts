@@ -29,6 +29,7 @@ import { buildPhone } from './phone';
 import { createPhoneScreen } from './phoneScreen';
 import { buildGalaxy } from './galaxy';
 import { buildCosmos } from './cosmos';
+import { PALETTE } from './contract';
 import type { Cosmos, CosmosInput, Galaxy, Phone, PhoneScreen } from './contract';
 import { direct, GALAXY_POS, GALAXY_TILT, PHONE_POS, ROBOT_POS, ROBOT_SCALE } from './director';
 import type { View } from './director';
@@ -192,6 +193,13 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
 
   // Every section is deep space now: there is no floor to cast a shadow on.
   stage.ground.visible = false;
+  // …and the canvas paints that space itself, opaque. The cosmos and the
+  // galaxy add light without writing alpha, so over a transparent clear
+  // their pixels carry colour at alpha 0 — invalid premultiplied values that
+  // a headless compositor happens to add but a real Chrome window on macOS
+  // throws away: the stars, the gas and the galaxy simply vanished there
+  // while the opaque robot stayed. On an opaque clear there is no such pixel.
+  renderer.setClearColor(PALETTE.space, 1);
   const life = createRobotLife(robot, ROBOT_POS);
 
   // ── Pointer, tilt and the visitor's motion setting (scene/pointer.ts) ──

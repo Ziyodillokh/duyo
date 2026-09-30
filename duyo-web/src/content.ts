@@ -75,6 +75,16 @@ export const DUYO_VOICE = {
   transcript: '',
 } as const;
 
+/**
+ * Three things DUYO does, under the hero's buttons — each one the section it
+ * leads to says in full: it speaks Uzbek, it solves a problem step by step
+ * on the board (maths, physics, chemistry), and peer messages are screened.
+ */
+export const HERO_POINTS = ['O‘zbek tilida gaplashadi', 'Masalani qadamma-qadam yechadi', 'Har bir xabar tekshiriladi'] as const;
+
+/** The hint at the foot of the hero that the page goes on. */
+export const SCROLL_HINT = 'Pastga suring';
+
 export const SECTIONS: Section[] = [
   {
     id: 'boshlash',

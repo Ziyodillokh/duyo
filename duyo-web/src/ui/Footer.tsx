@@ -10,7 +10,7 @@ import { Logo } from './icons';
 export function Footer() {
   return (
     <footer className="site-footer pointer-events-auto relative z-10 px-6 md:px-12 lg:px-20">
-      <div className="mx-auto flex max-w-[1240px] flex-col gap-5 border-t py-7 md:flex-row md:items-center md:justify-between md:py-8">
+      <div className="mx-auto flex max-w-[1240px] flex-col 2xl:max-w-[1440px] gap-5 border-t py-7 md:flex-row md:items-center md:justify-between md:py-8">
         <div className="flex items-center gap-2.5">
           <span className="footer-mark flex h-7 w-7 items-center justify-center rounded-full">
             <Logo size={18} />

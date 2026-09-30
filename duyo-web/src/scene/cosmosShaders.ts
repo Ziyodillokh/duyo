@@ -19,11 +19,15 @@ export const PULSES = 3;
 /** Seconds a pulse ring takes to run out and fade. */
 export const PULSE_SECONDS = 1.2;
 
-const f = (n: number) => n.toFixed(5);
+/** A number as a GLSL float literal. */
+export const f = (n: number) => n.toFixed(5);
 
 // ── Interaction, shared by every layer ──────────────────────────────────
-/** Lens radius (1σ, viewport heights): 0.15 heights out, a star still feels a fifth of the effect. */
-const LENS_SIGMA = 0.085;
+/**
+ * Lens radius (1σ, viewport heights): 0.18 heights out, a star still feels a fifth of the effect.
+ * Wide enough to be felt as a region on a Retina screen, where one star is a single CSS pixel.
+ */
+const LENS_SIGMA = 0.1;
 /** Magnification at the lens centre. Under 2.2 the push never folds stars over each other. */
 const LENS_MAG = 0.42;
 const WAKE_SIGMA = 0.06;
@@ -32,7 +36,7 @@ const PULSE_REACH = 0.62;
 /** How far a ring nudges the stars it passes, in viewport heights. */
 const PULSE_PUSH = 0.012;
 
-const INTERACT = /* glsl */ `
+export const INTERACT = /* glsl */ `
   uniform float uTime;
   uniform vec2 uViewport;
   uniform vec4 uLens;          // xy pointer (NDC), z presence 0..1, w how far stars may move 0..1
@@ -42,10 +46,12 @@ const INTERACT = /* glsl */ `
   // NDC → viewport heights from the centre, so a circle stays round on any aspect.
   vec2 heights() { return vec2(uViewport.x / uViewport.y, 1.0) * 0.5; }
 
-  // The ring of pulse i at screen point s: its strength, and the outward direction in 'away'.
-  float pulseRing(int i, vec2 s, vec2 k, float widen, out vec2 away) {
+  // Pulse i at screen point s: its strength (0 while none runs), how far s is from its front in ring
+  // widths ('x', signed), and the outward direction ('away'). One evaluation serves any ring width.
+  float pulseFront(int i, vec2 s, vec2 k, out float x, out vec2 away) {
     vec4 P = uPulse[i];
     float age = (uTime - P.z) * ${f(1 / PULSE_SECONDS)};
+    x = 1e3;
     away = vec2(0.0);
     if (P.w <= 0.0 || age < 0.0 || age >= 1.0) return 0.0;
     vec2 q = s - P.xy * k;
@@ -53,9 +59,17 @@ const INTERACT = /* glsl */ `
     // On a portrait screen the width is the short side: sized by height, the ring would leave it.
     float r = len / min(1.0, uViewport.x / uViewport.y);
     // The front runs out fast and slows, the way a ripple spends itself.
-    float x = (r - ${f(PULSE_REACH)} * (1.0 - pow(fall, 1.7))) / (mix(0.025, 0.085, age) * widen);
+    x = (r - ${f(PULSE_REACH)} * (1.0 - pow(fall, 1.7))) / mix(0.025, 0.085, age);
     away = q / max(len, 1e-4);
-    return P.w * fall * (0.4 + 0.6 * fall) * exp(-x * x);
+    return P.w * fall * (0.4 + 0.6 * fall);
+  }
+
+  // The ring of pulse i at s, 'widen' times its standard width.
+  float pulseRing(int i, vec2 s, vec2 k, float widen, out vec2 away) {
+    float x;
+    float w = pulseFront(i, s, k, x, away);
+    x /= widen;
+    return w * exp(-x * x);
   }
 `;
 
@@ -65,7 +79,7 @@ const INTERACT = /* glsl */ `
  * star faint; the reveal is what lets the lens and the ring bring up stars
  * the eye had not noticed.
  */
-const INTERACT_STARS = /* glsl */ `
+export const INTERACT_STARS = /* glsl */ `
   ${INTERACT}
   float interact(inout vec2 ndc, out float reveal) {
     vec2 k = heights(), s = ndc * k, d = s - uLens.xy * k;
@@ -85,8 +99,8 @@ const INTERACT_STARS = /* glsl */ `
       push += away * (w * ${f(PULSE_PUSH)});
     }
     ndc = (s + push * uLens.w) / k;
-    reveal = lens + wake + 2.4 * ring;
-    return 1.0 + 2.2 * lens + 2.2 * wake + 4.5 * ring;
+    reveal = lens + wake + 3.5 * ring;
+    return 1.0 + 3.0 * lens + 2.6 * wake + 5.5 * ring;
   }
 `;
 
@@ -252,20 +266,38 @@ const COPY_CALM = 0.72;
 const NEB_LENS_SIGMA = 0.16;
 /** Envelope below which the nebula's octaves are skipped. */
 const NEB_GATE = 0.03;
+/**
+ * The ring of light a pulse sends through the gas, as a share of the star
+ * ring's width: thinner, so it reads as a drawn line of light, not a haze.
+ */
+const RING_WIDEN = 0.32;
+/** One slow breath of the halo, in seconds: slower than DUYO's own, so the two never beat. */
+const HALO_BREATH = 13;
+/** Gas the halo gathers at its heart, as nebula envelope: enough to show the cloud's structure there. */
+const HALO_GAS = 0.55;
 
 /**
  * One full-screen triangle pair on the far plane. Its ray is reconstructed
  * per vertex (linear in NDC, so interpolation is exact), and the gas is read
  * from the baked volume along it: at infinity, like the far stars.
+ *
+ * The halo's centre and size are the same at every vertex, so they are found
+ * here, four times a frame, instead of once per pixel.
  */
 export const NEBULA_VERT = /* glsl */ `
+  uniform vec3 uHaloAt;
+  uniform float uHaloSize;
   varying vec3 vRay;
   varying vec2 vNdc;
+  varying vec3 vHalo; // xy the halo's centre (NDC), z its 1σ in viewport heights; 0 once it is behind the camera
   void main() {
     vNdc = position.xy;
     vec3 view = vec3((position.x + projectionMatrix[2][0]) / projectionMatrix[0][0],
                      (position.y + projectionMatrix[2][1]) / projectionMatrix[1][1], -1.0);
     vRay = view * mat3(viewMatrix); // view → world: the rotation's transpose
+    vec4 h = projectionMatrix * viewMatrix * vec4(uHaloAt, 1.0);
+    // A world radius at depth w spans radius · P[1][1] / (2w) viewport heights: it shrinks as the camera leaves.
+    vHalo = h.w > 0.5 ? vec3(h.xy / h.w, uHaloSize * projectionMatrix[1][1] * 0.5 / h.w) : vec3(0.0);
     gl_Position = vec4(position.xy, 0.99999, 1.0);
   }
 `;
@@ -273,16 +305,24 @@ export const NEBULA_VERT = /* glsl */ `
 /**
  * Domain-warped value noise, one fetch per octave, gated by a cheap envelope
  * so the empty sky (most of it) costs a single fetch. Held down behind where
- * copy sits, lifted a little near the pointer and by a passing pulse — a
- * lift of gas that is already there, so black stays black.
+ * copy sits, lifted near the pointer and by a passing pulse — a lift of gas
+ * that is already there, so black stays black.
+ *
+ * THE HALO. A pool of deep blue and violet behind DUYO, so the robot stands
+ * in colour instead of on flat black. It is placed in the world (cosmos.ts)
+ * but drawn here, at infinity: always behind the robot, never in front of
+ * it. Clouded by the same low noise as the gas, so it reads as a lit region
+ * of the nebula, not a vignette; tighter on the side facing the middle of the
+ * screen, where the copy is; and it breathes, very slowly.
  */
 export const NEBULA_FRAG = /* glsl */ `
   ${INTERACT}
   uniform sampler3D uNoise;
   uniform vec3 uDeep, uViolet, uSky, uAmber, uGlow, uFront;
-  uniform float uGain, uGlowGain;
+  uniform float uGain, uGlowGain, uRingGain, uHaloGain;
   varying vec3 vRay;
   varying vec2 vNdc;
+  varying vec3 vHalo;
 
   // Each octave is turned before it is scaled, so no two octaves' lattices line up: value noise
   // read straight off one lattice shows its axes as boxy, rectilinear features.
@@ -293,12 +333,30 @@ export const NEBULA_FRAG = /* glsl */ `
     return textureLod(uNoise, (i + t * t * (3.0 - 2.0 * t) + 0.5) * ${f(1 / NOISE_CELLS)}, 0.0);
   }
 
+  // The halo's weight here: a soft core and a wider skirt, squeezed on the side towards the copy.
+  float haloAt(vec2 k) {
+    if (vHalo.z <= 0.0) return 0.0;
+    vec2 e = (vNdc - vHalo.xy) * k / vHalo.z;
+    // Beside the copy (the halo off to one side), the side facing the middle falls off twice as fast.
+    if (e.x * vHalo.x < 0.0) e.x *= 1.0 + smoothstep(0.05, 0.4, abs(vHalo.x));
+    e.y *= 0.8; // a touch taller than wide, as the robot is
+    float r2 = dot(e, e);
+    return 0.8 * exp(-0.5 * r2) + 0.2 * exp(-0.2 * r2);
+  }
+
   void main() {
     vec2 k = heights(), s = vNdc * k, dp = s - uLens.xy * k;
     float near = uLens.z * exp(-dot(dp, dp) * ${f(1 / (2 * NEB_LENS_SIGMA ** 2))});
-    float ring = 0.0;
-    for (int i = 0; i < ${PULSES}; i++) { vec2 away; ring += pulseRing(i, s, k, 2.0, away); }
-    vec3 rgb = uGlow * uGlowGain * (near * near + 0.5 * ring);
+    float ring = 0.0, line = 0.0;
+    for (int i = 0; i < ${PULSES}; i++) {
+      float x;
+      vec2 away;
+      float w = pulseFront(i, s, k, x, away);
+      float xr = x * 0.5, xl = x * ${f(1 / RING_WIDEN)};
+      ring += w * exp(-xr * xr);
+      line += w * exp(-xl * xl);
+    }
+    vec3 rgb = uGlow * (uGlowGain * near * near + uRingGain * line);
 
     // Copy sits to one side at mid height and the subject to the other, so the gas is held
     // down across that whole band — a little more at the sides — and the top and bottom of
@@ -310,7 +368,19 @@ export const NEBULA_FRAG = /* glsl */ `
     float placed = 0.35 + 0.65 * smoothstep(-0.2, 0.85, dot(d, uFront));
     vec3 p = d * 2.2 + vec3(3.7, 11.2, 5.3);
     vec4 w = noise(TURN * p * 0.8 + vec3(uTime * 0.004, uTime * 0.0025, 0.0));
-    float env = smoothstep(0.3, 0.72, w.a) * placed * calm * (1.0 + 1.5 * near + 2.0 * ring);
+
+    // The halo is two things: a faint, smooth wash of colour, and gas gathered from the nebula
+    // itself — so the pool behind DUYO has the sky's own billows and dark lanes, not a disc's edge.
+    float halo = haloAt(k) * (1.0 + 0.14 * sin(uTime * ${f((2 * Math.PI) / HALO_BREATH)}));
+    if (halo > 0.004) {
+      // Deep blue at the heart, leaning violet towards the rim and where the noise says.
+      vec3 hue = mix(uDeep, uViolet, clamp(0.1 + 0.5 * (1.0 - halo) + 0.7 * (w.y - 0.5), 0.0, 1.0));
+      rgb += hue * (uHaloGain * halo);
+      // Behind DUYO the gas is not held down: that is where it should gather.
+      calm = mix(calm, 1.0, smoothstep(0.05, 0.5, halo));
+    }
+
+    float env = smoothstep(0.3, 0.72, w.a) * placed * calm * (1.0 + 1.5 * near + 2.0 * ring) + ${f(HALO_GAS)} * halo;
     // Below the gate the gas could only add a level or two of light: skip the octaves there,
     // fading to it rather than cutting, so no edge shows. Most of the sky stops here.
     if (env > ${f(NEB_GATE)}) {

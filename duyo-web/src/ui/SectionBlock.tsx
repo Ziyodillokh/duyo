@@ -17,6 +17,7 @@
  */
 
 import { Fragment, useRef, type CSSProperties } from 'react';
+import { HERO_POINTS, SCROLL_HINT } from '../content';
 import type { Cta, Proof, Section } from '../content';
 import { Arrow } from './icons';
 import { VoiceButton, VoiceCaption } from './VoiceButton';
@@ -97,12 +98,40 @@ function rowPlacement(layout: Section['layout'], isFinal: boolean): string {
  * — ending well before the middle, clear of DUYO.
  */
 const HERO_SIZE =
-  'text-[clamp(2.5rem,12.5vw,3.25rem)] md:text-[clamp(3rem,6vw,3.75rem)] lg:text-[clamp(3.5rem,5vw,4.5rem)]';
+  'text-[clamp(2.4rem,11.5vw,3.1rem)] md:text-[clamp(2.9rem,5.6vw,3.6rem)] lg:text-[clamp(3.4rem,4.8vw,4.4rem)] 2xl:text-[clamp(4.4rem,4.4vw,5.4rem)]';
 
 function copyWidth(section: Section, isHero: boolean): string {
   if (section.layout === 'center') return 'md:max-w-[36rem] md:text-center';
-  if (isHero) return 'md:w-[60%] md:max-w-[37rem] lg:w-[55%]';
-  return 'md:w-[40%] md:max-w-[30rem]';
+  if (isHero) return 'md:w-[60%] md:max-w-[37rem] lg:w-[55%] 2xl:max-w-[44rem]';
+  return 'md:w-[40%] md:max-w-[30rem] 2xl:max-w-[36rem]';
+}
+
+/**
+ * What DUYO does, in three short lines under the hero's buttons: the
+ * visitor learns the whole page's story before scrolling it. From tablet up
+ * only — a phone has the room for the buttons and nothing more.
+ */
+function HeroPoints() {
+  return (
+    <ul className="rv hero-points mt-9 hidden flex-wrap gap-x-6 gap-y-3 md:flex" style={rv(4)}>
+      {HERO_POINTS.map((p) => (
+        <li key={p} className="flex items-center gap-2.5 text-[14px] font-medium 2xl:text-[15px]">
+          <span className="hero-point-dot" aria-hidden="true" />
+          {p}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The foot of the hero: the page goes on. A line that draws itself downward. */
+function ScrollHint() {
+  return (
+    <div className="scroll-hint pointer-events-none absolute bottom-7 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2.5 md:flex" aria-hidden="true">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">{SCROLL_HINT}</span>
+      <span className="scroll-hint-line" />
+    </div>
+  );
 }
 
 function CtaLink({ cta, large }: { cta: Cta; large: boolean }) {
@@ -156,8 +185,8 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
   const headingId = `${id}-title`;
   const Heading = isHero ? 'h1' : 'h2';
   const headingSize = isHero
-    ? `${HERO_SIZE} leading-[1.02] tracking-[-0.038em]`
-    : 'text-[clamp(2rem,3.6vw,3rem)] leading-[1.06] tracking-[-0.03em]';
+    ? `${HERO_SIZE} leading-[1.04] tracking-[-0.045em]`
+    : 'text-[clamp(1.9rem,3.3vw,2.75rem)] 2xl:text-[3.25rem] leading-[1.1] tracking-[-0.035em]';
   // svh = innerHeight with a mobile URL bar showing, which readScroll uses.
   const minHeight = isFinal ? 'flex-1' : 'min-h-svh';
 
@@ -170,21 +199,21 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
       className={`page-section pointer-events-none relative flex ${minHeight}`}
     >
       <div
-        className={`mx-auto flex w-full max-w-[1240px] items-end px-6 pb-8 pt-24 md:px-12 md:pb-0 md:pt-28 lg:px-20 ${rowPlacement(layout, isFinal)}`}
+        className={`mx-auto flex w-full max-w-[1240px] items-end px-6 pb-8 pt-24 md:px-12 md:pb-0 md:pt-28 lg:px-20 2xl:max-w-[1440px] ${rowPlacement(layout, isFinal)}`}
       >
         <div className={`copy pointer-events-auto relative w-full ${copyWidth(section, isHero)}`}>
-          <p className="rv badge mb-5 text-[11.5px] font-semibold uppercase tracking-[0.14em]" style={rv(0)}>
+          <p className="rv badge mb-5 text-[11.5px] font-semibold uppercase tracking-[0.16em] lg:text-[12px] 2xl:text-[13px]" style={rv(0)}>
             {badge}
           </p>
           <Heading
             id={headingId}
-            className={`rv heading m-0 font-semibold text-balance ${headingSize}`}
+            className={`rv heading m-0 font-display font-semibold text-balance ${headingSize}`}
             style={rv(1)}
           >
             <HeadingText text={heading} bySentence={isHero} />
           </Heading>
           <p
-            className={`rv body mt-5 max-w-[30rem] text-pretty text-[15.5px] leading-[1.6] md:text-[17px] ${layout === 'center' ? 'md:mx-auto' : ''}`}
+            className={`rv body mt-5 max-w-[30rem] text-pretty text-[15.5px] leading-[1.65] md:text-[17px] lg:text-[18px] 2xl:max-w-[34rem] 2xl:text-[19px] ${layout === 'center' ? 'md:mx-auto' : ''}`}
             style={rv(2)}
           >
             <Words text={typeset(body)} />
@@ -205,8 +234,10 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
             </div>
           )}
           {isHero && <VoiceCaption />}
+          {isHero && <HeroPoints />}
         </div>
       </div>
+      {isHero && <ScrollHint />}
     </section>
   );
 }
