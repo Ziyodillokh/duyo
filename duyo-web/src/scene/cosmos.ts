@@ -1,0 +1,212 @@
+/**
+ * The deep space every section happens in — and the one part of the page
+ * that answers the visitor's hand.
+ *
+ * nebula: one full-screen pass on the far plane, domain-warped noise read
+ * from a small baked volume, in the brand's blues and violet with a rare warm
+ * knot. far: ~6.6k stars at infinity. world: ~3.9k stars in a shell around the
+ * whole set, which parallax as the camera flies between stations. dust: ~480
+ * motes wrapped around the camera. meteor: one shooting star at a time, near
+ * the top or bottom edge. Sky contents are in cosmosSky.ts, shaders in
+ * cosmosShaders.ts; this file only assembles them and writes uniforms.
+ *
+ * INTERACTION. Stars near the pointer brighten and spread as under a soft
+ * lens; a lagging point draws a short wake behind a moving pointer; a pulse
+ * sends a brightening ring through the stars and the gas. All of it is
+ * screen space in the vertex shaders, so a frame is a few uniform writes.
+ *
+ * MOTION. `t` drives twinkle, drift and the rings; `dt` drives the pointer's
+ * easing. Under reduced motion (dt 0, t still) the sky holds perfectly still:
+ * no twinkle, no drift, no shooting stars, no rings. The pointer still
+ * brightens the stars it is over, as a plain hover would, but moves nothing.
+ *
+ * COMPOSITING. Every layer adds light and leaves destination alpha alone, as
+ * galaxy.ts does. The group draws first among transparent objects, so the
+ * stage's shadow catcher, which writes depth, can never hide the sky; the
+ * robot and phone are opaque and hide it through the depth test.
+ */
+
+import * as THREE from 'three';
+import type { Cosmos, CosmosInput } from './contract';
+import { C, FRONT, bakeNoiseVolume, buildDust, buildFarStars, buildWorldStars, rng } from './cosmosSky';
+import type { StarLayer } from './cosmosSky';
+import { METEOR_FRAG, METEOR_VERT, NEBULA_FRAG, NEBULA_VERT, PULSES, STAR_FRAG, starVertex } from './cosmosShaders';
+import type { Placement } from './cosmosShaders';
+
+/** Colour adds as light; destination alpha (the CSS ground showing through) is left alone. */
+const ADD_LIGHT = {
+  transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+  blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+} as const;
+
+/**
+ * Easing rates, per second of dt. The lens fades in or out over about a
+ * quarter second; the wake's lagging point closes on the pointer in about
+ * 0.6 s, so a moving pointer leaves a short trail that dies when it rests.
+ */
+const PRESENCE_RATE = 6;
+const WAKE_RATE = 3.2;
+/** How quickly the stars may move again once motion comes back on. */
+const MOTION_RATE = 3;
+
+/** Shooting stars: seconds from one start to the next, and how long each burns. */
+const METEOR_GAP = [6, 12] as const;
+const METEOR_LIFE = [0.75, 1.1] as const;
+/** Seconds of `t` before the first one: long enough that the page has settled. */
+const FIRST_METEOR = [3.5, 6] as const;
+/** Length of a streak, in viewport heights. */
+const METEOR_LENGTH = [0.2, 0.32] as const;
+
+/** Star core widths, as 1 / (2σ²) with σ in CSS px: a star is a pinpoint, a mote is soft. */
+const STAR_CORE_K = 1 / (2 * 0.6 ** 2);
+const DUST_CORE_K = 1 / (2 * 0.85 ** 2);
+/** Dust: the wrapped box's side, how far ahead its centre sits, and the nearest a mote may be. */
+const DUST_BOX = 26;
+const DUST_AHEAD = 21;
+/** Beyond both subjects at every station, so no mote ever crosses the robot or the phone. */
+const DUST_CLEAR = 12;
+
+/** Linear peak of the gas, and of the faint light the pointer carries. */
+const NEBULA_GAIN = 0.065;
+const GLOW_GAIN = 0.006;
+/** Linear light the lens and a ring add to each star they pass, before the star's own variation. */
+const REVEAL = 0.085;
+
+export interface CosmosOptions {
+  /** Seconds of `t` before the first shooting star (the harness uses it to catch one on camera). */
+  firstMeteorAt?: number;
+}
+
+const between = (r: { next: () => number }, [lo, hi]: readonly [number, number]) => lo + (hi - lo) * r.next();
+
+export function buildCosmos(options: CosmosOptions = {}): Cosmos {
+  const u = <T,>(value: T) => ({ value });
+  const shared = {
+    uTime: u(0), uDpr: u(1), uPointCap: u(511), uViewport: u(new THREE.Vector2(1, 1)),
+    uLens: u(new THREE.Vector4()), uWake: u(new THREE.Vector2()),
+    uPulse: u(Array.from({ length: PULSES }, () => new THREE.Vector4(0, 0, -1e4, 0))),
+  };
+
+  const stars = (kind: Placement, data: StarLayer, extra: Record<string, THREE.IUniform> = {}) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(data.position, 3));
+    g.setAttribute('aColor', new THREE.BufferAttribute(data.color, 3));
+    g.setAttribute('aStar', new THREE.BufferAttribute(data.star, 2));
+    const uniforms = { ...shared, uGain: u(1), uTwinkle: u(1), uReveal: u(REVEAL), uCoreK: u(STAR_CORE_K), ...extra };
+    return new THREE.Points(g, new THREE.ShaderMaterial({ uniforms, vertexShader: starVertex(kind), fragmentShader: STAR_FRAG, ...ADD_LIGHT }));
+  };
+
+  const noise = bakeNoiseVolume();
+  const nebula = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    uniforms: {
+      ...shared, uNoise: u(noise), uFront: u(FRONT.clone()), uGain: u(NEBULA_GAIN), uGlowGain: u(GLOW_GAIN),
+      uDeep: u(C.blue.clone()), uViolet: u(C.violet.clone()), uSky: u(C.sky.clone()), uAmber: u(C.amber.clone()),
+      uGlow: u(C.sky.clone().lerp(C.blueBright, 0.5)),
+    },
+    vertexShader: NEBULA_VERT, fragmentShader: NEBULA_FRAG, ...ADD_LIGHT,
+  }));
+
+  const dustData = buildDust();
+  const dust = stars('dust', dustData, {
+    uCoreK: u(DUST_CORE_K), uTwinkle: u(0), uReveal: u(REVEAL * 0.5), uBox: u(DUST_BOX), uAhead: u(DUST_AHEAD), uClear: u(DUST_CLEAR),
+  });
+  dust.geometry.setAttribute('aVel', new THREE.BufferAttribute(dustData.velocity, 3));
+
+  // The streak's quad: corners as (along, across), built into place by the shader.
+  const meteorGeometry = new THREE.BufferGeometry();
+  meteorGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, -1, 0, 1, -1, 0, 1, 1, 0, 0, 1, 0]), 3));
+  meteorGeometry.setIndex([0, 1, 2, 0, 2, 3]);
+  const meteorUniforms = {
+    uTime: shared.uTime, uDpr: shared.uDpr, uViewport: shared.uViewport,
+    uFrom: u(new THREE.Vector3()), uTo: u(new THREE.Vector3()), uMeteor: u(new THREE.Vector3()),
+    uHead: u(C.white.clone().lerp(C.sky, 0.25)), uTail: u(C.sky.clone().lerp(C.blueBright, 0.4)),
+  };
+  const meteor = new THREE.Mesh(meteorGeometry, new THREE.ShaderMaterial({
+    uniforms: meteorUniforms, vertexShader: METEOR_VERT, fragmentShader: METEOR_FRAG, ...ADD_LIGHT,
+    side: THREE.DoubleSide, // the quad is wound by the streak's direction on screen, either way round
+  }));
+
+  const layers = [nebula, stars('far', buildFarStars()), stars('world', buildWorldStars()), dust, meteor];
+
+  // Point sizes and the screen-space lens need the buffer size, the pixel ratio and the GPU's largest point.
+  let pointCap = 0;
+  const measure: THREE.Object3D['onBeforeRender'] = (renderer) => {
+    renderer.getDrawingBufferSize(shared.uViewport.value);
+    shared.uDpr.value = renderer.getPixelRatio();
+    const gl = renderer.getContext(); // queried once: `||=` skips the call after the first frame
+    pointCap ||= shared.uPointCap.value = (gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) as Float32Array)[1] || 64;
+  };
+  // Drawn first among transparent objects (the group's order outranks its members'), so nothing that
+  // writes depth late can hide the sky; the members' own order is free, since light adds in any order.
+  const root = Object.assign(new THREE.Group(), { name: 'cosmos', renderOrder: -10 });
+  layers.forEach((o, i) => {
+    o.frustumCulled = false; // positions are made in the shaders
+    o.renderOrder = i;
+    o.onBeforeRender = measure;
+    root.add(o);
+  });
+
+  // ── Shooting stars: scheduled on `t`, drawn from two directions at infinity ─
+  const sky = rng(505);
+  let nextMeteor = options.firstMeteorAt ?? between(sky, FIRST_METEOR);
+  const [eye, end] = [new THREE.Vector3(), new THREE.Vector3()];
+  /** A path in the top or bottom band — clear of the centre and of the copy at mid height — as world directions. */
+  const launch = (t: number, camera: THREE.PerspectiveCamera) => {
+    const top = sky.next() < 0.72;
+    const y0 = top ? 0.72 + 0.2 * sky.next() : -0.6 - 0.08 * sky.next();
+    const dy = -(0.04 + 0.1 * sky.next());
+    const length = between(sky, METEOR_LENGTH) * (2 / camera.aspect); // viewport heights → NDC x
+    const dx = Math.min(1.7, Math.sqrt(Math.max(0, length * length - dy * dy))) * (sky.next() < 0.5 ? -1 : 1);
+    // Both ends on screen, with a margin: the start ranges over whatever room the length leaves.
+    const lo = Math.max(-0.92, -0.92 - dx);
+    const x0 = lo + (Math.min(0.92, 0.92 - dx) - lo) * sky.next();
+    eye.setFromMatrixPosition(camera.matrixWorld);
+    meteorUniforms.uFrom.value.set(x0, y0, 0.5).unproject(camera).sub(eye).normalize();
+    meteorUniforms.uTo.value.copy(end.set(x0 + dx, y0 + dy, 0.5).unproject(camera).sub(eye).normalize());
+    meteorUniforms.uMeteor.value.set(t, between(sky, METEOR_LIFE), 0.8 + 0.5 * sky.next());
+    nextMeteor = t + between(sky, METEOR_GAP);
+  };
+
+  let [lastT, moving, wasActive, pulseSlot] = [0, false, false, 0];
+  return {
+    root,
+    update({ t, dt, camera, pointer }: CosmosInput) {
+      shared.uTime.value = lastT = t;
+      moving = dt > 0;
+      const lens = shared.uLens.value;
+      const wake = shared.uWake.value;
+      // Nothing reads an inactive pointer: the lens stays where it was last seen while it fades.
+      if (pointer.active) {
+        if (!wasActive && lens.z < 0.05) wake.set(pointer.x, pointer.y); // a fresh touch draws no wake from a stale spot
+        lens.x = pointer.x;
+        lens.y = pointer.y;
+      }
+      wasActive = pointer.active;
+      const present = pointer.active ? 1 : 0;
+      if (moving) {
+        lens.z += (present - lens.z) * (1 - Math.exp(-dt * PRESENCE_RATE));
+        lens.w += (1 - lens.w) * (1 - Math.exp(-dt * MOTION_RATE));
+        const k = 1 - Math.exp(-dt * WAKE_RATE);
+        wake.x += (lens.x - wake.x) * k;
+        wake.y += (lens.y - wake.y) * k;
+        if (t >= nextMeteor) launch(t, camera);
+      } else {
+        // Reduced motion: a plain hover highlight — no easing to watch, nothing displaced, no wake.
+        lens.z = present;
+        lens.w = 0;
+        wake.set(lens.x, lens.y);
+      }
+    },
+    pulse(x: number, y: number) {
+      if (!moving) return; // a ripple is motion; under reduced motion the click does nothing here
+      const { clamp } = THREE.MathUtils;
+      shared.uPulse.value[pulseSlot].set(clamp(x, -1, 1), clamp(y, -1, 1), lastT, 1);
+      pulseSlot = (pulseSlot + 1) % PULSES;
+    },
+    dispose() {
+      layers.forEach((o) => (o.geometry.dispose(), o.material.dispose()));
+      noise.dispose();
+      root.removeFromParent();
+    },
+  };
+}

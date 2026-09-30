@@ -16,9 +16,10 @@
  * data-faded). The empty half is the scene's to receive drags and hovers.
  */
 
-import { useRef, type CSSProperties } from 'react';
+import { Fragment, useRef, type CSSProperties } from 'react';
 import type { Cta, Proof, Section } from '../content';
 import { Arrow } from './icons';
+import { VoiceButton, VoiceCaption } from './VoiceButton';
 import { useReveal } from './useReveal';
 
 interface Props {
@@ -60,17 +61,17 @@ function Words({ text }: { text: string }) {
 }
 
 /**
- * From tablet width up the hero sets each sentence on its own line —
- * "Savol bering." is a beat of its own. At phone width the column is too
- * narrow for that without stranding a single word, so the text flows.
+ * The hero sets each sentence on a line of its own at every width —
+ * "Salom!" is DUYO's beat before it says who it is. Short enough that even
+ * a 320px phone holds "Men — DUYO." whole.
  */
 function HeadingText({ text, bySentence }: { text: string; bySentence: boolean }) {
   const t = typeset(text);
   if (!bySentence) return <Words text={t} />;
   return (
     <>
-      {t.split(/(?<=\.) /).map((sentence, i) => (
-        <span key={sentence} className="md:block">
+      {t.split(/(?<=[.!?]) /).map((sentence, i) => (
+        <span key={sentence} className="block">
           {i > 0 ? ' ' : ''}
           <Words text={sentence} />
         </span>
@@ -90,16 +91,13 @@ function rowPlacement(layout: Section['layout'], isFinal: boolean): string {
 }
 
 /**
- * The hero gets a little more than the 40% the other sections do, because
- * "DUYO qadamma-qadam" has to hold one line: 11.0em in Inter semibold at
- * this tracking (measured with the face loaded — the system fallback is
- * narrower and misleads). Each breakpoint's size keeps 11em inside the
- * column with room to spare — 52px needs 572 of lg's 592 — so the headline
- * sets in three lines and ends near the middle, clear of the phone. On a
- * phone the text flows, and "DUYO" takes a line of its own.
+ * The hero is DUYO introducing itself in two short lines, so it can be set
+ * big: "Men — DUYO." is 5.9em in Inter semibold at this tracking, and each
+ * breakpoint's size keeps it inside the column — 72px needs 425 of lg's 592
+ * — ending well before the middle, clear of DUYO.
  */
 const HERO_SIZE =
-  'text-[clamp(2rem,10.2vw,2.75rem)] md:text-[clamp(2.125rem,4vw,2.5rem)] lg:text-[clamp(2.5rem,3.8vw,3.25rem)]';
+  'text-[clamp(2.5rem,12.5vw,3.25rem)] md:text-[clamp(3rem,6vw,3.75rem)] lg:text-[clamp(3.5rem,5vw,4.5rem)]';
 
 function copyWidth(section: Section, isHero: boolean): string {
   if (section.layout === 'center') return 'md:max-w-[36rem] md:text-center';
@@ -121,8 +119,11 @@ function CtaLink({ cta, large }: { cta: Cta; large: boolean }) {
       </a>
     );
   }
+  // Below 640px the scroll itself answers "how it works", and the hero's
+  // row already holds download and DUYO's voice: the ghost link would take
+  // a third line a small phone does not have.
   return (
-    <a href={cta.href} className="btn-ghost inline-flex h-12 items-center gap-1.5 text-[15px] font-medium">
+    <a href={cta.href} className="btn-ghost hidden h-12 items-center gap-1.5 text-[15px] font-medium sm:inline-flex">
       {cta.label}
       <Arrow size={15} />
     </a>
@@ -194,11 +195,16 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
               className={`rv mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 ${layout === 'center' ? 'md:justify-center' : ''} ${isFinal ? 'md:mt-10' : ''}`}
               style={rv(3)}
             >
-              {ctas.map((c) => (
-                <CtaLink key={c.label} cta={c} large={isFinal} />
+              {ctas.map((c, i) => (
+                <Fragment key={c.label}>
+                  <CtaLink cta={c} large={isFinal} />
+                  {/* DUYO's voice sits right after the hero's download. */}
+                  {isHero && i === 0 && <VoiceButton />}
+                </Fragment>
               ))}
             </div>
           )}
+          {isHero && <VoiceCaption />}
         </div>
       </div>
     </section>

@@ -1,5 +1,5 @@
 /**
- * The legal and support links, on the paper ground under the final CTA.
+ * The legal and support links, in the space under the final CTA.
  * <main> ignores the pointer so the scene behind it can take it; the footer
  * opts back in, since pointer-events is inherited.
  */

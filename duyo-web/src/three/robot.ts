@@ -22,13 +22,14 @@
 
 import * as THREE from 'three';
 import {
-  bandOn, blobGeometry, ellipseShape, onFront, placeOnFront, profile, radiusAt,
-  roundedShape, roundRect, roundRing, smileShape, starGeometry, stitch, topY,
+  bandOn, blobGeometry, onFront, placeOnFront, profile, radiusAt,
+  roundRect, roundRing, starGeometry, stitch, topY,
 } from './robotShapes';
 import type { Blob, V3 } from './robotShapes';
 import * as SKIN from './robotSkin';
-import { browMaterial, glassMaterial, glow, gradeY, makeKit, satin, torsoSkin } from './robotSkin';
+import { browMaterial, glassMaterial, makeKit, satin, torsoSkin } from './robotSkin';
 import type { Kit } from './robotSkin';
+import { buildFace } from './robotFace';
 
 // ── Head ───────────────────────────────────────────────────────────────────
 // Head space: the head group's origin is the neck pivot, NECK_Y in robot
@@ -200,6 +201,11 @@ export interface Robot {
   antenna: THREE.Group;
   /** Each eye group; userData.baseX/baseY = rest position. */
   eyes: THREE.Object3D[];
+  /**
+   * Talking: 0 silent … 1 loudest. Opens the smile downward and brightens
+   * the eye rings and mouth, so the voice is seen as well as heard.
+   */
+  speak: (level: number) => void;
   dispose: () => void;
 }
 
@@ -227,59 +233,6 @@ function buildVisor(kit: Kit, head: THREE.Group): void {
   // … and the dark recess outside it that makes the frame read as a part.
   const recess = [[1, 0.004], [0, 0.004]] as const;
   head.add(kit.part(kit.keep(bandOn(SHELL, FACE_Y, outer, rim, recess)), kit.keep(satin(SKIN.GROOVE, 0.5, 0))));
-}
-
-/**
- * Eyes and smile. Each eye, from outside in: a hairline of reflected light,
- * a thin bright gold ring, a dark bezel, then dark glass that lightens toward
- * the bottom, with a big curved highlight at the upper right and a small dash
- * at the left — mascot-head.png and mascot-default.png. It sits nearly flush
- * with the visor, as if under the same glass, and is one group so the
- * runtime can squash it to blink and nudge it to lead the head.
- */
-function buildFace(kit: Kit, head: THREE.Group): THREE.Object3D[] {
-  const hairGeo = kit.keep(new THREE.TorusGeometry(0.238, 0.006, 6, 48));
-  const ringGeo = kit.keep(new THREE.TorusGeometry(0.21, 0.026, 12, 56));
-  const bezelGeo = kit.keep(new THREE.CircleGeometry(0.205, 48));
-  const pupilGeo = kit.keep(new THREE.SphereGeometry(0.152, 32, 18));
-  gradeY(pupilGeo, SKIN.PUPIL, SKIN.PUPIL_LOW, 0, -0.15);
-  const mHair = kit.keep(satin(0xb9c3cf, 0.4, 0));
-  const mRing = kit.keep(glow(SKIN.RING, 0.2, 0.5));
-  const mBezel = kit.keep(satin(SKIN.BEZEL, 0.6, 0));
-  const mPupil = kit.keep(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.25, specularIntensity: 0.3 }));
-  const mShine = kit.keep(new THREE.MeshBasicMaterial({ color: 0xf2f4f8 }));
-  const shine = roundedShape([[-0.06, 0.04], [0.025, 0.066], [0.07, 0.026], [0.058, -0.045], [-0.012, -0.026]]);
-
-  const eyes: THREE.Object3D[] = [];
-  for (const sx of [-1, 1]) {
-    const eye = new THREE.Group();
-    placeOnFront(SHELL, eye, sx * EYE_X, FACE_Y, 0.014);
-    const ring = kit.part(ringGeo, mRing);
-    ring.scale.z = 0.6;
-    const bezel = kit.part(bezelGeo, mBezel);
-    bezel.position.z = 0.004;
-    const pupil = kit.part(pupilGeo, mPupil);
-    pupil.scale.z = 0.36;
-    const big = kit.flat(shine, mShine);
-    big.position.set(0.052, 0.052, 0.056);
-    const dash = kit.flat(ellipseShape(0.03, 0.011), mShine);
-    dash.position.set(-0.072, -0.012, 0.048);
-    eye.add(kit.part(hairGeo, mHair), ring, bezel, pupil, big, dash);
-    eye.userData.baseX = eye.position.x;
-    eye.userData.baseY = eye.position.y;
-    head.add(eye);
-    eyes.push(eye);
-  }
-
-  // A small smile, as mascot-head.png draws it: flat top, round bottom, a
-  // saturated blue inside a darker outline, lit a little from within so it
-  // reads on black glass.
-  const edge = kit.part(kit.keep(new THREE.ShapeGeometry(smileShape(0.3, 0.112), 16)), kit.keep(glow(SKIN.SMILE_EDGE, 0.4)));
-  const fill = kit.part(kit.keep(new THREE.ShapeGeometry(smileShape(0.235, 0.086), 16)), kit.keep(glow(SKIN.SMILE, 0.45)));
-  placeOnFront(SHELL, edge, 0, FACE_Y - 0.4, 0.016);
-  placeOnFront(SHELL, fill, 0, FACE_Y - 0.412, 0.019);
-  head.add(edge, fill);
-  return eyes;
 }
 
 /** Forehead "DUYO" and star — a patch that follows the crown's curve. */
@@ -481,7 +434,7 @@ export function buildRobot(): Robot {
   head.position.y = NECK_Y;
   head.add(kit.part(kit.keep(blobGeometry(SHELL)), kit.blue), kit.part(kit.keep(blobGeometry(CORE)), kit.white));
   buildVisor(kit, head);
-  const eyes = buildFace(kit, head);
+  const { eyes, mouth, lit } = buildFace(kit, head, { shell: SHELL, faceY: FACE_Y, eyeX: EYE_X });
   buildBrow(kit, head);
   const antenna = buildHeadgear(kit, head);
 
@@ -495,5 +448,10 @@ export function buildRobot(): Robot {
   const dispose = () => {
     for (const d of bin) d.dispose();
   };
-  return { root, head, body, arms, legs, antenna, eyes, dispose };
+  const speak = (level: number) => {
+    const v = Math.min(1, Math.max(0, level));
+    mouth.scale.set(1 - 0.12 * v, 1 + 2.4 * v, 1);
+    for (const [m, rest] of lit) m.emissiveIntensity = rest * (1 + 1.6 * v);
+  };
+  return { root, head, body, arms, legs, antenna, eyes, speak, dispose };
 }

@@ -118,7 +118,7 @@ export function createStage(canvas: HTMLCanvasElement, options: StageOptions = {
   };
   canvas.addEventListener('webglcontextrestored', onRestored);
 
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 500);
   camera.position.set(0, 1.5, 7.2);
 
   // ── Lights ─────────────────────────────────────────────────────────────

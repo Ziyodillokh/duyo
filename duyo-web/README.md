@@ -1,9 +1,11 @@
 # duyo-web
 
-DUYO'ning sayti: bitta scroll-film, beshta bo'lim. Orqada 3D sahna turadi:
-Android telefon, uning ekranida **ilovaning haqiqiy ekranlari**; yonida
-**ilovadagi DUYO mascoti**ning 3D modeli; atrofda galaktika. Sahifa oq
-qog'ozdan koinotga kiradi va yana yorug'likka chiqadi.
+DUYO'ning sayti: bitta scroll-film, oltita bo'lim, hammasi qora, jonli
+koinot ichida. Bosh sahifada **ilovadagi DUYO mascoti**ning 3D modeli
+yolg'iz turadi — boshini sichqonchaga buradi, sudrasa aylanadi, bossangiz
+o'zi haqida gapiradi. Keyingi bo'limlarda kamera koinot bo'ylab uchib,
+galaktika ichidagi telefonga boradi: uning ekranida **ilovaning haqiqiy
+ekranlari**.
 
 React 18 + TypeScript + Tailwind v4 + three.js, Vite ustida. `duyo-landing/`
 ga tegmaydi.
@@ -18,17 +20,27 @@ npm run typecheck
 
 ## Bo'limlar
 
-| # | Bo'lim | Fon | Telefonda |
-| --- | --- | --- | --- |
-| 0 | boshlash | yorug' | AI Chat: savol, doskada bosqichma-bosqich yechim |
-| 1 | xavfsizlik | koinot | «Kitoblar» guruhi: raqamli xabar yetkazilmaydi |
-| 2 | miya | koinot | DUYO MIYA; tugunlar ekrandan chiqib galaktikaga aylanadi |
-| 3 | maqsad | koinot | Maqsadlarim: maqsad qadamlarga bo'lingan |
-| 4 | yuklab | yorug' | bosh sahifa; robot qo'l silkitadi |
+| # | Bo'lim | Sahnada |
+| --- | --- | --- |
+| 0 | boshlash | DUYO robot; «DUYO'ni tinglang» — o'zi haqida gapiradi |
+| 1 | savol | AI Chat: savol, doskada bosqichma-bosqich yechim |
+| 2 | xavfsizlik | «Kitoblar» guruhi: raqamli xabar yetkazilmaydi |
+| 3 | miya | DUYO MIYA; tugunlar ekrandan chiqib galaktikaga aylanadi |
+| 4 | maqsad | Maqsadlarim: maqsad qadamlarga bo'lingan |
+| 5 | yuklab | ilovaning bosh sahifasi |
 
-Bo'limlar orasida telefon bir marta aylanadi, ekran esa telefonning orqasi
-kameraga qaraganda almashadi. Robot har safar matnning qarama-qarshi tomoniga
-o'tadi.
+Robot ham, telefon ham o'z joyidan qimirlamaydi — faqat kamera harakat
+qiladi. Telefon bo'limlari orasida telefon bir marta aylanadi, ekran esa
+uning orqasi kameraga qaraganda almashadi.
+
+## DUYO'ning ovozi
+
+Yozuvni `public/audio/duyo-salom.mp3` ga qo'ying (mp3 yoki m4a, ~1 MB gacha).
+Fayl paydo bo'lishi bilan bosh sahifada «DUYO'ni tinglang» tugmasi chiqadi;
+robotning o'zini bosish ham ishlaydi. Gapirganda DUYO bir marta qo'l
+silkitadi, og'zi ovoz balandligiga qarab ochiladi, ko'zlari porlaydi.
+Matnini `src/content.ts` → `DUYO_VOICE.transcript` ga yozsangiz, gapirish
+paytida subtitr bo'lib chiqadi. Fayl bo'lmasa tugma ko'rinmaydi.
 
 ## Fayllar
 
@@ -36,8 +48,12 @@ o'tadi.
 | --- | --- |
 | `src/content.ts` | sahifadagi har bir so'z va havola |
 | `src/App.tsx`, `src/ui/*` | sahifa: navbar, bo'limlar, fon rangi, footer |
-| `src/scene/director.ts` | scroll → kamera, telefon, robot (sof funksiya) |
+| `src/scene/director.ts` | scroll → kamera va telefon (sof funksiya) |
 | `src/scene/runtime.ts` | sahnani quradi va har kadrda director'ni qo'llaydi |
+| `src/scene/robotLife.ts` | DUYO'ning hayoti: qarash, nafas, ko'z qisish, gapirish |
+| `src/scene/cosmos*.ts` | koinot: yulduzlar, tumanlik, meteorlar, sichqonchaga javob |
+| `src/scene/pointer.ts` | sichqoncha, telefon qiyaligi, reduced motion |
+| `src/ui/duyoVoice.ts`, `VoiceButton.tsx` | ovoz: fayl bor-yo'qligi, ijro, balandlik |
 | `src/scene/measure.ts` | matn egallagan joyni o'lchaydi — sahna bo'sh joyga sig'adi |
 | `src/scene/phone.ts` | telefon modeli |
 | `src/scene/phoneScreen*.ts` | telefon ekrani: ilova skrinshotlarini o'ynatadi |
@@ -55,6 +71,8 @@ o'tadi.
 | Kamera kadrlari | `src/scene/director.ts` → `KEYS` |
 | Brend ranglari | `src/scene/contract.ts` → `PALETTE` |
 | Robot ranglari va shakli | `src/three/robotSkin.ts`, `robot.ts` |
+| Tumanlik yorqinligi | `src/scene/cosmos.ts` → `NEBULA_GAIN` |
+| DUYO'ning ovozi va subtitri | `public/audio/duyo-salom.mp3`, `content.ts` → `DUYO_VOICE` |
 | Telefon ekranlari | quyidagi «Ekranlarni yangilash» |
 
 **Matnlar haqiqatga mos bo'lishi shart** — bu bolalar ilovasi. `content.ts`
@@ -93,7 +111,8 @@ almashtirilsa, bu model ham yangilanishi kerak.
   har bir havola jonli, faqat bitta `h1`
 - 3D bo'lak yuklanmasa yoki WebGL yo'q bo'lsa — sahifa to'liq qoladi, faqat
   sahna chiqmaydi
-- `prefers-reduced-motion` — aylanish, parallaks va animatsiya to'xtaydi
+- `prefers-reduced-motion` — aylanish, parallaks, meteorlar va animatsiya
+  to'xtaydi
 - ko'rinmay qolgan matn bosilmaydi; klaviatura fokusi uni ko'rinadigan joyga
   olib keladi
 

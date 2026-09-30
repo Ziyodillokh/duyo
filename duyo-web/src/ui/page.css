@@ -60,6 +60,42 @@
 .btn-primary:hover .arrow,
 .btn-ghost:hover .arrow { transform: translateX(3px); }
 
+/* DUYO's voice: a glass pill, so it reads as a second, softer action next
+   to the download. Its three bars stand still until DUYO talks. */
+.btn-voice {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--c-white) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-sky) 34%, transparent);
+  backdrop-filter: blur(8px);
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+.btn-voice:hover {
+  background: color-mix(in srgb, var(--c-white) 12%, transparent);
+  border-color: color-mix(in srgb, var(--c-sky) 60%, transparent);
+}
+.btn-voice.is-playing { border-color: var(--c-sky); }
+
+.voice-bars { display: inline-flex; align-items: center; gap: 3px; height: 16px; }
+.voice-bars i {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--c-sky);
+  transform: scaleY(0.45);
+  transform-origin: center;
+}
+.voice-bars i:nth-child(2) { transform: scaleY(0.8); }
+.is-playing .voice-bars i { animation: voice-bar 0.9s ease-in-out infinite; }
+.is-playing .voice-bars i:nth-child(2) { animation-delay: -0.3s; }
+.is-playing .voice-bars i:nth-child(3) { animation-delay: -0.6s; }
+@keyframes voice-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+.voice-caption { color: var(--fg-muted); font-style: italic; min-height: 1.6em; }
+
 /* ── Navbar ─────────────────────────────────────────────────────────── */
 
 .nav-glass {
@@ -135,12 +171,13 @@ html[data-ground='dark'] .rail { --rail-ink: var(--c-white); }
 
 /* ── Footer ─────────────────────────────────────────────────────────── */
 
-/* 70% navy on paper is 5.8:1 — AA for the 13px footer text. */
-.site-footer { color: color-mix(in srgb, var(--c-navy) 70%, transparent); }
-.site-footer > div { border-color: color-mix(in srgb, var(--c-navy) 11%, transparent); }
-.footer-mark { background: #ededed; color: color-mix(in srgb, var(--c-navy) 78%, #ededed); }
+/* The footer stands in deep space like everything else: 62% white on the
+   space ground is about 9:1, well past AA for its 13px text. */
+.site-footer { color: color-mix(in srgb, var(--c-white) 62%, transparent); }
+.site-footer > div { border-color: color-mix(in srgb, var(--c-white) 10%, transparent); }
+.footer-mark { background: color-mix(in srgb, var(--c-white) 8%, transparent); }
 .footer-link { transition: color 180ms ease; }
-.footer-link:hover { color: var(--c-navy); }
+.footer-link:hover { color: var(--c-white); }
 
 /* ── Focus ──────────────────────────────────────────────────────────── */
 
@@ -238,4 +275,5 @@ html[data-ground='dark'] .page-root :focus-visible,
   .reveal-ready .rv { opacity: 1; transform: none; transition: none; }
   .arrow, .rail-mark, .rail-label, .nav-glass, .nav-item { transition: none; }
   .btn-primary:hover .arrow, .btn-ghost:hover .arrow { transform: none; }
+  .is-playing .voice-bars i { animation: none; }
 }

@@ -14,7 +14,8 @@
 html {
   /* The nav anchors scroll rather than jump. */
   scroll-behavior: smooth;
-  background-color: #f0f0ee;
+  /* Deep space, so an overscroll or a slow first paint never flashes white. */
+  background-color: #03050b;
 }
 
 html,

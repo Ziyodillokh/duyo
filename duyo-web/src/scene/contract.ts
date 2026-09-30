@@ -17,7 +17,7 @@ import type * as THREE from 'three';
 /** Brand colours. Hex strings for canvas, numbers derived where 3D needs them. */
 export const PALETTE = {
   paper: '#f0f0ee', //      the light page ground
-  space: '#060a18', //      the deep ground the galaxy lives in
+  space: '#03050b', //      the ground every section stands on: as near black as the stars allow
   navy: '#102033', //       body text on light
   blue: '#2563eb', //       DUYO blue — primary actions
   blueBright: '#3b82f6', // highlights on dark
@@ -126,5 +126,33 @@ export interface Galaxy {
   /** Centred on the world origin; the camera flies through it. */
   readonly root: THREE.Group;
   update(input: GalaxyInput): void;
+  dispose(): void;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Cosmos — the living space every section happens in
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface CosmosInput {
+  /** Seconds of idle life; stands still (never runs back) under reduced motion. */
+  t: number;
+  /** Seconds since the last frame, already clamped; 0 while motion is off. */
+  dt: number;
+  /** The camera the frame is drawn with: far layers stay centred on it. */
+  camera: THREE.PerspectiveCamera;
+  /**
+   * Pointer (or touch) in normalised device coordinates, +y up, eased by the
+   * runtime. `active` is false when no pointer has been seen or it left the
+   * window; then nothing may react to it.
+   */
+  pointer: { x: number; y: number; active: boolean };
+}
+
+export interface Cosmos {
+  /** Add to the scene once; the module positions its own layers. */
+  readonly root: THREE.Group;
+  update(input: CosmosInput): void;
+  /** A click or tap on empty space at this NDC point: a ripple runs through the stars. */
+  pulse(x: number, y: number): void;
   dispose(): void;
 }
