@@ -17,7 +17,9 @@ export type V3 = readonly [number, number, number];
 /**
  * |x/rx|^ex + |y/ry|^ey + |z/rz|^ez = 1, centred on `c`, with its own y
  * radius and exponent below the centre: DUYO's helmet is a dome over a
- * broad, flat chin, and one radius and exponent cannot be both.
+ * broad, flat chin, and one radius and exponent cannot be both. Likewise
+ * its own z radius behind the centre: the helmet's white core is deep at
+ * the back but must stay shallow in front, behind the blue face.
  */
 export interface Blob {
   c: V3;
@@ -26,15 +28,23 @@ export interface Blob {
   eBelow: number;
   /** The y radius below the centre; `r[1]` when absent. */
   rBelow?: number;
+  /** The z radius behind the centre; `r[2]` when absent. */
+  rBack?: number;
 }
 
 const signedPow = (v: number, e: number) => Math.sign(v) * Math.abs(v) ** e;
+const NEWTON_STEPS = 5;
 
 /** The exponent on axis `i` for a point whose offset on that axis is `v`. */
 const expOf = (b: Blob, i: number, v: number) => (i === 1 && v < 0 ? b.eBelow : b.e[i]);
 
 /** The radius on axis `i` for a point whose offset on that axis is `v`. */
-const radOf = (b: Blob, i: number, v: number) => (i === 1 && v < 0 ? (b.rBelow ?? b.r[1]) : b.r[i]);
+const radOf = (b: Blob, i: number, v: number) => {
+  if (v >= 0) return b.r[i];
+  if (i === 1) return b.rBelow ?? b.r[1];
+  if (i === 2) return b.rBack ?? b.r[2];
+  return b.r[i];
+};
 
 export function blobNormal(b: Blob, p: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 {
   const g = (i: number, v: number) => {
@@ -65,9 +75,11 @@ export function blobGeometry(b: Blob, ws = 88, hs = 66): THREE.BufferGeometry {
       e[a] = expOf(b, a, d.getComponent(a));
     }
     // Along a ray F(t) is convex and increasing; Newton started where the
-    // largest term alone reaches 1 converges from outside, never overshoots.
+    // largest term alone reaches 1 converges from outside, never overshoots —
+    // and quadratically: for the helmet's shapes five steps reach machine
+    // precision (four leave 5e-8), and this loop is most of a cold build.
     let t = 1 / Math.max(k[0], k[1], k[2]);
-    for (let it = 0; it < 8; it++) {
+    for (let it = 0; it < NEWTON_STEPS; it++) {
       let f = -1;
       let df = 0;
       for (let a = 0; a < 3; a++) {
@@ -94,7 +106,8 @@ export function frontZ(b: Blob, x: number, y: number): number {
 
 /** The y of a blob's top surface over (x, z). */
 export function topY(b: Blob, x: number, z: number): number {
-  const rest = 1 - Math.abs((x - b.c[0]) / b.r[0]) ** b.e[0] - Math.abs((z - b.c[2]) / b.r[2]) ** b.e[2];
+  const dz = z - b.c[2];
+  const rest = 1 - Math.abs((x - b.c[0]) / b.r[0]) ** b.e[0] - Math.abs(dz / radOf(b, 2, dz)) ** b.e[2];
   return b.c[1] + b.r[1] * Math.max(rest, 0) ** (1 / b.e[1]);
 }
 
@@ -282,16 +295,26 @@ const WORD: readonly Letter[] = ['D', 'U', 'Y', 'O'];
 const TRACK = 0.1;
 const STROKE = 0.21;
 
-/** "DUYO", centred on the origin, `h` tall, one colour per letter. */
-export function drawWord(g: CanvasRenderingContext2D, h: number, colours: readonly string[], edge: string): void {
-  const sw = h * STROKE;
+/**
+ * "DUYO", centred on the origin, `h` tall, one colour per letter. `weight`
+ * scales the stroke; `rim` is how far the darker edge shows past it, over h.
+ */
+export function drawWord(
+  g: CanvasRenderingContext2D,
+  h: number,
+  colours: readonly string[],
+  edge: string,
+  weight = 1,
+  rim = 0.05,
+): void {
+  const sw = h * STROKE * weight;
   const width = WORD.reduce((s, l) => s + LETTER_W[l] * h, 0) + TRACK * h * (WORD.length - 1);
   let x = -width / 2;
   WORD.forEach((l, i) => {
     const w = LETTER_W[l] * h;
     // Two passes: a darker edge, then the face — the moulded letters in the
     // renders have a shaded rim.
-    for (const [colour, extra] of [[edge, h * 0.05], [colours[i], 0]] as const) {
+    for (const [colour, extra] of [[edge, h * rim], [colours[i], 0]] as const) {
       g.save();
       g.beginPath();
       g.rect(x - sw, -h / 2 - extra / 2, w + 2 * sw, h + extra);

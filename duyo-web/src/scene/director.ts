@@ -40,10 +40,15 @@ type V3 = [number, number, number];
 export const ROBOT_POS: V3 = [0, 0, 0];
 /** Big: alone in the hero, DUYO is the page. */
 export const ROBOT_SCALE = 0.8;
-/** The robot's visual middle and half-extents at ROBOT_SCALE, star to boots and ear to ear. */
-const ROBOT_MID: V3 = [0, 0.3 * ROBOT_SCALE, 0];
-const ROBOT_HALF_W = 1.55 * ROBOT_SCALE;
-const ROBOT_HALF_H = 2.35 * ROBOT_SCALE;
+/**
+ * The robot's visual middle and half-extents at ROBOT_SCALE, star to boots
+ * and ear to raised hand, measured off the model in its rest pose (the
+ * chibi build of mascot-default.png is as wide as it is tall), with room
+ * for the head's turn, the breath and a drag.
+ */
+const ROBOT_MID: V3 = [0, 0.29 * ROBOT_SCALE, 0];
+const ROBOT_HALF_W = 2.05 * ROBOT_SCALE;
+const ROBOT_HALF_H = 2.28 * ROBOT_SCALE;
 
 /** The phone's station: off to the right and deep, at the galaxy's near edge. */
 export const PHONE_POS: V3 = [16, 1.2, -16];
