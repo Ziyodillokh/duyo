@@ -140,19 +140,11 @@ export interface CosmosInput {
   dt: number;
   /** The camera the frame is drawn with: far layers stay centred on it. */
   camera: THREE.PerspectiveCamera;
-  /**
-   * Pointer (or touch) in normalised device coordinates, +y up, eased by the
-   * runtime. `active` is false when no pointer has been seen or it left the
-   * window; then nothing may react to it.
-   */
-  pointer: { x: number; y: number; active: boolean };
 }
 
 export interface Cosmos {
   /** Add to the scene once; the module positions its own layers. */
   readonly root: THREE.Group;
   update(input: CosmosInput): void;
-  /** A click or tap on empty space at this NDC point: a ripple runs through the stars. */
-  pulse(x: number, y: number): void;
   dispose(): void;
 }

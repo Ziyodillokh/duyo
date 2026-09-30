@@ -4,10 +4,6 @@
  * pixel-ratio cap, a 500-unit far plane, and the director's own camera.
  *
  *   ?fly=0..1|auto   camera along the film from DUYO's shot (0) to the first phone section (1); auto swings
- *   ?px=&py=         freeze the pointer at this NDC point (+y up), active
- *   ?sweep=1         the pointer sweeps a fixed path between t 1.5 and 2 (with ?frames=120, mid-wake)
- *   ?pulse=1         fire a pulse (at 0.6 s, then every 2.5 s; at frame 30 with ?frames)
- *   ?pulse=x,y       …at this NDC point instead of the centre
  *   ?reduced=1       reduced motion: dt 0, t held (at ?t, default 2)
  *   ?frames=N        deterministic: fixed 1/60 s steps, and the state holds after frame N
  *   ?meteor=s        the first shooting star at this `t`
@@ -16,8 +12,8 @@
  *   ?hud=1           build time and live frame time
  *   ?bench=1         GPU cost at this size: synchronous render loops with and without each layer
  *
- * Live: move the mouse for the lens and the knowledge web; click for a pulse; touch works while a finger is down.
- * The bench also times the web's two layers apart, and the halo by parking it behind the camera.
+ * The sky no longer answers the pointer itself (the site gives it the camera's parallax instead).
+ * The bench also times the halo, by parking it behind the camera.
  */
 
 import * as THREE from 'three';
@@ -32,9 +28,6 @@ const reduced = q.get('reduced') === '1';
 const frames = num('frames');
 const autoFly = q.get('fly') === 'auto';
 const fixedFly = autoFly ? null : num('fly') ?? 0;
-const frozenPointer = num('px') !== null && num('py') !== null ? { x: num('px') ?? 0, y: num('py') ?? 0 } : null;
-const sweep = q.get('sweep') === '1';
-const SWEEP = { from: [-0.6, 0.35], to: [0.45, -0.05], start: 1.5, seconds: 0.5 } as const;
 
 // As src/three/stage.ts and runtime.ts: DPR capped at 1.75, ACES, and an opaque clear to the space colour.
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -90,42 +83,14 @@ if (side === 'left' || side === 'right') {
 }
 const hud = q.get('hud') === '1' ? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'hud' })) : null;
 
-// ── Pointer: eased, as the runtime eases it; touch counts only while down ──
-const pointer = { x: 0, y: 0, active: frozenPointer !== null };
-const target = { x: frozenPointer?.x ?? 0, y: frozenPointer?.y ?? 0 };
-if (frozenPointer) Object.assign(pointer, frozenPointer);
-const toNdc = (e: PointerEvent) => ({ x: (e.clientX / innerWidth) * 2 - 1, y: 1 - (e.clientY / innerHeight) * 2 });
-const canvas = renderer.domElement;
-if (!frozenPointer) {
-  canvas.addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'touch' && e.buttons === 0) return;
-    Object.assign(target, toNdc(e));
-    if (!pointer.active) Object.assign(pointer, target); // arrive where the pointer is, not from a stale spot
-    pointer.active = true;
-  });
-  canvas.addEventListener('pointerdown', (e) => {
-    Object.assign(target, toNdc(e));
-    if (!pointer.active) Object.assign(pointer, target);
-    pointer.active = true;
-  });
-  const leave = (e: PointerEvent) => { if (e.type === 'pointerleave' || e.pointerType === 'touch') pointer.active = false; };
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach((type) => canvas.addEventListener(type, leave as EventListener));
-}
-canvas.addEventListener('click', (e) => { const p = toNdc(e); cosmos.pulse(p.x, p.y); });
-
 // ── Clock ─────────────────────────────────────────────────────────────────
 const STEP = 1 / 60;
-const PULSE_FRAME = 30;
 let [frame, t, last] = [0, reduced ? num('t') ?? 2 : 0, performance.now()];
-let nextPulse = 0.6;
-const pulseAt = (q.get('pulse') ?? '').split(',').map(Number);
-const [pulseX, pulseY] = pulseAt.length === 2 && pulseAt.every(Number.isFinite) ? pulseAt : [0, 0];
 const frameTimes: number[] = [];
 
 function tick(now: number) {
   const held = frames !== null && frame >= frames;
   const wall = frames !== null ? STEP : Math.min(0.1, (now - last) / 1000);
-  // The runtime eases the pointer on the wall clock whatever the motion setting; only dt goes to 0.
   const dt = held || reduced ? 0 : wall;
   frameTimes.push(now - last);
   if (frameTimes.length > 180) frameTimes.shift();
@@ -134,23 +99,7 @@ function tick(now: number) {
     t += dt;
     const fly = fixedFly ?? 0.5 - 0.5 * Math.cos((t / 8) * Math.PI);
     placeCamera(fly);
-    if (sweep) {
-      const s = Math.min(1, Math.max(0, (t - SWEEP.start) / SWEEP.seconds));
-      target.x = SWEEP.from[0] + (SWEEP.to[0] - SWEEP.from[0]) * s;
-      target.y = SWEEP.from[1] + (SWEEP.to[1] - SWEEP.from[1]) * s;
-      if (!pointer.active) Object.assign(pointer, target);
-      pointer.active = true;
-    }
-    if (!frozenPointer) {
-      const k = 1 - Math.exp(-wall * 12);
-      pointer.x += (target.x - pointer.x) * k;
-      pointer.y += (target.y - pointer.y) * k;
-    }
-    if (q.has('pulse')) {
-      const due = frames !== null ? frame === PULSE_FRAME : t >= nextPulse;
-      if (due) { cosmos.pulse(pulseX, pulseY); nextPulse = t + 2.5; }
-    }
-    cosmos.update({ t, dt, camera, pointer });
+    cosmos.update({ t, dt, camera });
     frame++;
   }
   renderer.render(scene, camera);
@@ -173,20 +122,19 @@ function bench(): BenchResult {
     sync();
     const t0 = performance.now();
     for (let i = 0; i < n; i++) {
-      cosmos.update({ t: t + i * STEP, dt: STEP, camera, pointer });
+      cosmos.update({ t: t + i * STEP, dt: STEP, camera });
       renderer.render(scene, camera);
     }
     sync();
     return (performance.now() - t0) / n;
   };
-  // By material, not object: the web shows and hides its links itself on every update.
+  // By material, not object, so a layer's own visibility is left alone.
   const materialOf = (o: THREE.Object3D) => (o as THREE.Mesh<THREE.BufferGeometry, THREE.Material>).material;
   const only = (keep: (name: string) => boolean) => layers.forEach((o) => (materialOf(o).visible = keep(o.name)));
-  const isWeb = (name: string) => name.startsWith('web');
   const ms: Record<string, number> = {};
   for (const [name, keep] of [
     ['empty', () => false], ['all', () => true], ['nebula', (n: string) => n === 'nebula'],
-    ['stars', (n: string) => n !== 'nebula' && !isWeb(n)], ['web', isWeb], ['noWeb', (n: string) => !isWeb(n)],
+    ['stars', (n: string) => n !== 'nebula'],
     ['empty2', () => false], ['all2', () => true],
   ] as const) {
     only(keep);

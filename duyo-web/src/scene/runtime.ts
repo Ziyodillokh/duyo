@@ -62,6 +62,17 @@ const CLICK_SLOP_PX = 6;
 const TAP_SLOP_PX = 10;
 
 /**
+ * What the pointer does, and all it does: the camera drifts a little after
+ * the hand, so near stars slide past far ones (depth, with inertia), and
+ * the studio reflected in DUYO's gloss turns with it. Nothing follows the
+ * cursor and nothing flashes — the owner found cursor effects childish.
+ */
+const PARALLAX_X = 0.42;
+const PARALLAX_Y = 0.26;
+const ENV_TURN_X = 0.12;
+const ENV_TURN_Y = 0.38;
+
+/**
  * Scroll smoothing per 60Hz frame. A jump (End, a nav link, a hard flick)
  * would leave the scene mid-transition under copy that has already arrived,
  * so the rate rises with the gap (whole-page scroll, 0..1) — smoothly, as a
@@ -292,7 +303,6 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     // counts a click as the gesture that may start sound; a pointerup, not
     // always.
     if (onRobot(e.clientX, e.clientY)) talkPending = true;
-    else cosmos.pulse((e.clientX / window.innerWidth) * 2 - 1, 1 - (e.clientY / window.innerHeight) * 2);
   };
   const onClick = () => {
     if (!talkPending) return;
@@ -342,8 +352,7 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   // ── Frame ──────────────────────────────────────────────────────────────
   const origin = new THREE.Vector3();
 
-  const starPointer: CosmosInput['pointer'] = { x: 0, y: 0, active: false };
-  const cosmosInput: CosmosInput = { t: 0, dt: 0, camera, pointer: starPointer };
+  const cosmosInput: CosmosInput = { t: 0, dt: 0, camera };
 
   // A clock that counts drawn frames only: the idle life. It stands still
   // under reduced motion but never runs back, so a blink, the spin and the
@@ -386,7 +395,11 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     if (robotShown === 0 && duyoVoice.status() === 'playing') duyoVoice.stop();
 
     // Camera, with a small pointer parallax on top of the director's shot.
-    camera.position.set(d.cameraPos[0] + px * 0.28, d.cameraPos[1] - py * 0.18, d.cameraPos[2]);
+    camera.position.set(d.cameraPos[0] + px * PARALLAX_X, d.cameraPos[1] - py * PARALLAX_Y, d.cameraPos[2]);
+    // The studio the glossy parts reflect turns a little with the hand, so
+    // light glides across DUYO's visor and helmet — a product shot's move,
+    // not an effect. Same eased, motion-gated pointer as the parallax.
+    scene.environmentRotation.set(-py * ENV_TURN_X, px * ENV_TURN_Y, 0);
     camera.lookAt(d.cameraLook[0], d.cameraLook[1], d.cameraLook[2]);
 
     // Phone: the director's pose, plus a hover bob, plus whatever the visitor
@@ -411,11 +424,7 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     phone.screen.getWorldPosition(origin);
     galaxy?.update({ t, emergence: d.emergence, darkness: d.darkness, origin });
 
-    // Space: far layers follow the camera; the stars answer the pointer.
-    const lens = ease(0.25);
-    starPointer.x += (input.tx - starPointer.x) * lens;
-    starPointer.y += (-input.ty - starPointer.y) * lens;
-    starPointer.active = input.starsActive;
+    // Space: far layers follow the camera, near ones give the parallax depth.
     cosmosInput.t = t;
     cosmosInput.dt = input.motion ? dt : 0;
     cosmos.update(cosmosInput);

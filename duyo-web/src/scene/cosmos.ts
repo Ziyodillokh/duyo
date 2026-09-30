@@ -39,7 +39,6 @@ import { C, FRONT, bakeNoiseVolume, buildDust, buildFarStars, buildWorldStars, r
 import type { StarLayer } from './cosmosSky';
 import { METEOR_FRAG, METEOR_VERT, NEBULA_FRAG, NEBULA_VERT, PULSES, STAR_FRAG, starVertex } from './cosmosShaders';
 import type { Placement } from './cosmosShaders';
-import { buildWeb } from './cosmosWeb';
 import { ROBOT_POS, ROBOT_SCALE } from './director';
 
 /** Colour adds as light; destination alpha (the CSS ground showing through) is left alone. */
@@ -47,16 +46,6 @@ const ADD_LIGHT = {
   transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
   blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
 } as const;
-
-/**
- * Easing rates, per second of dt. The lens fades in or out over about a
- * quarter second; the wake's lagging point closes on the pointer in about
- * 0.6 s, so a moving pointer leaves a short trail that dies when it rests.
- */
-const PRESENCE_RATE = 6;
-const WAKE_RATE = 3.2;
-/** How quickly the stars may move again once motion comes back on. */
-const MOTION_RATE = 3;
 
 /** Shooting stars: seconds from one start to the next, and how long each burns. */
 const METEOR_GAP = [6, 12] as const;
@@ -106,6 +95,11 @@ const between = (r: { next: () => number }, [lo, hi]: readonly [number, number])
 
 export function buildCosmos(options: CosmosOptions = {}): Cosmos {
   const u = <T,>(value: T) => ({ value });
+  // The shaders can still bend and light stars under a pointer and run a
+  // ring from a click (uLens, uWake, uPulse), but nothing drives them: the
+  // owner found cursor effects childish, so the sky answers the hand only
+  // through the camera's parallax (runtime.ts). At zero they cost nothing
+  // visible and a few ALU ops.
   const shared = {
     uTime: u(0), uDpr: u(1), uPointCap: u(511), uViewport: u(new THREE.Vector2(1, 1)),
     uLens: u(new THREE.Vector4()), uWake: u(new THREE.Vector2()),
@@ -152,10 +146,9 @@ export function buildCosmos(options: CosmosOptions = {}): Cosmos {
     side: THREE.DoubleSide, // the quad is wound by the streak's direction on screen, either way round
   }));
 
-  const web = buildWeb(shared, { coreK: STAR_CORE_K, blend: ADD_LIGHT });
-  const layers = [nebula, stars('far', buildFarStars()), stars('world', buildWorldStars()), dust, meteor, web.nodes, web.links];
+  const layers = [nebula, stars('far', buildFarStars()), stars('world', buildWorldStars()), dust, meteor];
   // Named for the harness's bench, which times them apart, and for anyone reading the scene in devtools.
-  const names = ['nebula', 'far', 'world', 'dust', 'meteor', 'web-nodes', 'web-links'];
+  const names = ['nebula', 'far', 'world', 'dust', 'meteor'];
 
   // Point sizes and the screen-space lens need the buffer size, the pixel ratio and the GPU's largest point.
   let pointCap = 0;
@@ -197,44 +190,13 @@ export function buildCosmos(options: CosmosOptions = {}): Cosmos {
     nextMeteor = t + between(sky, METEOR_GAP);
   };
 
-  let [lastT, moving, wasActive, pulseSlot] = [0, false, false, 0];
   return {
     root,
     update(input: CosmosInput) {
-      const { t, dt, camera, pointer } = input;
-      web.update(input);
-      shared.uTime.value = lastT = t;
-      moving = dt > 0;
-      const lens = shared.uLens.value;
-      const wake = shared.uWake.value;
-      // Nothing reads an inactive pointer: the lens stays where it was last seen while it fades.
-      if (pointer.active) {
-        if (!wasActive && lens.z < 0.05) wake.set(pointer.x, pointer.y); // a fresh touch draws no wake from a stale spot
-        lens.x = pointer.x;
-        lens.y = pointer.y;
-      }
-      wasActive = pointer.active;
-      const present = pointer.active ? 1 : 0;
-      if (moving) {
-        lens.z += (present - lens.z) * (1 - Math.exp(-dt * PRESENCE_RATE));
-        lens.w += (1 - lens.w) * (1 - Math.exp(-dt * MOTION_RATE));
-        const k = 1 - Math.exp(-dt * WAKE_RATE);
-        wake.x += (lens.x - wake.x) * k;
-        wake.y += (lens.y - wake.y) * k;
-        if (t >= nextMeteor) launch(t, camera);
-      } else {
-        // Reduced motion: a plain hover highlight — no easing to watch, nothing displaced, no wake.
-        lens.z = present;
-        lens.w = 0;
-        wake.set(lens.x, lens.y);
-      }
-    },
-    pulse(x: number, y: number) {
-      if (!moving) return; // a ripple is motion; under reduced motion the click does nothing here
-      const { clamp } = THREE.MathUtils;
-      shared.uPulse.value[pulseSlot].set(clamp(x, -1, 1), clamp(y, -1, 1), lastT, 1);
-      pulseSlot = (pulseSlot + 1) % PULSES;
-      web.pulse(clamp(x, -1, 1), clamp(y, -1, 1), lastT);
+      const { t, dt, camera } = input;
+      shared.uTime.value = t;
+      // A shooting star is motion: none start under reduced motion (dt 0).
+      if (dt > 0 && t >= nextMeteor) launch(t, camera);
     },
     dispose() {
       layers.forEach((o) => (o.geometry.dispose(), o.material.dispose()));
