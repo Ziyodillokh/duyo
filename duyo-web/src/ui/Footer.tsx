@@ -17,7 +17,7 @@ export function Footer() {
           </span>
           <span className="text-[13px]">© 2026 Farzandim Tech</span>
         </div>
-        <ul className="flex flex-wrap gap-x-6 gap-y-2 text-[13px]">
+        <ul className="flex flex-wrap gap-x-6 gap-y-3 text-[13px]">
           {FOOTER_LINKS.map((l) => (
             <li key={l.href}>
               <a href={l.href} className="footer-link">

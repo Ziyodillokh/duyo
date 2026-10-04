@@ -30,6 +30,8 @@ export interface Stage {
   /** Where the feet stand, so callers can park the ground under them. */
   floorY: number;
   resize: (w: number, h: number) => void;
+  /** Lowers (or restores) the pixel-ratio cap and applies it at once; scene/quality.ts. */
+  setPixelRatioCap: (cap: number) => void;
   /** (Re)bakes the lighting environment; see StageOptions.deferEnvironment. */
   bakeEnvironment: () => void;
   dispose: () => void;
@@ -159,14 +161,21 @@ export function createStage(canvas: HTMLCanvasElement, options: StageOptions = {
   ground.receiveShadow = true;
   scene.add(ground);
 
+  let dprCap = MAX_DPR;
   const resize = (w: number, h: number) => {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, dprCap));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     // A portrait phone needs a wider lens or the finished robot loses its
     // feet; widening beats dollying because the dolly is already the story.
     camera.fov = w / h < 0.8 ? 44 : 32;
     camera.updateProjectionMatrix();
+  };
+
+  const setPixelRatioCap = (cap: number) => {
+    dprCap = Math.min(MAX_DPR, cap);
+    const size = renderer.getSize(new THREE.Vector2());
+    if (size.x > 0 && size.y > 0) resize(size.x, size.y);
   };
 
   const dispose = () => {
@@ -177,5 +186,5 @@ export function createStage(canvas: HTMLCanvasElement, options: StageOptions = {
     renderer.dispose();
   };
 
-  return { scene, camera, renderer, ground, floorY: FLOOR_Y, resize, bakeEnvironment, dispose };
+  return { scene, camera, renderer, ground, floorY: FLOOR_Y, resize, setPixelRatioCap, bakeEnvironment, dispose };
 }

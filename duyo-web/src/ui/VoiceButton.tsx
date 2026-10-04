@@ -27,20 +27,27 @@ function Bars() {
   );
 }
 
+/**
+ * Below 640px the button is a round one beside the download, its label read
+ * out but not shown: as a pill it would wrap onto a row of its own and push
+ * the hero's caption up over DUYO. DUYO itself answers a tap there too.
+ */
 export function VoiceButton() {
   const status = useVoiceStatus();
   if (status !== 'ready' && status !== 'playing') return null;
   const playing = status === 'playing';
+  const label = playing ? DUYO_VOICE.stop : DUYO_VOICE.listen;
   return (
     <button
       type="button"
       // The label itself says what a press does now ("listen" / "stop"), so
       // it is not also marked as a pressed toggle, which would read twice.
       onClick={duyoVoice.toggle}
-      className={`btn-voice inline-flex h-12 items-center gap-2.5 whitespace-nowrap rounded-full px-5 text-[15px] font-medium ${playing ? 'is-playing' : ''}`}
+      title={label}
+      className={`btn-voice inline-flex h-12 w-12 shrink-0 items-center justify-center whitespace-nowrap rounded-full text-[15px] font-medium sm:w-auto sm:gap-2.5 sm:px-5 ${playing ? 'is-playing' : ''}`}
     >
       <Bars />
-      {playing ? DUYO_VOICE.stop : DUYO_VOICE.listen}
+      <span className="sr-only sm:not-sr-only">{label}</span>
     </button>
   );
 }

@@ -15,17 +15,22 @@
  * copy reads on the colours in between, so each side's copy fades out
  * before the middle of the change and back in after it (--gap-fade).
  *
+ * At phone width the copy is pinned to the foot of the screen (page.css) and
+ * one section's caption hands over to the next in place while the scene
+ * above makes the move (--gap-fade, --caption-y).
+ *
  * Faded copy is still laid out where it stood, links and all, so it has to
  * be taken out of reach as well as out of sight: below half opacity it stops
  * taking the pointer (data-faded), and keyboard focus landing on it brings
  * its section back to where the copy is whole.
  */
 
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, type RefObject } from 'react';
 import { PALETTE } from '../scene/contract';
 import { between, darknessAt, ramp, readScroll } from '../scene/timeline';
 import { SECTIONS } from '../content';
 import { groundAt, groundStep } from './ground';
+import { arrangeCaptions, captionsFlow, isStacked } from './layout';
 import { DARK_CHROME_AT } from './theme';
 
 interface DriverRefs {
@@ -59,18 +64,27 @@ const FADE_STEPS = 50;
 const HIT_FROM = 0.5;
 
 /**
- * Phone width only: the copy sits under the subject, so a section scrolling
- * away slides its words up across the phone and robot. It fades out over
- * this much of a screen of upward travel instead of ghosting over them.
+ * Stacked layout only (layout.ts): every caption but the last is pinned to the foot of the
+ * screen, so a section's words never slide up across the phone or get cut
+ * off at the bottom edge. They hand over in place instead, by k: the
+ * outgoing caption is gone before the phone turns its back (director.ts
+ * swaps the screen there), and the incoming one arrives as the new screen
+ * comes round, so the words always belong to the picture above them. The
+ * last caption scrolls in with the footer, as the end of the page should,
+ * fading in on the same beat rather than showing a headline cut by the
+ * screen's bottom edge.
  */
-const PHONE_MAX_WIDTH = 767;
-const LEAVE_FROM = 0.08;
-const LEAVE_BY = 0.26;
+const CAPTION_OUT_FROM = 0.12;
+const CAPTION_OUT_BY = 0.4;
+const CAPTION_IN_FROM = 0.6;
+const CAPTION_IN_BY = 0.88;
+/** How far a caption drifts while it hands over, in px: up as it leaves, up from below as it arrives. */
+const CAPTION_DRIFT_PX = 14;
 
-function leaveFade(top: number, isLast: boolean): number {
-  if (isLast || window.innerWidth > PHONE_MAX_WIDTH) return 1;
-  const up = (window.scrollY - top) / window.innerHeight;
-  return 1 - ramp(up, LEAVE_FROM, LEAVE_BY);
+function captionFade(i: number, a: number, b: number, k: number): number {
+  if (i === a) return 1 - ramp(k, CAPTION_OUT_FROM, CAPTION_OUT_BY);
+  if (i === b) return ramp(k, CAPTION_IN_FROM, CAPTION_IN_BY);
+  return 0;
 }
 
 function gapFade(i: number, a: number, b: number, k: number): number {
@@ -80,11 +94,27 @@ function gapFade(i: number, a: number, b: number, k: number): number {
   return 1;
 }
 
-/** How much of section i's copy shows at scroll position p, 0 to 1. */
-function fadeAt(i: number, p: number, tops: number[]): number {
+/**
+ * How much of section i's copy shows at scroll position p, 0 to 1. Captions
+ * sent back into the page (layout.ts, zoom or large text) are read as they
+ * scroll by, so they never fade.
+ */
+function fadeAt(i: number, p: number): number {
   const { a, b, k } = between(p);
-  return Math.min(gapFade(i, a, b, k), leaveFade(tops[i], i === tops.length - 1));
+  if (!isStacked()) return gapFade(i, a, b, k);
+  return captionsFlow() ? 1 : captionFade(i, a, b, k);
 }
+
+/** A pinned caption's drift for its opacity f: it leaves upward and arrives from below. */
+function driftAt(i: number, p: number, f: number): number {
+  if (!isStacked()) return 0;
+  const { a, b } = between(p);
+  const side = i === a ? -1 : i === b ? 1 : 0;
+  return Math.round(side * (1 - f) * CAPTION_DRIFT_PX * 10) / 10;
+}
+
+/** A caption pinned to the screen (page.css, phone width) rather than laid out in its section. */
+const isPinned = (copy: Element | null): boolean => !!copy && getComputedStyle(copy).position === 'fixed';
 
 /** Whether all of el is on screen, so focusing it will not scroll. */
 function isInView(el: Element): boolean {
@@ -96,9 +126,10 @@ function isInView(el: Element): boolean {
  * The scroll position that shows a focused control whole and at full
  * opacity: its section's top, the hold, unless the control would sit below
  * the fold there (a section taller than a landscape phone's screen) — then
- * only as much further as it takes.
+ * only as much further as it takes. A pinned caption is whole at the hold.
  */
 function holdFor(target: Element, top: number): number {
+  if (isPinned(target.closest('.copy'))) return top;
   const bottom = target.getBoundingClientRect().bottom + window.scrollY;
   return Math.max(top, bottom - window.innerHeight);
 }
@@ -129,6 +160,9 @@ function honourInitialHash(): void {
 export function useScrollDriver(refs: DriverRefs, onActive: (index: number) => void): void {
   // Mount only: a later re-run of the driver must never pull the visitor back.
   useEffect(honourInitialHash, []);
+  // Before the first paint, so a caption that cannot be pinned is never
+  // drawn pinned. Settled again on every measure below.
+  useLayoutEffect(arrangeCaptions, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -163,10 +197,11 @@ export function useScrollDriver(refs: DriverRefs, onActive: (index: number) => v
       }
 
       for (let i = 0; i < sectionEls.length; i += 1) {
-        const f = Math.round(fadeAt(i, p, tops) * FADE_STEPS) / FADE_STEPS;
+        const f = Math.round(fadeAt(i, p) * FADE_STEPS) / FADE_STEPS;
         const el = sectionEls[i];
         if (f !== lastFade[i] && el) {
           el.style.setProperty('--gap-fade', String(f));
+          el.style.setProperty('--caption-y', `${driftAt(i, p, f)}px`);
           // page.css: faded copy stops taking the pointer.
           el.toggleAttribute('data-faded', f < HIT_FROM);
           lastFade[i] = f;
@@ -198,6 +233,7 @@ export function useScrollDriver(refs: DriverRefs, onActive: (index: number) => v
       if (raf === 0) raf = requestAnimationFrame(frame);
     };
     const remeasure = () => {
+      arrangeCaptions();
       tops = measureTops();
       sectionEls = findSections();
       lastFade.fill(-1);
@@ -220,7 +256,7 @@ export function useScrollDriver(refs: DriverRefs, onActive: (index: number) => v
       if (!target.closest('.copy')) return;
       const i = sectionEls.findIndex((el) => el?.contains(target) ?? false);
       if (i < 0) return;
-      if (isInView(target) && fadeAt(i, readScroll(), tops) >= 1) return;
+      if (isInView(target) && fadeAt(i, readScroll()) >= 1) return;
       window.scrollTo({ top: holdFor(target, tops[i]), behavior: 'instant' });
     };
 
@@ -228,6 +264,10 @@ export function useScrollDriver(refs: DriverRefs, onActive: (index: number) => v
     // mount; the section tops have to follow or the active marker drifts.
     const ro = new ResizeObserver(remeasure);
     ro.observe(document.body);
+    // A pinned caption is out of the flow: its words growing as the fonts
+    // land leave the body's size alone, so the observer would not see it.
+    let mounted = true;
+    void document.fonts.ready.then(() => mounted && remeasure());
 
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', remeasure, { passive: true });
@@ -235,12 +275,15 @@ export function useScrollDriver(refs: DriverRefs, onActive: (index: number) => v
     schedule();
 
     return () => {
+      mounted = false;
       if (raf !== 0) cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', remeasure);
       document.removeEventListener('focusin', onFocusIn);
       delete root.dataset.ground;
+      delete root.dataset.captions;
+      root.removeAttribute('data-short');
       root.style.removeProperty('--ground');
     };
   }, [refs.ground, refs.progress, onActive]);

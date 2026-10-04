@@ -363,6 +363,45 @@ a {
     margin-top: 40px;
     padding-top: 22px;
   }
+  /* Finger-sized: the language switch and the footer links. The footer's
+     padding is taken back by its margin, so the type does not move. */
+  .langs button {
+    padding: 11px 13px;
+  }
+  .foot a {
+    display: inline-block;
+    padding-block: 7px;
+    margin-block: -7px;
+  }
+  .foot__links,
+  .foot__meta {
+    row-gap: 14px;
+  }
+  /* The tables have two columns, what and how long: both fit a phone when
+     the first may wrap, so the reader never scrolls sideways to find the
+     answer to the row they are reading. */
+  .legal table {
+    min-width: 0;
+    font-size: 14.5px;
+  }
+  .legal th,
+  .legal td {
+    padding: 12px 14px;
+  }
+  .legal tbody th {
+    width: 44%;
+    white-space: normal;
+  }
+}
+
+/* Uzbek runs long ("almashtirmaguningizcha"): on the narrowest phones a word
+   that cannot fit its column breaks rather than widen the table. Not wider
+   up, where every word fits whole. */
+@media (max-width: 359px) {
+  .legal th,
+  .legal td {
+    overflow-wrap: anywhere;
+  }
 }
 
 @media print {

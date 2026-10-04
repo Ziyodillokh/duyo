@@ -90,6 +90,13 @@ export interface View {
   stacked: boolean;
   /** One per section; absent until measured. */
   frames?: readonly SectionFrame[];
+  /**
+   * Side by side: the share of the canvas's height, from its top, that shows
+   * with the browser's bars in (100svh over the canvas's 100lvh). The shot
+   * is fitted and centred in it, so a phone held sideways never has the
+   * subject's feet under its bars. 1, or absent, where there are no bars.
+   */
+  visible?: number;
 }
 
 /** Fill at most this much of the free space, so nothing touches an edge. */
@@ -250,7 +257,7 @@ function fitSide(view: View, a: number, b: number, k: number, half: { w: number;
   const frameHalf = Math.max(0.2, lerp(fa.half, fb.half, k));
   const want = Math.max(
     half.w / (frameHalf * FIT_W * tanHalf * view.aspect),
-    half.h / (FIT_H * tanHalf),
+    half.h / (FIT_H * tanHalf * (view.visible ?? 1)),
   );
   return { want, at: lerp(fa.centre, fb.centre, k) };
 }
@@ -268,13 +275,26 @@ function localProgress(p: number, i: number): number {
   return Math.min(1, Math.max(0, (x - lo) / (hi - lo)));
 }
 
+/**
+ * Side by side: across to the subject's side of the screen, and down so its
+ * middle sits in the middle of the part the bars leave showing (screen y
+ * 1 − visible), which with no bars is the middle of the screen.
+ */
+function sideSlide(mid: V3, target: V3, toCam: V3, at: number, view: View, tanHalf: number): V3 {
+  const visible = view.visible ?? 1;
+  const across = -at * length(toCam) * tanHalf * view.aspect;
+  if (visible >= 1) return [across, 0, 0];
+  const moved = add(target, [across, 0, 0]);
+  return [across, -dropOnto(mid, moved, toCam, tanHalf, 1 - visible), 0];
+}
+
 /** Scroll-scrubbed progress for a screen's animation within its section. */
 const screenProgress = (p: number, i: number) => ramp(localProgress(p, i), 0.08, 0.66);
 /** The hero's screen is the chat, waiting off-camera: it plays in section 1. */
 const playsIn = (i: number) => (i === 0 ? 1 : i);
 
 export function direct(p: number, view: View, spinEnabled = true): DirectorState {
-  const { aspect, fovDeg, stacked } = view;
+  const { fovDeg, stacked } = view;
   const { a, b, k } = between(p);
   const ka = KEYS[a];
   const kb = KEYS[b];
@@ -306,7 +326,7 @@ export function direct(p: number, view: View, spinEnabled = true): DirectorState
     const target = add(mid, key.look);
     const slide: V3 = stacked
       ? [0, -dropOnto(mid, target, toCam, tanHalf, fit.at), 0]
-      : [-fit.at * length(toCam) * tanHalf * aspect, 0, 0];
+      : sideSlide(mid, target, toCam, fit.at, view, tanHalf);
     const look = add(target, slide);
     return { look, pos: add(look, toCam) };
   };

@@ -8,6 +8,7 @@
  */
 
 import { SECTIONS } from '../content';
+import { smallViewportHeight } from '../ui/layout';
 import type { SectionFrame } from './director';
 
 /** Clearance between the copy and the subject, and from the screen edges, in px. */
@@ -73,31 +74,36 @@ function inkExtent(copy: Element): { left: number; right: number; top: number } 
 /**
  * Stacked (phone) layout: the copy sits under the subject, and how tall it
  * is differs per section, so each section's free band — from the nav's
- * bottom to its copy's first line — is measured with the section in place.
- * Every section is one screen tall, so its copy's offset from the section
- * top is where that copy sits on screen when the section is centred.
+ * bottom to its copy's first line — is measured, in the canvas's own height
+ * (screen y is canvas y: both start at the top). A pinned caption is where
+ * it shows whenever its section is on screen; the last section's copy is in
+ * the flow, and its offset from the section top is where it sits once the
+ * section has arrived.
  */
-export function measureBands(): SectionFrame[] {
-  const h = window.innerHeight;
-  const toNdc = (y: number) => 1 - (y / h) * 2;
+export function measureBands(canvasHeight: number): SectionFrame[] {
+  const toNdc = (y: number) => 1 - (y / canvasHeight) * 2;
   const navBottom = document.querySelector('header nav')?.getBoundingClientRect().bottom ?? 60;
+  // A pinned caption rides up with the browser's bars sliding in, so the
+  // band is measured where it is shortest, bars in: their coming back can
+  // then only give the subject more room, never put the words over it.
+  const barsOut = Math.max(0, window.innerHeight - smallViewportHeight());
   return SECTIONS.map((section) => {
     const el = document.getElementById(section.id);
     const copy = el?.querySelector('.copy');
     const ink = copy ? inkExtent(copy) : null;
-    if (!el || !ink) return { centre: 0, half: 1 };
-    const copyTop = ink.top - el.getBoundingClientRect().top;
+    if (!el || !copy || !ink) return { centre: 0, half: 1 };
+    const pinned = getComputedStyle(copy).position === 'fixed';
+    const copyTop = pinned ? ink.top - barsOut : ink.top - el.getBoundingClientRect().top;
     const [top, bottom] = [toNdc(navBottom + BAND_GAP_PX), toNdc(copyTop - BAND_GAP_PX)];
     return { centre: 0, half: 1, band: { centre: (top + bottom) / 2, half: Math.max(0, (top - bottom) / 2) } };
   });
 }
 
 /**
- * Side-by-side layout: the horizontal span each section's copy leaves free.
- * It does not change with scroll.
+ * Side-by-side layout: the horizontal span each section's copy leaves free,
+ * in the canvas's own width. It does not change with scroll.
  */
-export function measureFrames(): SectionFrame[] {
-  const w = window.innerWidth;
+export function measureFrames(w: number): SectionFrame[] {
   const toNdc = (x: number) => (x / w) * 2 - 1;
   return SECTIONS.map((section) => {
     const copy = document.querySelector(`#${section.id} .copy`);

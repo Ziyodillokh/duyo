@@ -63,8 +63,11 @@ export default function App() {
   const body = SECTIONS.slice(0, -1);
   const final = SECTIONS[SECTIONS.length - 1];
 
+  // The root clips both ways: the copy's soft shade (page.css) reaches past
+  // the footer, and on a short window it would make the page taller than one
+  // screen per section and end the film early (timeline.ts).
   return (
-    <div className="page-root relative overflow-x-clip" style={paletteVars}>
+    <div className="page-root relative overflow-clip" style={paletteVars}>
       <div
         ref={groundRef}
         className="fixed inset-0 z-0"
@@ -75,8 +78,10 @@ export default function App() {
 
       {/* Receives the drags that turn the phone. pan-y: a horizontal drag
           reaches the scene on touch instead of the browser cancelling it,
-          while vertical scrolling and pinch-zoom stay native. */}
-      <div className="fixed inset-0 z-[1] [touch-action:pan-y_pinch-zoom]">
+          while vertical scrolling and pinch-zoom stay native. As tall as the
+          screen with a phone's browser bars tucked away (100lvh), so the
+          bars sliding in and out never resize the canvas mid-scroll. */}
+      <div className="scene-layer fixed inset-x-0 top-0 z-[1] [touch-action:pan-y_pinch-zoom]">
         <SceneBoundary>
           <Suspense fallback={null}>
             <Scene3D />
@@ -99,8 +104,9 @@ export default function App() {
         {/* The last section and the footer share one viewport, so the page is
             exactly one screen per section tall and each section's scroll
             position lands where timeline.ts expects its centre. svh, not vh:
-            it equals innerHeight with a mobile URL bar showing, which is what
-            readScroll divides by. */}
+            it equals innerHeight with a mobile URL bar showing. At phone
+            width the last section takes the whole screen and the footer
+            comes after it; readScroll ends the film at that section. */}
         <div className="flex min-h-svh flex-col">
           <SectionBlock section={final} isHero={false} isFinal />
           <Footer />

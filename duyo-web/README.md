@@ -33,6 +33,21 @@ Robot ham, telefon ham o'z joyidan qimirlamaydi — faqat kamera harakat
 qiladi. Telefon bo'limlari orasida telefon bir marta aylanadi, ekran esa
 uning orqasi kameraga qaraganda almashadi.
 
+## Telefonda
+
+- **Tik ushlanganda** (`src/ui/layout.ts` → `STACKED_MEDIA`) har bo'lim
+  matni ekran pastiga mahkamlanadi va keyingisiga joyida almashadi;
+  sahna tepada, matn ustidagi bo'sh joyga sig'diriladi. Oxirgi bo'lim
+  to'liq ekran, footer undan keyin keladi.
+- Matn o'lchami ekran **balandligiga** qarab moslashadi (`svh`): brauzer
+  panellari bilan iPhone SE ~550px, oddiy telefon ~650–780px qoldiradi.
+  600px dan past ekranda xavfsizlik bo'limidagi uchta raqam yashiriladi.
+- **Yotiq ushlanganda** matn yonda turadi (kompyuterdagidek), har bo'lim
+  bitta ekranga sig'adi.
+- Kanvas `100lvh`: brauzer paneli chiqib-yashirinsa, sahna qayta
+  o'lchanmaydi. Sekin qurilmada (`src/scene/quality.ts`) piksel zichligi
+  1.75 → 1 gacha pasayadi — qotish o'rniga sal xiraroq.
+
 ## DUYO'ning ovozi
 
 Yozuvni `public/audio/duyo-salom.mp3` ga qo'ying (mp3 yoki m4a, ~1 MB gacha).
@@ -51,10 +66,13 @@ paytida subtitr bo'lib chiqadi. Fayl bo'lmasa tugma ko'rinmaydi.
 | `src/scene/director.ts` | scroll → kamera va telefon (sof funksiya) |
 | `src/scene/runtime.ts` | sahnani quradi va har kadrda director'ni qo'llaydi |
 | `src/scene/robotLife.ts` | DUYO'ning hayoti: qarash, nafas, ko'z qisish, gapirish |
-| `src/scene/cosmos*.ts` | koinot: yulduzlar, tumanlik, meteorlar, sichqonchaga javob |
+| `src/scene/cosmos*.ts` | koinot: yulduzlar, tumanlik, meteorlar |
 | `src/scene/pointer.ts` | sichqoncha, telefon qiyaligi, reduced motion |
 | `src/ui/duyoVoice.ts`, `VoiceButton.tsx` | ovoz: fayl bor-yo'qligi, ijro, balandlik |
 | `src/scene/measure.ts` | matn egallagan joyni o'lchaydi — sahna bo'sh joyga sig'adi |
+| `src/scene/viewport.ts` | scroll, kanvas o'lchami, o'lchangan joy |
+| `src/scene/quality.ts` | sekin qurilmada piksel zichligini pasaytiradi |
+| `src/ui/layout.ts` | telefon (tik) ko'rinishi qachon yoqilishi |
 | `src/scene/phone.ts` | telefon modeli |
 | `src/scene/phoneScreen*.ts` | telefon ekrani: ilova skrinshotlarini o'ynatadi |
 | `src/assets/app-screens/` | ilovadan olingan ekranlar (`.webp`) va `captures.ts` |

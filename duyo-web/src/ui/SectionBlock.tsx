@@ -7,9 +7,11 @@
  *   center copy centred, low — unused now: copy scrolls while the scene
  *          holds still, so centred copy passes across the subject
  *
- * At phone width every layout collapses to the same thing: copy anchored to
- * the bottom over a scrim of the section's own ground colour, so the words
- * stay readable whatever the scene is doing above them.
+ * At phone width every layout collapses to the same thing: a caption pinned
+ * to the foot of the screen over a scrim of the ground colour, handing over
+ * to the next section's in place (useScrollDriver), so the words stay
+ * readable and whole whatever the scene is doing above them. The last
+ * section's copy is not pinned: it arrives with the footer.
  *
  * The section itself ignores the pointer; only the copy takes it, and only
  * while it shows — faded copy lets taps through to the scene (page.css,
@@ -140,7 +142,7 @@ function CtaLink({ cta, large }: { cta: Cta; large: boolean }) {
     // otherwise wrap inside the pill at 320px.
     const size = large
       ? 'h-14 w-full justify-center px-5 text-[15.5px] gap-2 sm:w-auto sm:px-8 sm:text-[16.5px] sm:gap-2.5'
-      : 'h-12 px-6 text-[15px] gap-2';
+      : 'h-12 px-5 text-[15px] gap-2 sm:px-6';
     return (
       <a href={cta.href} className={`btn-primary inline-flex items-center whitespace-nowrap rounded-full font-semibold ${size}`}>
         {cta.label}
@@ -187,7 +189,9 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
   const headingSize = isHero
     ? `${HERO_SIZE} leading-[1.04] tracking-[-0.045em]`
     : 'text-[clamp(1.9rem,3.3vw,2.75rem)] 2xl:text-[3.25rem] leading-[1.1] tracking-[-0.035em]';
-  // svh = innerHeight with a mobile URL bar showing, which readScroll uses.
+  // svh = innerHeight with a mobile URL bar showing. The last section shares
+  // its screen with the footer, except on a phone (page.css): there the
+  // footer would leave the subject a sliver, so it follows a full screen.
   const minHeight = isFinal ? 'flex-1' : 'min-h-svh';
 
   return (
@@ -195,11 +199,16 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
       ref={ref}
       id={id}
       data-theme={theme}
+      // page.css: in the stacked layout every caption but this one is
+      // pinned; a phone held sideways places the copy by its layout.
+      data-final={isFinal || undefined}
+      data-hero={isHero || undefined}
+      data-layout={layout}
       aria-labelledby={headingId}
       className={`page-section pointer-events-none relative flex ${minHeight}`}
     >
       <div
-        className={`mx-auto flex w-full max-w-[1240px] items-end px-6 pb-8 pt-24 md:px-12 md:pb-0 md:pt-28 lg:px-20 2xl:max-w-[1440px] ${rowPlacement(layout, isFinal)}`}
+        className={`section-row mx-auto flex w-full max-w-[1240px] items-end px-6 pb-8 pt-24 md:px-12 md:pb-0 md:pt-28 lg:px-20 2xl:max-w-[1440px] ${rowPlacement(layout, isFinal)}`}
       >
         <div className={`copy pointer-events-auto relative w-full ${copyWidth(section, isHero)}`}>
           <p className="rv badge mb-5 text-[11.5px] font-semibold uppercase tracking-[0.16em] lg:text-[12px] 2xl:text-[13px]" style={rv(0)}>
@@ -221,7 +230,7 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
           {proof && <ProofGrid items={proof} />}
           {ctas && (
             <div
-              className={`rv mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 ${layout === 'center' ? 'md:justify-center' : ''} ${isFinal ? 'md:mt-10' : ''}`}
+              className={`rv cta-row mt-8 flex flex-wrap items-center gap-x-2.5 gap-y-3 sm:gap-x-6 ${layout === 'center' ? 'md:justify-center' : ''} ${isFinal ? 'md:mt-10' : ''}`}
               style={rv(3)}
             >
               {ctas.map((c, i) => (

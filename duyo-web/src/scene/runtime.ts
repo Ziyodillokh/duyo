@@ -16,6 +16,8 @@
  *   cosmos      scene/cosmos.ts — the deep, living space everything is in
  *   director    scene/director.ts — scroll → where all of the above should be
  *   measure     scene/measure.ts — where the copy leaves room; device tilt
+ *   viewport    scene/viewport.ts — scroll, canvas size, and the measured View
+ *   quality     scene/quality.ts — fewer pixels for a device that falls behind
  */
 
 import * as THREE from 'three';
@@ -32,10 +34,10 @@ import { buildCosmos } from './cosmos';
 import { PALETTE } from './contract';
 import type { Cosmos, CosmosInput, Galaxy, Phone, PhoneScreen } from './contract';
 import { direct, GALAXY_POS, GALAXY_TILT, PHONE_POS, ROBOT_POS, ROBOT_SCALE } from './director';
-import type { View } from './director';
-import { measureBands, measureFrames } from './measure';
 import { trackPointer } from './pointer';
-import { ramp, readScroll } from './timeline';
+import { createQualityGuard } from './quality';
+import { ramp } from './timeline';
+import { trackViewport } from './viewport';
 
 export interface SceneRuntime {
   dispose: () => void;
@@ -47,9 +49,6 @@ export interface SceneOptions {
   /** Building failed after startScene returned; the scene has already torn itself down. */
   onFail?: (error: unknown) => void;
 }
-
-/** The page stacks copy under the subject at and below this width (Tailwind md − 1). */
-const STACKED_MAX_WIDTH = 767;
 
 /** Longest frame time the eases will integrate over, in seconds. */
 const MAX_DT = 0.1;
@@ -85,6 +84,10 @@ const FLICK_GAP_TO = 0.12;
 
 /** Longest wait for shaders before drawing anyway: a context lost mid-compile never reports ready. */
 const COMPILE_WAIT_MS = 4000;
+
+/** How far the camera stands from what it looks at: the subject's depth in the shot. */
+const shotDepth = ({ cameraPos: c, cameraLook: l }: { cameraPos: number[]; cameraLook: number[] }) =>
+  Math.hypot(c[0] - l[0], c[1] - l[1], c[2] - l[2]);
 
 /** Hand the main thread back: a tap that lands during start-up is served now. */
 const nextTask = (ms = 0) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
@@ -217,6 +220,11 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   let px = 0;
   let py = 0;
   const input = trackPointer();
+  // Scroll and size (scene/viewport.ts). After a scroll DUYO may have moved
+  // out from under a still pointer: ask again.
+  const page = trackViewport(stage, () => {
+    input.moved = true;
+  });
 
   // ── Drag turns the subject; a click talks to DUYO ─────────────────────
   // In the hero a drag turns DUYO, later the phone: whichever is on screen.
@@ -246,8 +254,8 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   const robotBox = new THREE.Box3().setFromObject(robot.root).expandByScalar(0.15);
   /** Is the pointer at (clientX, clientY) on DUYO? Only asked while DUYO is the shot. */
   const onRobot = (x: number, y: number) => {
-    if (robotShown < 0.5) return false;
-    ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    if (robotShown < 0.5 || page.width === 0) return false;
+    ndc.set((x / page.width) * 2 - 1, -(y / page.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
     if (!raycaster.ray.intersectsBox(robotBox)) return false;
     return raycaster.intersectObject(robot.root, true).length > 0;
@@ -315,39 +323,8 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   window.addEventListener('pointercancel', onUp);
   window.addEventListener('click', onClick);
 
-  // ── Scroll & size ──────────────────────────────────────────────────────
-  // Read on the event, applied in the frame: layout reads inside rAF are
-  // what make scroll-driven scenes stutter.
-  let scroll = readScroll();
-  let smoothScroll = scroll;
-  const onScroll = () => {
-    scroll = readScroll();
-    // DUYO may have scrolled out from under a still pointer: ask again.
-    input.moved = true;
-  };
-  window.addEventListener('scroll', onScroll, { passive: true });
-
-  const view: View = { aspect: 1, fovDeg: camera.fov, stacked: false };
-  const onResize = () => {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    stage.resize(w, h);
-    view.aspect = w / h;
-    view.fovDeg = camera.fov;
-    view.stacked = w <= STACKED_MAX_WIDTH;
-    view.frames = view.stacked ? measureBands() : measureFrames();
-    scroll = readScroll();
-  };
-  onResize();
-  window.addEventListener('resize', onResize, { passive: true });
-  // Inter is wider than the fallback face; re-measure once it has landed.
-  void document.fonts.ready.then(() => alive && onResize());
-  // The listen button appears only once the recording is known to exist,
-  // and it can take the hero's copy onto another row: measure again after
-  // React has put it in (two frames: its render, then its layout).
-  const unsubVoice = duyoVoice.subscribe(() =>
-    requestAnimationFrame(() => requestAnimationFrame(() => alive && onResize())),
-  );
+  let smoothScroll = page.scroll;
+  const quality = createQualityGuard(renderer.getPixelRatio(), stage.setPixelRatioCap);
 
   // ── Frame ──────────────────────────────────────────────────────────────
   const origin = new THREE.Vector3();
@@ -371,6 +348,7 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     // twitchy and a phone managing 30fps is not twice as sluggish. Clamped,
     // so a stall (a slow first frame, a returning tab) never lurches.
     const dt = Math.min(MAX_DT, (now - last) / 1000);
+    quality.frame(now - last);
     last = now;
     const f60 = dt * 60;
     const ease = (perFrame: number) => 1 - Math.pow(1 - perFrame, f60);
@@ -382,11 +360,11 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     py += (input.ty * input.motion - py) * follow;
     // Smoothed scroll: a flicked wheel lands over a few frames instead of
     // one, which is the difference between a cut and a move.
-    const gap = scroll - smoothScroll;
+    const gap = page.scroll - smoothScroll;
     const rate = SCROLL_EASE + (FLICK_EASE - SCROLL_EASE) * ramp(Math.abs(gap), FLICK_GAP_FROM, FLICK_GAP_TO);
     smoothScroll += gap * (input.motion ? ease(rate) : 1);
 
-    const d = direct(smoothScroll, view, input.motion === 1);
+    const d = direct(smoothScroll, page.view, input.motion === 1);
     robotShown = d.robotShown;
     // Out of shot, DUYO costs nothing: not drawn, not in the shadow pass
     // (the key light's shadow camera sits on its station, so it would be).
@@ -395,12 +373,17 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     if (robotShown === 0 && duyoVoice.status() === 'playing') duyoVoice.stop();
 
     // Camera, with a small pointer parallax on top of the director's shot.
-    camera.position.set(d.cameraPos[0] + px * PARALLAX_X, d.cameraPos[1] - py * PARALLAX_Y, d.cameraPos[2]);
+    // Past the film's end the footer scrolls in (phone width): the last shot
+    // rides up with the page, as if printed on it, instead of the caption
+    // sliding over a phone that stays put. Camera and target drop together
+    // by the scrolled px, converted at the subject's depth.
+    const lift = page.tail > 0 ? ((2 * page.tail) / page.height) * Math.tan((camera.fov * Math.PI) / 360) * shotDepth(d) : 0;
+    camera.position.set(d.cameraPos[0] + px * PARALLAX_X, d.cameraPos[1] - py * PARALLAX_Y - lift, d.cameraPos[2]);
     // The studio the glossy parts reflect turns a little with the hand, so
     // light glides across DUYO's visor and helmet — a product shot's move,
     // not an effect. Same eased, motion-gated pointer as the parallax.
     scene.environmentRotation.set(-py * ENV_TURN_X, px * ENV_TURN_Y, 0);
-    camera.lookAt(d.cameraLook[0], d.cameraLook[1], d.cameraLook[2]);
+    camera.lookAt(d.cameraLook[0], d.cameraLook[1] - lift, d.cameraLook[2]);
 
     // Phone: the director's pose, plus a hover bob, plus whatever the visitor
     // has dragged it to — which eases back once they let go.
@@ -468,6 +451,8 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
       cancelAnimationFrame(raf);
     } else if (!running) {
       running = true;
+      // The time away is not a frame: neither the eases nor the quality guard should see it.
+      last = performance.now();
       raf = requestAnimationFrame(frame);
     }
   };
@@ -482,10 +467,8 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
     window.removeEventListener('click', onClick);
-    window.removeEventListener('scroll', onScroll);
-    window.removeEventListener('resize', onResize);
     document.removeEventListener('visibilitychange', onVisibility);
-    unsubVoice();
+    page.dispose();
     endDrag();
     input.dispose();
     document.body.style.cursor = '';

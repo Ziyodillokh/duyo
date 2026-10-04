@@ -12,10 +12,29 @@ import { SECTIONS } from '../content';
 
 export const SECTION_COUNT = SECTIONS.length;
 
-/** Page scroll as 0..1 over the whole document. */
+/**
+ * Page scroll as 0..1, where 1 is the last section's arrival: its top at
+ * the top of the screen. On a wide screen the footer shares that last
+ * screen, so this is the whole document; at phone width the last section
+ * has a screen of its own and the footer scrolls in after it, with the film
+ * held at its end.
+ */
 export function readScroll(): number {
-  const max = document.documentElement.scrollHeight - window.innerHeight;
-  return max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+  const end = filmEnd();
+  return end > 0 ? Math.min(1, Math.max(0, window.scrollY / end)) : 0;
+}
+
+/** Px scrolled past the film's end: on a phone, the footer coming in. 0 where the footer shares the last screen. */
+export function readTail(): number {
+  return Math.max(0, window.scrollY - filmEnd());
+}
+
+/** The scroll position where the film ends: the last section's arrival, or the bottom if that comes first. */
+function filmEnd(): number {
+  const last = document.getElementById(SECTIONS[SECTION_COUNT - 1].id);
+  const bottom = document.documentElement.scrollHeight - window.innerHeight;
+  const arrival = last ? last.getBoundingClientRect().top + window.scrollY : bottom;
+  return Math.min(arrival, bottom);
 }
 
 /** Smooth 0→1 between a and b. */
