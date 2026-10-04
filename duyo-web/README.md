@@ -124,6 +124,8 @@ almashtirilsa, bu model ham yangilanishi kerak.
 shu manzillarga havola beradi, shuning uchun nomlari o'zgarmasin. Ularda matn
 uch tilda (`<article lang="uz|ru|en">`), til almashtirgich `public/legal/legal.js`,
 ko'rinishi `public/legal/legal.css`. Matnni o'zgartirsangiz — uchala tilda.
+`legal.css`/`legal.js` nomida hash yo'q, nginx esa ularni 30 kun keshlaydi:
+ularni o'zgartirganda sahifalardagi `?v=` sanasini ham yangilang.
 
 ## Deploy
 
