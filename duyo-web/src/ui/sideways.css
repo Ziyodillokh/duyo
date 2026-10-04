@@ -1,0 +1,149 @@
+/*
+ * Wide but short: a phone held sideways, a laptop's browser window, a
+ * tablet. Every section must still fit one screen, or the copy falls out of
+ * step with the film (scene/timeline.ts); so as the height shrinks, the
+ * type tightens and what can give way does.
+ *
+ * Imported after page.css (ui/FilmPage.tsx).
+ */
+
+/* ── A phone held sideways ────────────────────────────────────────────
+   Narrower than md but wide: the copy takes a side, as on a wider screen,
+   and scene/measure.ts frames the subject in the other. */
+
+@media (orientation: landscape) and (min-width: 560px) and (max-width: 767px) {
+  .section-row { padding-left: 2rem; padding-right: 2rem; align-items: center; }
+  .page-section[data-layout='left'] .section-row { justify-content: flex-start; }
+  .page-section[data-layout='right'] .section-row { justify-content: flex-end; }
+  .page-section .copy { width: 48%; max-width: 30rem; }
+  /* DUYO is as wide as it is tall; the hero's words can have a little more. */
+  .page-section[data-hero] .copy { width: 54%; }
+  /* The robot page says more per section: its columns take a little more. */
+  .page-root[data-page='robot'] .page-section .copy { width: 52%; }
+  .page-root[data-page='robot'] .page-section[data-hero] .copy { width: 62%; }
+  /* Half of a small phone's width is a narrow column: the hero's second
+     link would take a row of its own and the safety facts five lines each,
+     and neither section would fit its screen. The scroll answers "how it
+     works", and the safety copy says what the checks stop, as upright. */
+  .page-section .btn-ghost,
+  .page-section .proof { display: none; }
+}
+
+/* ── Short and wide: a phone sideways, or a letterbox window ──────────
+   Set for one screen of height. A section taller than the screen would put
+   its copy out of step with the film (timeline.ts) and under the next
+   one's; so the type is sized by the height, the hero's extras give way,
+   and the last section takes a screen of its own with the footer after. */
+
+@media (orientation: landscape) and (min-width: 560px) and (max-height: 520px) {
+  .section-row { padding-top: 4.25rem; padding-bottom: 1rem; }
+  /* Wider columns, so the words take fewer lines; the subject still has
+     more than half the screen. */
+  .page-section:not([data-hero]) .copy { width: 46%; max-width: 32rem; }
+  .page-section .badge { margin-bottom: 0.6rem; font-size: 11px; letter-spacing: 0.12em; }
+  .page-section .heading { font-size: clamp(1.3rem, 6.4svh, 1.9rem); }
+  .page-section h1.heading { font-size: clamp(1.9rem, 9.5svh, 3rem); }
+  .page-section .body {
+    margin-top: 0.6rem;
+    font-size: clamp(13px, 3.6svh, 15px);
+    line-height: 1.5;
+  }
+  .page-section .proof { margin-top: 0.9rem; padding-top: 0.75rem; gap: 0.75rem; }
+  /* Points as on a phone held upright: names, not their second lines. */
+  .page-section .points-group { margin-top: 0.8rem; }
+  .page-section .points-label { margin-bottom: 0.4rem; }
+  .points--chips { gap: 6px; }
+  .points--chips .point { gap: 8px; padding: 3px 10px 3px 3px; border-radius: 11px; font-size: 12.5px; }
+  .points--chips .tile { width: 22px; height: 22px; border-radius: 7px; }
+  .points--grid { gap: 8px 14px; }
+  .points--grid .tile { width: 26px; height: 26px; border-radius: 8px; }
+  .points--grid .point { align-items: center; gap: 9px; }
+  .points--grid .point-title { font-size: 13px; }
+  .points--grid .point-text,
+  .points--steps .point-text,
+  .points--layers .point-text { display: none; }
+  .points--steps { gap: 5px; }
+  .points--steps .point { gap: 9px; padding: 4px 40px 4px 4px; border-radius: 11px; }
+  .points--steps .tile { width: 26px; height: 26px; border-radius: 8px; }
+  .points--steps .point-title { font-size: 13px; }
+  .point-no { right: 12px; font-size: 18px; }
+  .points--layers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .points--layers .point { flex-direction: row; align-items: center; gap: 7px; padding: 6px 8px 6px 6px; }
+  .points--layers .tile { width: 22px; height: 22px; border-radius: 7px; }
+  .points--layers .point-title { font-size: 12px; }
+  .page-section .heading.is-quote { font-size: clamp(1.05rem, 5svh, 1.5rem); line-height: 1.3; }
+  .page-section h1.heading.has-lines { font-size: clamp(1.6rem, 8svh, 2.6rem); }
+  /* The promo, a size smaller: still the first thing the eye finds. */
+  .page-section .promo { margin-bottom: 0.45rem; gap: 7px; padding: 3px 11px 3px 3px; font-size: 12px; }
+  .promo-face { width: 24px; height: 24px; }
+  .promo-face img { width: 22px; height: 22px; }
+  .promo-tag { padding: 3px 7px; font-size: 10px; }
+  .page-section .note { margin-top: 0.6rem; font-size: 11px; }
+  .points-group--optional { display: none; }
+  .page-section .proof-value { font-size: 1.05rem; }
+  .page-section .proof-label { font-size: 11.5px; line-height: 1.35; }
+  .page-section .cta-row { margin-top: 1rem; }
+  .hero-points,
+  .scroll-hint { display: none; }
+  .page-section[data-final] { min-height: 100svh; }
+  .site-footer { background: var(--c-space); }
+}
+
+/* Shorter still: a 360dp-tall Android sideways keeps about 280px under its
+   bars. The type floors come down, the rows tighten, and the safety facts
+   and the hero's second link give way, so the download stays on screen. */
+
+@media (orientation: landscape) and (min-width: 560px) and (max-height: 340px) {
+  .section-row { padding-top: 4rem; padding-bottom: 0.75rem; }
+  .page-section .badge { margin-bottom: 0.4rem; }
+  .page-section .heading { font-size: clamp(1.15rem, 6.4svh, 1.9rem); }
+  .page-section h1.heading { font-size: clamp(1.5rem, 9.5svh, 3rem); }
+  .page-section .body {
+    margin-top: 0.45rem;
+    font-size: clamp(12px, 3.6svh, 15px);
+    line-height: 1.45;
+  }
+  .page-section .cta-row { margin-top: 0.75rem; }
+  .page-section .cta-row .btn-primary { height: 2.75rem; }
+  .page-section .btn-ghost,
+  .page-section .proof { display: none; }
+}
+
+/* Shorter than 380px sideways the hero has no line to spare for the promo:
+   there the last section's button and, from 768px, the navbar's link lead
+   to the robot page. */
+@media (orientation: landscape) and (min-width: 560px) and (max-height: 380px) {
+  .page-section .promo { display: none; }
+}
+
+/* …and narrow too: the hero's words take a line less in a wider column. */
+@media (orientation: landscape) and (min-width: 560px) and (max-width: 767px) and (max-height: 340px) {
+  .page-section[data-hero] .copy { width: 60%; }
+  .page-root[data-page='robot'] .page-section[data-hero] .copy { width: 64%; }
+}
+
+/* ── Laptops: a browser window 600–760px tall ─────────────────────────
+   The hero keeps its promo — the way to the robot page — and lets its
+   three dotted lines go; the robot page's sections drop their optional
+   points and set the closing quotation a size smaller; under 700px the
+   points keep their names and drop their second lines. */
+
+@media (min-width: 768px) and (max-height: 720px) {
+  .hero-points { display: none; }
+}
+@media (min-width: 768px) and (max-height: 760px) {
+  .points-group--optional { display: none; }
+  .page-section .heading.is-quote { font-size: clamp(1.2rem, 3.3svh, 1.75rem); }
+}
+@media (min-width: 768px) and (max-height: 700px) {
+  .points--grid .point-text,
+  .points--steps .point-text { display: none; }
+  .points--grid .point { align-items: center; }
+}
+
+/* ── Tablets: a 40% column holds one point to a row ─────────────────────
+   Not a phone held sideways, which has the width but not the height. */
+
+@media (min-width: 768px) and (max-width: 1023px) and (min-height: 521px) {
+  .points--grid { grid-template-columns: 1fr; gap: 12px; }
+}

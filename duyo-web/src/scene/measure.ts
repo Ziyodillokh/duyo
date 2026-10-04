@@ -4,10 +4,10 @@
  *
  * The copy is measured on load, when fonts land and on resize — never per
  * frame — and handed to the director as View.frames, one SectionFrame per
- * section in the order of SECTIONS.
+ * section in the order of the film's sections (film.ts).
  */
 
-import { SECTIONS } from '../content';
+import { filmSections } from '../film';
 import { smallViewportHeight } from '../ui/layout';
 import type { SectionFrame } from './director';
 
@@ -87,7 +87,7 @@ export function measureBands(canvasHeight: number): SectionFrame[] {
   // band is measured where it is shortest, bars in: their coming back can
   // then only give the subject more room, never put the words over it.
   const barsOut = Math.max(0, window.innerHeight - smallViewportHeight());
-  return SECTIONS.map((section) => {
+  return filmSections().map((section) => {
     const el = document.getElementById(section.id);
     const copy = el?.querySelector('.copy');
     const ink = copy ? inkExtent(copy) : null;
@@ -105,7 +105,7 @@ export function measureBands(canvasHeight: number): SectionFrame[] {
  */
 export function measureFrames(w: number): SectionFrame[] {
   const toNdc = (x: number) => (x / w) * 2 - 1;
-  return SECTIONS.map((section) => {
+  return filmSections().map((section) => {
     const copy = document.querySelector(`#${section.id} .copy`);
     const ink = copy ? inkExtent(copy) : null;
     if (!ink || section.layout === 'center') return { centre: 0, half: 1 };

@@ -43,6 +43,42 @@ export interface Cta {
   variant: 'primary' | 'ghost';
 }
 
+/** The small drawings the copy can carry (ui/icons.tsx). */
+export type IconName =
+  | 'projector' | 'mic' | 'sync' | 'planet' | 'books' | 'wave' | 'chat'
+  | 'robot' | 'compact' | 'play' | 'flag' | 'apps' | 'wall' | 'spark';
+
+export interface Point {
+  icon: IconName;
+  title: string;
+  text?: string;
+  /** In a row of layers: the one in the middle that matters most. */
+  lead?: boolean;
+}
+
+/**
+ * A set of points under a section's words (ui/Points.tsx):
+ *   chips   a row of small pills, icon and name
+ *   grid    two columns of icon, name and a line
+ *   steps   numbered, in order: ask, understood, shown
+ *   layers  side by side, one of them lit
+ */
+export interface PointGroup {
+  style: 'chips' | 'grid' | 'steps' | 'layers';
+  /** A small heading over the group. */
+  label?: string;
+  items: readonly Point[];
+  /** Gives way on a short screen (page.css), where the caption would leave the scene no room. */
+  optional?: boolean;
+}
+
+/** A small invitation over the hero's badge: something new, one tap away. */
+export interface Promo {
+  tag: string;
+  label: string;
+  href: string;
+}
+
 export interface Section {
   id: string;
   /** Label in the navbar and the section rail. */
@@ -51,19 +87,30 @@ export interface Section {
   theme: Theme;
   layout: Layout;
   badge: string;
+  /** A line break ("\n") sets the heading in lines; see `accent`. */
   heading: string;
-  body: string;
+  /** The heading's last line carries the light (the robot page's style). */
+  accent?: boolean;
+  /** The heading is a quotation: set smaller, as words spoken. */
+  quote?: boolean;
+  body?: string;
   proof?: Proof[];
+  points?: readonly PointGroup[];
   ctas?: Cta[];
+  /** A quiet line under everything else. */
+  note?: string;
+  promo?: Promo;
+  /** The hero's three short lines under its buttons (tablet up). */
+  heroPoints?: readonly string[];
 }
 
 export const APK_URL = 'https://admin.duyo.uz/apk/duyo.apk';
 export const SUPPORT_EMAIL = 'duyosupport@gmail.com';
 
 /**
- * The DUYO Robot concept: a page of its own (public/robot/index.html, a
- * static page like the legal ones). Reached from the navbar, from under the
- * last section's download and from the footer.
+ * The DUYO Robot concept: a page of its own (robot/index.html, src/robot/),
+ * the same kind of film as this one. Reached from the promo over the hero's
+ * badge, the navbar, the button under the last download and the footer.
  */
 export const ROBOT_PAGE = {
   href: './robot/',
@@ -82,7 +129,8 @@ export const ROBOT_PAGE = {
  * words are put in `transcript`, they are shown as captions while it plays.
  */
 export const DUYO_VOICE = {
-  src: './audio/duyo-salom.mp3',
+  /** From the site's top folder (film.ts siteRoot), so every page finds it. */
+  src: 'audio/duyo-salom.mp3',
   // Suffixes join a name directly in Uzbek: DUYOni, not DUYO'ni.
   listen: 'DUYOni tinglang',
   stop: 'To‘xtatish',
@@ -106,12 +154,14 @@ export const SECTIONS: Section[] = [
     theme: 'dark',
     layout: 'left',
     badge: '13–16 yoshlilar uchun · o‘zbek tilida',
+    promo: { tag: 'Yangi', label: 'DUYO Robot konsepti', href: ROBOT_PAGE.href },
     heading: 'Salom! Men — DUYO.',
     body: 'O‘zbek tilida gaplashadigan sun’iy intellekt hamrohingizman: darsda qiynalgan mavzularingizni tushuntiraman va maqsadingizga erishishga yordam beraman.',
     ctas: [
       { label: 'Ilovani yuklab olish', href: APK_URL, variant: 'primary' },
       { label: 'Qanday ishlaydi', href: '#savol', variant: 'ghost' },
     ],
+    heroPoints: HERO_POINTS,
   },
   {
     id: 'savol',

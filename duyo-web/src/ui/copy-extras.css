@@ -1,0 +1,220 @@
+/*
+ * What the copy carries beyond its words: the promo over the hero's badge,
+ * the button on to another page, headings in lines and quotations, and the
+ * points with the concept deck's blue tiles (ui/Points.tsx).
+ *
+ * Imported before page.css (ui/FilmPage.tsx): page.css's phone and short-
+ * screen blocks compact these, and must come later to win.
+ */
+
+/* A link to another page, set apart from the sections by a lit node — the
+   knowledge-graph dot. Navbar's Robot link, and the button under the last CTA. */
+.nav-new {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--c-sky);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-sky) 18%, transparent), 0 0 10px var(--c-sky);
+  flex: none;
+}
+.next-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 18px 0 16px;
+  border-radius: 999px;
+  color: var(--fg);
+  font-size: 14.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--c-white) 5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-sky) 32%, transparent);
+  transition: background-color 200ms ease, box-shadow 200ms ease;
+}
+.next-link:hover {
+  background: color-mix(in srgb, var(--c-white) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-sky) 60%, transparent);
+}
+.next-link:hover .arrow,
+.promo:hover .arrow { transform: translateX(3px); }
+
+/* ── The promo: something new, over the hero's badge ─────────────────
+   A glass pill with a lit tag; a sheen crosses it every few seconds, the
+   one moving thing in the copy, so the eye finds it first. */
+
+.promo {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 5px;
+  border-radius: 999px;
+  color: var(--fg);
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--c-white) 6%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--c-sky) 34%, transparent),
+    0 10px 30px -12px color-mix(in srgb, var(--c-blue) 75%, transparent);
+  transition: background-color 200ms ease;
+}
+.promo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--c-sky) 30%, transparent) 50%, transparent 70%);
+  transform: translateX(-110%);
+  animation: promo-sheen 5s cubic-bezier(0.45, 0, 0.2, 1) 1.4s infinite;
+}
+@keyframes promo-sheen {
+  0% { transform: translateX(-110%); }
+  40%, 100% { transform: translateX(110%); }
+}
+.promo:hover { background: color-mix(in srgb, var(--c-white) 11%, transparent); }
+.promo-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: -2px;
+  border-radius: 999px;
+  overflow: visible;
+  background: radial-gradient(circle at 50% 40%, #1b2a55, #0a1230);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c-sky) 55%, transparent);
+}
+.promo-face img { width: 28px; height: 28px; border-radius: 999px; }
+/* A ring that breathes out from the face, slowly: DUYO is awake. */
+.promo-face::after {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c-sky) 60%, transparent);
+  animation: promo-ring 2.8s ease-out infinite;
+}
+@keyframes promo-ring {
+  0% { transform: scale(1); opacity: 0.9; }
+  70%, 100% { transform: scale(1.55); opacity: 0; }
+}
+.promo-tag {
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--c-blue);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--c-blue-bright) 75%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Headings in lines, quotations, notes ───────────────────────────── */
+
+/* The last line of a heading set in lines carries the light. */
+.page-section .heading .accent {
+  color: var(--c-sky);
+  background: linear-gradient(92deg, #b8ddff 0%, #7fb2ff 55%, #a99cff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.page-section .note { color: var(--fg-faint); }
+
+/* ── Points: the concept deck's blue tiles ──────────────────────────── */
+
+.tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(160deg, var(--c-blue-bright), #1d4ed8);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 28%, transparent),
+    0 10px 24px -10px color-mix(in srgb, var(--c-blue) 85%, transparent);
+}
+.tile svg { width: 56%; height: 56%; }
+
+.points-group { margin-top: 1.75rem; }
+.points-label {
+  margin: 0 0 0.75rem;
+  color: var(--fg-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.points { margin: 0; padding: 0; list-style: none; }
+.point-words { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.point-title { color: var(--fg); font-weight: 600; }
+.point-text { color: var(--fg-muted); }
+
+.points--chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.points--chips .point {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 5px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--c-white) 5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  font-size: 14px;
+}
+.points--chips .tile { width: 28px; height: 28px; border-radius: 9px; }
+.points--chips .point-title { font-weight: 500; white-space: nowrap; }
+
+.points--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+.points--grid .point { display: flex; align-items: flex-start; gap: 12px; }
+.points--grid .tile { width: 34px; height: 34px; border-radius: 10px; }
+.points--grid .point-title { font-size: 15px; line-height: 1.3; }
+.points--grid .point-text { font-size: 13.5px; line-height: 1.45; }
+
+.points--steps { display: grid; gap: 10px; }
+.points--steps .point,
+.points--layers .point {
+  position: relative;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--c-white) 4%, transparent);
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+.points--steps .point { display: flex; align-items: center; gap: 14px; padding: 12px 52px 12px 12px; }
+.points--steps .point-title { font-size: 15.5px; }
+.points--steps .point-text { font-size: 13.5px; }
+.point-no {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  translate: 0 -50%;
+  color: color-mix(in srgb, var(--c-sky) 22%, transparent);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.points--layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.points--layers .point { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.points--layers .tile { width: 30px; height: 30px; border-radius: 9px; }
+.points--layers .point-title { font-size: 14.5px; }
+.points--layers .point-text { font-size: 12.5px; line-height: 1.45; }
+/* The robot, between the phone and the wall: the deck's one dark-blue card. */
+.points--layers .point--lead {
+  background: linear-gradient(150deg, #1f4fd8 0%, #1b3aa0 58%, #13286e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(147, 197, 253, 0.35),
+    0 24px 60px -30px rgba(37, 99, 235, 0.85);
+}
+.points--layers .point--lead .point-text { color: rgba(244, 247, 253, 0.84); }
+/* A tablet's copy column is too narrow for three side by side: they stack. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .points--layers { grid-template-columns: 1fr; gap: 8px; }
+  .points--layers .point { flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; }
+}

@@ -21,7 +21,6 @@
  */
 
 import * as THREE from 'three';
-import { createStage } from '../three/stage';
 import type { Stage } from '../three/stage';
 import { buildRobot } from '../three/robot';
 import type { Robot } from '../three/robot';
@@ -34,63 +33,17 @@ import { buildCosmos } from './cosmos';
 import { PALETTE } from './contract';
 import type { Cosmos, CosmosInput, Galaxy, Phone, PhoneScreen } from './contract';
 import { direct, GALAXY_POS, GALAXY_TILT, PHONE_POS, ROBOT_POS, ROBOT_SCALE } from './director';
+import { trackHandling } from './handling';
+import type { Tick } from './loop';
 import { trackPointer } from './pointer';
+import { COMPILE_WAIT_MS, followScroll, nextTask, placeCamera } from './feel';
+import { startLoop } from './loop';
 import { createQualityGuard } from './quality';
-import { ramp } from './timeline';
+import { startStaged } from './start';
+import type { Own, SceneOptions, SceneRuntime } from './start';
 import { trackViewport } from './viewport';
 
-export interface SceneRuntime {
-  dispose: () => void;
-}
-
-export interface SceneOptions {
-  /** Once, when the first frame has been drawn: the canvas can be shown. */
-  onFirstFrame?: () => void;
-  /** Building failed after startScene returned; the scene has already torn itself down. */
-  onFail?: (error: unknown) => void;
-}
-
-/** Longest frame time the eases will integrate over, in seconds. */
-const MAX_DT = 0.1;
-
-/**
- * A press that moves less than this is a click (talk to DUYO), not a drag.
- * A fingertip wobbles more than a mouse, so a tap gets more room.
- */
-const CLICK_SLOP_PX = 6;
-const TAP_SLOP_PX = 10;
-
-/**
- * What the pointer does, and all it does: the camera drifts a little after
- * the hand, so near stars slide past far ones (depth, with inertia), and
- * the studio reflected in DUYO's gloss turns with it. Nothing follows the
- * cursor and nothing flashes — the owner found cursor effects childish.
- */
-const PARALLAX_X = 0.42;
-const PARALLAX_Y = 0.26;
-const ENV_TURN_X = 0.12;
-const ENV_TURN_Y = 0.38;
-
-/**
- * Scroll smoothing per 60Hz frame. A jump (End, a nav link, a hard flick)
- * would leave the scene mid-transition under copy that has already arrived,
- * so the rate rises with the gap (whole-page scroll, 0..1) — smoothly, as a
- * step would show as a brake. A wheel notch keeps the gentle rate.
- */
-const SCROLL_EASE = 0.14;
-const FLICK_EASE = 0.35;
-const FLICK_GAP_FROM = 0.03;
-const FLICK_GAP_TO = 0.12;
-
-/** Longest wait for shaders before drawing anyway: a context lost mid-compile never reports ready. */
-const COMPILE_WAIT_MS = 4000;
-
-/** How far the camera stands from what it looks at: the subject's depth in the shot. */
-const shotDepth = ({ cameraPos: c, cameraLook: l }: { cameraPos: number[]; cameraLook: number[] }) =>
-  Math.hypot(c[0] - l[0], c[1] - l[1], c[2] - l[2]);
-
-/** Hand the main thread back: a tap that lands during start-up is served now. */
-const nextTask = (ms = 0) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+export type { SceneOptions, SceneRuntime } from './start';
 
 interface Parts {
   cosmos: Cosmos;
@@ -106,7 +59,7 @@ interface Parts {
  * first frames. Each piece registers its teardown with `own` once it
  * exists, and each step checks `alive`: dispose can land between any two.
  */
-async function assemble(stage: Stage, own: (fn: () => void) => void, alive: () => boolean): Promise<Parts | null> {
+async function assemble(stage: Stage, own: Own, alive: () => boolean): Promise<Parts | null> {
   const { scene, camera, renderer } = stage;
   const onward = () => nextTask().then(alive);
 
@@ -147,36 +100,9 @@ async function assemble(stage: Stage, own: (fn: () => void) => void, alive: () =
   return alive() ? { cosmos, robot, phone, screen } : null;
 }
 
-/**
- * Null when there is no WebGL. The stage is built now, the rest over the
- * next few tasks; options.onFirstFrame says when there is something to show.
- */
+/** The home page's film on a canvas (scene/start.ts). */
 export function startScene(canvas: HTMLCanvasElement, options: SceneOptions = {}): SceneRuntime | null {
-  const stage = createStage(canvas, { deferEnvironment: true });
-  if (!stage) return null;
-
-  // Torn down newest first: the loop and its listeners, then the pieces,
-  // then the renderer they were drawn with.
-  const owned: Array<() => void> = [stage.dispose];
-  let disposed = false;
-  const dispose = () => {
-    if (disposed) return;
-    disposed = true;
-    [...owned].reverse().forEach((teardown) => teardown());
-  };
-  const alive = () => !disposed;
-
-  assemble(stage, (teardown) => owned.push(teardown), alive)
-    .then((parts) => {
-      if (parts && alive()) owned.push(run(stage, parts, options));
-    })
-    .catch((error: unknown) => {
-      if (!alive()) return;
-      dispose();
-      options.onFail?.(error);
-    });
-
-  return { dispose };
+  return startStaged(canvas, options, assemble, run);
 }
 
 /** Wires input, scroll and size to the built scene and runs the frame loop. Returns its teardown. */
@@ -226,102 +152,10 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     input.moved = true;
   });
 
-  // ── Drag turns the subject; a click talks to DUYO ─────────────────────
+  // ── Drag turns the subject; a click talks to DUYO (scene/handling.ts) ─
   // In the hero a drag turns DUYO, later the phone: whichever is on screen.
-  // A press that barely moves is a click: on DUYO it plays its voice.
-  // Listening on the window keeps the canvas pointer-events:none, so links
-  // and buttons keep working. A press on a control, the copy, the nav or the
-  // footer is the page's: selecting a sentence must not spin the phone.
-  // One pointer only: a pinch reports two, and deltas taken between
-  // alternating fingers are their separation, not a movement — so a second
-  // finger ends the drag and leaves the zoom to the browser. On touch the
-  // vertical is the page's scroll (App.tsx, pan-y), and a swipe's first move
-  // arrives before the browser takes it: it must not nod the phone.
-  let dragId: number | null = null;
-  let lastX = 0;
-  let lastY = 0;
-  let downX = 0;
-  let downY = 0;
   let robotShown = 1;
-  let dragOnRobot = true;
-  let hovering = false;
-  let talkPending = false;
-  const raycaster = new THREE.Raycaster();
-  const ndc = new THREE.Vector2();
-  // DUYO never leaves its station, so its bounds are measured once, a little
-  // generous for the body's turn: the ray meets this box in microseconds,
-  // and only a ray that does is tested against the 84k-triangle model.
-  const robotBox = new THREE.Box3().setFromObject(robot.root).expandByScalar(0.15);
-  /** Is the pointer at (clientX, clientY) on DUYO? Only asked while DUYO is the shot. */
-  const onRobot = (x: number, y: number) => {
-    if (robotShown < 0.5 || page.width === 0) return false;
-    ndc.set((x / page.width) * 2 - 1, -(y / page.height) * 2 + 1);
-    raycaster.setFromCamera(ndc, camera);
-    if (!raycaster.ray.intersectsBox(robotBox)) return false;
-    return raycaster.intersectObject(robot.root, true).length > 0;
-  };
-  let dragYaw = 0;
-  let dragPitch = 0;
-  const pagesOwn = (el: EventTarget | null) =>
-    el instanceof Element &&
-    !!el.closest('a, button, input, textarea, select, [role="button"], .copy, header, nav, footer');
-  // Held, the press would also select text wherever the pointer crosses.
-  const htmlStyle = document.documentElement.style;
-  const selectable = (on: boolean) => {
-    for (const prop of ['user-select', '-webkit-user-select']) {
-      if (on) htmlStyle.removeProperty(prop);
-      else htmlStyle.setProperty(prop, 'none');
-    }
-  };
-  const endDrag = () => {
-    if (dragId === null) return;
-    dragId = null;
-    document.body.style.cursor = '';
-    // The cursor was just cleared: the next move must be free to set it again.
-    hovering = false;
-    input.moved = true;
-    selectable(true);
-  };
-  const onDown = (e: PointerEvent) => {
-    talkPending = false;
-    if (dragId !== null) return endDrag();
-    if (e.button !== 0 || pagesOwn(e.target)) return;
-    dragId = e.pointerId;
-    lastX = downX = e.clientX;
-    lastY = downY = e.clientY;
-    dragOnRobot = robotShown >= 0.5;
-    document.body.style.cursor = 'grabbing';
-    selectable(false);
-  };
-  const onMove = (e: PointerEvent) => {
-    if (e.pointerId !== dragId) return;
-    dragYaw = Math.max(-1.1, Math.min(1.1, dragYaw + (e.clientX - lastX) * 0.006));
-    const dy = e.pointerType === 'touch' ? 0 : e.clientY - lastY;
-    dragPitch = Math.max(-0.45, Math.min(0.45, dragPitch + dy * 0.004));
-    lastX = e.clientX;
-    lastY = e.clientY;
-  };
-  const onUp = (e: PointerEvent) => {
-    if (e.pointerId !== dragId) return;
-    endDrag();
-    const slop = e.pointerType === 'touch' ? TAP_SLOP_PX : CLICK_SLOP_PX;
-    const still = Math.hypot(e.clientX - downX, e.clientY - downY) < slop;
-    if (!still || e.type !== 'pointerup') return;
-    // The voice starts from the click that follows, not from here: Safari
-    // counts a click as the gesture that may start sound; a pointerup, not
-    // always.
-    if (onRobot(e.clientX, e.clientY)) talkPending = true;
-  };
-  const onClick = () => {
-    if (!talkPending) return;
-    talkPending = false;
-    duyoVoice.toggle();
-  };
-  window.addEventListener('pointerdown', onDown);
-  window.addEventListener('pointermove', onMove, { passive: true });
-  window.addEventListener('pointerup', onUp);
-  window.addEventListener('pointercancel', onUp);
-  window.addEventListener('click', onClick);
+  const hands = trackHandling({ camera, robot, input, page, robotShown: () => robotShown });
 
   let smoothScroll = page.scroll;
   const quality = createQualityGuard(renderer.getPixelRatio(), stage.setPixelRatioCap);
@@ -335,34 +169,15 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
   // under reduced motion but never runs back, so a blink, the spin and the
   // bobs hold instead of snapping when the setting changes.
   let anim = 0;
-  let firstFrame = true;
-  let raf = 0;
-  let running = true;
-  let last = performance.now();
 
-  const frame = () => {
-    if (!running) return;
-    const now = performance.now();
-    // Every ease below is tuned as "this fraction per 60Hz frame" and
-    // rescaled by the real frame time, so a 120Hz screen is not twice as
-    // twitchy and a phone managing 30fps is not twice as sluggish. Clamped,
-    // so a stall (a slow first frame, a returning tab) never lurches.
-    const dt = Math.min(MAX_DT, (now - last) / 1000);
-    quality.frame(now - last);
-    last = now;
-    const f60 = dt * 60;
-    const ease = (perFrame: number) => 1 - Math.pow(1 - perFrame, f60);
+  const frame = ({ now, dt, f60, ease }: Tick) => {
     anim += dt * input.motion;
     const t = anim;
 
     const follow = input.motion ? ease(0.05) : 1;
     px += (input.tx * input.motion - px) * follow;
     py += (input.ty * input.motion - py) * follow;
-    // Smoothed scroll: a flicked wheel lands over a few frames instead of
-    // one, which is the difference between a cut and a move.
-    const gap = page.scroll - smoothScroll;
-    const rate = SCROLL_EASE + (FLICK_EASE - SCROLL_EASE) * ramp(Math.abs(gap), FLICK_GAP_FROM, FLICK_GAP_TO);
-    smoothScroll += gap * (input.motion ? ease(rate) : 1);
+    smoothScroll = followScroll(smoothScroll, page.scroll, ease, input.motion);
 
     const d = direct(smoothScroll, page.view, input.motion === 1);
     robotShown = d.robotShown;
@@ -372,30 +187,16 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
     // Its voice belongs to its shot; with DUYO gone its stop button is too.
     if (robotShown === 0 && duyoVoice.status() === 'playing') duyoVoice.stop();
 
-    // Camera, with a small pointer parallax on top of the director's shot.
-    // Past the film's end the footer scrolls in (phone width): the last shot
-    // rides up with the page, as if printed on it, instead of the caption
-    // sliding over a phone that stays put. Camera and target drop together
-    // by the scrolled px, converted at the subject's depth.
-    const lift = page.tail > 0 ? ((2 * page.tail) / page.height) * Math.tan((camera.fov * Math.PI) / 360) * shotDepth(d) : 0;
-    camera.position.set(d.cameraPos[0] + px * PARALLAX_X, d.cameraPos[1] - py * PARALLAX_Y - lift, d.cameraPos[2]);
-    // The studio the glossy parts reflect turns a little with the hand, so
-    // light glides across DUYO's visor and helmet — a product shot's move,
-    // not an effect. Same eased, motion-gated pointer as the parallax.
-    scene.environmentRotation.set(-py * ENV_TURN_X, px * ENV_TURN_Y, 0);
-    camera.lookAt(d.cameraLook[0], d.cameraLook[1] - lift, d.cameraLook[2]);
+    // Camera: the director's shot, the pointer's parallax, the footer's lift (scene/feel.ts).
+    placeCamera(camera, scene, page, d.cameraPos, d.cameraLook, px, py);
 
     // Phone: the director's pose, plus a hover bob, plus whatever the visitor
     // has dragged it to — which eases back once they let go.
-    if (dragId === null) {
-      const back = Math.pow(0.93, f60);
-      dragYaw *= back;
-      dragPitch *= back;
-    }
-    const phoneDrag = dragOnRobot ? 0 : 1;
+    hands.settle(f60);
+    const phoneDrag = hands.onRobot ? 0 : 1;
     phone.root.rotation.set(
-      d.phonePitch + dragPitch * phoneDrag + Math.sin(t * 0.8) * 0.02,
-      d.phoneYaw + dragYaw * phoneDrag + px * 0.12,
+      d.phonePitch + hands.pitch * phoneDrag + Math.sin(t * 0.8) * 0.02,
+      d.phoneYaw + hands.yaw * phoneDrag + px * 0.12,
       Math.sin(t * 0.6) * 0.012,
     );
     phone.root.position.y = PHONE_POS[1] + Math.sin(t * 1.1) * 0.06;
@@ -422,56 +223,22 @@ function run(stage: Stage, { cosmos, robot, phone, screen }: Parts, options: Sce
       gaze: d.gaze,
       px,
       py,
-      dragYaw: dragOnRobot ? dragYaw : 0,
+      dragYaw: hands.onRobot ? hands.yaw : 0,
       voice: duyoVoice.level(),
       talking: since ? (now - since) / 1000 : -1,
     });
-    // A hand over DUYO says it can be clicked; asked only when the pointer moved.
-    if (input.moved && dragId === null) {
-      input.moved = false;
-      const over = input.seen && onRobot(((input.tx + 1) / 2) * window.innerWidth, ((input.ty + 1) / 2) * window.innerHeight);
-      if (over !== hovering) {
-        hovering = over;
-        document.body.style.cursor = over ? 'pointer' : '';
-      }
-    }
+    hands.hover();
 
     renderer.render(scene, camera);
-    if (firstFrame) {
-      firstFrame = false;
-      options.onFirstFrame?.();
-    }
-    raf = requestAnimationFrame(frame);
   };
-  raf = requestAnimationFrame(frame);
-
-  const onVisibility = () => {
-    if (document.hidden) {
-      running = false;
-      cancelAnimationFrame(raf);
-    } else if (!running) {
-      running = true;
-      // The time away is not a frame: neither the eases nor the quality guard should see it.
-      last = performance.now();
-      raf = requestAnimationFrame(frame);
-    }
-  };
-  document.addEventListener('visibilitychange', onVisibility);
+  const stopLoop = startLoop(frame, quality, options.onFirstFrame);
 
   return () => {
     alive = false;
-    running = false;
-    cancelAnimationFrame(raf);
-    window.removeEventListener('pointerdown', onDown);
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onUp);
-    window.removeEventListener('click', onClick);
-    document.removeEventListener('visibilitychange', onVisibility);
+    stopLoop();
+    hands.dispose();
     page.dispose();
-    endDrag();
     input.dispose();
-    document.body.style.cursor = '';
     if (window.cancelIdleCallback) window.cancelIdleCallback(idle);
     else window.clearTimeout(idle);
     if (galaxy) {

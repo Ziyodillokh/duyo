@@ -50,14 +50,30 @@ uning orqasi kameraga qaraganda almashadi.
 
 ## DUYO Robot sahifasi
 
-`duyo.uz/robot/` — robot konsepti (`public/robot/`). Huquqiy sahifalar
-kabi oddiy statik sahifa: bundle'ga bog'lanmagan, shuning uchun brauzer
-keshidagi eski nusxa ham buzilmaydi. Matni `public/robot/index.html` da,
-ko'rinishi `robot.css`, yulduzlar va paydo bo'lish `robot.js` da. CSS/JS
-yoki rasmni o'zgartirsangiz, `index.html` dagi `?v=` ni ham yangilang
-(nginx bunday fayllarni 30 kun keshlaydi). Saytdan unga navbar («Robot»),
-oxirgi bo'limdagi havola va footer olib boradi (`src/content.ts` →
-`ROBOT_PAGE`). Dev serverda `/robot/index.html` orqali oching.
+`duyo.uz/robot/` — robot konsepti, bosh sahifadagidek 3D scroll-film
+(`robot/index.html` → `src/robot/`). Bitta stansiya: DUYO turadi, ko'tarilgan
+qo'lidan proyektor nuri chiqadi, nur oxirida — gologramma-galaktika (bosh
+sahifaning galaktikasi, `buildGalaxy({ scale })`); miya xaritasi tugunlari
+DUYOning kaftidan uchib chiqib, unga aylanadi. Oltita bo'lim — konsept PDF'ning
+oltita slaydi.
+
+| Fayl | Nima |
+| --- | --- |
+| `src/robot/content.ts` | sahifaning har bir so'zi (PDF matni) |
+| `src/robot/director.ts` | scroll → kamera, nur, gologramma, yozuvlar |
+| `src/robot/runtime.ts` | sahnani quradi va har kadrda qo'llaydi |
+| `src/robot/beam.ts`, `labels.ts` | proyektor nuri; gologramma atrofidagi kartochkalar va gap pufakchasi |
+
+Ikkala sahifa bitta mexanizmda ishlaydi: `src/film.ts` qaysi bo'limlar
+o'ynashini aytadi, `ui/FilmPage.tsx` sahifa qatlami, `scene/framing.ts`
+kadrga sig'dirish, `scene/feel.ts`/`loop.ts`/`handling.ts`/`viewport.ts`
+sichqoncha, scroll va kadr. Bosh sahifadan robot sahifasiga: hero ustidagi
+«Yangi» tugmasi, navbar («Robot»), oxirgi bo'limdagi tugma va footer
+(`src/content.ts` → `ROBOT_PAGE`).
+
+Deploy eski bundle fayllarini ikki hafta saqlaydi: nginx faqat bosh sahifani
+`no-cache` qiladi, brauzer keshidagi eski `/robot/` o'z fayllarini so'rasa
+topadi.
 
 ## DUYO'ning ovozi
 
@@ -82,6 +98,7 @@ paytida subtitr bo'lib chiqadi. Fayl bo'lmasa tugma ko'rinmaydi.
 | `src/ui/duyoVoice.ts`, `VoiceButton.tsx` | ovoz: fayl bor-yo'qligi, ijro, balandlik |
 | `src/scene/measure.ts` | matn egallagan joyni o'lchaydi — sahna bo'sh joyga sig'adi |
 | `src/scene/viewport.ts` | scroll, kanvas o'lchami, o'lchangan joy |
+| `src/film.ts` | sahifa qaysi bo'limlarni o'ynaydi (bosh sahifa / robot) |
 | `src/scene/quality.ts` | sekin qurilmada piksel zichligini pasaytiradi |
 | `src/ui/layout.ts` | telefon (tik) ko'rinishi qachon yoqilishi |
 | `src/scene/phone.ts` | telefon modeli |

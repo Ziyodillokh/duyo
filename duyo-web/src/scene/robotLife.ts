@@ -30,6 +30,11 @@ export interface RobotFrame {
   motion: number;
   /** World point to look at (the camera), before the pointer's lead. */
   gaze: V3;
+  /**
+   * World point the body squares to; absent, the gaze. The robot page has
+   * DUYO face the visitor while its head turns to the hologram it projects.
+   */
+  face?: V3;
   /** Pointer, eased, −1..1 with +y DOWN (screen space). 0 under reduced motion. */
   px: number;
   py: number;
@@ -39,6 +44,11 @@ export interface RobotFrame {
   voice: number;
   /** Seconds since the recording started, or −1 when silent. */
   talking: number;
+  /**
+   * 0..1: the raised hand holds still — the robot page, where it points a
+   * projector and a wiggle would shake the beam. Absent, it never holds.
+   */
+  hold?: number;
 }
 
 /**
@@ -118,7 +128,8 @@ export function createRobotLife(robot: Robot, home: V3): RobotLife {
     // Body: in place, breathing, square to the camera and turned a touch
     // toward the copy; it settles into that at once, then eases after the
     // camera. A drag turns it.
-    const bearing = Math.atan2(f.gaze[0] - home[0], f.gaze[2] - home[2]);
+    const facing = f.face ?? f.gaze;
+    const bearing = Math.atan2(facing[0] - home[0], facing[2] - home[2]);
     const bodyTo = Math.max(-BODY_YAW_MAX, Math.min(BODY_YAW_MAX, bearing - TURN_TO_COPY));
     bodyYaw = Number.isNaN(bodyYaw) || !f.motion ? bodyTo : bodyYaw + (bodyTo - bodyYaw) * ease(BODY_FOLLOW);
     robot.root.position.set(home[0], home[1] + Math.sin(t * 1.3 + 1) * 0.03, home[2]);
@@ -175,11 +186,12 @@ export function createRobotLife(robot: Robot, home: V3): RobotLife {
     const armUp = robot.arms.children[0];
     const armDown = robot.arms.children[1];
     if (armUp && armDown) {
-      const swing = wave * Math.sin(t * WAVE_RATE) * ARM_DRIVE.wiggle;
-      const wiggle = wiggling ? bump * Math.sin(2 * Math.PI * WIGGLE.swings * u) * WIGGLE.rock : 0;
-      armUp.rotation.z = ARM_DRIVE.rest + ARM_DRIVE.lift * Math.min(1, wave + bump * WIGGLE.lift);
+      const free = 1 - (f.hold ?? 0);
+      const swing = wave * Math.sin(t * WAVE_RATE) * ARM_DRIVE.wiggle * free;
+      const wiggle = wiggling ? bump * Math.sin(2 * Math.PI * WIGGLE.swings * u) * WIGGLE.rock * free : 0;
+      armUp.rotation.z = ARM_DRIVE.rest + ARM_DRIVE.lift * Math.min(1, wave + bump * WIGGLE.lift * free);
       armUp.rotation.y = swing + wiggle;
-      armUp.rotation.x = -Math.sin(t * 0.9) * 0.04 * (1 - wave);
+      armUp.rotation.x = -Math.sin(t * 0.9) * 0.04 * (1 - wave) * free;
       armDown.rotation.x = Math.sin(t * 0.9) * 0.05;
     }
 

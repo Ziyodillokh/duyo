@@ -17,6 +17,7 @@
  */
 
 import { DUYO_VOICE } from '../content';
+import { siteRoot } from '../film';
 
 export type VoiceStatus = 'checking' | 'unavailable' | 'ready' | 'playing';
 
@@ -60,7 +61,8 @@ async function exists(src: string): Promise<boolean> {
   }
 }
 
-function createDuyoVoice(src: string): DuyoVoice {
+/** `src` is asked for when first needed: by then the page has said where the site's top is (film.ts). */
+function createDuyoVoice(src: () => string): DuyoVoice {
   let status: VoiceStatus = 'checking';
   let started = 0;
   /** Bumped on every play and stop, so a stale play() rejection cannot undo a newer state. */
@@ -89,7 +91,7 @@ function createDuyoVoice(src: string): DuyoVoice {
 
   const element = () => {
     if (audio) return audio;
-    const el = new Audio(src);
+    const el = new Audio(src());
     el.preload = 'auto';
     el.addEventListener('ended', stop);
     // Sound truly started (not merely asked for): the wave and nod go with it.
@@ -107,7 +109,7 @@ function createDuyoVoice(src: string): DuyoVoice {
   const probe = () => {
     if (probed) return;
     probed = true;
-    void exists(src).then((ok) => {
+    void exists(src()).then((ok) => {
       if (ok) element();
       set(ok ? 'ready' : 'unavailable');
     });
@@ -179,4 +181,4 @@ function createDuyoVoice(src: string): DuyoVoice {
   };
 }
 
-export const duyoVoice = createDuyoVoice(DUYO_VOICE.src);
+export const duyoVoice = createDuyoVoice(() => siteRoot() + DUYO_VOICE.src);

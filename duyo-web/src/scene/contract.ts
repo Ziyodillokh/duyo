@@ -120,6 +120,8 @@ export interface GalaxyInput {
   darkness: number;
   /** World position of the phone display's centre: where emergence begins. */
   origin: THREE.Vector3;
+  /** 0..1 on all its light, for a galaxy switched on and off (the robot page's hologram). Absent, 1. */
+  glow?: number;
 }
 
 export interface Galaxy {

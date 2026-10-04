@@ -4,10 +4,14 @@
  * opts back in, since pointer-events is inherited.
  */
 
-import { FOOTER_LINKS } from '../content';
 import { Logo } from './icons';
 
-export function Footer() {
+export interface FooterLink {
+  label: string;
+  href: string;
+}
+
+export function Footer({ links }: { links: readonly FooterLink[] }) {
   return (
     <footer className="site-footer pointer-events-auto relative z-10 px-6 md:px-12 lg:px-20">
       <div className="mx-auto flex max-w-[1240px] flex-col 2xl:max-w-[1440px] gap-5 border-t py-7 md:flex-row md:items-center md:justify-between md:py-8">
@@ -18,7 +22,7 @@ export function Footer() {
           <span className="text-[13px]">© 2026 Farzandim Tech</span>
         </div>
         <ul className="flex flex-wrap gap-x-6 gap-y-3 text-[13px]">
-          {FOOTER_LINKS.map((l) => (
+          {links.map((l) => (
             <li key={l.href}>
               <a href={l.href} className="footer-link">
                 {l.label}

@@ -8,10 +8,10 @@
  * emergence uniform — a frame is a few uniform writes. PALETTE colours only.
  *
  * ORIENTATION belongs to the caller: the root is an untilted disc in its XZ
- * plane. The module spins the disc about its own axis with `t`; callers must
- * not add a spin of their own. COMPOSITING: the stage canvas is transparent
- * over a CSS ground, so every layer adds light and leaves destination alpha
- * alone — on paper a faint brightening, over space the whole picture.
+ * plane, spun about its own axis here with `t` (callers add no spin). Every
+ * layer adds light and leaves alpha alone. SCALE: the robot page holds it as
+ * a small hologram (GalaxyOptions.scale); every view-space size and distance
+ * in the shaders scales with it, so it looks like the big one from afar.
  */
 
 import * as THREE from 'three';
@@ -57,8 +57,8 @@ const C = { white: col(PALETTE.white), sky: col(PALETTE.sky), blueBright: col(PA
 
 // ── Shaders ───────────────────────────────────────────────────────────────
 const COMMON = /* glsl */ `
-  uniform float uViewH, uDpr, uBright, uPointCap;
-  float pxSize(float worldSize, float depth) { return worldSize * projectionMatrix[1][1] * 0.5 * uViewH / max(depth, 1e-3); }
+  uniform float uViewH, uDpr, uBright, uPointCap, uScale;
+  float pxSize(float worldSize, float depth) { return worldSize * uScale * projectionMatrix[1][1] * 0.5 * uViewH / max(depth, 1e-3); }
 `;
 
 /** Stars. Below the minimum size a point keeps its size and loses energy. */
@@ -69,7 +69,7 @@ const POINT_VERT = /* glsl */ `
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     float d = -mv.z, px = pxSize(aSize, d), minPx = uMinPx * uDpr;
-    float gain = uBright * clamp((px * px) / (minPx * minPx), 0.0, 1.0) * smoothstep(uNear.x, uNear.y, d);
+    float gain = uBright * clamp((px * px) / (minPx * minPx), 0.0, 1.0) * smoothstep(uNear.x * uScale, uNear.y * uScale, d);
     // Edge-on, a thin disc stacks every sprite on the line of sight and burns out: dim by how grazing.
     float face = abs(dot(normalize(normalMatrix[1]), normalize(mv.xyz))), inDisc = step(length(position), ${DISC_RADIUS + 8}.0);
     gain *= mix(1.0, mix(uEdge, 1.0, smoothstep(0.0, 0.45, face)), inDisc);
@@ -107,7 +107,7 @@ const DISC_VERT = /* glsl */ `
 
 /** Field channels: r arm clumping, g arm hue, b star-forming knots, a lane raggedness. */
 const DISC_FRAG = /* glsl */ `
-  uniform sampler2D uField; uniform float uBright; uniform vec3 uArmA, uArmB, uKnot, uWarm;
+  uniform sampler2D uField; uniform float uBright, uScale; uniform vec3 uArmA, uArmB, uKnot, uWarm;
   varying vec2 vP; varying vec3 vView, vN;
   void main() {
     vec4 f = texture2D(uField, vP / ${(DISC_RADIUS * 2).toFixed(1)} + 0.5);
@@ -125,7 +125,7 @@ const DISC_FRAG = /* glsl */ `
     vec3 c = mix(mix(uArmA, uArmB, f.g), uKnot, smoothstep(0.62, 0.8, f.b) * arm * 0.75);
     vec3 rgb = c * light * 0.26 + uWarm * exp(-r / 2.6) * 0.05;
     // Thin away edge-on, and near the eye, where a plane would read as a floor.
-    float fade = smoothstep(0.03, 0.3, abs(dot(normalize(vN), normalize(vView)))) * smoothstep(3.0, 16.0, length(vView));
+    float fade = smoothstep(0.03, 0.3, abs(dot(normalize(vN), normalize(vView)))) * smoothstep(3.0 * uScale, 16.0 * uScale, length(vView));
     gl_FragColor = vec4(rgb * uBright * fade, 0.0);
     #include <colorspace_fragment>
     ${DITHER}
@@ -134,13 +134,13 @@ const DISC_FRAG = /* glsl */ `
 
 /** The bulge: one quad facing the camera, flattened along the disc's axis. */
 const CORE_VERT = /* glsl */ `
-  uniform float uBright, uSize; varying vec2 vOff, vAxis, vQuad; varying float vGain;
+  uniform float uBright, uSize, uScale; varying vec2 vOff, vAxis, vQuad; varying float vGain;
   void main() {
     vec4 c = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-    vQuad = position.xy; vOff = position.xy * uSize;
-    vAxis = (normalMatrix * vec3(0.0, 1.0, 0.0)).xy; // the disc's axis, on screen
-    vGain = uBright * smoothstep(0.5, 4.0, -c.z);
-    gl_Position = projectionMatrix * vec4(c.xy + vOff, c.z, 1.0);
+    vQuad = position.xy; vOff = position.xy * uSize; // the glow's shape, in the galaxy's own units
+    vAxis = normalize(normalMatrix * vec3(0.0, 1.0, 0.0)).xy; // the disc's axis, on screen (normalMatrix grows as 1/scale)
+    vGain = uBright * smoothstep(0.5 * uScale, 4.0 * uScale, -c.z);
+    gl_Position = projectionMatrix * vec4(c.xy + vOff * uScale, c.z, 1.0);
   }
 `;
 const CORE_FRAG = /* glsl */ `
@@ -178,7 +178,7 @@ const NODE_VERT = /* glsl */ `
     // Tiny as it leaves the screen, full size as it lands.
     float grow = mix(0.1, 1.0, smoothstep(0.0, 1.0, s)), breathe = 1.0 + 0.07 * sin(uTime * 1.1 + aSeed * 6.2832);
     float px = pxSize(aSize * grow * breathe, -mv.z);
-    float gain = uBright * smoothstep(0.0, 0.15, p) * smoothstep(0.6, 3.0, -mv.z);
+    float gain = uBright * smoothstep(0.0, 0.15, p) * smoothstep(0.6 * uScale, 3.0 * uScale, -mv.z);
     vColor = aColor * gain;
     gl_PointSize = min(clamp(px, 2.5 * uDpr, 28.0 * uDpr), uPointCap);
     gl_Position = gain < 0.003 ? vec4(2.0, 2.0, 2.0, 1.0) : projectionMatrix * mv;
@@ -201,7 +201,7 @@ const LINK_VERT = /* glsl */ `
     // The later end decides: a barely-there thread while it travels, full once it lands.
     float late = min(pSelf, pOther), a = 0.08 * smoothstep(0.0, 1.0, late) + 0.92 * smoothstep(0.75, 1.0, late);
     // Long spans (threads still in flight) fade out; so does the end nearest the eye.
-    a *= (1.0 - smoothstep(4.0, 8.0, length(mv.xyz - other))) * smoothstep(1.5, 5.0, -mv.z);
+    a *= (1.0 - smoothstep(4.0 * uScale, 8.0 * uScale, length(mv.xyz - other))) * smoothstep(1.5 * uScale, 5.0 * uScale, -mv.z);
     // Bridges between clusters appear only once the map has fully arrived.
     a *= mix(1.0, 0.3 * smoothstep(0.9, 1.0, uEmergence), aBridge);
     // GL lines are one device pixel: keep their energy per CSS pixel.
@@ -289,7 +289,8 @@ function starColour(r: Rng, rad: number, out: THREE.Color): THREE.Color {
   return out.lerp(C.white, warmth * 0.5).lerp(C.amber, warmth * 0.45);
 }
 
-function buildStars(): Cloud {
+/** The halo is the sky around the home page's galaxy; a hologram has none. */
+function buildStars(halo: boolean): Cloud {
   const [r, c, tmp] = [rng(7), { pos: [], color: [], size: [] } as Cloud, new THREE.Color()];
   for (let i = 0; i < COUNT.arm; i++) {
     const rad = 2.2 + 27 * Math.pow(r.next(), 1.1);
@@ -311,7 +312,7 @@ function buildStars(): Cloud {
     const [x, z] = [Math.sin(phi) * Math.cos(a) * rad, Math.sin(phi) * Math.sin(a) * rad];
     push(c, x, Math.cos(phi) * rad * 0.55, z, tmp, 0.12 + 0.16 * r.next(), 0.05 + 0.05 * r.next());
   }
-  for (let i = 0; i < COUNT.halo; i++) {
+  for (let i = 0; i < (halo ? COUNT.halo : 0); i++) {
     const [rad, a, cy] = [HALO.inner + HALO.depth * r.next(), r.next() * Math.PI * 2, 2 * r.next() - 1];
     const [sy, warm] = [Math.sqrt(1 - cy * cy), r.next() > 0.7];
     tmp.copy(C.white).lerp(warm ? C.amber : C.sky, warm ? 0.35 : 0.4 * r.next());
@@ -410,16 +411,19 @@ function linkGeometry(nodes: Nodes, links: Link[]): THREE.BufferGeometry {
 }
 
 // ── Assembly ──────────────────────────────────────────────────────────────
-/** Colour adds as light; destination alpha (the CSS ground showing through) is left alone. */
+/** Colour adds as light; destination alpha is left alone. */
 const ADD_LIGHT = {
   transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
   blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
 } as const;
 
-export function buildGalaxy(): Galaxy {
+/** scale: against the home page's galaxy (1), see SCALE above. halo: the outer shell of stars. */
+export interface GalaxyOptions { scale?: number; halo?: boolean }
+
+export function buildGalaxy({ scale = 1, halo = true }: GalaxyOptions = {}): Galaxy {
   const u = <T,>(value: T) => ({ value });
   const shared = {
-    uViewH: u(900), uDpr: u(1), uBright: u(1), uPointCap: u(511), uTime: u(0), uEmergence: u(0),
+    uViewH: u(900), uDpr: u(1), uBright: u(1), uPointCap: u(511), uTime: u(0), uEmergence: u(0), uScale: u(scale),
     uOrigin: u(new THREE.Vector3()), uToward: u(new THREE.Vector3(0, 0, 1)), uPulse: u(1),
   };
   const material = (vertexShader: string, fragmentShader: string, extra: Record<string, THREE.IUniform> = {}) =>
@@ -443,7 +447,7 @@ export function buildGalaxy(): Galaxy {
   const layers = [
     disc, core,
     // Stars stay pinpoints however close: a near star is brighter, not bigger.
-    new THREE.Points(cloudGeometry(buildStars()), material(POINT_VERT, STAR_FRAG, sprites(1.6, 3.4, [0.3, 1.2], 0.5))),
+    new THREE.Points(cloudGeometry(buildStars(halo)), material(POINT_VERT, STAR_FRAG, sprites(1.6, 3.4, [0.3, 1.2], 0.5))),
     new THREE.LineSegments(linkGeometry(nodes, links), material(LINK_VERT, LINK_FRAG)),
     new THREE.Points(geometry(nodeAttrs), material(NODE_VERT, NODE_FRAG)),
   ];
@@ -470,21 +474,20 @@ export function buildGalaxy(): Galaxy {
     spin.add(o);
   });
   const root = Object.assign(new THREE.Group().add(spin), { name: 'galaxy' });
-
+  root.scale.setScalar(scale);
   let lastT = Number.NaN;
   return {
     root,
-    update({ t, emergence, darkness, origin }: GalaxyInput) {
-      spin.rotation.y = t * SPIN;
+    update({ t, emergence, darkness, origin, glow = 1 }: GalaxyInput) {
+      [spin.rotation.y, shared.uScale.value] = [t * SPIN, root.scale.x]; // the caller may grow it (the robot page's unfold)
       // The path shaders work in the spinning disc's space; bring the origin in.
       spin.updateWorldMatrix(true, false);
       spin.worldToLocal(localOrigin.copy(origin));
       const d = Math.min(1, Math.max(0, darkness));
-      shared.uBright.value = PAPER_GLOW + (1 - PAPER_GLOW) * d * d;
+      shared.uBright.value = (PAPER_GLOW + (1 - PAPER_GLOW) * d * d) * glow;
       // The link pulse is motion: a frozen clock (reduced motion) fades it out.
       shared.uPulse.value += ((t !== lastT ? 1 : 0) - shared.uPulse.value) * 0.1;
-      lastT = t;
-      shared.uTime.value = t;
+      shared.uTime.value = lastT = t;
       shared.uEmergence.value = Math.min(1, Math.max(0, emergence));
     },
     dispose() {

@@ -8,9 +8,7 @@
  * read darkness from here.
  */
 
-import { SECTIONS } from '../content';
-
-export const SECTION_COUNT = SECTIONS.length;
+import { filmSections, sectionCount } from '../film';
 
 /**
  * Page scroll as 0..1, where 1 is the last section's arrival: its top at
@@ -31,7 +29,8 @@ export function readTail(): number {
 
 /** The scroll position where the film ends: the last section's arrival, or the bottom if that comes first. */
 function filmEnd(): number {
-  const last = document.getElementById(SECTIONS[SECTION_COUNT - 1].id);
+  const sections = filmSections();
+  const last = document.getElementById(sections[sections.length - 1].id);
   const bottom = document.documentElement.scrollHeight - window.innerHeight;
   const arrival = last ? last.getBoundingClientRect().top + window.scrollY : bottom;
   return Math.min(arrival, bottom);
@@ -45,7 +44,7 @@ export function ramp(x: number, a: number, b: number): number {
 
 /** Scroll position at which section `i` is centred in the viewport. */
 export const sectionCentre = (i: number): number =>
-  SECTION_COUNT > 1 ? i / (SECTION_COUNT - 1) : 0;
+  sectionCount() > 1 ? i / (sectionCount() - 1) : 0;
 
 /**
  * Which two sections p sits between, and how far from the first to the
@@ -53,7 +52,7 @@ export const sectionCentre = (i: number): number =>
  * while you are actually reading it and the change happens in the gap.
  */
 export function between(p: number): { a: number; b: number; k: number } {
-  const span = SECTION_COUNT - 1;
+  const span = sectionCount() - 1;
   const x = Math.min(span, Math.max(0, p * span));
   const a = Math.min(span - 1, Math.floor(x));
   const local = x - a; // 0 at centre a, 1 at centre b
@@ -65,8 +64,9 @@ export function between(p: number): { a: number; b: number; k: number } {
 /** 0 on a light section, 1 on a dark one, eased through the gap. */
 export function darknessAt(p: number): number {
   const { a, b, k } = between(p);
-  const da = SECTIONS[a].theme === 'dark' ? 1 : 0;
-  const db = SECTIONS[b].theme === 'dark' ? 1 : 0;
+  const sections = filmSections();
+  const da = sections[a].theme === 'dark' ? 1 : 0;
+  const db = sections[b].theme === 'dark' ? 1 : 0;
   return da + (db - da) * k;
 }
 

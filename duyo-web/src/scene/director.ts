@@ -29,10 +29,13 @@
  */
 
 import { PHONE_DIMS } from './contract';
+import { add, frameShot, lerp, lerp3, scale, sub } from './framing';
+import type { Half, SectionFrame, V3, View } from './framing';
 import type { ScreenId } from './contract';
-import { SECTION_COUNT, between, darknessAt, ramp } from './timeline';
+import { between, darknessAt, ramp } from './timeline';
+import { sectionCount } from '../film';
 
-type V3 = [number, number, number];
+export type { SectionFrame, View };
 
 // ── Stations ──────────────────────────────────────────────────────────────
 
@@ -47,9 +50,11 @@ export const ROBOT_SCALE = 0.8;
  * turn, the breath and a drag. The width is the waving hand's: it reaches
  * 2.2 at rest and 2.39 at the far end of the hello.
  */
-const ROBOT_MID: V3 = [0, 0.29 * ROBOT_SCALE, 0];
+export const ROBOT_MID: V3 = [0, 0.29 * ROBOT_SCALE, 0];
 const ROBOT_HALF_W = 2.4 * ROBOT_SCALE;
 const ROBOT_HALF_H = 2.28 * ROBOT_SCALE;
+/** DUYO's half-extents as a subject to frame (scene/framing.ts). */
+export const ROBOT_HALF: Half = { w: ROBOT_HALF_W, h: ROBOT_HALF_H };
 
 /** The phone's station: off to the right and deep, at the galaxy's near edge. */
 export const PHONE_POS: V3 = [16, 1.2, -16];
@@ -60,66 +65,6 @@ const PHONE_HALF_H = PHONE_DIMS.height / 2 + 0.15;
 /** Galaxy centre and tilt, placed from the phone: it floats inside the disc's near edge. */
 export const GALAXY_POS: V3 = [PHONE_POS[0], PHONE_POS[1] - 1.85, PHONE_POS[2] - 9];
 export const GALAXY_TILT: V3 = [0.42, 0, 0.18];
-
-// ── Framing ───────────────────────────────────────────────────────────────
-
-/** A span of the screen in normalised units: its centre and half its size. */
-interface Band {
-  centre: number;
-  half: number;
-}
-
-/**
- * The space the copy leaves free in one section, in normalised screen x
- * (−1 left edge, +1 right edge): its centre and half its width. Measured
- * from the DOM by the runtime, so the subject fits whatever the page's
- * layout actually is at this width, instead of a guess per breakpoint.
- */
-export interface SectionFrame extends Band {
-  /**
-   * Stacked (phone) layouts only: the free band between the nav and the top
-   * of the copy, in normalised screen y (+1 top), as centre and half height.
-   */
-  band?: Band;
-}
-
-export interface View {
-  aspect: number;
-  fovDeg: number;
-  /** The page stacks copy under the subject (phone width). */
-  stacked: boolean;
-  /** One per section; absent until measured. */
-  frames?: readonly SectionFrame[];
-  /**
-   * Side by side: the share of the canvas's height, from its top, that shows
-   * with the browser's bars in (100svh over the canvas's 100lvh). The shot
-   * is fitted and centred in it, so a phone held sideways never has the
-   * subject's feet under its bars. 1, or absent, where there are no bars.
-   */
-  visible?: number;
-}
-
-/** Fill at most this much of the free space, so nothing touches an edge. */
-const FIT_W = 0.92;
-/** …and of the height, which leaves the floating nav clear. */
-const FIT_H = 0.8;
-/** Until the copy is measured: subject centred a third of the way to its side. */
-const FALLBACK_HALF = 0.55;
-/** Until measured: the band from just under the nav to a little above the middle. */
-const FALLBACK_BAND: Band = { centre: 0.47, half: 0.35 };
-/** Stacked: the subject may use this much of the band's height. */
-const STACKED_FIT_H = 0.9;
-/**
- * A band shorter than this cannot hold anything anyone could see. A phone
- * held sideways leaves a sliver between the nav and the copy, and fitting
- * into it pushed the camera out to a 20 px speck. Below SLIVER the subject
- * takes the whole height under the nav instead, at an ordinary distance —
- * behind the copy's scrim while it is read, whole as it scrolls away. Up to
- * ROOMY the two blend, so a band that changes with the URL bar never flips
- * the shot. Measured over the screen's short side: in effect ~50 and ~75 px.
- */
-const SLIVER = 0.14;
-const ROOMY = 0.2;
 
 /**
  * The flight between stations is a curve, not a line: the camera first
@@ -166,7 +111,7 @@ const SCREENS: ScreenId[] = ['chat', 'chat', 'safety', 'map', 'goals', 'home'];
 const MAP_SECTION = SCREENS.indexOf('map');
 
 const MIDS: Record<Subject, V3> = { robot: ROBOT_MID, phone: PHONE_POS };
-const HALF: Record<Subject, { w: number; h: number }> = {
+const HALF: Record<Subject, Half> = {
   robot: { w: ROBOT_HALF_W, h: ROBOT_HALF_H },
   phone: { w: PHONE_HALF_W, h: PHONE_HALF_H },
 };
@@ -193,99 +138,17 @@ export interface DirectorState {
   robotShown: number;
 }
 
-const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
-const lerp3 = (a: V3, b: V3, k: number): V3 => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
-const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const scale = (a: V3, s: number): V3 => [a[0] * s, a[1] * s, a[2] * s];
-const length = (a: V3) => Math.hypot(a[0], a[1], a[2]);
-
-/**
- * The band a stacked shot is framed in. A sliver becomes the whole height
- * under the nav: the band's top mirrored about the middle of the screen, so
- * the top edge — the nav's clearance — stays where it was measured all the
- * way through the blend.
- */
-function usableBand(band: Band, aspect: number): Band {
-  const top = band.centre + band.half;
-  const k = ramp(band.half / Math.min(1, aspect), SLIVER, ROOMY);
-  return { centre: lerp(0, band.centre, k), half: lerp(top, band.half, k) };
-}
-
-/**
- * How far camera and target must drop together so that `point` lands at
- * screen height `ndcY`. Dropping both keeps the camera's orientation, so the
- * point's height and depth in camera space each change linearly with the
- * drop, and the answer is exact at the point's own depth.
- */
-function dropOnto(point: V3, target: V3, toCam: V3, tanHalf: number, ndcY: number): number {
-  const reach = length(toCam);
-  const fwd = scale(toCam, -1 / reach);
-  // A lookAt camera's up is world +y with its share along fwd removed.
-  const cosPitch = Math.sqrt(1 - fwd[1] * fwd[1]);
-  const d = sub(point, target);
-  const along = d[0] * fwd[0] + d[1] * fwd[1] + d[2] * fwd[2];
-  const depth = reach + along;
-  const height = (d[1] - fwd[1] * along) / cosPitch;
-  const slope = ndcY * tanHalf;
-  return (slope * depth - height) / (cosPitch - slope * fwd[1]);
-}
-
-/** How far back the camera must stand, and where on screen the subject goes. */
-interface Fit {
-  want: number;
-  /** Stacked: the subject's middle in screen y. Side by side: in screen x. */
-  at: number;
-}
-
-/** A phone screen stacks the copy under the subject: fit it into the band above. */
-function fitStacked(view: View, a: number, b: number, k: number, half: { w: number; h: number }, tanHalf: number): Fit {
-  const ba = usableBand(view.frames?.[a]?.band ?? FALLBACK_BAND, view.aspect);
-  const bb = usableBand(view.frames?.[b]?.band ?? FALLBACK_BAND, view.aspect);
-  const bandHalf = Math.max(0.12, lerp(ba.half, bb.half, k));
-  const want = Math.max(
-    half.w / (FIT_W * tanHalf * view.aspect),
-    half.h / (STACKED_FIT_H * tanHalf * bandHalf),
-  );
-  return { want, at: lerp(ba.centre, bb.centre, k) };
-}
-
-/** Side by side: the camera backs off until the subject fits the space the copy leaves. */
-function fitSide(view: View, a: number, b: number, k: number, half: { w: number; h: number }, tanHalf: number): Fit {
-  const fa = view.frames?.[a] ?? { centre: 0.34 * KEYS[a].shift, half: FALLBACK_HALF };
-  const fb = view.frames?.[b] ?? { centre: 0.34 * KEYS[b].shift, half: FALLBACK_HALF };
-  const frameHalf = Math.max(0.2, lerp(fa.half, fb.half, k));
-  const want = Math.max(
-    half.w / (frameHalf * FIT_W * tanHalf * view.aspect),
-    half.h / (FIT_H * tanHalf * (view.visible ?? 1)),
-  );
-  return { want, at: lerp(fa.centre, fb.centre, k) };
-}
-
 /**
  * How far through section i's own reading window p is: 0 as it arrives,
  * 1 as it leaves. The screen animations are scrubbed by this, so a message
  * types in while its section is actually on screen.
  */
 function localProgress(p: number, i: number): number {
-  const span = SECTION_COUNT - 1;
+  const span = sectionCount() - 1;
   const x = p * span;
   const lo = i === 0 ? 0 : i - 0.5;
   const hi = i === span ? span : i + 0.5;
   return Math.min(1, Math.max(0, (x - lo) / (hi - lo)));
-}
-
-/**
- * Side by side: across to the subject's side of the screen, and down so its
- * middle sits in the middle of the part the bars leave showing (screen y
- * 1 − visible), which with no bars is the middle of the screen.
- */
-function sideSlide(mid: V3, target: V3, toCam: V3, at: number, view: View, tanHalf: number): V3 {
-  const visible = view.visible ?? 1;
-  const across = -at * length(toCam) * tanHalf * view.aspect;
-  if (visible >= 1) return [across, 0, 0];
-  const moved = add(target, [across, 0, 0]);
-  return [across, -dropOnto(mid, moved, toCam, tanHalf, 1 - visible), 0];
 }
 
 /** Scroll-scrubbed progress for a screen's animation within its section. */
@@ -294,7 +157,7 @@ const screenProgress = (p: number, i: number) => ramp(localProgress(p, i), 0.08,
 const playsIn = (i: number) => (i === 0 ? 1 : i);
 
 export function direct(p: number, view: View, spinEnabled = true): DirectorState {
-  const { fovDeg, stacked } = view;
+  const { fovDeg } = view;
   const { a, b, k } = between(p);
   const ka = KEYS[a];
   const kb = KEYS[b];
@@ -313,23 +176,8 @@ export function direct(p: number, view: View, spinEnabled = true): DirectorState
   // of the two finished shots. Blending positions of finished shots (rather
   // than their parameters) is what makes the station-to-station flight a
   // clean move: at k=0 and k=1 it is exactly each section's own framing.
-  const shot = (key: Key, i: number): { look: V3; pos: V3 } => {
-    const mid = MIDS[key.subject];
-    const half = HALF[key.subject];
-    const rel = sub(key.cam, key.look);
-    const dist = length(rel);
-    const fit = (stacked ? fitStacked : fitSide)(view, i, i, 0, half, tanHalf);
-    const want = Math.max(dist, fit.want);
-    // The pull-out goes on after the fit, scaled with it, so it survives
-    // wherever the fit, not the key, sets the distance.
-    const toCam = scale(add(rel, i === MAP_SECTION ? pull : [0, 0, 0]), want / dist);
-    const target = add(mid, key.look);
-    const slide: V3 = stacked
-      ? [0, -dropOnto(mid, target, toCam, tanHalf, fit.at), 0]
-      : sideSlide(mid, target, toCam, fit.at, view, tanHalf);
-    const look = add(target, slide);
-    return { look, pos: add(look, toCam) };
-  };
+  const shot = (key: Key, i: number) =>
+    frameShot(view, i, { mid: MIDS[key.subject], half: HALF[key.subject], cam: key.cam, look: key.look, shift: key.shift }, tanHalf, i === MAP_SECTION ? pull : [0, 0, 0]);
   const sa = shot(ka, a);
   const sb = shot(kb, b);
   // Between stations the camera first backs away still watching DUYO, then

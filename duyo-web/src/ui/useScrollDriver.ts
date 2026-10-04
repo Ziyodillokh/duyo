@@ -28,7 +28,7 @@
 import { useEffect, useLayoutEffect, type RefObject } from 'react';
 import { PALETTE } from '../scene/contract';
 import { between, darknessAt, ramp, readScroll } from '../scene/timeline';
-import { SECTIONS } from '../content';
+import { filmSections } from '../film';
 import { groundAt, groundStep } from './ground';
 import { arrangeCaptions, captionsFlow, isStacked } from './layout';
 import { DARK_CHROME_AT } from './theme';
@@ -40,7 +40,7 @@ interface DriverRefs {
 
 /** Tops of each section in document coordinates. Re-read on resize only. */
 function measureTops(): number[] {
-  return SECTIONS.map((s) => {
+  return filmSections().map((s) => {
     const el = document.getElementById(s.id);
     return el ? el.getBoundingClientRect().top + window.scrollY : 0;
   });
@@ -88,7 +88,8 @@ function captionFade(i: number, a: number, b: number, k: number): number {
 }
 
 function gapFade(i: number, a: number, b: number, k: number): number {
-  if (SECTIONS[a].theme === SECTIONS[b].theme) return 1;
+  const sections = filmSections();
+  if (sections[a].theme === sections[b].theme) return 1;
   if (i === a) return 1 - ramp(k, OUT_FROM, OUT_BY);
   if (i === b) return ramp(k, IN_FROM, IN_BY);
   return 1;
@@ -151,7 +152,7 @@ function activeIndex(tops: number[]): number {
  */
 function honourInitialHash(): void {
   const id = decodeURIComponent(window.location.hash.slice(1));
-  if (!id || !SECTIONS.some((s) => s.id === id)) return;
+  if (!id || !filmSections().some((s) => s.id === id)) return;
   const el = document.getElementById(id);
   if (!el) return;
   window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY, behavior: 'instant' });
@@ -168,9 +169,9 @@ export function useScrollDriver(refs: DriverRefs, onActive: (index: number) => v
     const root = document.documentElement;
     const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     let tops = measureTops();
-    const findSections = () => SECTIONS.map((sec) => document.getElementById(sec.id));
+    const findSections = () => filmSections().map((sec) => document.getElementById(sec.id));
     let sectionEls = findSections();
-    const lastFade = SECTIONS.map(() => -1);
+    const lastFade = filmSections().map(() => -1);
     let raf = 0;
     let lastStep = -1;
     let lastProgress = -1;

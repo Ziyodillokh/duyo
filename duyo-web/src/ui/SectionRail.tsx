@@ -5,15 +5,15 @@
  * current section's name instead.
  */
 
-import { SECTIONS } from '../content';
+import type { Section } from '../content';
 
-export function SectionRail({ activeId }: { activeId: string }) {
+export function SectionRail({ sections, activeId }: { sections: readonly Section[]; activeId: string }) {
   return (
     <nav
       aria-label="Bo‘limlar bo‘ylab"
       className="rail fixed right-5 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-end lg:flex xl:right-7"
     >
-      {SECTIONS.map((s, i) => (
+      {sections.map((s, i) => (
         <a
           key={s.id}
           href={`#${s.id}`}

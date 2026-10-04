@@ -4,8 +4,8 @@ name: Deploy landing
 # then rsynced to /opt/duyo/landing, the folder duyo.uz's nginx container
 # serves read-only (duyo-docs/runbooks/landing-nginx.md). The legal pages
 # Play links to — /privacy.html, /terms.html, /account-deletion.html — live
-# in duyo-web/public and ship at exactly those URLs, as does the DUYO Robot
-# concept page at /robot/ (a folder with its own index.html).
+# in duyo-web/public and ship at exactly those URLs. The DUYO Robot page is
+# a second page of the bundle (duyo-web/robot/index.html → /robot/).
 #
 # Rollback: every deploy first copies the live folder to
 # /opt/duyo/landing.prev-<timestamp> (the last three are kept). To go back:
@@ -52,12 +52,13 @@ jobs:
       - name: Check the bundle
         run: |
           set -e
-          for f in index.html privacy.html terms.html account-deletion.html robots.txt sitemap.xml favicon.ico og.jpg legal/legal.css legal/legal.js robot/index.html robot/robot.css robot/robot.js robot/og-robot.jpg; do
+          for f in index.html privacy.html terms.html account-deletion.html robots.txt sitemap.xml favicon.ico og.jpg legal/legal.css legal/legal.js robot/index.html robot/og-robot.jpg; do
             test -s "dist/$f" || { echo "  ✗ dist/$f missing"; exit 1; }
           done
           grep -q '<article lang="uz"' dist/privacy.html
           grep -q '<div id="root">' dist/index.html
-          grep -q 'id="hero-title"' dist/robot/index.html
+          grep -q '<div id="root">' dist/robot/index.html
+          grep -q 'DUYO Robot' dist/robot/index.html
           echo "  ✓ bundle complete"
 
       - name: Install SSH key
@@ -83,13 +84,20 @@ jobs:
 
       # Assets first, pages last: while the copy runs, a visitor never gets a
       # new index.html that points at a bundle not yet uploaded. The second
-      # pass removes whatever the old site left behind.
+      # pass removes whatever the old site left behind — except the hashed
+      # bundle files of earlier deploys. nginx marks only the home page
+      # no-cache; a browser may keep /robot/ (or any other page) for a while
+      # by its own reckoning, and that copy asks for the bundle it was built
+      # with. Those files stay two weeks (rsync -a stamps every current one
+      # with this build's time, so only the superseded ones age), then go.
       - name: Rsync dist → /opt/duyo/landing
         run: |
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes"
           TARGET="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/landing/"
           rsync -az --no-perms --exclude='*.html' -e "$SSH" dist/ "$TARGET"
-          rsync -az --no-perms --delete -e "$SSH" dist/ "$TARGET"
+          rsync -az --no-perms --delete --filter='P assets/**' -e "$SSH" dist/ "$TARGET"
+          $SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            'find /opt/duyo/landing/assets -type f -mtime +14 -print -delete | sed "s/^/  pruned /"'
 
       - name: Smoke test duyo.uz (with retry)
         run: |
@@ -105,7 +113,7 @@ jobs:
           check https://duyo.uz/privacy.html 'data-legal-lang="uz"'
           check https://duyo.uz/terms.html 'data-legal-lang="uz"'
           check https://duyo.uz/account-deletion.html 'data-legal-lang="uz"'
-          check https://duyo.uz/robot/ 'id="hero-title"'
+          check https://duyo.uz/robot/ 'DUYO Robot — AI ekrandan chiqadi'
           check https://duyo.uz/robots.txt 'Sitemap: https://duyo.uz/sitemap.xml'
           test "$(curl -sS -o /dev/null -w '%{content_type}' https://duyo.uz/og.jpg)" = "image/jpeg"
           echo "  ✓ duyo.uz is serving the new site"
