@@ -162,6 +162,17 @@ html[data-ground='dark'] .nav-glass {
 }
 html[data-ground='dark'] .nav-logo { color: color-mix(in srgb, var(--c-white) 82%, transparent); }
 html[data-ground='dark'] .nav-item { color: color-mix(in srgb, var(--c-white) 60%, transparent); }
+
+/* The logo sits on white on every ground, as it does on the app's icon:
+   the gradient D was drawn for a white tile, and its counter shows the
+   tile through it. Declared after the dark-ground rule so it wins there. */
+.nav-logo,
+html[data-ground='dark'] .nav-logo {
+  background-color: #fff;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--c-white) 55%, transparent),
+    0 8px 22px -10px color-mix(in srgb, var(--c-blue) 70%, transparent);
+}
 html[data-ground='dark'] .nav-item:hover { color: var(--c-white); }
 html[data-ground='dark'] .nav-item[aria-current='true'] {
   color: var(--c-white);
@@ -209,7 +220,7 @@ html[data-ground='dark'] .rail { --rail-ink: var(--c-white); }
    space ground is about 9:1, well past AA for its 13px text. */
 .site-footer { color: color-mix(in srgb, var(--c-white) 62%, transparent); }
 .site-footer > div { border-color: color-mix(in srgb, var(--c-white) 10%, transparent); }
-.footer-mark { background: color-mix(in srgb, var(--c-white) 8%, transparent); }
+.footer-mark { background: #fff; }
 .footer-link { transition: color 180ms ease; }
 .footer-link:hover { color: var(--c-white); }
 

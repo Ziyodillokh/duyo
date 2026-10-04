@@ -13,7 +13,7 @@ export function Footer() {
       <div className="mx-auto flex max-w-[1240px] flex-col 2xl:max-w-[1440px] gap-5 border-t py-7 md:flex-row md:items-center md:justify-between md:py-8">
         <div className="flex items-center gap-2.5">
           <span className="footer-mark flex h-7 w-7 items-center justify-center rounded-full">
-            <Logo size={18} />
+            <Logo size={20} />
           </span>
           <span className="text-[13px]">© 2026 Farzandim Tech</span>
         </div>

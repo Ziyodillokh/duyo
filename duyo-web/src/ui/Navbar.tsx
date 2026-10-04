@@ -28,7 +28,7 @@ export function Navbar({ activeId }: { activeId: string }) {
         aria-label="DUYO — sahifa boshiga"
         className="nav-glass nav-logo pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
       >
-        <Logo />
+        <Logo size={28} />
       </a>
 
       <nav

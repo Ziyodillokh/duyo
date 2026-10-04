@@ -145,6 +145,16 @@ a {
   font-size: 17px;
   letter-spacing: 0.02em;
 }
+.brand img {
+  /* On white, as on the app's icon: the D was drawn for a white tile. */
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 6px 18px -8px rgba(37, 99, 235, 0.7);
+}
 .langs {
   display: inline-flex;
   padding: 3px;
