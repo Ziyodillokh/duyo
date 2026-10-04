@@ -118,9 +118,28 @@ almashtirilsa, bu model ham yangilanishi kerak.
 - ko'rinmay qolgan matn bosilmaydi; klaviatura fokusi uni ko'rinadigan joyga
   olib keladi
 
+## Huquqiy sahifalar
+
+`public/privacy.html`, `terms.html`, `account-deletion.html` — Google Play aynan
+shu manzillarga havola beradi, shuning uchun nomlari o'zgarmasin. Ularda matn
+uch tilda (`<article lang="uz|ru|en">`), til almashtirgich `public/legal/legal.js`,
+ko'rinishi `public/legal/legal.css`. Matnni o'zgartirsangiz — uchala tilda.
+
 ## Deploy
 
-`npm run build` → `dist/`. `base: './'` bo'lgani uchun istalgan papkadan
-ishlaydi. Ijtimoiy tarmoq uchun rasm (`og:image`) hali yo'q — deploy manzili
-aniq bo'lgach, mutlaq URL bilan qo'shing va `twitter:card` ni
-`summary_large_image` ga qaytaring.
+`main` ga push (faqat `duyo-web/**` o'zgarsa) → GitHub Actions
+`.github/workflows/deploy-landing.yml`: `npm ci && npm run build`, bundle'da
+huquqiy sahifalar borligini tekshiradi, serverdagi joriy saytni
+`/opt/duyo/landing.prev-<vaqt>` ga zaxiralaydi, `dist/` ni `/opt/duyo/landing`
+ga chiqaradi va duyo.uz ni tekshiradi. Qo'lda ham ishga tushirsa bo'ladi
+(Actions → Deploy landing → Run workflow).
+
+Orqaga qaytarish (serverda):
+
+```bash
+ls -d /opt/duyo/landing.prev-*            # oxirgi uchtasi saqlanadi
+rsync -a --delete /opt/duyo/landing.prev-<vaqt>/ /opt/duyo/landing/
+```
+
+duyo.uz nginx'i qat'iy CSP yuboradi (`default-src 'self'`): sayt hech qanday
+tashqi manbadan shrift, skript yoki stil yuklamasligi kerak — hammasi o'zimizda.

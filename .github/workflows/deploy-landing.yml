@@ -1,20 +1,20 @@
 name: Deploy landing
 
-# duyo.uz — sotuv sayti. Build tizimi yo'q (sof HTML/CSS/JS), shuning uchun
-# deploy = rsync. Chiqadigan joy: /opt/duyo/landing (admin uchun /opt/duyo/admin
-# ishlatilgani kabi — nginx konteyneri shu papkani :ro qilib ulaydi).
+# duyo.uz — the DUYO site (duyo-web: Vite + React + three.js). Built here,
+# then rsynced to /opt/duyo/landing, the folder duyo.uz's nginx container
+# serves read-only (duyo-docs/runbooks/landing-nginx.md). The legal pages
+# Play links to — /privacy.html, /terms.html, /account-deletion.html — live
+# in duyo-web/public and ship at exactly those URLs.
 #
-# Deploydan oldin APK versiyasi/hajmi index.html ga muhrlanadi: yuklab olish
-# havolasi doimiy manzilga qaraydi (build-apk.yml uni yangilab turadi), lekin
-# yonidagi "v1.0.0 · 125 MB" yozuvi matn — u eskirmasligi uchun har deployda
-# jonli version.json dan yangilanadi.
+# Rollback: every deploy first copies the live folder to
+# /opt/duyo/landing.prev-<timestamp> (the last three are kept). To go back:
+#   rsync -a --delete /opt/duyo/landing.prev-<timestamp>/ /opt/duyo/landing/
 on:
   push:
     branches: [main]
     paths:
-      - "duyo-landing/**"
+      - "duyo-web/**"
       - ".github/workflows/deploy-landing.yml"
-  # Yangi APK chiqqanda versiya yozuvini yangilash uchun qo'lda ham yuritiladi.
   workflow_dispatch:
 
 concurrency:
@@ -23,22 +23,40 @@ concurrency:
 
 jobs:
   deploy:
-    name: Stamp APK version + deploy landing
+    name: Build duyo-web + deploy to duyo.uz
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: duyo-web
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: 20
+          cache: npm
+          cache-dependency-path: duyo-web/package-lock.json
 
-      # Tarmoq nosozligi deploy'ni to'xtatmasin: yorliq eskirgan bo'lib qolsa
-      # ham sayt chiqishi kerak, havolaning o'zi baribir to'g'ri.
-      - name: Stamp live APK version + size
-        continue-on-error: true
-        run: python duyo-landing/tools/stamp_apk_meta.py
+      - name: Install
+        run: npm ci
+
+      - name: Build (typecheck + bundle)
+        run: npm run build
+
+      # The legal pages and the crawler files must be in the bundle: Play's
+      # listing points at the first three, and a deploy without them would
+      # take them offline.
+      - name: Check the bundle
+        run: |
+          set -e
+          for f in index.html privacy.html terms.html account-deletion.html robots.txt sitemap.xml favicon.ico og.jpg legal/legal.css legal/legal.js; do
+            test -s "dist/$f" || { echo "  ✗ dist/$f missing"; exit 1; }
+          done
+          grep -q '<article lang="uz"' dist/privacy.html
+          grep -q '<div id="root">' dist/index.html
+          echo "  ✓ bundle complete"
 
       - name: Install SSH key
         run: |
@@ -49,32 +67,42 @@ jobs:
           echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      # tools/ — deploy vositasi, saytning bir qismi emas.
-      - name: Rsync duyo-landing → /opt/duyo/landing
+      - name: Back up the live site
         run: |
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes"
-          $SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mkdir -p /opt/duyo/landing'
-          rsync -avz --delete --no-perms \
-            --exclude='tools/' --exclude='*.md' \
-            -e "$SSH" \
-            duyo-landing/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/landing/
+          $SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            set -e
+            mkdir -p /opt/duyo/landing
+            stamp=$(date -u +%Y%m%d%H%M%S)
+            cp -a /opt/duyo/landing /opt/duyo/landing.prev-$stamp
+            ls -1d /opt/duyo/landing.prev-* | sort | head -n -3 | xargs -r rm -rf
+            echo "backup: /opt/duyo/landing.prev-$stamp"
+          '
 
-      - name: Smoke test (duyo.uz served, with retry)
+      # Assets first, pages last: while the copy runs, a visitor never gets a
+      # new index.html that points at a bundle not yet uploaded. The second
+      # pass removes whatever the old site left behind.
+      - name: Rsync dist → /opt/duyo/landing
         run: |
-          set -e
-          for i in 1 2 3 4 5 6; do
-            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 https://duyo.uz/ || echo 000)
-            body=$(curl -sS --max-time 10 https://duyo.uz/ || true)
-            if [ "$code" = "200" ] && printf '%s' "$body" | grep -q 'sec-hero'; then
-              echo "  ✓ duyo.uz serving the landing (attempt $i)"
-              exit 0
-            fi
-            echo "  … attempt $i got $code (landing markup not detected), retrying in 5s"
-            sleep 5
-          done
-          echo "  ✗ duyo.uz is not serving the landing."
-          echo "    Fayllar /opt/duyo/landing ga chiqdi, lekin nginx hali o'sha"
-          echo "    papkani duyo.uz uchun root qilib ko'rsatmayapti —"
-          echo "    duyo-docs/runbooks/landing-nginx.md ga qarang."
-          exit 1
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          TARGET="${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/duyo/landing/"
+          rsync -az --no-perms --exclude='*.html' -e "$SSH" dist/ "$TARGET"
+          rsync -az --no-perms --delete -e "$SSH" dist/ "$TARGET"
+
+      - name: Smoke test duyo.uz (with retry)
+        run: |
+          check() { # url, expected substring
+            for i in 1 2 3 4 5 6; do
+              body=$(curl -sS --max-time 15 "$1" || true)
+              if printf '%s' "$body" | grep -q "$2"; then echo "  ✓ $1"; return 0; fi
+              echo "  … $1 not ready (attempt $i), retrying in 5s"; sleep 5
+            done
+            echo "  ✗ $1 does not contain: $2"; return 1
+          }
+          check https://duyo.uz/ '<div id="root">'
+          check https://duyo.uz/privacy.html 'data-legal-lang="uz"'
+          check https://duyo.uz/terms.html 'data-legal-lang="uz"'
+          check https://duyo.uz/account-deletion.html 'data-legal-lang="uz"'
+          check https://duyo.uz/robots.txt 'Sitemap: https://duyo.uz/sitemap.xml'
+          test "$(curl -sS -o /dev/null -w '%{content_type}' https://duyo.uz/og.jpg)" = "image/jpeg"
+          echo "  ✓ duyo.uz is serving the new site"

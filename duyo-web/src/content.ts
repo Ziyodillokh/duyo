@@ -23,7 +23,8 @@
  * address or a number typed in pieces, so the copy names what it finds and
  * says what happens when it does.
  *
- * Every href is live — verified with a HEAD request when this was written.
+ * Every href is live: the APK and the legal pages (which ship with this site,
+ * public/*.html) were checked with a request when this was written.
  */
 
 export type Theme = 'light' | 'dark';
@@ -70,7 +71,8 @@ export const SUPPORT_EMAIL = 'duyosupport@gmail.com';
  */
 export const DUYO_VOICE = {
   src: './audio/duyo-salom.mp3',
-  listen: 'DUYO’ni tinglang',
+  // Suffixes join a name directly in Uzbek: DUYOni, not DUYO'ni.
+  listen: 'DUYOni tinglang',
   stop: 'To‘xtatish',
   transcript: '',
 } as const;
@@ -80,10 +82,10 @@ export const DUYO_VOICE = {
  * leads to says in full: it speaks Uzbek, it solves a problem step by step
  * on the board (maths, physics, chemistry), and peer messages are screened.
  */
-export const HERO_POINTS = ['O‘zbek tilida gaplashadi', 'Masalani qadamma-qadam yechadi', 'Har bir xabar tekshiriladi'] as const;
+export const HERO_POINTS = ['O‘zbek tilida gaplashadi', 'Masalalarni bosqichma-bosqich yechadi', 'Har bir xabar tekshiriladi'] as const;
 
 /** The hint at the foot of the hero that the page goes on. */
-export const SCROLL_HINT = 'Pastga suring';
+export const SCROLL_HINT = 'Pastga aylantiring';
 
 export const SECTIONS: Section[] = [
   {
@@ -91,9 +93,9 @@ export const SECTIONS: Section[] = [
     nav: 'DUYO',
     theme: 'dark',
     layout: 'left',
-    badge: '13–16 yosh uchun · o‘zbek tilida',
+    badge: '13–16 yoshlilar uchun · o‘zbek tilida',
     heading: 'Salom! Men — DUYO.',
-    body: 'O‘zbek tilidagi AI hamrohingizman: savollaringizga qadamma-qadam javob beraman, maqsadingizni qadamlarga bo‘laman.',
+    body: 'O‘zbek tilida gaplashadigan sun’iy intellekt hamrohingizman: darsda qiynalgan mavzularingizni tushuntiraman va maqsadingizga erishishga yordam beraman.',
     ctas: [
       { label: 'Ilovani yuklab olish', href: APK_URL, variant: 'primary' },
       { label: 'Qanday ishlaydi', href: '#savol', variant: 'ghost' },
@@ -106,7 +108,7 @@ export const SECTIONS: Section[] = [
     layout: 'right',
     badge: 'Dars yordami',
     heading: 'Savol bering. DUYO qadamma-qadam tushuntiradi.',
-    body: 'Matematika, fizika, kimyo — o‘z tilingizda so‘rang. Masala doskada bosqichma-bosqich yechiladi: faqat natija emas, yo‘li ham.',
+    body: 'Matematika, fizika va kimyodan savolingizni o‘z tilingizda bering. Masala doskada bosqichma-bosqich yechiladi: faqat javob emas, yechim yo‘li ham.',
   },
   {
     id: 'xavfsizlik',
@@ -115,11 +117,11 @@ export const SECTIONS: Section[] = [
     layout: 'left',
     badge: 'Xavfsizlik',
     heading: 'Har bir xabar yetkazilishdan oldin tekshiriladi.',
-    body: 'Telefon raqami, havola yoki xavfli so‘z topilsa — xabar yetib bormaydi. Inqiroz belgilari aniqlansa, ishonch telefoni raqami darhol ko‘rsatiladi.',
+    body: 'Xabarda telefon raqami, havola yoki xavfli so‘z topilsa, u yetkazilmaydi. Inqiroz belgilari sezilsa, ishonch telefoni raqami darhol ko‘rsatiladi.',
     proof: [
-      { value: '3', label: 'mustaqil tekshiruv — har bir xabar matnida' },
+      { value: '3', label: 'mustaqil tekshiruv — har bir xabar matni uchun' },
       { value: 'Taxallus', label: 'ism va telefon o‘rniga' },
-      { value: '1142', label: 'inqiroz holatida ishonch telefoni' },
+      { value: '1142', label: 'inqirozli vaziyatda ishonch telefoni' },
     ],
   },
   {
@@ -129,7 +131,7 @@ export const SECTIONS: Section[] = [
     layout: 'right',
     badge: 'Miya xaritasi',
     heading: 'O‘rganganlaringiz bilim xaritasiga aylanadi.',
-    body: 'Suhbatda o‘rgangan mavzularingiz o‘zi tugunga aylanadi va bir-biriga bog‘lanadi. Qancha ko‘p o‘rgansangiz, galaktika shuncha o‘sadi.',
+    body: 'Suhbatlarda o‘rgangan mavzularingiz xaritada tugunlarga aylanib, bir-biri bilan bog‘lanadi. Qancha ko‘p o‘rgansangiz, bilimlar galaktikangiz shuncha kengayadi.',
   },
   {
     id: 'maqsad',
@@ -138,7 +140,7 @@ export const SECTIONS: Section[] = [
     layout: 'left',
     badge: 'Maqsadlar',
     heading: 'Maqsad qo‘ying — DUYO uni qadamlarga bo‘ladi.',
-    body: 'Katta maqsad kichik qadamlarga ajraladi, har biri belgilab boriladi. Bir xil maqsaddagi tengdoshlarni topasiz — taxallus bilan, xavfsiz.',
+    body: 'Katta maqsad kichik qadamlarga ajratiladi, bajarilgan har bir qadam belgilanib boradi. Shu maqsad sari intilayotgan tengdoshlaringizni ham topasiz — taxallus ostida, xavfsiz.',
   },
   {
     id: 'yuklab',
@@ -147,14 +149,14 @@ export const SECTIONS: Section[] = [
     layout: 'right',
     badge: 'Bepul boshlang',
     heading: 'DUYO bilan bugun tanishing.',
-    body: 'Android uchun. Bepul rejada kuniga 20 ta xabar — ulardan 10 tasigacha ovozli.',
+    body: 'Android qurilmalar uchun. Bepul tarifda kuniga 20 tagacha xabar yuborish mumkin, ulardan 10 tasigacha ovozli.',
     ctas: [{ label: 'Android uchun yuklab olish', href: APK_URL, variant: 'primary' }],
   },
 ];
 
 export const FOOTER_LINKS = [
-  { label: 'Maxfiylik siyosati', href: 'https://duyo.uz/privacy.html' },
-  { label: 'Foydalanish shartlari', href: 'https://duyo.uz/terms.html' },
-  { label: 'Hisobni o‘chirish', href: 'https://duyo.uz/account-deletion.html' },
+  { label: 'Maxfiylik siyosati', href: './privacy.html' },
+  { label: 'Foydalanish shartlari', href: './terms.html' },
+  { label: 'Hisobni o‘chirish', href: './account-deletion.html' },
   { label: 'Yordam', href: `mailto:${SUPPORT_EMAIL}` },
 ] as const;

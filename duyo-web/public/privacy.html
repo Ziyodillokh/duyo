@@ -2,239 +2,37 @@
 <html lang="uz">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#03050b" />
+    <meta name="color-scheme" content="dark" />
     <title>DUYO — Maxfiylik siyosati</title>
-    <meta
-      name="description"
-      content="DUYO ilovasi qanday ma'lumot yig'adi, kim bilan bo'lishadi va qancha vaqt saqlaydi — oddiy tilda."
-    />
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="description" content="DUYO ilovasi qanday ma'lumot yig'adi, kim bilan bo'lishadi va qancha vaqt saqlaydi — oddiy tilda." />
     <link rel="canonical" href="https://duyo.uz/privacy.html" />
-
-    <!-- Favicon (inline SVG) -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232563eb'/%3E%3Ccircle cx='12' cy='15' r='2.2' fill='white'/%3E%3Ccircle cx='20' cy='15' r='2.2' fill='white'/%3E%3Cpath d='M12 21c1.4 1.4 6.6 1.4 8 0' stroke='white' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3Cpath d='M16 8V5' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='4' r='2' fill='%23ffc700'/%3E%3C/svg%3E"
-    />
-
-    <!-- Shrift -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-
-    <link rel="stylesheet" href="assets/base.css" />
-    <link rel="stylesheet" href="assets/sections.css" />
-
-    <!-- Uzun huquqiy matn uchun tipografiya. base.css tokenlari ustida
-         ishlaydi va faqat shu sahifada kerak, shuning uchun shu yerda. -->
-    <style>
-      .legal {
-        max-width: 760px;
-        margin-inline: auto;
-      }
-
-      .legal__meta {
-        margin-top: 10px;
-        font-size: 14px;
-        color: var(--muted);
-      }
-
-      .legal__intro {
-        margin-top: 20px;
-        font-size: 17px;
-        line-height: 1.7;
-      }
-
-      .legal h2 {
-        margin-top: 44px;
-        font-size: 22px;
-        font-weight: 800;
-        line-height: 1.3;
-        letter-spacing: -0.02em;
-      }
-
-      .legal h3 {
-        margin-top: 26px;
-        font-size: 17px;
-        font-weight: 700;
-      }
-
-      .legal p {
-        margin-top: 12px;
-      }
-
-      .legal ul {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-top: 14px;
-      }
-
-      .legal li {
-        position: relative;
-        padding-left: 22px;
-      }
-
-      .legal li::before {
-        content: "—";
-        position: absolute;
-        left: 0;
-        color: var(--blue);
-      }
-
-      .legal a {
-        color: var(--blue);
-        text-decoration: underline;
-        text-underline-offset: 3px;
-        text-decoration-color: rgba(37, 99, 235, 0.4);
-      }
-
-      .legal a:hover {
-        text-decoration-color: var(--blue);
-      }
-
-      .legal__scroll {
-        overflow-x: auto;
-        margin-top: 18px;
-      }
-
-      .legal table {
-        font-size: 15px;
-        min-width: 480px;
-      }
-
-      .legal th,
-      .legal td {
-        padding: 12px 14px;
-        text-align: left;
-        vertical-align: top;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .legal thead th {
-        background: var(--sky);
-        font-weight: 700;
-        border-bottom-color: var(--border-strong);
-      }
-
-      .legal tbody th {
-        font-weight: 600;
-        white-space: nowrap;
-      }
-
-      .legal__note {
-        margin-top: 18px;
-        padding: 18px 20px;
-        background: var(--sky);
-        border-radius: var(--r-md);
-      }
-
-      .legal__note p:first-child {
-        margin-top: 0;
-      }
-    </style>
-
-    <!-- Til blokini tanlash. Huquqiy matn assets/i18n.js lug'ati orqali emas,
-         uchta to'liq blok bilan beriladi: kalit sifatida butun bir xatboshi
-         ishlatilsa, matndagi bitta vergul tuzatilishi tarjimani jimgina
-         yo'qotardi. Tanlov app.js bilan bir xil joyda saqlanadi, shuning
-         uchun saytda tanlangan til bu sahifada ham ochiladi. JS ishlamasa
-         o'zbekcha bloki ko'rinib turaveradi. -->
-    <script>
-      (function () {
-        var LANGS = ["uz", "ru", "en"];
-        var KEY = "duyo-lang";
-
-        function pick() {
-          var fromUrl = null;
-          var saved = null;
-          try {
-            fromUrl = new URL(window.location.href).searchParams.get("lang");
-          } catch (e) {
-            /* eski brauzer — saqlangan tilga tushamiz */
-          }
-          try {
-            saved = localStorage.getItem(KEY);
-          } catch (e) {
-            /* private rejim — o'zbekcha qoladi */
-          }
-          if (LANGS.indexOf(fromUrl) >= 0) return fromUrl;
-          if (LANGS.indexOf(saved) >= 0) return saved;
-          return "uz";
-        }
-
-        function show(code) {
-          var blocks = document.querySelectorAll("[data-legal-lang]");
-          for (var i = 0; i < blocks.length; i++) {
-            blocks[i].hidden = blocks[i].getAttribute("data-legal-lang") !== code;
-          }
-        }
-
-        document.addEventListener("DOMContentLoaded", function () {
-          show(pick());
-          var items = document.querySelectorAll("[data-lang-menu] [data-lang]");
-          for (var i = 0; i < items.length; i++) {
-            items[i].addEventListener("click", function () {
-              show(this.getAttribute("data-lang"));
-            });
-          }
-        });
-      })();
-    </script>
+    <link rel="icon" href="./favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="stylesheet" href="./legal/legal.css" />
+    <script src="./legal/legal.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#main">Asosiy kontentga o'tish</a>
+    <a class="skip" href="#main" data-t="skip">Asosiy matnga o‘tish</a>
 
-    <header class="sec-nav" data-nav aria-label="DUYO — asosiy navigatsiya">
-      <div class="container sec-nav__inner">
-        <a href="index.html" class="sec-nav__logo" aria-label="DUYO — bosh sahifa">
-          <span class="sec-nav__logo-mark" aria-hidden="true">
-            <img class="logo-img" src="assets/img/logo.png" alt="" onerror="this.remove()" onload="var s=this.parentNode.querySelector('svg'); if(s) s.remove();">
-            <svg viewBox="0 0 40 44" fill="none" aria-hidden="true"><path d="M20 9.6V5" stroke="#FFC700" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="3.4" r="3.4" fill="#FFC700"/><circle cx="20" cy="26" r="15" fill="url(#duyoNav)"/><ellipse cx="14.6" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><ellipse cx="25.4" cy="23.4" rx="3.6" ry="4.2" fill="#fff"/><circle cx="15.3" cy="24.3" r="1.85" fill="#102033"/><circle cx="26.1" cy="24.3" r="1.85" fill="#102033"/><path d="M15.4 31.2c2.6 2.7 6.6 2.7 9.2 0" stroke="#102033" stroke-width="2.1" stroke-linecap="round"/><defs><linearGradient id="duyoNav" x1="7" y1="12" x2="33" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#5B96F9"/><stop offset="1" stop-color="#1D4ED8"/></linearGradient></defs></svg>
-          </span>
-          <span class="sec-nav__logo-text">DUYO</span>
+    <header class="bar">
+      <div class="bar__inner">
+        <a class="brand" href="./" aria-label="DUYO — bosh sahifa">
+          <img src="./legal/duyo-mark.png" width="28" height="28" alt="" />
+          <span>DUYO</span>
         </a>
-
-        <div class="sec-nav__actions">
-          <div class="sec-nav__lang-wrap">
-            <button type="button" class="sec-nav__lang" data-lang-toggle aria-expanded="false" aria-haspopup="true" aria-label="Interfeys tilini tanlash">
-              <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg>
-              <span class="sec-nav__lang-code" data-lang-current>UZ</span>
-              <svg class="sec-nav__lang-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-
-            <div class="sec-nav__lang-menu" data-lang-menu>
-              <button type="button" class="sec-nav__lang-item" data-lang="uz" aria-current="true">
-                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 2.6A2.6 2.6 0 0 1 2.6 0h18.8A2.6 2.6 0 0 1 24 2.6V5.2H0V2.6Z" fill="#0099B5"/><rect y="5.2" width="24" height="1.1" fill="#CE1126"/><rect y="9.7" width="24" height="1.1" fill="#CE1126"/><path d="M0 10.8h24v2.6a2.6 2.6 0 0 1-2.6 2.6H2.6A2.6 2.6 0 0 1 0 13.4v-2.6Z" fill="#1EB53A"/><path d="M5.3 1.3a1.75 1.75 0 1 0 0 2.8 2.15 2.15 0 1 1 0-2.8Z" fill="#fff"/><circle cx="7.3" cy="1.7" r=".42" fill="#fff"/><circle cx="7.3" cy="3.5" r=".42" fill="#fff"/><circle cx="8.9" cy="1.7" r=".42" fill="#fff"/><circle cx="8.9" cy="3.5" r=".42" fill="#fff"/></svg><span>O'zbekcha</span>
-                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="m5 13 4 4 10-10" />
-                </svg>
-              </button>
-              <button type="button" class="sec-nav__lang-item" data-lang="ru" aria-current="false">
-                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#fff"/><path d="M0 5.33h24v5.34H0z" fill="#0039A6"/><path d="M0 10.67h24v2.73A2.6 2.6 0 0 1 21.4 16H2.6A2.6 2.6 0 0 1 0 13.4v-2.73Z" fill="#D52B1E"/></svg><span>Русский</span>
-                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="m5 13 4 4 10-10" />
-                </svg>
-              </button>
-              <button type="button" class="sec-nav__lang-item" data-lang="en" aria-current="false">
-                <svg class="flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2.6" fill="#012169"/><path d="m0 0 24 16M24 0 0 16" stroke="#fff" stroke-width="3.2"/><path d="m0 0 24 16M24 0 0 16" stroke="#C8102E" stroke-width="1.8"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.4"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="3.2"/></svg><span>English</span>
-                <svg class="sec-nav__lang-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="m5 13 4 4 10-10" />
-                </svg>
-              </button>
-            </div>
-          </div>
+        <div class="langs" role="group" aria-label="Til / Язык / Language">
+          <button type="button" data-lang="uz" aria-pressed="true">UZ</button>
+          <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
         </div>
       </div>
     </header>
 
-    <main id="main" class="section">
-      <div class="container legal">
+    <main id="main" class="legal">
+
 
         <!-- ============================ O'ZBEKCHA ============================ -->
         <article lang="uz" data-legal-lang="uz">
@@ -1234,36 +1032,21 @@
             <a href="mailto:duyosupport@gmail.com">duyosupport@gmail.com</a>.
           </p>
         </article>
-
-      </div>
     </main>
 
-    <footer class="sec-foot">
-      <div class="container">
-        <div class="sec-foot__bottom">
-          <div class="sec-foot__legal">
-            <a href="index.html">DUYO</a>
-            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
-            <a href="privacy.html">Maxfiylik siyosati</a>
-            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
-            <a href="terms.html">Foydalanish shartlari</a>
-            <span class="sec-foot__sep" aria-hidden="true">&middot;</span>
-            <a href="account-deletion.html">Hisobni o'chirish</a>
-            <span class="sec-foot__copy">&copy; <span data-year>2026</span> XRR. Barcha huquqlar himoyalangan.</span>
-          </div>
-
-          <a class="sec-foot__contact-item" href="mailto:duyosupport@gmail.com">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="5" width="18" height="14" rx="3" />
-              <path d="m3.8 7 6.9 4.8c.8.5 1.8.5 2.6 0L20.2 7" />
-            </svg>
-            <span>duyosupport@gmail.com</span>
-          </a>
+    <footer class="foot">
+      <div class="foot__inner">
+        <nav class="foot__links" aria-label="Huquqiy sahifalar">
+          <a href="./" data-t="home">Bosh sahifa</a>
+          <a href="./privacy.html" data-t="privacy" aria-current="page">Maxfiylik siyosati</a>
+          <a href="./terms.html" data-t="terms">Foydalanish shartlari</a>
+          <a href="./account-deletion.html" data-t="deletion">Hisobni o‘chirish</a>
+        </nav>
+        <div class="foot__meta">
+          <a href="mailto:duyosupport@gmail.com">duyosupport@gmail.com</a>
+          <span>© 2026 <span data-t="team">DUYO jamoasi</span></span>
         </div>
       </div>
     </footer>
-
-    <script src="assets/i18n.js" defer></script>
-    <script src="assets/app.js" defer></script>
   </body>
 </html>
