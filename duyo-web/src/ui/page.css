@@ -187,6 +187,23 @@ html[data-ground='dark'] .nav-item[aria-current='true'] {
 }
 html[data-ground='dark'] .nav-current { color: color-mix(in srgb, var(--c-white) 72%, transparent); }
 
+/* A link to another page, set apart from the sections by a lit node — the
+   knowledge-graph dot. Navbar's Robot link, and the one under the last CTA. */
+.nav-new {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--c-sky);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-sky) 18%, transparent), 0 0 10px var(--c-sky);
+  flex: none;
+}
+.next-link {
+  color: var(--fg-muted);
+  transition: color 200ms ease;
+}
+.next-link:hover { color: var(--fg); }
+.next-link:hover .arrow { transform: translateX(3px); }
+
 /* ── Progress bar ───────────────────────────────────────────────────── */
 
 .progress {

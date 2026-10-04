@@ -4,7 +4,8 @@ name: Deploy landing
 # then rsynced to /opt/duyo/landing, the folder duyo.uz's nginx container
 # serves read-only (duyo-docs/runbooks/landing-nginx.md). The legal pages
 # Play links to — /privacy.html, /terms.html, /account-deletion.html — live
-# in duyo-web/public and ship at exactly those URLs.
+# in duyo-web/public and ship at exactly those URLs, as does the DUYO Robot
+# concept page at /robot/ (a folder with its own index.html).
 #
 # Rollback: every deploy first copies the live folder to
 # /opt/duyo/landing.prev-<timestamp> (the last three are kept). To go back:
@@ -51,11 +52,12 @@ jobs:
       - name: Check the bundle
         run: |
           set -e
-          for f in index.html privacy.html terms.html account-deletion.html robots.txt sitemap.xml favicon.ico og.jpg legal/legal.css legal/legal.js; do
+          for f in index.html privacy.html terms.html account-deletion.html robots.txt sitemap.xml favicon.ico og.jpg legal/legal.css legal/legal.js robot/index.html robot/robot.css robot/robot.js robot/og-robot.jpg; do
             test -s "dist/$f" || { echo "  ✗ dist/$f missing"; exit 1; }
           done
           grep -q '<article lang="uz"' dist/privacy.html
           grep -q '<div id="root">' dist/index.html
+          grep -q 'id="hero-title"' dist/robot/index.html
           echo "  ✓ bundle complete"
 
       - name: Install SSH key
@@ -103,6 +105,7 @@ jobs:
           check https://duyo.uz/privacy.html 'data-legal-lang="uz"'
           check https://duyo.uz/terms.html 'data-legal-lang="uz"'
           check https://duyo.uz/account-deletion.html 'data-legal-lang="uz"'
+          check https://duyo.uz/robot/ 'id="hero-title"'
           check https://duyo.uz/robots.txt 'Sitemap: https://duyo.uz/sitemap.xml'
           test "$(curl -sS -o /dev/null -w '%{content_type}' https://duyo.uz/og.jpg)" = "image/jpeg"
           echo "  ✓ duyo.uz is serving the new site"

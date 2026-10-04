@@ -19,7 +19,7 @@
  */
 
 import { Fragment, useRef, type CSSProperties } from 'react';
-import { HERO_POINTS, SCROLL_HINT } from '../content';
+import { HERO_POINTS, ROBOT_PAGE, SCROLL_HINT } from '../content';
 import type { Cta, Proof, Section } from '../content';
 import { Arrow } from './icons';
 import { VoiceButton, VoiceCaption } from './VoiceButton';
@@ -136,6 +136,17 @@ function ScrollHint() {
   );
 }
 
+/** Under the last download: where DUYO goes next, the robot concept's page. */
+function NextLink() {
+  return (
+    <a href={ROBOT_PAGE.href} className="rv next-link mt-5 inline-flex items-center gap-2 text-[14.5px] font-medium" style={rv(4)}>
+      <span className="nav-new" aria-hidden="true" />
+      {ROBOT_PAGE.teaser}
+      <Arrow size={14} />
+    </a>
+  );
+}
+
 function CtaLink({ cta, large }: { cta: Cta; large: boolean }) {
   if (cta.variant === 'primary') {
     // The final CTA spans the column on a phone, where its label would
@@ -242,6 +253,7 @@ export function SectionBlock({ section, isHero, isFinal }: Props) {
               ))}
             </div>
           )}
+          {isFinal && <NextLink />}
           {isHero && <VoiceCaption />}
           {isHero && <HeroPoints />}
         </div>

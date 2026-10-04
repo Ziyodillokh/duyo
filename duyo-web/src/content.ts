@@ -61,6 +61,18 @@ export const APK_URL = 'https://admin.duyo.uz/apk/duyo.apk';
 export const SUPPORT_EMAIL = 'duyosupport@gmail.com';
 
 /**
+ * The DUYO Robot concept: a page of its own (public/robot/index.html, a
+ * static page like the legal ones). Reached from the navbar, from under the
+ * last section's download and from the footer.
+ */
+export const ROBOT_PAGE = {
+  href: './robot/',
+  nav: 'Robot',
+  name: 'DUYO Robot',
+  teaser: 'Keyingi bosqich: DUYO Robot',
+} as const;
+
+/**
  * DUYO's own voice, introducing itself in the hero. The recording is the
  * owner's: drop it at public/audio/duyo-salom.mp3 (an mp3, under ~1 MB).
  * Fill in `transcript` too: it is the recording's text alternative, shown
@@ -155,6 +167,7 @@ export const SECTIONS: Section[] = [
 ];
 
 export const FOOTER_LINKS = [
+  { label: ROBOT_PAGE.name, href: ROBOT_PAGE.href },
   { label: 'Maxfiylik siyosati', href: './privacy.html' },
   { label: 'Foydalanish shartlari', href: './terms.html' },
   { label: 'Hisobni o‘chirish', href: './account-deletion.html' },

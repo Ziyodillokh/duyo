@@ -6,6 +6,8 @@
  * `data-ground` attribute useScrollDriver sets, so the swap is a CSS
  * transition and costs React nothing.
  *
+ * From tablet up the pill also links the DUYO Robot page.
+ *
  * At phone width the four section links do not fit beside the download
  * button, so the pill shows the current section's name instead: the visitor
  * still knows where they are, and the one action that matters stays in reach.
@@ -13,7 +15,7 @@
  * the button; its padding is even on every side so the button sits centred.
  */
 
-import { APK_URL, SECTIONS } from '../content';
+import { APK_URL, ROBOT_PAGE, SECTIONS } from '../content';
 import { Arrow, Logo } from './icons';
 
 const NAV_SECTIONS = SECTIONS.filter((s) => s.id !== 'yuklab');
@@ -45,6 +47,14 @@ export function Navbar({ activeId }: { activeId: string }) {
             {s.nav}
           </a>
         ))}
+        {/* Another page, not a section: set apart by a small lit node. */}
+        <a
+          href={ROBOT_PAGE.href}
+          className="nav-item hidden items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-[7px] text-[13.5px] font-medium md:inline-flex"
+        >
+          <span className="nav-new" aria-hidden="true" />
+          {ROBOT_PAGE.nav}
+        </a>
 
         {active && active.id !== 'yuklab' && (
           <span className="nav-current whitespace-nowrap px-3 text-[13px] font-medium max-[359px]:hidden md:hidden" aria-hidden="true">

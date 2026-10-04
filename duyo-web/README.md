@@ -48,6 +48,17 @@ uning orqasi kameraga qaraganda almashadi.
   o'lchanmaydi. Sekin qurilmada (`src/scene/quality.ts`) piksel zichligi
   1.75 → 1 gacha pasayadi — qotish o'rniga sal xiraroq.
 
+## DUYO Robot sahifasi
+
+`duyo.uz/robot/` — robot konsepti (`public/robot/`). Huquqiy sahifalar
+kabi oddiy statik sahifa: bundle'ga bog'lanmagan, shuning uchun brauzer
+keshidagi eski nusxa ham buzilmaydi. Matni `public/robot/index.html` da,
+ko'rinishi `robot.css`, yulduzlar va paydo bo'lish `robot.js` da. CSS/JS
+yoki rasmni o'zgartirsangiz, `index.html` dagi `?v=` ni ham yangilang
+(nginx bunday fayllarni 30 kun keshlaydi). Saytdan unga navbar («Robot»),
+oxirgi bo'limdagi havola va footer olib boradi (`src/content.ts` →
+`ROBOT_PAGE`). Dev serverda `/robot/index.html` orqali oching.
+
 ## DUYO'ning ovozi
 
 Yozuvni `public/audio/duyo-salom.mp3` ga qo'ying (mp3 yoki m4a, ~1 MB gacha).
